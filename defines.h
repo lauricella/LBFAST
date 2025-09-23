@@ -1,0 +1,13 @@
+#define TWOCOMPONENT
+#define DENSRATIO
+#define noDOBENCHMARK
+#define noDOXDMF
+#define noWRITEPRESS
+#define JAQMIN
+#define INTERFACE_INCOMP
+
+#define INTERNAL_OBSTACLES
+
+
+
+
