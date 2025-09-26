@@ -41,7 +41,7 @@ module integrator_module
     thinfilm_scan_mark,repulsive_flux_tangential,repulsive_flux_normal, &
 #endif
     moments_lb,compute_densityratio,fused_lb
-#if defined(_KERNELCUDA) && defined(_OPENACC)            
+#if defined(_KERNELCUDA) && defined(_OPENACC)        
    use lb_cuda_kernels, only : moments_LB_cuda,fused_lb_cuda
 #endif
    use profiling_m,   only : timer_init,itime_start, &

@@ -8,6 +8,7 @@
 #warning "TWOCOMPONENT: the code is compiled for a two component system" 
 #endif
 
+
 #ifdef DENSRATIO
 #warning "DENSRATIO: the 2c is compiled with the density ratio model" 
 #endif
@@ -226,10 +227,7 @@ module vars
 #ifdef ELASTIC_FORCE
    real(kind=db), allocatable, dimension(:,:,:) :: u_ref,v_ref,w_ref
    real(kind=db) :: lambda_rel,k_elastic
-#endif
-#ifdef PHASE_CHANGE
-   real(kind=db), allocatable, dimension(:,:,:) :: src
-#endif  
+#endif 
 #ifdef MONOD
 	real(kind=db) :: mu_max,Ks
 #endif

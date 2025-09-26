@@ -8,7 +8,7 @@ module lb_cuda_kernels
 
    use vars
    use cudafor
-   use mpi_template, only: coords,dostop,doerror,mydev,myrank,nprocs
+   use mpi_template, only: coords,dostop,doerror,mydev,myrank,nprocs,nbuff,nbuffbvec
 
    implicit none
    
@@ -84,7 +84,10 @@ contains
 !$acc host_data use_device(flop,nx,ny,nz,coords,isfluid,f &
        !$acc& ,rho,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz,fux,fvy,fwz &
 #ifdef TWOCOMPONENT
-       !$acc& ,selphi,modgrad,lap_phi,normx,normy,normz &
+       !$acc& ,selphi,modgrad,arr_x,arr_y,arr_z,lap_phi,normx,normy,normz &
+#ifdef REPULSIVE_FLUX
+       !$acc& ,Jx,Jy,Jz &
+#endif          
 #ifdef DENSRATIO
        !$acc& ,rhophi &
 #endif
@@ -96,10 +99,7 @@ contains
        !$acc& ,wettab_r,wettab_b &
 #endif  
 #ifdef TWOCOMPONENT 
-       !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma &
-#ifdef PHASE_CHANGE 
-       !$acc& ,pc_rate,src &
-#endif
+       !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff &
 #endif   
 #if defined(ELASTIC_FORCE)
        !$acc& ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
@@ -108,7 +108,10 @@ contains
        call moments_LB_kernel<<<dimGrid, dimBlock>>>(flop,nx,ny,nz,coords,isfluid,f &
        ,rho,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz,fux,fvy,fwz &
 #ifdef TWOCOMPONENT
-       ,selphi,modgrad,lap_phi,normx,normy,normz &
+       ,selphi,modgrad,arr_x,arr_y,arr_z,lap_phi,normx,normy,normz &
+#ifdef REPULSIVE_FLUX
+       ,Jx,Jy,Jz &
+#endif           
 #ifdef DENSRATIO
        ,rhophi &
 #endif
@@ -120,10 +123,7 @@ contains
        ,wettab_r,wettab_b &
 #endif  
 #ifdef TWOCOMPONENT 
-       ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma &
-#ifdef PHASE_CHANGE 
-       ,pc_rate,src &
-#endif       
+       ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff &       
 #endif  
 #if defined(ELASTIC_FORCE)
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
@@ -140,7 +140,7 @@ contains
       !$acc wait        
       
    endsubroutine moments_LB_cuda
-
+   
    subroutine fused_LB_cuda
 
       implicit none
@@ -152,7 +152,7 @@ contains
 !$acc host_data use_device(flip,flop,nx,ny,nz,coords,isfluid,f &
        !$acc& ,rho,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz,fux,fvy,fwz &
 #ifdef TWOCOMPONENT
-       !$acc& ,selphi,lap_phi,normx,normy,normz,arr_x,arr_y,arr_z &
+       !$acc& ,selphi,modgrad,lap_phi,normx,normy,normz,arr_x,arr_y,arr_z &
 #ifdef DENSRATIO
        !$acc& ,rhophi &
 #endif
@@ -165,9 +165,6 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
        !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
-#ifdef PHASE_CHANGE 
-       !$acc& ,src &
-#endif   
 #ifdef MONOD
 	   !$acc& ,mu_max,Ks &
 #endif
@@ -176,7 +173,7 @@ contains
       call fused_LB_kernel<<<dimGrid, dimBlock>>>(flip,flop,nx,ny,nz,coords,isfluid,f &
        ,rho,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz,fux,fvy,fwz &
 #ifdef TWOCOMPONENT
-       ,selphi,lap_phi,normx,normy,normz,arr_x,arr_y,arr_z &
+       ,selphi,modgrad,lap_phi,normx,normy,normz,arr_x,arr_y,arr_z &
 #ifdef DENSRATIO
        ,rhophi &
 #endif
@@ -189,9 +186,6 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
        ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
-#ifdef PHASE_CHANGE 
-       ,src &
-#endif 
 #ifdef MONOD
 	   ,mu_max,Ks &
 #endif
@@ -252,7 +246,10 @@ contains
  attributes(global) subroutine moments_LB_kernel(flop,nx,ny,nz,coords,isfluid,f &
        ,rho,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz,fux,fvy,fwz &
 #ifdef TWOCOMPONENT
-       ,selphi,modgrad,lap_phi,normx,normy,normz &
+       ,selphi,modgrad,arr_x,arr_y,arr_z,lap_phi,normx,normy,normz &
+#ifdef REPULSIVE_FLUX
+       ,Jx,Jy,Jz &
+#endif        
 #ifdef DENSRATIO
        ,rhophi &
 #endif
@@ -264,10 +261,7 @@ contains
        ,wettab_r,wettab_b &
 #endif  
 #ifdef TWOCOMPONENT 
-       ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma &
-#ifdef PHASE_CHANGE 
-       ,pc_rate,src &
-#endif
+       ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff &
 #endif   
 #if defined(ELASTIC_FORCE)
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
@@ -279,19 +273,21 @@ contains
       
       integer :: flop,nx,ny,nz
       integer, dimension(3) :: coords
-      integer(kind=isf), dimension(0:nx+1,0:ny+1,0:nz+1) :: isfluid
+      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
       real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1,0:nlinks) :: f
-      real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1) :: rho,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
+      real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1) :: rho
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: u,v,w
+      real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1) :: pxx,pyy,pzz,pxy,pxz,pyz
       real(kind=db), dimension(1:nx,1:ny,1:nz) :: fux,fvy,fwz
 #ifdef TWOCOMPONENT
-#ifdef WENO
       real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,2) :: selphi
-#else
-      real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1,2) :: selphi
-#endif
-      real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1) :: modgrad
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: modgrad
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: arr_x,arr_y,arr_z
       real(kind=db), dimension(1:nx,1:ny,1:nz) :: lap_phi
-      real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1) :: normx,normy,normz
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: normx,normy,normz
+#ifdef REPULSIVE_FLUX
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: Jx,Jy,Jz
+#endif      
 #ifdef DENSRATIO
       real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1) :: rhophi
 #endif
@@ -303,11 +299,7 @@ contains
       real(kind=db) :: wettab_r,wettab_b  
 #endif  
 #ifdef TWOCOMPONENT 
-      real(kind=db) :: visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma
-#ifdef PHASE_CHANGE 
-      real(kind=db) :: pc_rate
-      real(kind=db), dimension(1:nx,1:ny,1:nz) :: src
-#endif      
+      real(kind=db) :: visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff     
 #endif           
 #if defined(ELASTIC_FORCE)
       real(kind=db) :: lambda_rel,k_elastic
@@ -328,7 +320,7 @@ contains
       real(kind=db) :: gradrhox,gradrhoy,gradrhoz,omega_loc, visc_loc,tau_loc
 #endif
       
-       integer :: i,j,k!,l
+       integer :: i,j,k,l
 !      integer :: gi,gj,gk
 
       i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
@@ -352,75 +344,25 @@ contains
                      +f(i,j,k,18)+f(i,j,k,19)+f(i,j,k,20)+f(i,j,k,21)+f(i,j,k,22)+f(i,j,k,23)+f(i,j,k,24) &
                      +f(i,j,k,25) +f(i,j,k,26)
 
-
-                  !gi=nx*coords(1)+i
-                  !gj=ny*coords(2)+j
-                  !gk=nz*coords(3)+k
-                  !if(gi==32 .and. gj==32 .and. gk==17 )then
-                  !  write(*,*)pzz(i,j,k)
-                  !endif
-                  !total flux tensor
-                 pxx(i,j,k)=f(i,j,k,1)+f(i,j,k,2)+f(i,j,k,7)+f(i,j,k,8) &
-                  +f(i,j,k,9)+f(i,j,k,10)+f(i,j,k,15)+f(i,j,k,16)+f(i,j,k,17)+f(i,j,k,18) &
-                  +f(i,j,k,19)+f(i,j,k,20)+f(i,j,k,21)+f(i,j,k,22)+f(i,j,k,23)+f(i,j,k,24) &
-                  +f(i,j,k,25)+f(i,j,k,26)
-                 pyy(i,j,k)=f(i,j,k,3)+f(i,j,k,4)+f(i,j,k,7)+f(i,j,k,8) &
-                  +f(i,j,k,9)+f(i,j,k,10)+f(i,j,k,11)+f(i,j,k,12)+f(i,j,k,13)+f(i,j,k,14) &
-                  +f(i,j,k,19)+f(i,j,k,20)+f(i,j,k,21)+f(i,j,k,22)+f(i,j,k,23)+f(i,j,k,24) &
-                  +f(i,j,k,25)+f(i,j,k,26)
-                 pzz(i,j,k)=f(i,j,k,5)+f(i,j,k,6)+f(i,j,k,11)+f(i,j,k,12)+f(i,j,k,13)+f(i,j,k,14) &
-                  +f(i,j,k,15)+f(i,j,k,16)+f(i,j,k,17)+f(i,j,k,18) &
-                  +f(i,j,k,19)+f(i,j,k,20)+f(i,j,k,21)+f(i,j,k,22)+f(i,j,k,23)+f(i,j,k,24) &
-                  +f(i,j,k,25)+f(i,j,k,26)
-                 pxy(i,j,k)=(f(i,j,k,7)+f(i,j,k,8)+f(i,j,k,19)+f(i,j,k,20)+f(i,j,k,23)+f(i,j,k,24)) &
-                  -(f(i,j,k,9)+f(i,j,k,10)+f(i,j,k,21)+f(i,j,k,22)+f(i,j,k,25)+f(i,j,k,26))
-                 pxz(i,j,k)=(f(i,j,k,15)+f(i,j,k,16)+f(i,j,k,19)+f(i,j,k,20)+f(i,j,k,21)+f(i,j,k,22)) &
-                  -(f(i,j,k,17)+f(i,j,k,18)+f(i,j,k,23)+f(i,j,k,24)+f(i,j,k,25)+f(i,j,k,26))
-                 pyz(i,j,k)=(f(i,j,k,11)+f(i,j,k,12)+f(i,j,k,19)+f(i,j,k,20)+f(i,j,k,25)+f(i,j,k,26)) &
-                  -(f(i,j,k,13)+f(i,j,k,14)+f(i,j,k,21)+f(i,j,k,22)+f(i,j,k,23)+f(i,j,k,24))
-
-                          ! gi=nx*coords(1)+i
-                          ! gj=ny*coords(2)+j
-                          ! gk=nz*coords(3)+k
-                          ! if(gi==8 .and. gj==8 .and. gk==18)then
-                          !   write(*,*)'m',step,pxx(i,j,k),pyy(i,j,k),pzz(i,j,k)
-                          ! endif
-
-
-
                  fux(i,j,k)=0.0_db
 				 fvy(i,j,k)=0.0_db
 				 fwz(i,j,k)=0.0_db
+				 forcex=0.0_db
+				 forcey=0.0_db
+				 forcez=0.0_db
 				 
 #ifdef DENSRATIO
                   rhophi_loc = rhophi(i,j,k)
 #else
                   rhophi_loc = 1.0_db !rho(i,j,k)
 #endif	
-#ifdef TWOCOMPONENT	
-                  wet_loc = 1.0_db	
-#ifdef WETTABILITY
-
-                  if(isfluid(i,j,k).eq.-1) wet_loc = wettab_r*selphi(i,j,k,flop)+ &
-                   (1.0_db-selphi(i,j,k,flop))*wettab_b
-
-#endif
-#endif				 
+			 
 #ifdef TWOCOMPONENT		
 #ifdef CSF
-                   gradfix=normx(i,j,k)*modgrad(i,j,k)
+                   !csf
+				   gradfix=normx(i,j,k)*modgrad(i,j,k)
                    gradfiy=normy(i,j,k)*modgrad(i,j,k)
                    gradfiz=normz(i,j,k)*modgrad(i,j,k)
-                                  ! modgrad_x=3.0_db*(p1*(modgrad(i+1,j,k)-modgrad(i-1,j,k)) + &
-                     ! p2*( (modgrad(i+1,j+1,k)-modgrad(i-1,j-1,k))+(modgrad(i+1,j-1,k)-modgrad(i-1,j+1,k))+(modgrad(i+1,j,k+1)-modgrad(i-1,j,k-1))+(modgrad(i+1,j,k-1)-modgrad(i-1,j,k+1)) )  + &
-                     ! p3*((modgrad(i+1,j+1,k+1)-modgrad(i-1,j-1,k-1))+(modgrad(i+1,j-1,k-1)-modgrad(i-1,j+1,k+1))+(modgrad(i+1,j-1,k+1)-modgrad(i-1,j+1,k-1))+(modgrad(i+1,j+1,k-1)-modgrad(i-1,j-1,k+1))))
-                                  ! modgrad_y=3.0_db*(p1*(modgrad(i,j+1,k)-modgrad(i,j-1,k)) + &
-                     ! p2*((modgrad(i+1,j+1,k)-modgrad(i-1,j-1,k))+(modgrad(i-1,j+1,k)-modgrad(i+1,j-1,k))+(modgrad(i,j+1,k+1)-modgrad(i,j-1,k-1))+(modgrad(i,j+1,k-1)-modgrad(i,j-1,k+1)) ) + &
-                     ! p3*((modgrad(i+1,j+1,k+1)-modgrad(i-1,j-1,k-1))+(modgrad(i-1,j+1,k-1)-modgrad(i+1,j-1,k+1))+(modgrad(i+1,j+1,k-1)-modgrad(i-1,j-1,k+1))+(modgrad(i-1,j+1,k+1)-modgrad(i+1,j-1,k-1))))
-                                  ! modgrad_z=3.0_db*(p1*(modgrad(i,j,k+1)-modgrad(i,j,k-1)) + &
-                     ! p2*((modgrad(i+1,j,k+1)-modgrad(i-1,j,k-1))+(modgrad(i-1,j,k+1)-modgrad(i+1,j,k-1))+(modgrad(i,j+1,k+1)-modgrad(i,j-1,k-1))+(modgrad(i,j-1,k+1)-modgrad(i,j+1,k-1)) ) + &
-                     ! p3*((modgrad(i+1,j+1,k+1)-modgrad(i-1,j-1,k-1))+(modgrad(i-1,j-1,k+1)-modgrad(i+1,j+1,k-1))+(modgrad(i+1,j-1,k+1)-modgrad(i-1,j+1,k-1))+(modgrad(i-1,j+1,k+1)-modgrad(i+1,j-1,k-1))))
-                                  ! curvature=(1.0_db/(modgrad(i,j,k)+1.0e-9))*(lap_phi(i,j,k) - (normx(i,j,k)*modgrad_x + normy(i,j,k)*modgrad_y + normz(i,j,k)*modgrad_z))
                    curvature=3.0_db*(p1*(normx(i+1,j,k)-normx(i-1,j,k)) + &
                     p2*( (normx(i+1,j+1,k)-normx(i-1,j-1,k))+(normx(i+1,j-1,k)-normx(i-1,j+1,k))+(normx(i+1,j,k+1)-normx(i-1,j,k-1))+(normx(i+1,j,k-1)-normx(i-1,j,k+1)) )  + &
                     p3*((normx(i+1,j+1,k+1)-normx(i-1,j-1,k-1))+(normx(i+1,j-1,k-1)-normx(i-1,j+1,k+1))+(normx(i+1,j-1,k+1)-normx(i-1,j+1,k-1))+(normx(i+1,j+1,k-1)-normx(i-1,j-1,k+1)))) + &
@@ -431,54 +373,60 @@ contains
                     p2*((normz(i+1,j,k+1)-normz(i-1,j,k-1))+(normz(i-1,j,k+1)-normz(i+1,j,k-1))+(normz(i,j+1,k+1)-normz(i,j-1,k-1))+(normz(i,j-1,k+1)-normz(i,j+1,k-1)) ) + &
                     p3*((normz(i+1,j+1,k+1)-normz(i-1,j-1,k-1))+(normz(i-1,j-1,k+1)-normz(i+1,j+1,k-1))+(normz(i+1,j-1,k+1)-normz(i-1,j+1,k-1))+(normz(i-1,j+1,k+1)-normz(i+1,j-1,k-1))))
 
-                   fux(i,j,k)=-sigma*eps1*curvature*gradfix*modgrad(i,j,k)
-				   fvy(i,j,k)=-sigma*eps1*curvature*gradfiy*modgrad(i,j,k)
-				   fwz(i,j,k)=-sigma*eps1*curvature*gradfiz*modgrad(i,j,k)
+                    fux(i,j,k)=-eps1*sigma*curvature*gradfix*modgrad(i,j,k)
+				    fvy(i,j,k)=-eps1*sigma*curvature*gradfiy*modgrad(i,j,k) 
+				    fwz(i,j,k)=-eps1*sigma*curvature*gradfiz*modgrad(i,j,k)
+				   
 #endif
-#ifdef JACQMIN
+#ifdef JAQMIN			   
+				   !jaqmin 
 				   gradfix=normx(i,j,k)*modgrad(i,j,k)
 				   gradfiy=normy(i,j,k)*modgrad(i,j,k)
 				   gradfiz=normz(i,j,k)*modgrad(i,j,k)
+				   fux(i,j,k)=(4.0_db*beta*selphi(i,j,k,flop)*(selphi(i,j,k,flop)-1.0_db)*(selphi(i,j,k,flop)-0.5_db) - kapp*lap_phi(i,j,k))*gradfix
+				   fvy(i,j,k)=(4.0_db*beta*selphi(i,j,k,flop)*(selphi(i,j,k,flop)-1.0_db)*(selphi(i,j,k,flop)-0.5_db) - kapp*lap_phi(i,j,k))*gradfiy
+				   fwz(i,j,k)=(4.0_db*beta*selphi(i,j,k,flop)*(selphi(i,j,k,flop)-1.0_db)*(selphi(i,j,k,flop)-0.5_db) - kapp*lap_phi(i,j,k))*gradfiz
+				   				   
+#endif
 
-                   fux(i,j,k)=(4.0_db*(wet_loc*beta)*(selphi(i,j,k,flop))* &
-                    (selphi(i,j,k,flop)-1.0_db)*(selphi(i,j,k,flop)-0.5_db) - &
-                    (wet_loc*kapp)*lap_phi(i,j,k))*gradfix
-				   fvy(i,j,k)=(4.0_db*(wet_loc*beta)*(selphi(i,j,k,flop))* &
-				    (selphi(i,j,k,flop)-1.0_db)*(selphi(i,j,k,flop)-0.5_db) - &
-				    (wet_loc*kapp)*lap_phi(i,j,k))*gradfiy
-				   fwz(i,j,k)=(4.0_db*(wet_loc*beta)*(selphi(i,j,k,flop))* &
-				    (selphi(i,j,k,flop)-1.0_db)*(selphi(i,j,k,flop)-0.5_db) - &
-				    (wet_loc*kapp)*lap_phi(i,j,k))*gradfiz
-
-
+#ifdef REPULSIVE_FLUX
+				  Jx(i,j,k)=Jx(i,j,k)*rhophi_loc 
+				  Jy(i,j,k)=Jy(i,j,k)*rhophi_loc 
+				  Jz(i,j,k)=Jz(i,j,k)*rhophi_loc 
+				  if(abs(Jx(i,j,k))>1.0d-3) Jx(i,j,k)=1.0d-3*sign(1.0,Jx(i,j,k))!Jx(i,j,k)*0.1_db
+				  if(abs(Jy(i,j,k))>1.0d-3) Jy(i,j,k)=1.0d-3*sign(1.0,Jy(i,j,k))!Jy(i,j,k)*0.1_db
+				  if(abs(Jz(i,j,k))>1.0d-3) Jz(i,j,k)=1.0d-3*sign(1.0,Jz(i,j,k))!Jz(i,j,k)*0.1_db
+				  fux(i,j,k)=fux(i,j,k) + Jx(i,j,k)*rhophi_loc
+				  fvy(i,j,k)=fvy(i,j,k) + Jy(i,j,k)*rhophi_loc
+				  fwz(i,j,k)=fwz(i,j,k) + Jz(i,j,k)*rhophi_loc
 #endif
 #endif
 
+#if defined(PLUG_FLOW)   
+                  
+				  fwz(i,j,k) = fwz(i,j,k) + rhophi_loc*fz !fwz(i,j,k)=fwz(i,j,k) + selphi(i,j,k,flop)*fz ! if mnulticomponent/phase (rhophi_loc-rho_r or rho_b)*fz 	
+#endif
 #if defined(MULTIHIT)   
                   fux(i,j,k)=fux(i,j,k) + rhophi_loc*ABCx(i,j,k) !+ AAA*sin(k_zero*gk) + AAA*sin(k_zero*gj)  
 				  fvy(i,j,k)=fvy(i,j,k) + rhophi_loc*ABCy(i,j,k) !+ AAA*sin(k_zero*gi) + AAA*sin(k_zero*gk)
 				  fwz(i,j,k)=fwz(i,j,k) + rhophi_loc*ABCz(i,j,k) !+ AAA*sin(k_zero*gj) + AAA*sin(k_zero*gi) 	
 #endif
-#if defined(PLUG_FLOW)   
-                  
-				  fwz(i,j,k)=fwz(i,j,k) + selphi(i,j,k,flop)*fz ! if mnulticomponent/phase (rhophi_loc-rho_r or rho_b)*fz 	
-#endif
-
-
 #ifdef DENSRATIO				  
 				  ! pressure and viscous forces
 				  
 				  gradrhox=(rho_r-rho_b)*gradfix
 				  gradrhoy=(rho_r-rho_b)*gradfiy
 				  gradrhoz=(rho_r-rho_b)*gradfiz
-
+				  
                   fux(i,j,k)=fux(i,j,k) - rho(i,j,k)*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
                   fvy(i,j,k)=fvy(i,j,k) - rho(i,j,k)*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
 				  fwz(i,j,k)=fwz(i,j,k) - rho(i,j,k)*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
 				  !! from this point I compute the force terms that depend on the velocity
 				  !! these terms should be not included in force arrays since they must be computed with the updated velocity
 				  !! at the end of this subroutine
-#endif                                  
+#endif
+
+                              
 				  forcex=fux(i,j,k) 
                   forcey=fvy(i,j,k) 
 				  forcez=fwz(i,j,k) 
@@ -490,34 +438,39 @@ contains
 				  forcez=forcez + rhophi_loc*(w(i,j,k) - w_ref(i,j,k))*k_elastic*lambda_rel*selphi(i,j,k,flop) + rhophi_loc*fz !+  	
 #endif
 #ifdef DENSRATIO 
-#ifdef PHASE_CHANGE
-!!!aritra
-!!!The force term going to LB following Fakhari/Rahimian paper
-!!!Phase-change modeling based on a novel conservative phase-field method - Eq. 41
-				  src(i,j,k) = 6.0_db*selphi(i,j,k,flop)*(1.0_db - selphi(i,j,k,flop))*pc_rate
-                  forcex=forcex+rhophi_loc*u(i,j,k)*src(i,j,k)*(invrho_b-invrho_r)
-				  forcey=forcey+rhophi_loc*v(i,j,k)*src(i,j,k)*(invrho_b-invrho_r)
-				  forcez=forcez+rhophi_loc*w(i,j,k)*src(i,j,k)*(invrho_b-invrho_r)
-#endif				  
+			  
 
-                  visc_loc=(rho_r*visc1*selphi(i,j,k,flop)+ &
-                   (1.0_db-selphi(i,j,k,flop))*visc2*rho_b)/rhophi_loc
+                  pxx(i,j,k)=0.0_db
+                  pyy(i,j,k)=0.0_db
+                  pzz(i,j,k)=0.0_db
+                  pxy(i,j,k)=0.0_db
+                  pxz(i,j,k)=0.0_db
+                  pyz(i,j,k)=0.0_db
+                  !1-2
+                  !*1
+                  ! 2nd order
+				  uu=0.5_db*(u(i,j,k)*u(i,j,k)+v(i,j,k)*v(i,j,k)+w(i,j,k)*w(i,j,k))/cssq
+				  
+                  do l=1,nlinks
+                     udotc=(u(i,j,k)*dex(l) + v(i,j,k)*dey(l)+ w(i,j,k)*dez(l))/cssq
+					 feq=p(l)*(rho(i,j,k) + (udotc+0.5_db*udotc*udotc - uu))
+                     !
+                     fneq1=f(i,j,k,l)-feq !-0.5_db*F_discr) 
+                     pxx(i,j,k)=pxx(i,j,k)+ fneq1*dex(l)*dex(l)
+                     pyy(i,j,k)=pyy(i,j,k)+ fneq1*dey(l)*dey(l)
+                     pzz(i,j,k)=pzz(i,j,k)+ fneq1*dez(l)*dez(l)
+                     pxy(i,j,k)=pxy(i,j,k)+ fneq1*dex(l)*dey(l)
+                     pxz(i,j,k)=pxz(i,j,k)+ fneq1*dex(l)*dez(l)
+                     pyz(i,j,k)=pyz(i,j,k)+ fneq1*dey(l)*dez(l)
+                  enddo
 
-				  !visc_loc=(visc1*selphi(i,j,k,flop)+(1.0_db-selphi(i,j,k,flop))*visc2)
-                  !visc_loc=(visc1*selphi(i,j,k,flop)+(1.0_db-selphi(i,j,k,flop))*visc2)
+				  visc_loc=(rho_r*visc1*selphi(i,j,k,flop)+(1.0_db-selphi(i,j,k,flop))*visc2*rho_b)/rhophi_loc
+				  
                   tau_loc=(visc_loc/cssq + 0.5_db) !è una tau
-				  !omega_loc=1.0_db/(1.0_db/tau2 + (selphi(i,j,k,flop))*((1.0_db/tau1)-(1.0_db/tau2))) !tau
-				  !visc_loc=(omega_loc-0.5_db)*cssq
-				  !note that the non-equilibrium flux tensor is computer removing on the fly the equilibrium part with the old velocities
-				  forcex=forcex - (visc_loc/(tau_loc*cssq))* &
-				   ((pxx(i,j,k)-(u(i,j,k)*u(i,j,k)+rho(i,j,k)*cssq))*gradrhox + &
-				   (pxy(i,j,k)-(u(i,j,k)*v(i,j,k)))*gradrhoy + (pxz(i,j,k)-(u(i,j,k)*w(i,j,k)))*gradrhoz)
-				  forcey=forcey - (visc_loc/(tau_loc*cssq))* &
-				   ((pyy(i,j,k)-(v(i,j,k)*v(i,j,k)+rho(i,j,k)*cssq))*gradrhoy + &
-				   (pxy(i,j,k)-(u(i,j,k)*v(i,j,k)))*gradrhox + (pyz(i,j,k)-(v(i,j,k)*w(i,j,k)))*gradrhoz)
-				  forcez=forcez - (visc_loc/(tau_loc*cssq))* &
-				   ((pzz(i,j,k)-(w(i,j,k)*w(i,j,k)+rho(i,j,k)*cssq))*gradrhoz + &
-				   (pxz(i,j,k)-(u(i,j,k)*w(i,j,k)))*gradrhox + (pyz(i,j,k)-(v(i,j,k)*w(i,j,k)))*gradrhoy)
+				  
+				  forcex=forcex - (visc_loc/(tau_loc*cssq))*(pxx(i,j,k)*gradrhox + pxy(i,j,k)*gradrhoy + pxz(i,j,k)*gradrhoz)
+				  forcey=forcey - (visc_loc/(tau_loc*cssq))*(pyy(i,j,k)*gradrhoy + pxy(i,j,k)*gradrhox + pyz(i,j,k)*gradrhoz)
+				  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz(i,j,k)*gradrhoz + pxz(i,j,k)*gradrhox + pyz(i,j,k)*gradrhoy)
 #endif	
                   !I compute the new velocities
 				  u(i,j,k) = ((f(i,j,k,1)+f(i,j,k,7)+f(i,j,k,9)+f(i,j,k,15)+f(i,j,k,18)+f(i,j,k,19)+f(i,j,k,21)+f(i,j,k,24)+f(i,j,k,25)) &
@@ -529,26 +482,73 @@ contains
                   w(i,j,k) = ((f(i,j,k,5)+f(i,j,k,11)+f(i,j,k,14)+f(i,j,k,15)+f(i,j,k,17)+f(i,j,k,19)+f(i,j,k,21)+f(i,j,k,23)+f(i,j,k,26)) &
                      -(f(i,j,k,6)+f(i,j,k,12)+f(i,j,k,13)+f(i,j,k,16)+f(i,j,k,18)+f(i,j,k,20)+f(i,j,k,22)+f(i,j,k,24)+f(i,j,k,25)))
 					 
+#ifdef INTERFACE_INCOMP
+				  feq= (( p1*(arr_x(i+1,j,k)-arr_x(i-1,j,k)) + &
+				  p2*( (arr_x(i+1,j+1,k)-arr_x(i-1,j-1,k))+(arr_x(i+1,j-1,k)-arr_x(i-1,j+1,k))+(arr_x(i+1,j,k+1)-arr_x(i-1,j,k-1))+(arr_x(i+1,j,k-1)-arr_x(i-1,j,k+1)) )  + &
+				  p3*((arr_x(i+1,j+1,k+1)-arr_x(i-1,j-1,k-1))+(arr_x(i+1,j-1,k-1)-arr_x(i-1,j+1,k+1))+(arr_x(i+1,j-1,k+1)-arr_x(i-1,j+1,k-1))+(arr_x(i+1,j+1,k-1)-arr_x(i-1,j-1,k+1))))+ &
 
+				  (p1*(arr_y(i,j+1,k)-arr_y(i,j-1,k)) + &
+				  p2*((arr_y(i+1,j+1,k)-arr_y(i-1,j-1,k))+(arr_y(i-1,j+1,k)-arr_y(i+1,j-1,k))+(arr_y(i,j+1,k+1)-arr_y(i,j-1,k-1))+(arr_y(i,j+1,k-1)-arr_y(i,j-1,k+1)) ) + &
+				  p3*((arr_y(i+1,j+1,k+1)-arr_y(i-1,j-1,k-1))+(arr_y(i-1,j+1,k-1)-arr_y(i+1,j-1,k+1))+(arr_y(i+1,j+1,k-1)-arr_y(i-1,j-1,k+1))+(arr_y(i-1,j+1,k+1)-arr_y(i+1,j-1,k-1))))+ &
+
+				  (p1*(arr_z(i,j,k+1)-arr_z(i,j,k-1)) + &
+				  p2*((arr_z(i+1,j,k+1)-arr_z(i-1,j,k-1))+(arr_z(i-1,j,k+1)-arr_z(i+1,j,k-1))+(arr_z(i,j+1,k+1)-arr_z(i,j-1,k-1))+(arr_z(i,j-1,k+1)-arr_z(i,j+1,k-1)) ) + &
+				  p3*((arr_z(i+1,j+1,k+1)-arr_z(i-1,j-1,k-1))+(arr_z(i-1,j-1,k+1)-arr_z(i+1,j+1,k-1))+(arr_z(i+1,j-1,k+1)-arr_z(i-1,j+1,k-1))+(arr_z(i-1,j+1,k+1)-arr_z(i+1,j-1,k-1)))))
+			  
+				  feq= -sharp_c*feq/cssq
+				  u(i,j,k) = u(i,j,k) + 0.5_db*forcex/(rhophi_loc)
+                  v(i,j,k) = v(i,j,k) + 0.5_db*forcey/(rhophi_loc)
+                  w(i,j,k) = w(i,j,k) + 0.5_db*forcez/(rhophi_loc)
+				  
+				  u(i,j,k) = u(i,j,k)/(1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi(i,j,k) + feq)/rhophi_loc )
+				  
+				  v(i,j,k) = v(i,j,k)/(1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi(i,j,k) + feq)/rhophi_loc ) 
+				  
+				  w(i,j,k) = w(i,j,k)/(1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi(i,j,k) + feq)/rhophi_loc ) 
+#else
                   u(i,j,k) = u(i,j,k) + 0.5_db*forcex/rhophi_loc
                   v(i,j,k) = v(i,j,k) + 0.5_db*forcey/rhophi_loc
                   w(i,j,k) = w(i,j,k) + 0.5_db*forcez/rhophi_loc
-			  			  
-                  !subtracting the eq flux tensor with new velocities and adding half force term added as macroscopic formulation (obtained from wolfram)
-                  pxx(i,j,k)=pxx(i,j,k)-(u(i,j,k)*u(i,j,k)+rho(i,j,k)*cssq -0.5_db*(2.0_db*forcex*u(i,j,k)/rhophi_loc))
-				  pyy(i,j,k)=pyy(i,j,k)-(v(i,j,k)*v(i,j,k)+rho(i,j,k)*cssq -0.5_db*(2.0_db*forcey*v(i,j,k)/rhophi_loc))
-				  pzz(i,j,k)=pzz(i,j,k)-(w(i,j,k)*w(i,j,k)+rho(i,j,k)*cssq -0.5_db*(2.0_db*forcez*w(i,j,k)/rhophi_loc))
-				  pxy(i,j,k)=pxy(i,j,k)-(u(i,j,k)*v(i,j,k) -0.5_db*((forcex*v(i,j,k)+forcey*u(i,j,k))/rhophi_loc))
-				  pxz(i,j,k)=pxz(i,j,k)-(u(i,j,k)*w(i,j,k) -0.5_db*((forcex*w(i,j,k)+forcez*u(i,j,k))/rhophi_loc))
-				  pyz(i,j,k)=pyz(i,j,k)-(v(i,j,k)*w(i,j,k) -0.5_db*((forcey*w(i,j,k)+forcez*v(i,j,k))/rhophi_loc))
+#endif
+#ifdef INTERFACE_INCOMP
+			         
+					 fux(i,j,k)=fux(i,j,k) - (rho_r-rho_b)*(tau_diff*lap_phi(i,j,k) + feq)*u(i,j,k)
+					 fvy(i,j,k)=fvy(i,j,k) - (rho_r-rho_b)*(tau_diff*lap_phi(i,j,k) + feq)*v(i,j,k)
+					 fwz(i,j,k)=fwz(i,j,k) - (rho_r-rho_b)*(tau_diff*lap_phi(i,j,k) + feq)*w(i,j,k)
+					 
+					 forcex=forcex - (rho_r-rho_b)*(tau_diff*lap_phi(i,j,k) + feq)*u(i,j,k)
+					 
+					 forcey=forcey - (rho_r-rho_b)*(tau_diff*lap_phi(i,j,k) + feq)*v(i,j,k)
+					 
+					 forcez=forcez - (rho_r-rho_b)*(tau_diff*lap_phi(i,j,k) + feq)*w(i,j,k)
+#endif 
 
-                  
-                  !!!!!! now I compute the force terms depending on the updated velocities and are stored in force arrays
-#ifdef PHASE_CHANGE
-                  fux(i,j,k)=fux(i,j,k)+rhophi_loc*u(i,j,k)*src(i,j,k)*(invrho_b-invrho_r)
-				  fvy(i,j,k)=fvy(i,j,k)+rhophi_loc*v(i,j,k)*src(i,j,k)*(invrho_b-invrho_r)
-				  fwz(i,j,k)=fwz(i,j,k)+rhophi_loc*w(i,j,k)*src(i,j,k)*(invrho_b-invrho_r)
-#endif	
+
+!regularized 
+				  pxx(i,j,k)=0.0_db
+                  pyy(i,j,k)=0.0_db
+                  pzz(i,j,k)=0.0_db
+                  pxy(i,j,k)=0.0_db
+                  pxz(i,j,k)=0.0_db
+                  pyz(i,j,k)=0.0_db
+				  uu=HALF*(u(i,j,k)*u(i,j,k)+v(i,j,k)*v(i,j,k)+w(i,j,k)*w(i,j,k))/cssq
+				  
+                  do l=1,nlinks
+                     udotc=(u(i,j,k)*dex(l) + v(i,j,k)*dey(l)+ w(i,j,k)*dez(l))/cssq
+					 feq=p(l)*(rho(i,j,k) + (udotc+0.5_db*udotc*udotc - uu))
+					 F_discr= p(l)*( (dex(l)-u(i,j,k))*(forcex) + (dey(l)-v(i,j,k))*(forcey) + (dez(l)-w(i,j,k))*(forcez) + &
+										                  (1.0_db/(cssq))*( (u(i,j,k)*dex(l) + v(i,j,k)*dey(l) + w(i,j,k)*dez(l))*( (forcex)*dex(l) + (forcey)*dey(l) + &
+																	(forcez)*dez(l) ) ) )/(cssq*rhophi_loc) 
+                     fneq1=f(i,j,k,l)-(feq-0.5_db*F_discr) 
+					 
+
+                     pxx(i,j,k)=pxx(i,j,k)+ fneq1*dex(l)*dex(l)
+                     pyy(i,j,k)=pyy(i,j,k)+ fneq1*dey(l)*dey(l) 
+                     pzz(i,j,k)=pzz(i,j,k)+ fneq1*dez(l)*dez(l)
+                     pxy(i,j,k)=pxy(i,j,k)+ fneq1*dex(l)*dey(l)
+                     pxz(i,j,k)=pxz(i,j,k)+ fneq1*dex(l)*dez(l)
+                     pyz(i,j,k)=pyz(i,j,k)+ fneq1*dey(l)*dez(l)
+                  enddo
 #if defined(ELASTIC_FORCE)
 				  u_ref(i,j,k) = u_ref(i,j,k) + lambda_rel*(u(i,j,k) - u_ref(i,j,k))
 				  v_ref(i,j,k) = v_ref(i,j,k) + lambda_rel*(v(i,j,k) - v_ref(i,j,k))
@@ -556,24 +556,22 @@ contains
                   fux(i,j,k)=fux(i,j,k) + rhophi_loc*(u(i,j,k) - u_ref(i,j,k))*k_elastic*lambda_rel*selphi(i,j,k,flop) !+ 
 				  fvy(i,j,k)=fvy(i,j,k) + rhophi_loc*(v(i,j,k) - v_ref(i,j,k))*k_elastic*lambda_rel*selphi(i,j,k,flop) !+ 
 				  fwz(i,j,k)=fwz(i,j,k) + rhophi_loc*(w(i,j,k) - w_ref(i,j,k))*k_elastic*lambda_rel*selphi(i,j,k,flop)+rhophi_loc*fz  
-#endif
+#endif                  
 #if defined(DENSRATIO)			  
-				  fux(i,j,k)=fux(i,j,k) - (visc_loc/(tau_loc*cssq))*(pxx(i,j,k)*gradrhox + &
-				   pxy(i,j,k)*gradrhoy + pxz(i,j,k)*gradrhoz)
-                  fvy(i,j,k)=fvy(i,j,k) - (visc_loc/(tau_loc*cssq))*(pyy(i,j,k)*gradrhoy + &
-                   pxy(i,j,k)*gradrhox + pyz(i,j,k)*gradrhoz)
-                  fwz(i,j,k)=fwz(i,j,k) - (visc_loc/(tau_loc*cssq))*(pzz(i,j,k)*gradrhoz + &
-                   pxz(i,j,k)*gradrhox + pyz(i,j,k)*gradrhoy)
-#endif           
+				  
+				  fux(i,j,k)=fux(i,j,k) - (visc_loc/(tau_loc*cssq))*(pxx(i,j,k)*gradrhox + pxy(i,j,k)*gradrhoy + pxz(i,j,k)*gradrhoz)
+				  fvy(i,j,k)=fvy(i,j,k) - (visc_loc/(tau_loc*cssq))*(pyy(i,j,k)*gradrhoy + pxy(i,j,k)*gradrhox + pyz(i,j,k)*gradrhoz)
+				  fwz(i,j,k)=fwz(i,j,k) - (visc_loc/(tau_loc*cssq))*(pzz(i,j,k)*gradrhoz + pxz(i,j,k)*gradrhox + pyz(i,j,k)*gradrhoy)
+#endif               
+ 
 
 
    endsubroutine moments_LB_kernel  
 
-
- attributes(global) subroutine fused_LB_kernel(flip,flop,nx,ny,nz,coords,isfluid,f &
+   attributes(global) subroutine fused_LB_kernel(flip,flop,nx,ny,nz,coords,isfluid,f &
        ,rho,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz,fux,fvy,fwz &
 #ifdef TWOCOMPONENT
-       ,selphi,lap_phi,normx,normy,normz,arr_x,arr_y,arr_z &
+       ,selphi,modgrad,lap_phi,normx,normy,normz,arr_x,arr_y,arr_z &
 #ifdef DENSRATIO
        ,rhophi &
 #endif
@@ -586,9 +584,6 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
        ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
-#ifdef PHASE_CHANGE 
-       ,src &
-#endif 
 #ifdef MONOD	
 	   ,mu_max,Ks &
 #endif
@@ -599,18 +594,17 @@ contains
       
       integer :: flip,flop,nx,ny,nz
       integer, dimension(3) :: coords
-      integer(kind=isf), dimension(0:nx+1,0:ny+1,0:nz+1) :: isfluid
+      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
       real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1,0:nlinks) :: f
-      real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1) :: rho,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
+      real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1) :: rho
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: u,v,w
+      real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1) :: pxx,pyy,pzz,pxy,pxz,pyz
       real(kind=db), dimension(1:nx,1:ny,1:nz) :: fux,fvy,fwz
 #ifdef TWOCOMPONENT
-#ifdef WENO
       real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,2) :: selphi
-#else
-      real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1,2) :: selphi
-#endif
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: modgrad
       real(kind=db), dimension(1:nx,1:ny,1:nz) :: lap_phi
-      real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1) :: normx,normy,normz,arr_x,arr_y,arr_z
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: normx,normy,normz,arr_x,arr_y,arr_z
 #ifdef DENSRATIO
       real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1) :: rhophi
 #endif
@@ -622,10 +616,7 @@ contains
       real(kind=db) :: wettab_r,wettab_b  
 #endif  
 #ifdef TWOCOMPONENT 
-      real(kind=db) :: visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma
-#ifdef PHASE_CHANGE
-      real(kind=db), dimension(1:nx,1:ny,1:nz) :: src
-#endif   
+      real(kind=db) :: visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
 #ifdef MONOD
       real(kind=db) :: mu_max,Ks
 #endif
@@ -667,7 +658,6 @@ contains
 
                if (abs(isfluid(i,j,k)) /= 1) return
                
-               
 #ifdef DENSRATIO
                   rhophi_loc = rhophi(i,j,k)
 #else
@@ -678,25 +668,17 @@ contains
 				  forcey=fvy(i,j,k)
 				  forcez=fwz(i,j,k)
 
-                           !gi=nx*coords(1)+i
-                           !gj=ny*coords(2)+j
-                           !gk=nz*coords(3)+k
-                           !if(gi==8 .and. gj==8 .and. gk==18)then
-                           !  write(*,*)'c',step,pxx(i,j,k),pyy(i,j,k),pzz(i,j,k) 
-                           !endif
+
 
 #ifdef TWOCOMPONENT
 
                   visc_loc=(rho_r*visc1*selphi(i,j,k,flip)+(1.0_db-selphi(i,j,k,flip))*visc2*rho_b)/rhophi_loc  
 
-				  !visc_loc=(visc1*phi(i,j,k)+(1.0_db-phi(i,j,k))*visc2)
+				  
                   tau_loc=(visc_loc/cssq + 0.5_db) !è una tau
-				  !omega_loc=1.0_db/(1.0_db/tau2 + (phi(i,j,k))*((1.0_db/tau1)-(1.0_db/tau2))) !tau
-				  !visc_loc=(omega_loc-0.5_db)*cssq
+				  
                   omega_loc=1.0_db/tau_loc !è una omega
-				  !visc_loc=(tau_loc-0.5_db)*cssq
-				  !omega_loc=1.0_db/(1.0_db/tau2 + (phi(i,j,k))*((1.0_db/tau1)-(1.0_db/tau2))) !tau
-				  !visc_loc=(omega_loc-0.5_db)*cssq
+				  
 #else
 				  omega_loc=omega
 #endif
@@ -706,108 +688,40 @@ contains
 #ifdef SECOND_ORDER
 			      feq=(4.0_db*(2.0_db*rho(i,j,k) - 3.0_db &
 			       *(u(i,j,k)**2.0_db + v(i,j,k)**2.0_db + w(i,j,k)**2.0_db)))/27.0_db
-!0
-				  fneq1=(-3.0_db*(pxx(i,j,k) + pyy(i,j,k) + pzz(i,j,k)))/2.0_db
-#endif
-#ifdef FORTH_ORDER
-!0
-			      feq=(8.0_db*rho(i,j,k) + 6.0_db*(u(i,j,k)**2.0_db*( &
-			       -2.0_db + 3.0_db*v(i,j,k)**2.0_db) + 3.0_db*(u(i,j,k)**2.0_db &
-			       + v(i,j,k)**2.0_db)*w(i,j,k)**2.0_db - 2.0_db*(v(i,j,k)**2.0_db &
-			       + w(i,j,k)**2.0_db)))/27.0_db
-!0
-				  fneq1=(3.0_db*(-2.0_db*pxx(i,j,k) - 2.0_db*pzz(i,j,k) &
-				   + pyy(i,j,k)*(-2.0_db + 3.0_db*u(i,j,k)**2.0_db) &
-				   + 6.0_db*pxx(i,j,k)*v(i,j,k)**2.0_db + 3.0_db*pzz(i,j,k)*v(i,j,k)**2.0_db &
-				   + 18.0_db*pyz(i,j,k)*v(i,j,k)*w(i,j,k) + 6.0_db*(pxx(i,j,k) &
-				   + pyy(i,j,k))*w(i,j,k)**2.0_db + 3.0_db*u(i,j,k)*(pzz(i,j,k)*u(i,j,k) &
-				   + 6.0_db*pxy(i,j,k)*v(i,j,k) + 6.0_db*pxz(i,j,k)*w(i,j,k))))/4.0_db
-#endif
-#ifdef SIXTH_ORDER
+
+#else
 !0
 			      feq=(8.0_db*rho(i,j,k) - 3.0_db*(4.0_db*w(i,j,k)**2.0_db &
 			       + v(i,j,k)**2.0_db*(4.0_db - 6.0_db*w(i,j,k)**2.0_db) &
 			       + u(i,j,k)**2.0_db*(-2.0_db + 3.0_db*v(i,j,k)**2.0_db)*(-2.0_db &
 			       + 3.0_db*w(i,j,k)**2.0_db)))/27.0_db
 !0
-#ifdef GHOSTONE   
+#endif 
+
 				  fneq1=(-3.0_db*(pxx(i,j,k) + pyy(i,j,k) + pzz(i,j,k)))/2.0_db
-#else 
-				  fneq1=(3.0_db*(2.0_db*(pyy(i,j,k) + pzz(i,j,k))*(-2.0_db &
-				   + 3.0_db*u(i,j,k)**2.0_db) + 36.0_db*pxy(i,j,k)*u(i,j,k)*v(i,j,k) &
-				   + 3.0_db*pzz(i,j,k)*(2.0_db - 3.0_db*u(i,j,k)**2.0_db)*v(i,j,k)**2.0_db &
-				   + 12.0_db*w(i,j,k)*(3.0_db*pyz(i,j,k)*v(i,j,k) + pyy(i,j,k)*w(i,j,k)) &
-				   - 9.0_db*u(i,j,k)*w(i,j,k)*(6.0_db*pyz(i,j,k)*u(i,j,k)*v(i,j,k) &
-				   + pxz(i,j,k)*(-4.0_db + 6.0_db*v(i,j,k)**2.0_db) &
-				   + 3.0_db*pyy(i,j,k)*u(i,j,k)*w(i,j,k) &
-				   + 14.0_db*pxy(i,j,k)*v(i,j,k)*w(i,j,k)) - 4.0_db*pxx(i,j,k)*(-1.0_db &
-				   + 3.0_db*v(i,j,k)**2.0_db)*(-1.0_db + 3.0_db*w(i,j,k)**2.0_db)))/8.0_db
-#endif
-#endif
-!0
-#ifdef PHASE_CHANGE
-                  feq=feq+p0*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(-8.0_db*(forcex*u(i,j,k) + forcey*v(i,j,k) &
 				   + forcez*w(i,j,k)))/(9.0_db*rhophi_loc)
                   f(i,j,k,0)=feq + (1.0_db-omega_loc)*fneq1*p0 + 0.5_db*(F_discr)
-                  !gi=nx*coords(1)+i
-                  !gj=ny*coords(2)+j
-                  !gk=nz*coords(3)+k
-                  !if(gi==32 .and. gj==32 .and. gk==17 )then
-                   ! write(*,*)(pzz(i,j,k) )
-                  !endif
+                 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!1
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*rho(i,j,k) + 6.0_db*u(i,j,k) &
 			       *(1.0_db + u(i,j,k)) - 3.0_db*v(i,j,k)**2.0_db &
 			       - 3.0_db*w(i,j,k)**2.0_db)/27.0_db
-!1
-				  fneq1=(3.0_db*(2.0_db*pxx(i,j,k) - pyy(i,j,k) - pzz(i,j,k)))/2.0_db
-#endif
-#ifdef FORTH_ORDER
-!1
-			      feq=(4.0_db*rho(i,j,k) + 3.0_db*(4.0_db*u(i,j,k)&
-			       *(1.0_db + u(i,j,k)) - 2.0_db*(1.0_db + 3.0_db*u(i,j,k) &
-			       *(1.0_db + u(i,j,k)))*v(i,j,k)**2.0_db - (2.0_db &
-			       + 6.0_db*u(i,j,k)*(1.0_db + u(i,j,k)) - 3.0_db*v(i,j,k)**2.0_db) &
-			       *w(i,j,k)**2.0_db))/54.0_db
-!1
-				  fneq1=(9.0_db*pzz(i,j,k)*v(i,j,k)**2.0_db &
-				   + 18.0_db*w(i,j,k)*(3.0_db*pyz(i,j,k)*v(i,j,k) + pyy(i,j,k)*w(i,j,k)) &
-				   - 12.0_db*pxx(i,j,k)*(-1.0_db + 3.0_db*v(i,j,k)**2.0_db + 3.0_db*w(i,j,k)**2.0_db) &
-				   - 6.0_db*(pyy(i,j,k) + pzz(i,j,k) + 3.0_db*pyy(i,j,k)*u(i,j,k)*(1.0_db &
-				   + u(i,j,k)) + 3.0_db*pzz(i,j,k)*u(i,j,k)*(1.0_db + u(i,j,k)) &
-				   + 6.0_db*(1.0_db + 3.0_db*u(i,j,k))*(pxy(i,j,k)*v(i,j,k) &
-				   + pxz(i,j,k)*w(i,j,k))))/4.0_db
-#endif
-#ifdef SIXTH_ORDER
+#else
 !1
 			      feq=(4.0_db*rho(i,j,k) + 3.0_db*(4.0_db*u(i,j,k)*(1.0_db &
 			       + u(i,j,k)) - 2.0_db*(1.0_db + 3.0_db*u(i,j,k)*(1.0_db &
 			       + u(i,j,k)))*v(i,j,k)**2.0_db + (1.0_db + 3.0_db*u(i,j,k)*(1.0_db &
 			       + u(i,j,k)))*(-2.0_db + 3.0_db*v(i,j,k)**2.0_db)*w(i,j,k)**2.0_db))/54.0_db
 !1
-#ifdef GHOSTONE   
+#endif
 				  fneq1=(3.0_db*(2.0_db*pxx(i,j,k) - pyy(i,j,k) - pzz(i,j,k)))/2.0_db
-#else 
-				  fneq1=(12.0_db*pxx(i,j,k) - 6.0_db*(pyy(i,j,k) + pzz(i,j,k))*(1.0_db &
-				   + 3.0_db*u(i,j,k)*(1.0_db + u(i,j,k))) - 36.0_db*pxy(i,j,k)*(1.0_db &
-				   + 3.0_db*u(i,j,k))*v(i,j,k) + 9.0_db*(-4.0_db*pxx(i,j,k) + pzz(i,j,k) &
-				   + 3.0_db*pzz(i,j,k)*u(i,j,k)*(1.0_db + u(i,j,k)))*v(i,j,k)**2.0_db &
-				   + 9.0_db*(-4.0_db*pxz(i,j,k)*(1.0_db + 3.0_db*u(i,j,k)) &
-				   + 6.0_db*pyz(i,j,k)*(1.0_db + 3.0_db*u(i,j,k)*(1.0_db + u(i,j,k)))*v(i,j,k) &
-				   + 9.0_db*pxz(i,j,k)*(1.0_db + 2.0_db*u(i,j,k))*v(i,j,k)**2.0_db)*w(i,j,k) &
-				   + 9.0_db*(pyy(i,j,k)*(2.0_db + 9.0_db*u(i,j,k)*(1.0_db + u(i,j,k))) &
-				   + 6.0_db*pxy(i,j,k)*(3.0_db + 7.0_db*u(i,j,k))*v(i,j,k) &
-				   + 4.0_db*pxx(i,j,k)*(-1.0_db + 3.0_db*v(i,j,k)**2.0_db))*w(i,j,k)**2.0_db)/4.0_db
-#endif
-#endif
-!1
-#ifdef PHASE_CHANGE
-                  feq=feq+p1*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(2.0_db*(forcex + 2.0_db*forcex*u(i,j,k) - forcey*v(i,j,k) &
 				   - forcez*w(i,j,k)))/(9.0_db*rhophi_loc)
                   f(i+1,j,k,1)=feq + (1.0_db-omega_loc)*fneq1*p1 + 0.5_db*(F_discr)
@@ -818,27 +732,7 @@ contains
 			      feq=(2.0_db*rho(i,j,k) + 6.0_db*(-1.0_db &
 			       + u(i,j,k))*u(i,j,k) - 3.0_db*v(i,j,k)**2.0_db &
 			       - 3.0_db*w(i,j,k)**2.0_db)/27.0_db
-!2
-				  fneq1=(3.0_db*(2.0_db*pxx(i,j,k) - pyy(i,j,k) - pzz(i,j,k)))/2.0_db
-#endif
-#ifdef FORTH_ORDER
-!2
-			      feq=(4.0_db*rho(i,j,k) + 3.0_db*(4.0_db*( &
-			       -1.0_db + u(i,j,k))*u(i,j,k) - 2.0_db*(1.0_db + 3.0_db*( &
-			       -1.0_db + u(i,j,k))*u(i,j,k))*v(i,j,k)**2.0_db + (-2.0_db &
-			       - 6.0_db*(-1.0_db + u(i,j,k))*u(i,j,k) + 3.0_db*v(i,j,k)**2.0_db) &
-			       *w(i,j,k)**2.0_db))/54.0_db
-!2
-				  fneq1=(3.0_db*(3.0_db*pzz(i,j,k)*v(i,j,k)**2.0_db & 
-				   + 6.0_db*w(i,j,k)*(3.0_db*pyz(i,j,k)*v(i,j,k) &
-				   + pyy(i,j,k)*w(i,j,k)) - 4.0_db*pxx(i,j,k)*(-1.0_db &
-				   + 3.0_db*v(i,j,k)**2.0_db + 3.0_db*w(i,j,k)**2.0_db) &
-				   - 2.0_db*(pyy(i,j,k) + pzz(i,j,k) + 3.0_db*pyy(i,j,k)*(-1.0_db &
-				   + u(i,j,k))*u(i,j,k) + 3.0_db*pzz(i,j,k)*(-1.0_db + u(i,j,k))*u(i,j,k) &
-				   + 6.0_db*(-1.0_db + 3.0_db*u(i,j,k))*(pxy(i,j,k)*v(i,j,k) &
-				   + pxz(i,j,k)*w(i,j,k)))))/4.0_db
-#endif
-#ifdef SIXTH_ORDER
+#else
 !2
 			      feq=(4.0_db*rho(i,j,k) + 3.0_db*(4.0_db*(-1.0_db &
 			       + u(i,j,k))*u(i,j,k) - 2.0_db*(1.0_db + 3.0_db*(-1.0_db &
@@ -846,28 +740,10 @@ contains
 			       + 3.0_db*(-1.0_db + u(i,j,k))*u(i,j,k))*(-2.0_db &
 			       + 3.0_db*v(i,j,k)**2.0_db)*w(i,j,k)**2.0_db))/54.0_db
 !2
-#ifdef GHOSTONE   
+#endif
 				  fneq1=(3.0_db*(2.0_db*pxx(i,j,k) - pyy(i,j,k) - pzz(i,j,k)))/2.0_db
-#else 
-				  fneq1=(9.0_db*pzz(i,j,k)*(1.0_db + 3.0_db*(-1.0_db &
-				   + u(i,j,k))*u(i,j,k))*v(i,j,k)**2.0_db - 6.0_db*(pyy(i,j,k) &
-				   + pzz(i,j,k) + 3.0_db*pyy(i,j,k)*(-1.0_db + u(i,j,k))*u(i,j,k) &
-				   + 3.0_db*pzz(i,j,k)*(-1.0_db + u(i,j,k))*u(i,j,k) &
-				   + 6.0_db*pxy(i,j,k)*(-1.0_db + 3.0_db*u(i,j,k))*v(i,j,k) &
-				   - 6.0_db*pxz(i,j,k)*w(i,j,k)) + 9.0_db*w(i,j,k)*( &
-				   -12.0_db*pxz(i,j,k)*u(i,j,k) + 6.0_db*pyz(i,j,k)*(1.0_db &
-				   + 3.0_db*(-1.0_db + u(i,j,k))*u(i,j,k))*v(i,j,k) &
-				   + 9.0_db*pxz(i,j,k)*(-1.0_db + 2.0_db*u(i,j,k))*v(i,j,k)**2.0_db &
-				   + (pyy(i,j,k)*(2.0_db + 9.0_db*(-1.0_db + u(i,j,k))*u(i,j,k)) &
-				   + 6.0_db*pxy(i,j,k)*(-3.0_db + 7.0_db*u(i,j,k))*v(i,j,k))*w(i,j,k)) &
-				   + 12.0_db*pxx(i,j,k)*(-1.0_db + 3.0_db*v(i,j,k)**2.0_db)*( &
-				   -1.0_db + 3.0_db*w(i,j,k)**2.0_db))/4.0_db
-#endif
-#endif
-!2
-#ifdef PHASE_CHANGE
-                  feq=feq+p1*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(-2.0_db*(forcex - 2.0_db*forcex*u(i,j,k) + forcey*v(i,j,k) &
 				   + forcez*w(i,j,k)))/(9.0_db*rhophi_loc)
                   f(i-1,j,k,2)=feq + (1.0_db-omega_loc)*fneq1*p1 + 0.5_db*(F_discr)
@@ -877,26 +753,7 @@ contains
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*rho(i,j,k) - 3.0_db*(u(i,j,k)**2.0_db &
 			       - 2.0_db*v(i,j,k)*(1.0_db + v(i,j,k)) + w(i,j,k)**2.0_db))/27.0_db
-!3
-				  fneq1=(-3.0_db*(pxx(i,j,k) - 2.0_db*pyy(i,j,k) + pzz(i,j,k)))/2.0_db
-#endif
-#ifdef FORTH_ORDER
-!3
-			      feq=(4.0_db*rho(i,j,k) + 12.0_db*v(i,j,k)*(1.0_db &
-			       + v(i,j,k)) - 6.0_db*u(i,j,k)**2.0_db*(1.0_db &
-			       + 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k))) + 3.0_db*( &
-			       -2.0_db + 3.0_db*u(i,j,k)**2.0_db - 6.0_db*v(i,j,k)*(1.0_db &
-			       + v(i,j,k)))*w(i,j,k)**2.0_db)/54.0_db
-!3
-				  fneq1=(3.0_db*(-2.0_db*pxx(i,j,k) + 4.0_db*pyy(i,j,k) &
-				   + 3.0_db*(-2.0_db*pyy(i,j,k) + pzz(i,j,k))*u(i,j,k)**2.0_db &
-				   - 2.0_db*(pzz(i,j,k) + 6.0_db*pxy(i,j,k)*u(i,j,k)) - 6.0_db*(pxx(i,j,k) &
-				   + pzz(i,j,k) + 6.0_db*pxy(i,j,k)*u(i,j,k))*v(i,j,k) - 6.0_db*(2.0_db*pxx(i,j,k) &
-				   + pzz(i,j,k))*v(i,j,k)**2.0_db + 6.0_db*(3.0_db*pxz(i,j,k)*u(i,j,k) &
-				   - 2.0_db*pyz(i,j,k)*(1.0_db + 3.0_db*v(i,j,k)))*w(i,j,k) &
-				   + 6.0_db*(pxx(i,j,k) - 2.0_db*pyy(i,j,k))*w(i,j,k)**2.0_db))/4.0_db
-#endif
-#ifdef SIXTH_ORDER
+#else
 !3
 			      feq=(4.0_db*rho(i,j,k) + 12.0_db*v(i,j,k)*(1.0_db &
 			       + v(i,j,k)) - 6.0_db*u(i,j,k)**2.0_db*(1.0_db &
@@ -904,28 +761,10 @@ contains
 			       + 3.0_db*u(i,j,k)**2.0_db)*(1.0_db + 3.0_db*v(i,j,k)*(1.0_db &
 			       + v(i,j,k)))*w(i,j,k)**2.0_db)/54.0_db
 !3
-#ifdef GHOSTONE   
+#endif
 				  fneq1=(-3.0_db*(pxx(i,j,k) - 2.0_db*pyy(i,j,k) + pzz(i,j,k)))/2.0_db
-#else 
-				  fneq1=(12.0_db*pyy(i,j,k) + 9.0_db*(-2.0_db*pyy(i,j,k) &
-				   + pzz(i,j,k))*u(i,j,k)**2.0_db - 6.0_db*pxx(i,j,k)*(1.0_db &
-				   + 3.0_db*v(i,j,k) + 6.0_db*v(i,j,k)**2.0_db) + 9.0_db*v(i,j,k)*( &
-				   -12.0_db*pxy(i,j,k)*u(i,j,k) + pzz(i,j,k)*(-2.0_db &
-				   + 3.0_db*u(i,j,k)**2.0_db)*(1.0_db + v(i,j,k))) &
-				   + 27.0_db*(2.0_db*pxz(i,j,k)*u(i,j,k) - 4.0_db*pyz(i,j,k)*v(i,j,k) &
-				   + 6.0_db*pxz(i,j,k)*u(i,j,k)*v(i,j,k)*(1.0_db + v(i,j,k)) &
-				   + pyz(i,j,k)*u(i,j,k)**2.0_db*(3.0_db + 6.0_db*v(i,j,k)))*w(i,j,k) &
-				   + 9.0_db*(pyy(i,j,k)*(-4.0_db + 9.0_db*u(i,j,k)**2.0_db) &
-				   + 6.0_db*pxy(i,j,k)*u(i,j,k)*(3.0_db + 7.0_db*v(i,j,k)) &
-				   + pxx(i,j,k)*(2.0_db + 3.0_db*v(i,j,k)*(3.0_db &
-				   + 4.0_db*v(i,j,k))))*w(i,j,k)**2.0_db - 6.0_db*(pzz(i,j,k) &
-				   + 6.0_db*pxy(i,j,k)*u(i,j,k) + 6.0_db*pyz(i,j,k)*w(i,j,k)))/4.0_db
-#endif
-#endif
-!3
-#ifdef PHASE_CHANGE
-                  feq=feq+p1*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(2.0_db*(forcey - forcex*u(i,j,k) + 2.0_db*forcey*v(i,j,k) &
 				   - forcez*w(i,j,k)))/(9.0_db*rhophi_loc)
                   f(i,j+1,k,3)=feq + (1.0_db-omega_loc)*fneq1*p1 + 0.5_db*(F_discr)
@@ -935,27 +774,7 @@ contains
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*rho(i,j,k) - 3.0_db*(u(i,j,k)**2.0_db &
 			      - 2.0_db*(-1.0_db + v(i,j,k))*v(i,j,k) + w(i,j,k)**2.0_db))/27.0_db
-!4
-				  fneq1=(-3.0_db*(pxx(i,j,k) - 2.0_db*pyy(i,j,k) + pzz(i,j,k)))/2.0_db
-#endif
-#ifdef FORTH_ORDER
-!4
-			      feq=(4.0_db*rho(i,j,k) + 12.0_db*(-1.0_db &
-			       + v(i,j,k))*v(i,j,k) - 6.0_db*u(i,j,k)**2.0_db*(1.0_db &
-			       + 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k)) + 3.0_db*( &
-			       -2.0_db + 3.0_db*u(i,j,k)**2.0_db - 6.0_db*(-1.0_db &
-			       + v(i,j,k))*v(i,j,k))*w(i,j,k)**2.0_db)/54.0_db
-!4
-				  fneq1=(3.0_db*(4.0_db*pyy(i,j,k) - 2.0_db*pzz(i,j,k) &
-				   + 3.0_db*(-2.0_db*pyy(i,j,k) + pzz(i,j,k))*u(i,j,k)**2.0_db &
-				   + 12.0_db*(pxy(i,j,k)*u(i,j,k) + pyz(i,j,k)*w(i,j,k)) &
-				   + 2.0_db*pxx(i,j,k)*(-1.0_db + 3.0_db*v(i,j,k) &
-				   - 6.0_db*v(i,j,k)**2.0_db + 3.0_db*w(i,j,k)**2.0_db) &
-				   - 6.0_db*(6.0_db*pxy(i,j,k)*u(i,j,k)*v(i,j,k) + pzz(i,j,k)*( &
-				   -1.0_db + v(i,j,k))*v(i,j,k) + w(i,j,k)*(-3.0_db*pxz(i,j,k)*u(i,j,k) &
-				   + 6.0_db*pyz(i,j,k)*v(i,j,k) + 2.0_db*pyy(i,j,k)*w(i,j,k)))))/4.0_db
-#endif
-#ifdef SIXTH_ORDER
+#else
 !4
 			      feq=(4.0_db*rho(i,j,k) + 12.0_db*(-1.0_db &
 			       + v(i,j,k))*v(i,j,k) - 6.0_db*u(i,j,k)**2.0_db*(1.0_db &
@@ -963,28 +782,10 @@ contains
 			       + 3.0_db*u(i,j,k)**2.0_db)*(1.0_db + 3.0_db*(-1.0_db &
 			       + v(i,j,k))*v(i,j,k))*w(i,j,k)**2.0_db)/54.0_db
 !4
-#ifdef GHOSTONE   
+#endif
 				  fneq1=(-3.0_db*(pxx(i,j,k) - 2.0_db*pyy(i,j,k) + pzz(i,j,k)))/2.0_db
-#else 
-				  fneq1=(3.0_db*(4.0_db*pyy(i,j,k) - 2.0_db*pzz(i,j,k) &
-				  + 3.0_db*(-2.0_db*pyy(i,j,k) + pzz(i,j,k))*u(i,j,k)**2.0_db &
-				  + 3.0_db*(-12.0_db*pxy(i,j,k)*u(i,j,k) + pzz(i,j,k)*(-2.0_db &
-				  + 3.0_db*u(i,j,k)**2.0_db)*(-1.0_db + v(i,j,k)))*v(i,j,k) &
-				  - 2.0_db*pxx(i,j,k)*(1.0_db - 3.0_db*v(i,j,k) + 6.0_db*v(i,j,k)**2.0_db) &
-				  + 9.0_db*(2.0_db*pxz(i,j,k)*u(i,j,k) - 4.0_db*pyz(i,j,k)*v(i,j,k) &
-				  + 6.0_db*pxz(i,j,k)*u(i,j,k)*(-1.0_db + v(i,j,k))*v(i,j,k) &
-				  + pyz(i,j,k)*u(i,j,k)**2.0_db*(-3.0_db + 6.0_db*v(i,j,k)))*w(i,j,k) &
-				  + 3.0_db*pxx(i,j,k)*(2.0_db + 3.0_db*v(i,j,k)*(-3.0_db &
-				  + 4.0_db*v(i,j,k)))*w(i,j,k)**2.0_db + 3.0_db*(pyy(i,j,k)*( &
-				  -4.0_db + 9.0_db*u(i,j,k)**2.0_db) + 6.0_db*pxy(i,j,k)*u(i,j,k)*( &
-				  -3.0_db + 7.0_db*v(i,j,k)))*w(i,j,k)**2.0_db + 12.0_db*(pxy(i,j,k)*u(i,j,k) &
-				  + pyz(i,j,k)*w(i,j,k))))/4.0_db
-#endif
-#endif
-!4
-#ifdef PHASE_CHANGE
-                  feq=feq+p1*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(-2.0_db*(forcey + forcex*u(i,j,k) - 2.0_db*forcey*v(i,j,k) &
 				   + forcez*w(i,j,k)))/(9.0_db*rhophi_loc)
                   f(i,j-1,k,4)=feq + (1.0_db-omega_loc)*fneq1*p1 + 0.5_db*(F_discr)
@@ -994,52 +795,17 @@ contains
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*rho(i,j,k) - 3.0_db*(u(i,j,k)**2.0_db &
 			       + v(i,j,k)**2.0_db - 2.0_db*w(i,j,k)*(1.0_db + w(i,j,k))))/27.0_db
-!5
-				  fneq1=(-3.0_db*(pxx(i,j,k) + pyy(i,j,k) - 2.0_db*pzz(i,j,k)))/2.0_db
-#endif
-#ifdef FORTH_ORDER
-!5
-			      feq=(4.0_db*rho(i,j,k) + 3.0_db*(4.0_db*w(i,j,k)*(1.0_db &
-			       + w(i,j,k)) + u(i,j,k)**2.0_db*(-2.0_db + 3.0_db*v(i,j,k)**2.0_db &
-			       - 6.0_db*w(i,j,k)*(1.0_db + w(i,j,k))) - 2.0_db*v(i,j,k)**2.0_db*(1.0_db &
-			       + 3.0_db*w(i,j,k)*(1.0_db + w(i,j,k)))))/54.0_db
-!5
-				  fneq1=(3.0_db*(-2.0_db*pxx(i,j,k) + pyy(i,j,k)*(-2.0_db &
-				   + 3.0_db*u(i,j,k)**2.0_db) + 6.0_db*pxx(i,j,k)*v(i,j,k)**2.0_db &
-				   - 6.0_db*pzz(i,j,k)*v(i,j,k)**2.0_db - 6.0_db*u(i,j,k)*(pzz(i,j,k)*u(i,j,k) &
-				   - 3.0_db*pxy(i,j,k)*v(i,j,k)) + 4.0_db*(pzz(i,j,k) - 3.0_db*(pxz(i,j,k)*u(i,j,k) &
-				   + pyz(i,j,k)*v(i,j,k))) - 6.0_db*(pxx(i,j,k) + pyy(i,j,k) &
-				   + 6.0_db*pxz(i,j,k)*u(i,j,k) + 6.0_db*pyz(i,j,k)*v(i,j,k))*w(i,j,k) &
-				   - 12.0_db*(pxx(i,j,k) + pyy(i,j,k))*w(i,j,k)**2.0_db))/4.0_db
-#endif
-#ifdef SIXTH_ORDER
+#else
 !5
 			      feq=(4.0_db*rho(i,j,k) + 3.0_db*(4.0_db*w(i,j,k)*(1.0_db &
 			       + w(i,j,k)) - 2.0_db*v(i,j,k)**2.0_db*(1.0_db + 3.0_db*w(i,j,k)*(1.0_db &
 			       + w(i,j,k))) + u(i,j,k)**2.0_db*(-2.0_db + 3.0_db*v(i,j,k)**2.0_db)*(1.0_db &
 			       + 3.0_db*w(i,j,k)*(1.0_db + w(i,j,k)))))/54.0_db
 !5
-#ifdef GHOSTONE   
+#endif
 				  fneq1=(-3.0_db*(pxx(i,j,k) + pyy(i,j,k) - 2.0_db*pzz(i,j,k)))/2.0_db
-#else 
-				  fneq1=(3.0_db*(-6.0_db*pzz(i,j,k)*u(i,j,k)**2.0_db + 3.0_db*pzz(i,j,k)*( &
-				   -2.0_db + 3.0_db*u(i,j,k)**2.0_db)*v(i,j,k)**2.0_db + 4.0_db*(pzz(i,j,k) &
-				   - 3.0_db*(pxz(i,j,k)*u(i,j,k) + pyz(i,j,k)*v(i,j,k))) + 3.0_db*pyy(i,j,k)*(u(i,j,k) &
-				   + 3.0_db*u(i,j,k)*w(i,j,k))**2.0_db - 2.0_db*pyy(i,j,k)*(1.0_db + 3.0_db*w(i,j,k) &
-				   + 6.0_db*w(i,j,k)**2.0_db) + pxx(i,j,k)*(-2.0_db*(1.0_db + 3.0_db*w(i,j,k) &
-				   + 6.0_db*w(i,j,k)**2.0_db) + 3.0_db*v(i,j,k)**2.0_db*(2.0_db &
-				   + 3.0_db*w(i,j,k)*(3.0_db + 4.0_db*w(i,j,k)))) &
-				   + 18.0_db*(pyz(i,j,k)*v(i,j,k)*(u(i,j,k)**2.0_db &
-				   - 2.0_db*w(i,j,k) + 3.0_db*u(i,j,k)**2.0_db*w(i,j,k)) &
-				   + pxz(i,j,k)*u(i,j,k)*(v(i,j,k)**2.0_db - 2.0_db*w(i,j,k) &
-				   + 3.0_db*v(i,j,k)**2.0_db*w(i,j,k)) + pxy(i,j,k)*u(i,j,k)*v(i,j,k)*(1.0_db &
-				   + w(i,j,k)*(5.0_db + 7.0_db*w(i,j,k))))))/4.0_db
-#endif
-#endif
-!5
-#ifdef PHASE_CHANGE
-                  feq=feq+p1*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(2.0_db*(forcez - forcex*u(i,j,k) - forcey*v(i,j,k) &
 				   + 2.0_db*forcez*w(i,j,k)))/(9.0_db*rhophi_loc)
                   f(i,j,k+1,5)= feq + (1.0_db-omega_loc)*fneq1*p1 + 0.5_db*(F_discr)
@@ -1049,26 +815,7 @@ contains
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*rho(i,j,k) - 3.0_db*(u(i,j,k)**2.0_db &
 			       + v(i,j,k)**2.0_db - 2.0_db*(-1.0_db + w(i,j,k))*w(i,j,k)))/27.0_db
-!6
-				  fneq1=(-3.0_db*(pxx(i,j,k) + pyy(i,j,k) - 2.0_db*pzz(i,j,k)))/2.0_db
-#endif
-#ifdef FORTH_ORDER
-!6
-			      feq=(4.0_db*rho(i,j,k) + 3.0_db*(4.0_db*(-1.0_db &
-			       + w(i,j,k))*w(i,j,k) + v(i,j,k)**2.0_db*(-2.0_db - 6.0_db*(-1.0_db &
-			       + w(i,j,k))*w(i,j,k)) + u(i,j,k)**2.0_db*(-2.0_db + 3.0_db*v(i,j,k)**2.0_db &
-			       - 6.0_db*(-1.0_db + w(i,j,k))*w(i,j,k))))/54.0_db
-!6
-				  fneq1=(3.0_db*(-2.0_db*pxx(i,j,k) + pyy(i,j,k)*(-2.0_db &
-				   + 3.0_db*u(i,j,k)**2.0_db) + 6.0_db*pxx(i,j,k)*v(i,j,k)**2.0_db &
-				   - 6.0_db*pzz(i,j,k)*v(i,j,k)**2.0_db - 6.0_db*u(i,j,k)*(pzz(i,j,k)*u(i,j,k) &
-				   - 3.0_db*pxy(i,j,k)*v(i,j,k)) + 4.0_db*(pzz(i,j,k) &
-				   + 3.0_db*pxz(i,j,k)*u(i,j,k) + 3.0_db*pyz(i,j,k)*v(i,j,k)) &
-				   + 6.0_db*(pxx(i,j,k) + pyy(i,j,k) - 6.0_db*(pxz(i,j,k)*u(i,j,k) &
-				   + pyz(i,j,k)*v(i,j,k)))*w(i,j,k) - 12.0_db*(pxx(i,j,k) &
-				   + pyy(i,j,k))*w(i,j,k)**2.0_db))/4.0_db
-#endif
-#ifdef SIXTH_ORDER
+#else
 !6
 			      feq=(4.0_db*rho(i,j,k) + 3.0_db*(4.0_db*(-1.0_db &
 			       + w(i,j,k))*w(i,j,k) + v(i,j,k)**2.0_db*(-2.0_db - 6.0_db*(-1.0_db &
@@ -1076,28 +823,10 @@ contains
 			       + 3.0_db*v(i,j,k)**2.0_db)*(1.0_db + 3.0_db*(-1.0_db &
 			       + w(i,j,k))*w(i,j,k))))/54.0_db
 !6
-#ifdef GHOSTONE   
+#endif
 				  fneq1=(-3.0_db*(pxx(i,j,k) + pyy(i,j,k) - 2.0_db*pzz(i,j,k)))/2.0_db
-#else 
-				  fneq1=(3.0_db*(4.0_db*(pzz(i,j,k) + 3.0_db*pxz(i,j,k)*u(i,j,k) &
-				   + 3.0_db*pyz(i,j,k)*v(i,j,k)) + pyy(i,j,k)*(-2.0_db &
-				   + 3.0_db*u(i,j,k)**2.0_db*(1.0_db - 3.0_db*w(i,j,k))**2.0_db &
-				   + 6.0_db*(1.0_db - 2.0_db*w(i,j,k))*w(i,j,k)) + pxx(i,j,k)*( &
-				   -2.0_db + 6.0_db*(1.0_db - 2.0_db*w(i,j,k))*w(i,j,k) &
-				   + 3.0_db*v(i,j,k)**2.0_db*(2.0_db + 3.0_db*w(i,j,k)*(-3.0_db &
-				   + 4.0_db*w(i,j,k)))) + 3.0_db*(-2.0_db*pzz(i,j,k)*u(i,j,k)**2.0_db &
-				   + pzz(i,j,k)*(-2.0_db + 3.0_db*u(i,j,k)**2.0_db)*v(i,j,k)**2.0_db &
-				   - 6.0_db*u(i,j,k)*v(i,j,k)*(pyz(i,j,k)*u(i,j,k) + pxz(i,j,k)*v(i,j,k)) &
-				   + 6.0_db*(pyz(i,j,k)*(-2.0_db + 3.0_db*u(i,j,k)**2.0_db)*v(i,j,k) &
-				   + pxz(i,j,k)*u(i,j,k)*(-2.0_db + 3.0_db*v(i,j,k)**2.0_db))*w(i,j,k) &
-				   + 6.0_db*pxy(i,j,k)*u(i,j,k)*v(i,j,k)*(1.0_db + w(i,j,k)*(-5.0_db &
-				   + 7.0_db*w(i,j,k))))))/4.0_db
-#endif
-#endif
-!6
-#ifdef PHASE_CHANGE
-                  feq=feq+p1*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(-2.0_db*(forcez + forcex*u(i,j,k) + forcey*v(i,j,k) &
 				   - 2.0_db*forcez*w(i,j,k)))/(9.0_db*rhophi_loc)
                   f(i,j,k-1,6)=feq + (1.0_db-omega_loc)*fneq1*p1 + 0.5_db*(F_discr)
@@ -1108,31 +837,7 @@ contains
 			      feq=(2.0_db*rho(i,j,k) + 6.0_db*(u(i,j,k) &
 			       + u(i,j,k)**2.0_db + v(i,j,k) + 3.0_db*u(i,j,k)*v(i,j,k) &
 			       + v(i,j,k)**2.0_db) - 3.0_db*w(i,j,k)**2.0_db)/108.0_db
-!7
-				  fneq1=3.0_db*(pxx(i,j,k) + 3.0_db*pxy(i,j,k) + pyy(i,j,k)) &
-				   - (3.0_db*pzz(i,j,k))/2.0_db
-#endif
-#ifdef FORTH_ORDER
-!7
-			      feq=(2.0_db*rho(i,j,k) + 6.0_db*(u(i,j,k) &
-			       + v(i,j,k) + v(i,j,k)**2.0_db + 3.0_db*u(i,j,k)*v(i,j,k)*(1.0_db &
-			       + v(i,j,k)) + u(i,j,k)**2.0_db*(1.0_db + 3.0_db*v(i,j,k)*(1.0_db &
-			       + v(i,j,k)))) - 3.0_db*(1.0_db + 3.0_db*v(i,j,k) &
-			       + 3.0_db*(u(i,j,k) + u(i,j,k)**2.0_db + 3.0_db*u(i,j,k)*v(i,j,k) &
-			       + v(i,j,k)**2.0_db))*w(i,j,k)**2.0_db)/108.0_db
-!7
-				  fneq1=(3.0_db*(6.0_db*pxy(i,j,k)*(1.0_db + 2.0_db*u(i,j,k)) &
-				   + (2.0_db*pyy(i,j,k) - pzz(i,j,k))*(1.0_db + 3.0_db*u(i,j,k)*(1.0_db + u(i,j,k))) &
-				   + 12.0_db*pxy(i,j,k)*(1.0_db + 3.0_db*u(i,j,k))*v(i,j,k) &
-				   - 3.0_db*pzz(i,j,k)*v(i,j,k)*(1.0_db + 3.0_db*u(i,j,k) + v(i,j,k)) &
-				   - 6.0_db*(pxz(i,j,k) + pyz(i,j,k))*w(i,j,k) &
-				   - 9.0_db*(2.0_db*pxz(i,j,k)*u(i,j,k) + 3.0_db*pyz(i,j,k)*u(i,j,k) &
-				   + 3.0_db*pxz(i,j,k)*v(i,j,k) + 2.0_db*pyz(i,j,k)*v(i,j,k))*w(i,j,k) &
-				   - 6.0_db*(3.0_db*pxy(i,j,k) + pyy(i,j,k))*w(i,j,k)**2.0_db &
-				   + 2.0_db*pxx(i,j,k)*(1.0_db + 3.0_db*v(i,j,k) &
-				   + 6.0_db*v(i,j,k)**2.0_db - 3.0_db*w(i,j,k)**2.0_db)))/2.0_db
-#endif
-#ifdef SIXTH_ORDER
+#else
 !7
 			      feq=(2.0_db*rho(i,j,k) + 6.0_db*(u(i,j,k) &
 			       + v(i,j,k) + v(i,j,k)**2.0_db + 3.0_db*u(i,j,k)*v(i,j,k)*(1.0_db &
@@ -1141,31 +846,11 @@ contains
 			       + u(i,j,k)))*(1.0_db + 3.0_db*v(i,j,k)*(1.0_db &
 			       + v(i,j,k)))*w(i,j,k)**2.0_db)/108.0_db
 !7
-#ifdef GHOSTONE   
+#endif
 				  fneq1=3.0_db*(pxx(i,j,k) + 3.0_db*pxy(i,j,k) + pyy(i,j,k)) &
 				   - (3.0_db*pzz(i,j,k))/2.0_db
-#else 
-				  fneq1=(3.0_db*(2.0_db*pxx(i,j,k)*(1.0_db + 3.0_db*v(i,j,k) &
-				   + 6.0_db*v(i,j,k)**2.0_db) + (1.0_db + 3.0_db*u(i,j,k)*(1.0_db &
-				   + u(i,j,k)))*(2.0_db*pyy(i,j,k) - pzz(i,j,k)*(1.0_db &
-				   + 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k)))) &
-				   - 3.0_db*(pyz(i,j,k)*(2.0_db + 6.0_db*v(i,j,k) &
-				   + 9.0_db*u(i,j,k)*(1.0_db + u(i,j,k))*(1.0_db &
-				   + 2.0_db*v(i,j,k))) + pxz(i,j,k)*(2.0_db + 9.0_db*v(i,j,k)*(1.0_db &
-				   + v(i,j,k)) + 6.0_db*u(i,j,k)*(1.0_db + 3.0_db*v(i,j,k)*(1.0_db &
-				   + v(i,j,k)))))*w(i,j,k) - 3.0_db*pyy(i,j,k)*(2.0_db &
-				   + 9.0_db*u(i,j,k)*(1.0_db + u(i,j,k)))*w(i,j,k)**2.0_db &
-				   - 3.0_db*pxx(i,j,k)*(2.0_db + 3.0_db*v(i,j,k)*(3.0_db &
-				   + 4.0_db*v(i,j,k)))*w(i,j,k)**2.0_db + 6.0_db*pxy(i,j,k)*(1.0_db &
-				   + 2.0_db*u(i,j,k) + 2.0_db*v(i,j,k) + 6.0_db*u(i,j,k)*v(i,j,k) &
-				   - 3.0_db*(1.0_db + 3.0_db*v(i,j,k) + u(i,j,k)*(3.0_db &
-				   + 7.0_db*v(i,j,k)))*w(i,j,k)**2.0_db)))/2.0_db
-#endif
-#endif
-!7
-#ifdef PHASE_CHANGE
-                  feq=feq+p2*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(forcex + forcey + 2.0_db*forcex*u(i,j,k) &
 				   + 3.0_db*forcey*u(i,j,k) + 3.0_db*forcex*v(i,j,k) &
 				   + 2.0_db*forcey*v(i,j,k) - forcez*w(i,j,k))/(18.0_db*rhophi_loc)
@@ -1177,32 +862,7 @@ contains
 			      feq=(2.0_db*rho(i,j,k) + 6.0_db*(u(i,j,k)**2.0_db &
 			       + (-1.0_db + v(i,j,k))*v(i,j,k) + u(i,j,k)*(-1.0_db &
 			       + 3.0_db*v(i,j,k))) - 3.0_db*w(i,j,k)**2.0_db)/108.0_db
-!8
-				  fneq1=3.0_db*(pxx(i,j,k) + 3.0_db*pxy(i,j,k) + pyy(i,j,k)) &
-				   - (3.0_db*pzz(i,j,k))/2.0_db
-#endif
-#ifdef FORTH_ORDER
-!8
-			      feq=(2.0_db*rho(i,j,k) + 6.0_db*((-1.0_db &
-			       + v(i,j,k))*v(i,j,k) + u(i,j,k)*(-1.0_db - 3.0_db*(-1.0_db &
-			       + v(i,j,k))*v(i,j,k)) + u(i,j,k)**2.0_db*(1.0_db + 3.0_db*(-1.0_db &
-			       + v(i,j,k))*v(i,j,k))) - 3.0_db*(1.0_db &
-			       + 3.0_db*u(i,j,k)**2.0_db + 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k) &
-			       + u(i,j,k)*(-3.0_db + 9.0_db*v(i,j,k)))*w(i,j,k)**2.0_db)/108.0_db
-!8
-				  fneq1=(3.0_db*(pxy(i,j,k)*(6.0_db - 12.0_db*u(i,j,k)) &
-				   + (2.0_db*pyy(i,j,k) - pzz(i,j,k))*(1.0_db + 3.0_db*( &
-				   -1.0_db + u(i,j,k))*u(i,j,k)) + 3.0_db*v(i,j,k)*(pzz(i,j,k) &
-				   + 4.0_db*pxy(i,j,k)*(-1.0_db + 3.0_db*u(i,j,k)) &
-				   - pzz(i,j,k)*(3.0_db*u(i,j,k) + v(i,j,k))) + 6.0_db*(pxz(i,j,k) &
-				   + pyz(i,j,k))*w(i,j,k) - 9.0_db*(2.0_db*pxz(i,j,k)*u(i,j,k) &
-				   + 3.0_db*pyz(i,j,k)*u(i,j,k) + 3.0_db*pxz(i,j,k)*v(i,j,k) &
-				   + 2.0_db*pyz(i,j,k)*v(i,j,k))*w(i,j,k) - 6.0_db*(3.0_db*pxy(i,j,k) &
-				   + pyy(i,j,k))*w(i,j,k)**2.0_db + 2.0_db*pxx(i,j,k)*(1.0_db &
-				   - 3.0_db*v(i,j,k) + 6.0_db*v(i,j,k)**2.0_db &
-				   - 3.0_db*w(i,j,k)**2.0_db)))/2.0_db
-#endif
-#ifdef SIXTH_ORDER
+#else
 !8
 			      feq=(2.0_db*rho(i,j,k) + 6.0_db*((-1.0_db &
 			       + v(i,j,k))*v(i,j,k) + u(i,j,k)*(-1.0_db - 3.0_db*(-1.0_db &
@@ -1211,33 +871,11 @@ contains
 			       + u(i,j,k))*u(i,j,k))*(1.0_db + 3.0_db*(-1.0_db &
 			       + v(i,j,k))*v(i,j,k))*w(i,j,k)**2.0_db)/108.0_db
 !8
-#ifdef GHOSTONE   
+#endif 
 				  fneq1=3.0_db*(pxx(i,j,k) + 3.0_db*pxy(i,j,k) + pyy(i,j,k)) &
 				   - (3.0_db*pzz(i,j,k))/2.0_db
-#else 
-				  fneq1=(3.0_db*(2.0_db*pxx(i,j,k)*(1.0_db - 3.0_db*v(i,j,k) &
-				   + 6.0_db*v(i,j,k)**2.0_db) + (1.0_db + 3.0_db*(-1.0_db &
-				   + u(i,j,k))*u(i,j,k))*(2.0_db*pyy(i,j,k) + pzz(i,j,k)*( &
-				   -1.0_db - 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k))) &
-				   - 3.0_db*(pyz(i,j,k)*(-2.0_db + 6.0_db*v(i,j,k) &
-				   + 9.0_db*(-1.0_db + u(i,j,k))*u(i,j,k)*(-1.0_db &
-				   + 2.0_db*v(i,j,k))) + pxz(i,j,k)*(-2.0_db - 9.0_db*( &
-				   -1.0_db + v(i,j,k))*v(i,j,k) + 6.0_db*u(i,j,k)*(1.0_db &
-				   + 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k))))*w(i,j,k) &
-				   - 3.0_db*pyy(i,j,k)*(2.0_db + 9.0_db*(-1.0_db &
-				   + u(i,j,k))*u(i,j,k))*w(i,j,k)**2.0_db &
-				   - 3.0_db*pxx(i,j,k)*(2.0_db + 3.0_db*v(i,j,k)*( &
-				   -3.0_db + 4.0_db*v(i,j,k)))*w(i,j,k)**2.0_db &
-				   + 6.0_db*pxy(i,j,k)*(1.0_db - 2.0_db*u(i,j,k) &
-				   - 2.0_db*v(i,j,k) + 6.0_db*u(i,j,k)*v(i,j,k) + 3.0_db*( &
-				   -1.0_db + u(i,j,k)*(3.0_db - 7.0_db*v(i,j,k)) &
-				   + 3.0_db*v(i,j,k))*w(i,j,k)**2.0_db)))/2.0_db
-#endif
-#endif
-!8
-#ifdef PHASE_CHANGE
-                  feq=feq+p2*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(forcex + forcey - 2.0_db*forcex*u(i,j,k) &
 				   - 3.0_db*forcey*u(i,j,k) - 3.0_db*forcex*v(i,j,k) &
 				   - 2.0_db*forcey*v(i,j,k) + forcez*w(i,j,k))/(-18.0_db*rhophi_loc)
@@ -1249,31 +887,7 @@ contains
 			      feq=(2.0_db*rho(i,j,k) + 6.0_db*(u(i,j,k) &
 			       + u(i,j,k)**2.0_db - 3.0_db*u(i,j,k)*v(i,j,k) + (-1.0_db &
 			       + v(i,j,k))*v(i,j,k)) - 3.0_db*w(i,j,k)**2.0_db)/108.0_db
-!9
-				  fneq1=3.0_db*(pxx(i,j,k) - 3.0_db*pxy(i,j,k) + pyy(i,j,k)) &
-				   - (3.0_db*pzz(i,j,k))/2.0_db
-#endif
-#ifdef FORTH_ORDER
-!9
-			      feq=(2.0_db*rho(i,j,k) + 6.0_db*(u(i,j,k) &
-			       + (-1.0_db + v(i,j,k))*v(i,j,k) + 3.0_db*u(i,j,k)*(-1.0_db &
-			       + v(i,j,k))*v(i,j,k) + u(i,j,k)**2.0_db*(1.0_db + 3.0_db*(-1.0_db &
-			       + v(i,j,k))*v(i,j,k))) - 3.0_db*(1.0_db - 3.0_db*v(i,j,k) &
-			       + 3.0_db*(u(i,j,k) + u(i,j,k)**2.0_db - 3.0_db*u(i,j,k)*v(i,j,k) &
-			       + v(i,j,k)**2.0_db))*w(i,j,k)**2.0_db)/108.0_db
-!9
-				  fneq1=(3.0_db*(-6.0_db*pxy(i,j,k)*(1.0_db + 2.0_db*u(i,j,k)) &
-				   + (2.0_db*pyy(i,j,k) - pzz(i,j,k))*(1.0_db + 3.0_db*u(i,j,k)*(1.0_db &
-				   + u(i,j,k))) + 3.0_db*v(i,j,k)*((4.0_db*pxy(i,j,k) &
-				   + pzz(i,j,k))*(1.0_db + 3.0_db*u(i,j,k)) - pzz(i,j,k)*v(i,j,k)) &
-				   + 6.0_db*(-pxz(i,j,k) + pyz(i,j,k))*w(i,j,k) + 9.0_db*( &
-				   -2.0_db*pxz(i,j,k)*u(i,j,k) + 3.0_db*pyz(i,j,k)*u(i,j,k) &
-				   + 3.0_db*pxz(i,j,k)*v(i,j,k) - 2.0_db*pyz(i,j,k)*v(i,j,k))*w(i,j,k) &
-				   + 6.0_db*(3.0_db*pxy(i,j,k) - pyy(i,j,k))*w(i,j,k)**2.0_db &
-				   + 2.0_db*pxx(i,j,k)*(1.0_db - 3.0_db*v(i,j,k) &
-				   + 6.0_db*v(i,j,k)**2.0_db - 3.0_db*w(i,j,k)**2.0_db)))/2.0_db
-#endif
-#ifdef SIXTH_ORDER
+#else
 !9
 			      feq=(2.0_db*rho(i,j,k) + 6.0_db*(u(i,j,k) &
 			       + (-1.0_db + v(i,j,k))*v(i,j,k) + 3.0_db*u(i,j,k)*(-1.0_db &
@@ -1282,30 +896,11 @@ contains
 			       + 3.0_db*u(i,j,k)*(1.0_db + u(i,j,k)))*(1.0_db + 3.0_db*(-1.0_db &
 			       + v(i,j,k))*v(i,j,k))*w(i,j,k)**2.0_db)/108.0_db
 !9
-#ifdef GHOSTONE   
+#endif
 				  fneq1=3.0_db*(pxx(i,j,k) - 3.0_db*pxy(i,j,k) + pyy(i,j,k)) &
 				   - (3.0_db*pzz(i,j,k))/2.0_db
-#else 
-				  fneq1=(3.0_db*(2.0_db*pxx(i,j,k)*(1.0_db - 3.0_db*v(i,j,k) &
-				   + 6.0_db*v(i,j,k)**2.0_db) + (1.0_db + 3.0_db*u(i,j,k)*(1.0_db &
-				   + u(i,j,k)))*(2.0_db*pyy(i,j,k) + pzz(i,j,k)*(-1.0_db &
-				   - 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k))) - 3.0_db*(pyz(i,j,k)*( &
-				   -2.0_db + 6.0_db*v(i,j,k) + 9.0_db*u(i,j,k)*(1.0_db &
-				   + u(i,j,k))*(-1.0_db + 2.0_db*v(i,j,k))) + pxz(i,j,k)*(2.0_db &
-				   + 9.0_db*(-1.0_db + v(i,j,k))*v(i,j,k) + 6.0_db*u(i,j,k)*(1.0_db &
-				   + 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k))))*w(i,j,k) &
-				   - 3.0_db*pyy(i,j,k)*(2.0_db + 9.0_db*u(i,j,k)*(1.0_db &
-				   + u(i,j,k)))*w(i,j,k)**2.0_db - 3.0_db*pxx(i,j,k)*(2.0_db &
-				   + 3.0_db*v(i,j,k)*(-3.0_db + 4.0_db*v(i,j,k)))*w(i,j,k)**2.0_db &
-				   + 6.0_db*pxy(i,j,k)*(-1.0_db - 2.0_db*u(i,j,k) + 2.0_db*v(i,j,k) &
-				   + 6.0_db*u(i,j,k)*v(i,j,k) + 3.0_db*(1.0_db + u(i,j,k)*(3.0_db &
-				   - 7.0_db*v(i,j,k)) - 3.0_db*v(i,j,k))*w(i,j,k)**2.0_db)))/2.0_db
-#endif
-#endif
-!9
-#ifdef PHASE_CHANGE
-                  feq=feq+p2*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(forcey + 3.0_db*forcey*u(i,j,k) - 2.0_db*forcey*v(i,j,k) &
 				   + forcex*(-1.0_db - 2.0_db*u(i,j,k) + 3.0_db*v(i,j,k)) &
 				   + forcez*w(i,j,k))/(-18.0_db*rhophi_loc)
@@ -1317,31 +912,7 @@ contains
 			      feq=(2.0_db*rho(i,j,k) + 6.0_db*((-1.0_db &
 			       + u(i,j,k))*u(i,j,k) + v(i,j,k) - 3.0_db*u(i,j,k)*v(i,j,k) &
 			       + v(i,j,k)**2.0_db) - 3.0_db*w(i,j,k)**2.0_db)/108.0_db
-!10
-				  fneq1=3.0_db*(pxx(i,j,k) - 3.0_db*pxy(i,j,k) + pyy(i,j,k)) &
-				   - (3.0_db*pzz(i,j,k))/2.0_db
-#endif
-#ifdef FORTH_ORDER
-!10
-			      feq=(2.0_db*rho(i,j,k) + 6.0_db*((-1.0_db &
-			       + u(i,j,k))*u(i,j,k) + v(i,j,k) + 3.0_db*(-1.0_db &
-			       + u(i,j,k))*u(i,j,k)*v(i,j,k) + (1.0_db + 3.0_db*(-1.0_db &
-			       + u(i,j,k))*u(i,j,k))*v(i,j,k)**2.0_db) - 3.0_db*(1.0_db &
-			       + 3.0_db*u(i,j,k)**2.0_db + 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k)) &
-			       - 3.0_db*u(i,j,k)*(1.0_db + 3.0_db*v(i,j,k)))*w(i,j,k)**2.0_db)/108.0_db
-!10
-				  fneq1=(3.0_db*(6.0_db*pxy(i,j,k)*(-1.0_db + 2.0_db*u(i,j,k)) &
-				   + (2.0_db*pyy(i,j,k) - pzz(i,j,k))*(1.0_db + 3.0_db*( &
-				   -1.0_db + u(i,j,k))*u(i,j,k)) + 3.0_db*v(i,j,k)*((4.0_db*pxy(i,j,k) &
-				   + pzz(i,j,k))*(-1.0_db + 3.0_db*u(i,j,k)) - pzz(i,j,k)*v(i,j,k)) &
-				   + 6.0_db*(pxz(i,j,k) - pyz(i,j,k))*w(i,j,k) + 9.0_db*( &
-				   -2.0_db*pxz(i,j,k)*u(i,j,k) + 3.0_db*pyz(i,j,k)*u(i,j,k) &
-				   + 3.0_db*pxz(i,j,k)*v(i,j,k) - 2.0_db*pyz(i,j,k)*v(i,j,k))*w(i,j,k) &
-				   + 6.0_db*(3.0_db*pxy(i,j,k) - pyy(i,j,k))*w(i,j,k)**2.0_db &
-				   + 2.0_db*pxx(i,j,k)*(1.0_db + 3.0_db*v(i,j,k) &
-				   + 6.0_db*v(i,j,k)**2.0_db - 3.0_db*w(i,j,k)**2.0_db)))/2.0_db
-#endif
-#ifdef SIXTH_ORDER
+#else
 !10
 			      feq=(2.0_db*rho(i,j,k) + 6.0_db*((-1.0_db &
 			       + u(i,j,k))*u(i,j,k) + v(i,j,k) + 3.0_db*(-1.0_db &
@@ -1350,31 +921,11 @@ contains
 			       + 3.0_db*(-1.0_db + u(i,j,k))*u(i,j,k))*(1.0_db + 3.0_db*v(i,j,k)*(1.0_db &
 			       + v(i,j,k)))*w(i,j,k)**2.0_db)/108.0_db
 !10
-#ifdef GHOSTONE   
+#endif
 				  fneq1=3.0_db*(pxx(i,j,k) - 3.0_db*pxy(i,j,k) + pyy(i,j,k)) &
 				   - (3.0_db*pzz(i,j,k))/2.0_db
-#else 
-				  fneq1=(3.0_db*(2.0_db*pxx(i,j,k)*(1.0_db + 3.0_db*v(i,j,k) &
-				   + 6.0_db*v(i,j,k)**2.0_db) + (1.0_db + 3.0_db*(-1.0_db &
-				   + u(i,j,k))*u(i,j,k))*(2.0_db*pyy(i,j,k) - pzz(i,j,k)*(1.0_db &
-				   + 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k)))) - 3.0_db*(pyz(i,j,k)*(2.0_db &
-				   + 6.0_db*v(i,j,k) + 9.0_db*(-1.0_db + u(i,j,k))*u(i,j,k)*(1.0_db &
-				   + 2.0_db*v(i,j,k))) + pxz(i,j,k)*(-2.0_db - 9.0_db*v(i,j,k) &
-				   - 9.0_db*v(i,j,k)**2.0_db + 6.0_db*u(i,j,k)*(1.0_db &
-				   + 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k)))))*w(i,j,k) &
-				   - 3.0_db*pyy(i,j,k)*(2.0_db + 9.0_db*(-1.0_db &
-				   + u(i,j,k))*u(i,j,k))*w(i,j,k)**2.0_db &
-				   - 3.0_db*pxx(i,j,k)*(2.0_db + 3.0_db*v(i,j,k)*(3.0_db &
-				   + 4.0_db*v(i,j,k)))*w(i,j,k)**2.0_db + 6.0_db*pxy(i,j,k)*(&
-				   -1.0_db + 2.0_db*u(i,j,k) - 2.0_db*v(i,j,k) + 6.0_db*u(i,j,k)*v(i,j,k) &
-				   + 3.0_db*(1.0_db + 3.0_db*v(i,j,k) - u(i,j,k)*(3.0_db &
-				   + 7.0_db*v(i,j,k)))*w(i,j,k)**2.0_db)))/2.0_db
-#endif
-#endif
-!10
-#ifdef PHASE_CHANGE
-                  feq=feq+p2*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(forcex - forcey - 2.0_db*forcex*u(i,j,k) &
 				   + 3.0_db*forcey*u(i,j,k) + 3.0_db*forcex*v(i,j,k) &
 				   - 2.0_db*forcey*v(i,j,k) + forcez*w(i,j,k))/(-18.0_db*rhophi_loc)
@@ -1386,31 +937,7 @@ contains
 			      feq=(2.0_db*rho(i,j,k) - 3.0_db*u(i,j,k)**2.0_db &
 			       + 6.0_db*(v(i,j,k) + v(i,j,k)**2.0_db + w(i,j,k) &
 			       + 3.0_db*v(i,j,k)*w(i,j,k) + w(i,j,k)**2.0_db))/108.0_db
-!11
-				  fneq1=(-3.0_db*pxx(i,j,k))/2.0_db + 3.0_db*(pyy(i,j,k) &
-				   + 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#endif
-#ifdef FORTH_ORDER
-!11
-			      feq=(2.0_db*rho(i,j,k) - 3.0_db*u(i,j,k)**2.0_db*(1.0_db &
-			       + 3.0_db*w(i,j,k) + 3.0_db*(v(i,j,k) + v(i,j,k)**2.0_db &
-			       + 3.0_db*v(i,j,k)*w(i,j,k) + w(i,j,k)**2.0_db)) + 6.0_db &
-			       *(v(i,j,k) + w(i,j,k) + w(i,j,k)**2.0_db + 3.0_db*v(i,j,k)*w(i,j,k)*(1.0_db &
-			       + w(i,j,k)) + v(i,j,k)**2.0_db*(1.0_db + 3.0_db*w(i,j,k)*(1.0_db &
-			       + w(i,j,k)))))/108.0_db
-!11
-				  fneq1=(3.0_db*(2.0_db*(pyy(i,j,k) + 3.0_db*pyz(i,j,k) + pzz(i,j,k)) &
-				   - 6.0_db*(pxy(i,j,k) + pxz(i,j,k))*u(i,j,k) - 3.0_db*(pyy(i,j,k) &
-				   + 3.0_db*pyz(i,j,k) + pzz(i,j,k))*u(i,j,k)**2.0_db &
-				   - pxx(i,j,k)*(1.0_db + 6.0_db*v(i,j,k)**2.0_db + 3.0_db*w(i,j,k) &
-				   + 6.0_db*w(i,j,k)**2.0_db + 3.0_db*v(i,j,k)*(1.0_db + 6.0_db*w(i,j,k))) &
-				   + 6.0_db*(-3.0_db*(pxy(i,j,k) + pxz(i,j,k))*u(i,j,k)*v(i,j,k) &
-				   + pzz(i,j,k)*v(i,j,k)*(1.0_db + v(i,j,k)) + (pyy(i,j,k) &
-				   - 3.0_db*(2.0_db*pxy(i,j,k) + pxz(i,j,k))*u(i,j,k))*w(i,j,k) &
-				   + 2.0_db*pyy(i,j,k)*w(i,j,k)**2.0_db + 2.0_db*pyz(i,j,k)*(v(i,j,k) &
-				   + w(i,j,k) + 3.0_db*v(i,j,k)*w(i,j,k)))))/2.0_db
-#endif
-#ifdef SIXTH_ORDER
+#else
 !11
 			      feq=(2.0_db*rho(i,j,k) - 3.0_db*u(i,j,k)**2.0_db*(1.0_db &
 			       + 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k)))*(1.0_db + 3.0_db*w(i,j,k)*(1.0_db &
@@ -1418,32 +945,11 @@ contains
 			       + 3.0_db*v(i,j,k)*w(i,j,k)*(1.0_db + w(i,j,k)) + v(i,j,k)**2.0_db*(1.0_db &
 			       + 3.0_db*w(i,j,k)*(1.0_db + w(i,j,k)))))/108.0_db
 !11
-#ifdef GHOSTONE   
+#endif
 				  fneq1=(-3.0_db*pxx(i,j,k))/2.0_db + 3.0_db*(pyy(i,j,k) &
 				   + 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#else 
-				  fneq1=(3.0_db*(2.0_db*(pyy(i,j,k) + 3.0_db*pyz(i,j,k) + pzz(i,j,k)) &
-				   - 6.0_db*(pxy(i,j,k) + pxz(i,j,k))*u(i,j,k) &
-				   - 3.0_db*(pyy(i,j,k) + 3.0_db*pyz(i,j,k) + pzz(i,j,k))*u(i,j,k)**2.0_db &
-				   - 3.0_db*v(i,j,k)*(pzz(i,j,k)*(-2.0_db + 3.0_db*u(i,j,k)**2.0_db)*(1.0_db &
-				   + v(i,j,k)) + 6.0_db*u(i,j,k)*(pxy(i,j,k) + pxz(i,j,k) + pxz(i,j,k)*v(i,j,k))) &
-				   + 6.0_db*pyy(i,j,k)*w(i,j,k) - 18.0_db*u(i,j,k)*(pxz(i,j,k) &
-				   + pyy(i,j,k)*u(i,j,k) + 3.0_db*pxz(i,j,k)*v(i,j,k)*(1.0_db + v(i,j,k)) &
-				   + pxy(i,j,k)*(2.0_db + 5.0_db*v(i,j,k)))*w(i,j,k) &
-				   - 3.0_db*(pyy(i,j,k)*(-4.0_db + 9.0_db*u(i,j,k)**2.0_db) &
-				   + 6.0_db*pxy(i,j,k)*u(i,j,k)*(3.0_db + 7.0_db*v(i,j,k)))*w(i,j,k)**2.0_db &
-				   - 3.0_db*pyz(i,j,k)*((-4.0_db + 9.0_db*u(i,j,k)**2.0_db)*w(i,j,k) &
-				   + 2.0_db*(-2.0_db + 3.0_db*u(i,j,k)**2.0_db)*v(i,j,k)*(1.0_db &
-				   + 3.0_db*w(i,j,k))) + pxx(i,j,k)*(-1.0_db - 3.0_db*w(i,j,k)*(1.0_db &
-				   + 2.0_db*w(i,j,k)) - 3.0_db*v(i,j,k)*(1.0_db + 3.0_db*w(i,j,k))**2.0_db &
-				   - 3.0_db*v(i,j,k)**2.0_db*(2.0_db + 3.0_db*w(i,j,k)*(3.0_db &
-				   + 4.0_db*w(i,j,k))))))/2.0_db
-#endif
-#endif
-!11
-#ifdef PHASE_CHANGE
-                  feq=feq+p2*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(forcey + forcez - forcex*u(i,j,k) + 2.0_db*forcey*v(i,j,k) &
 				   + 3.0_db*forcez*v(i,j,k) + 3.0_db*forcey*w(i,j,k) &
 				   + 2.0_db*forcez*w(i,j,k))/(18.0_db*rhophi_loc)
@@ -1455,31 +961,7 @@ contains
 			      feq=(2.0_db*rho(i,j,k) - 3.0_db*u(i,j,k)**2.0_db &
 			       + 6.0_db*(v(i,j,k)**2.0_db + (-1.0_db &
 			       + w(i,j,k))*w(i,j,k) + v(i,j,k)*(-1.0_db + 3.0_db*w(i,j,k))))/108.0_db
-!12
-				  fneq1=(-3.0_db*pxx(i,j,k))/2.0_db + 3.0_db*(pyy(i,j,k) &
-				   + 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#endif
-#ifdef FORTH_ORDER
-!12
-			      feq=(2.0_db*rho(i,j,k) + 3.0_db*(2.0_db*( &
-			       -1.0_db + w(i,j,k))*w(i,j,k) + v(i,j,k)*(-2.0_db &
-			       - 6.0_db*(-1.0_db + w(i,j,k))*w(i,j,k)) + v(i,j,k)**2.0_db*(2.0_db &
-			       + 6.0_db*(-1.0_db + w(i,j,k))*w(i,j,k)) - u(i,j,k)**2.0_db*(1.0_db &
-			       + 3.0_db*v(i,j,k)**2.0_db + 3.0_db*(-1.0_db + w(i,j,k))*w(i,j,k) &
-			       + v(i,j,k)*(-3.0_db + 9.0_db*w(i,j,k)))))/108.0_db
-!12
-				  fneq1=(3.0_db*(2.0_db*(pyy(i,j,k) + 3.0_db*pyz(i,j,k) &
-				   + pzz(i,j,k)) + 6.0_db*(pxy(i,j,k) + pxz(i,j,k))*u(i,j,k) &
-				   - 3.0_db*(pyy(i,j,k) + 3.0_db*pyz(i,j,k) + pzz(i,j,k))*u(i,j,k)**2.0_db &
-				   - 6.0_db*v(i,j,k)*(2.0_db*pyz(i,j,k) + pzz(i,j,k) &
-				   + 3.0_db*(pxy(i,j,k) + pxz(i,j,k))*u(i,j,k) &
-				   - pzz(i,j,k)*v(i,j,k)) - 6.0_db*(pyy(i,j,k) + 3.0_db*(2.0_db*pxy(i,j,k) &
-				   + pxz(i,j,k))*u(i,j,k) + pyz(i,j,k)*(2.0_db - 6.0_db*v(i,j,k)))*w(i,j,k) &
-				   + 12.0_db*pyy(i,j,k)*w(i,j,k)**2.0_db - pxx(i,j,k)*(1.0_db &
-				   + 6.0_db*v(i,j,k)**2.0_db - 3.0_db*w(i,j,k) + 6.0_db*w(i,j,k)**2.0_db &
-				   + 3.0_db*v(i,j,k)*(-1.0_db + 6.0_db*w(i,j,k)))))/2.0_db
-#endif
-#ifdef SIXTH_ORDER
+#else
 !12
 			      feq=(2.0_db*rho(i,j,k) + 3.0_db*(2.0_db*(-1.0_db &
 			       + w(i,j,k))*w(i,j,k) + v(i,j,k)*(-2.0_db - 6.0_db*(-1.0_db &
@@ -1487,34 +969,11 @@ contains
 			       + v(i,j,k))*v(i,j,k))*(1.0_db + 3.0_db*(-1.0_db + w(i,j,k))*w(i,j,k)) &
 			       + v(i,j,k)**2.0_db*(2.0_db + 6.0_db*(-1.0_db + w(i,j,k))*w(i,j,k))))/108.0_db
 !12
-#ifdef GHOSTONE   
+#endif
 				  fneq1=(-3.0_db*pxx(i,j,k))/2.0_db + 3.0_db*(pyy(i,j,k) &
 				   + 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#else 
-				  fneq1=(-3.0_db*pxx(i,j,k) + 6.0_db*(pyy(i,j,k) + 3.0_db*pyz(i,j,k) &
-				   + pzz(i,j,k)) + 18.0_db*(pxy(i,j,k) + pxz(i,j,k))*u(i,j,k) &
-				   - 9.0_db*(pyy(i,j,k) + 3.0_db*pyz(i,j,k) + pzz(i,j,k))*u(i,j,k)**2.0_db &
-				   + 9.0_db*(pxx(i,j,k) - 2.0_db*(2.0_db*pyz(i,j,k) + pzz(i,j,k)) &
-				   - 6.0_db*(pxy(i,j,k) + pxz(i,j,k))*u(i,j,k) + 3.0_db*(2.0_db*pyz(i,j,k) &
-				   + pzz(i,j,k))*u(i,j,k)**2.0_db)*v(i,j,k) + 9.0_db*(-2.0_db*pxx(i,j,k) &
-				   + 6.0_db*pxz(i,j,k)*u(i,j,k) + pzz(i,j,k)*(2.0_db &
-				   - 3.0_db*u(i,j,k)**2.0_db))*v(i,j,k)**2.0_db &
-				   + 9.0_db*(-6.0_db*(2.0_db*pxy(i,j,k) + pxz(i,j,k))*u(i,j,k) &
-				   + pyy(i,j,k)*(-2.0_db + 6.0_db*u(i,j,k)**2.0_db) + pyz(i,j,k)*( &
-				   -4.0_db + 9.0_db*u(i,j,k)**2.0_db) + pxx(i,j,k)*(1.0_db &
-				   - 3.0_db*v(i,j,k))**2.0_db + 6.0_db*(5.0_db*pxy(i,j,k)*u(i,j,k) &
-				   + pyz(i,j,k)*(2.0_db - 3.0_db*u(i,j,k)**2.0_db) &
-				   - 3.0_db*pxz(i,j,k)*u(i,j,k)*(-1.0_db + v(i,j,k)))*v(i,j,k))*w(i,j,k) &
-				   - 9.0_db*(pyy(i,j,k)*(-4.0_db + 9.0_db*u(i,j,k)**2.0_db) &
-				   + 6.0_db*pxy(i,j,k)*u(i,j,k)*(-3.0_db + 7.0_db*v(i,j,k)) &
-				   + pxx(i,j,k)*(2.0_db + 3.0_db*v(i,j,k)*(-3.0_db &
-				   + 4.0_db*v(i,j,k))))*w(i,j,k)**2.0_db)/2.0_db
-#endif
-#endif
-!12
-#ifdef PHASE_CHANGE
-                  feq=feq+p2*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(forcey + forcez + forcex*u(i,j,k) - 2.0_db*forcey*v(i,j,k) &
 				   - 3.0_db*forcez*v(i,j,k) - 3.0_db*forcey*w(i,j,k) &
 				   - 2.0_db*forcez*w(i,j,k))/(-18.0_db*rhophi_loc)
@@ -1526,31 +985,7 @@ contains
 			      feq=(2.0_db*rho(i,j,k) - 3.0_db*u(i,j,k)**2.0_db &
 			       + 6.0_db*(v(i,j,k) + v(i,j,k)**2.0_db &
 			       - 3.0_db*v(i,j,k)*w(i,j,k) + (-1.0_db + w(i,j,k))*w(i,j,k)))/108.0_db
-!13
-				  fneq1=(-3.0_db*pxx(i,j,k))/2.0_db + 3.0_db*(pyy(i,j,k) &
-				   - 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#endif
-#ifdef FORTH_ORDER
-!13
-			      feq=(2.0_db*rho(i,j,k) + 3.0_db*(2.0_db*v(i,j,k)*(1.0_db &
-			       + v(i,j,k)) - 2.0_db*(1.0_db + 3.0_db*v(i,j,k)*(1.0_db &
-			       + v(i,j,k)))*w(i,j,k) + 2.0_db*(1.0_db + 3.0_db*v(i,j,k)*(1.0_db &
-			       + v(i,j,k)))*w(i,j,k)**2.0_db - u(i,j,k)**2.0_db*(1.0_db &
-			       - 3.0_db*w(i,j,k) + 3.0_db*(v(i,j,k) + v(i,j,k)**2.0_db &
-			       - 3.0_db*v(i,j,k)*w(i,j,k) + w(i,j,k)**2.0_db))))/108.0_db
-!13
-				  fneq1=(3.0_db*(2.0_db*(pyy(i,j,k) - 3.0_db*pyz(i,j,k) &
-				   + pzz(i,j,k)) + 6.0_db*(-pxy(i,j,k) + pxz(i,j,k))*u(i,j,k) &
-				   - 3.0_db*(pyy(i,j,k) - 3.0_db*pyz(i,j,k) + pzz(i,j,k))*u(i,j,k)**2.0_db &
-				   + 6.0_db*v(i,j,k)*(-2.0_db*pyz(i,j,k) + pzz(i,j,k) &
-				   - 3.0_db*pxy(i,j,k)*u(i,j,k) + 3.0_db*pxz(i,j,k)*u(i,j,k) &
-				   + pzz(i,j,k)*v(i,j,k)) - pxx(i,j,k)*(1.0_db + 3.0_db*v(i,j,k) &
-				   + 6.0_db*v(i,j,k)**2.0_db) + 3.0_db*(pxx(i,j,k) - 2.0_db*pyy(i,j,k) &
-				   + 4.0_db*pyz(i,j,k) + 12.0_db*pxy(i,j,k)*u(i,j,k) - 6.0_db*pxz(i,j,k)*u(i,j,k) &
-				   + 6.0_db*(pxx(i,j,k) + 2.0_db*pyz(i,j,k))*v(i,j,k))*w(i,j,k) &
-				   - 6.0_db*(pxx(i,j,k) - 2.0_db*pyy(i,j,k))*w(i,j,k)**2.0_db))/2.0_db
-#endif
-#ifdef SIXTH_ORDER
+#else
 !13
 			      feq=(2.0_db*rho(i,j,k) - 3.0_db*u(i,j,k)**2.0_db*(1.0_db &
 			       + 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k)))*(1.0_db + 3.0_db*(-1.0_db &
@@ -1558,33 +993,11 @@ contains
 			       + w(i,j,k))*w(i,j,k) + 3.0_db*v(i,j,k)*(-1.0_db + w(i,j,k))*w(i,j,k) &
 			       + v(i,j,k)**2.0_db*(1.0_db + 3.0_db*(-1.0_db + w(i,j,k))*w(i,j,k))))/108.0_db
 !13
-#ifdef GHOSTONE   
+#endif
 				  fneq1=(-3.0_db*pxx(i,j,k))/2.0_db + 3.0_db*(pyy(i,j,k) &
 				   - 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#else 
-				  fneq1=(-3.0_db*pxx(i,j,k) + 6.0_db*(pyy(i,j,k) - 3.0_db*pyz(i,j,k) &
-				   + pzz(i,j,k)) + 18.0_db*(-pxy(i,j,k) + pxz(i,j,k))*u(i,j,k) &
-				   - 9.0_db*(pyy(i,j,k) - 3.0_db*pyz(i,j,k) + pzz(i,j,k))*u(i,j,k)**2.0_db &
-				   - 9.0_db*(pxx(i,j,k) + 4.0_db*pyz(i,j,k) + 3.0_db*(-2.0_db*pyz(i,j,k) &
-				   + pzz(i,j,k))*u(i,j,k)**2.0_db - 2.0_db*(pzz(i,j,k) + 3.0_db*(-pxy(i,j,k) &
-				   + pxz(i,j,k))*u(i,j,k)))*v(i,j,k) - 9.0_db*(2.0_db*pxx(i,j,k) &
-				   - 6.0_db*pxz(i,j,k)*u(i,j,k) + pzz(i,j,k)*(-2.0_db &
-				   + 3.0_db*u(i,j,k)**2.0_db))*v(i,j,k)**2.0_db + 9.0_db*(4.0_db*pyz(i,j,k) &
-				   + 12.0_db*pxy(i,j,k)*u(i,j,k) - 6.0_db*pxz(i,j,k)*u(i,j,k) &
-				   - 9.0_db*pyz(i,j,k)*u(i,j,k)**2.0_db + pyy(i,j,k)*(-2.0_db &
-				   + 6.0_db*u(i,j,k)**2.0_db) + pxx(i,j,k)*(1.0_db + 3.0_db*v(i,j,k))**2.0_db &
-				   + 6.0_db*v(i,j,k)*(5.0_db*pxy(i,j,k)*u(i,j,k) + pyz(i,j,k)*(2.0_db &
-				   - 3.0_db*u(i,j,k)**2.0_db) - 3.0_db*pxz(i,j,k)*u(i,j,k)*(1.0_db &
-				   + v(i,j,k))))*w(i,j,k) - 9.0_db*(pyy(i,j,k)*(-4.0_db &
-				   + 9.0_db*u(i,j,k)**2.0_db) + 6.0_db*pxy(i,j,k)*u(i,j,k)*(3.0_db &
-				   + 7.0_db*v(i,j,k)) + pxx(i,j,k)*(2.0_db + 3.0_db*v(i,j,k)*(3.0_db &
-				   + 4.0_db*v(i,j,k))))*w(i,j,k)**2.0_db)/2.0_db
-#endif
-#endif
-!13
-#ifdef PHASE_CHANGE
-                  feq=feq+p2*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(forcez + forcex*u(i,j,k) + 3.0_db*forcez*v(i,j,k) &
 				   - 2.0_db*forcez*w(i,j,k) + forcey*(-1.0_db - 2.0_db*v(i,j,k) &
 				   + 3.0_db*w(i,j,k)))/(-18.0_db*rhophi_loc)
@@ -1597,32 +1010,7 @@ contains
 			      feq=(2.0_db*rho(i,j,k) - 3.0_db*u(i,j,k)**2.0_db &
 			       + 6.0_db*((-1.0_db + v(i,j,k))*v(i,j,k) + w(i,j,k) &
 			       - 3.0_db*v(i,j,k)*w(i,j,k) + w(i,j,k)**2.0_db))/108.0_db
-!14
-				  fneq1=(-3.0_db*pxx(i,j,k))/2.0_db + 3.0_db*(pyy(i,j,k) &
-				   - 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#endif
-#ifdef FORTH_ORDER
-!14
-			      feq=(2.0_db*rho(i,j,k) + 6.0_db*((-1.0_db &
-			       + v(i,j,k))*v(i,j,k) + w(i,j,k) + 3.0_db*(-1.0_db &
-			       + v(i,j,k))*v(i,j,k)*w(i,j,k) + (1.0_db + 3.0_db*( &
-			       -1.0_db + v(i,j,k))*v(i,j,k))*w(i,j,k)**2.0_db) &
-			       - 3.0_db*u(i,j,k)**2.0_db*(1.0_db &
-			       + 3.0_db*v(i,j,k)**2.0_db + 3.0_db*w(i,j,k)*(1.0_db &
-			       + w(i,j,k)) - 3.0_db*v(i,j,k)*(1.0_db + 3.0_db*w(i,j,k))))/108.0_db
-!14
-				  fneq1=(3.0_db*(2.0_db*(pyy(i,j,k) - 3.0_db*pyz(i,j,k) &
-				   + pzz(i,j,k)) + 6.0_db*(pxy(i,j,k) - pxz(i,j,k))*u(i,j,k) &
-				   - 3.0_db*(pyy(i,j,k) - 3.0_db*pyz(i,j,k) + pzz(i,j,k))*u(i,j,k)**2.0_db &
-				   + 6.0_db*((2.0_db*pyz(i,j,k) + 3.0_db*(-pxy(i,j,k) + pxz(i,j,k))*u(i,j,k) &
-				   + pzz(i,j,k)*(-1.0_db + v(i,j,k)))*v(i,j,k) + (pyy(i,j,k) &
-				   + 6.0_db*pxy(i,j,k)*u(i,j,k) - 3.0_db*pxz(i,j,k)*u(i,j,k) &
-				   + pyz(i,j,k)*(-2.0_db + 6.0_db*v(i,j,k)))*w(i,j,k) &
-				   + 2.0_db*pyy(i,j,k)*w(i,j,k)**2.0_db) - pxx(i,j,k)*(1.0_db &
-				   + 6.0_db*v(i,j,k)**2.0_db + 3.0_db*w(i,j,k) + 6.0_db*w(i,j,k)**2.0_db &
-				   - 3.0_db*v(i,j,k)*(1.0_db + 6.0_db*w(i,j,k)))))/2.0_db
-#endif
-#ifdef SIXTH_ORDER
+#else
 !14
 			      feq=(2.0_db*rho(i,j,k) + 6.0_db*((-1.0_db &
 			       + v(i,j,k))*v(i,j,k) + w(i,j,k) + 3.0_db*(-1.0_db &
@@ -1632,32 +1020,11 @@ contains
 			       + v(i,j,k))*v(i,j,k))*(1.0_db + 3.0_db*w(i,j,k)*(1.0_db &
 			       + w(i,j,k))))/108.0_db
 !14
-#ifdef GHOSTONE   
+#endif
 				  fneq1=(-3.0_db*pxx(i,j,k))/2.0_db + 3.0_db*(pyy(i,j,k) &
 				   - 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#else 
-				  fneq1=(3.0_db*(2.0_db*(pyy(i,j,k) - 3.0_db*pyz(i,j,k) + pzz(i,j,k)) &
-				   + 6.0_db*(pxy(i,j,k) - pxz(i,j,k))*u(i,j,k) - 3.0_db*(pyy(i,j,k) &
-				   - 3.0_db*pyz(i,j,k) + pzz(i,j,k))*u(i,j,k)**2.0_db &
-				   - 3.0_db*(6.0_db*u(i,j,k)*(pxy(i,j,k) + pxz(i,j,k)*(-1.0_db + v(i,j,k))) &
-				   + pzz(i,j,k)*(-2.0_db + 3.0_db*u(i,j,k)**2.0_db)*(-1.0_db + v(i,j,k)))*v(i,j,k) &
-				   + 6.0_db*pyy(i,j,k)*w(i,j,k) - 18.0_db*u(i,j,k)*(pxz(i,j,k) + pyy(i,j,k)*u(i,j,k) &
-				   + 3.0_db*pxz(i,j,k)*(-1.0_db + v(i,j,k))*v(i,j,k) + pxy(i,j,k)*(-2.0_db &
-				   + 5.0_db*v(i,j,k)))*w(i,j,k) + 3.0_db*(pyy(i,j,k)*(4.0_db &
-				   - 9.0_db*u(i,j,k)**2.0_db) + 6.0_db*pxy(i,j,k)*u(i,j,k)*(3.0_db &
-				   - 7.0_db*v(i,j,k)))*w(i,j,k)**2.0_db - 3.0_db*pyz(i,j,k)*((4.0_db &
-				   - 9.0_db*u(i,j,k)**2.0_db)*w(i,j,k) + 2.0_db*(-2.0_db &
-				   + 3.0_db*u(i,j,k)**2.0_db)*v(i,j,k)*(1.0_db + 3.0_db*w(i,j,k))) &
-				   + pxx(i,j,k)*(-1.0_db - 3.0_db*w(i,j,k)*(1.0_db + 2.0_db*w(i,j,k)) &
-				   + 3.0_db*v(i,j,k)*(1.0_db + 3.0_db*w(i,j,k))**2.0_db &
-				   - 3.0_db*v(i,j,k)**2.0_db*(2.0_db + 3.0_db*w(i,j,k)*(3.0_db &
-				   + 4.0_db*w(i,j,k))))))/2.0_db
-#endif
-#endif
-!14
-#ifdef PHASE_CHANGE
-                  feq=feq+p2*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(forcey - forcez + forcex*u(i,j,k) - 2.0_db*forcey*v(i,j,k) &
 				   + 3.0_db*forcez*v(i,j,k) + 3.0_db*forcey*w(i,j,k) &
 				   - 2.0_db*forcez*w(i,j,k))/(-18.0_db*rhophi_loc)
@@ -1669,31 +1036,7 @@ contains
 			      feq=(2.0_db*rho(i,j,k) - 3.0_db*v(i,j,k)**2.0_db &
 			       + 6.0_db*w(i,j,k) + 6.0_db*(u(i,j,k) &
 			       + u(i,j,k)**2.0_db + 3.0_db*u(i,j,k)*w(i,j,k) + w(i,j,k)**2.0_db))/108.0_db
-!15
-				  fneq1=3.0_db*pxx(i,j,k) + 9.0_db*pxz(i,j,k) &
-				   - (3.0_db*pyy(i,j,k))/2.0_db + 3.0_db*pzz(i,j,k)
-#endif
-#ifdef FORTH_ORDER
-!15
-			      feq=(2.0_db*rho(i,j,k) + 3.0_db*(2.0_db*w(i,j,k)*(1.0_db &
-			       + w(i,j,k)) - v(i,j,k)**2.0_db*(1.0_db + 3.0_db*w(i,j,k)*(1.0_db &
-			       + w(i,j,k))) + u(i,j,k)**2.0_db*(2.0_db - 3.0_db*v(i,j,k)**2.0_db &
-			       + 6.0_db*w(i,j,k)*(1.0_db + w(i,j,k))) + u(i,j,k)*(2.0_db &
-			       + 6.0_db*w(i,j,k)*(1.0_db + w(i,j,k)) &
-			       - 3.0_db*v(i,j,k)**2.0_db*(1.0_db + 3.0_db*w(i,j,k)))))/108.0_db
-!15
-				  fneq1=(3.0_db*(2.0_db*pxx(i,j,k) + 6.0_db*pxz(i,j,k)*(1.0_db &
-				   + 2.0_db*u(i,j,k)) - (pyy(i,j,k) - 2.0_db*pzz(i,j,k))*(1.0_db &
-				   + 3.0_db*u(i,j,k)*(1.0_db + u(i,j,k))) - 6.0_db*(pxy(i,j,k) &
-				   + pyz(i,j,k))*(1.0_db + 3.0_db*u(i,j,k))*v(i,j,k) &
-				   - 3.0_db*(2.0_db*pxx(i,j,k) + 3.0_db*pxz(i,j,k) &
-				   + pzz(i,j,k))*v(i,j,k)**2.0_db + 3.0_db*(2.0_db*pxx(i,j,k) &
-				   + 4.0_db*pxz(i,j,k)*(1.0_db + 3.0_db*u(i,j,k)) - pyy(i,j,k)*(1.0_db &
-				   + 6.0_db*u(i,j,k)) - 6.0_db*(2.0_db*pxy(i,j,k) + pyz(i,j,k))*v(i,j,k))*w(i,j,k) &
-				   + 6.0_db*(2.0_db*pxx(i,j,k) - pyy(i,j,k))*w(i,j,k)**2.0_db))/2.0_db
-
-#endif
-#ifdef SIXTH_ORDER
+#else
 !15
 			      feq=(2.0_db*rho(i,j,k) + 3.0_db*(2.0_db*w(i,j,k)*(1.0_db &
 			       + w(i,j,k)) - v(i,j,k)**2.0_db*(1.0_db + 3.0_db*w(i,j,k)*(1.0_db &
@@ -1702,31 +1045,11 @@ contains
 			       + 3.0_db*v(i,j,k)**2.0_db)*(1.0_db + 3.0_db*w(i,j,k)*(1.0_db &
 			       + w(i,j,k)))))/108.0_db
 !15
-#ifdef GHOSTONE   
+#endif
 				  fneq1=3.0_db*pxx(i,j,k) + 9.0_db*pxz(i,j,k) &
 				   - (3.0_db*pyy(i,j,k))/2.0_db + 3.0_db*pzz(i,j,k)
-#else 
-				  fneq1=(3.0_db*(2.0_db*pxx(i,j,k) + 6.0_db*pxz(i,j,k)*(1.0_db &
-				   + 2.0_db*u(i,j,k)) - (pyy(i,j,k) - 2.0_db*pzz(i,j,k))*(1.0_db &
-				   + 3.0_db*u(i,j,k)*(1.0_db + u(i,j,k))) - 6.0_db*(pxy(i,j,k) &
-				   + pyz(i,j,k) + 3.0_db*pxy(i,j,k)*u(i,j,k) + 3.0_db*pyz(i,j,k)*u(i,j,k)*(1.0_db &
-				   + u(i,j,k)))*v(i,j,k) - 3.0_db*(2.0_db*pxx(i,j,k) + pzz(i,j,k) &
-				   + 3.0_db*pzz(i,j,k)*u(i,j,k)*(1.0_db + u(i,j,k)) + pxz(i,j,k)*(3.0_db &
-				   + 6.0_db*u(i,j,k)))*v(i,j,k)**2.0_db - 3.0_db*(-2.0_db*pxx(i,j,k) &
-				   + pyy(i,j,k) + 6.0_db*pyy(i,j,k)*u(i,j,k)*(1.0_db + u(i,j,k)) &
-				   - 4.0_db*pxz(i,j,k)*(1.0_db + 3.0_db*u(i,j,k)) + 6.0_db*(pyz(i,j,k) &
-				   + 3.0_db*pyz(i,j,k)*u(i,j,k)*(1.0_db + u(i,j,k)) + pxy(i,j,k)*(2.0_db &
-				   + 5.0_db*u(i,j,k)))*v(i,j,k) + 9.0_db*(pxx(i,j,k) + pxz(i,j,k) &
-				   + 2.0_db*pxz(i,j,k)*u(i,j,k))*v(i,j,k)**2.0_db)*w(i,j,k) &
-				   - 3.0_db*(pyy(i,j,k)*(2.0_db + 9.0_db*u(i,j,k)*(1.0_db + u(i,j,k))) &
-				   + 6.0_db*pxy(i,j,k)*(3.0_db + 7.0_db*u(i,j,k))*v(i,j,k) &
-				   + 4.0_db*pxx(i,j,k)*(-1.0_db + 3.0_db*v(i,j,k)**2.0_db))*w(i,j,k)**2.0_db))/2.0_db
-#endif
-#endif
-!15
-#ifdef PHASE_CHANGE
-                  feq=feq+p2*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(forcex + forcez + 2.0_db*forcex*u(i,j,k) &
 				   + 3.0_db*forcez*u(i,j,k) - forcey*v(i,j,k) + 3.0_db*forcex*w(i,j,k) &
 				   + 2.0_db*forcez*w(i,j,k))/(18.0_db*rhophi_loc)
@@ -1739,30 +1062,7 @@ contains
 			      feq=(2.0_db*rho(i,j,k) + 3.0_db*(2.0_db*u(i,j,k)**2.0_db &
 			       - v(i,j,k)**2.0_db + 2.0_db*(-1.0_db + w(i,j,k))*w(i,j,k) &
 			       + u(i,j,k)*(-2.0_db + 6.0_db*w(i,j,k))))/108.0_db
-!16
-				  fneq1=3.0_db*pxx(i,j,k) + 9.0_db*pxz(i,j,k) &
-				   - (3.0_db*pyy(i,j,k))/2.0_db + 3.0_db*pzz(i,j,k)
-#endif
-#ifdef FORTH_ORDER
-!16
-			      feq=(2.0_db*rho(i,j,k) + 3.0_db*(2.0_db*(-1.0_db &
-			       + w(i,j,k))*w(i,j,k) + u(i,j,k)*(-2.0_db + v(i,j,k)**2.0_db*(3.0_db &
-			       - 9.0_db*w(i,j,k)) - 6.0_db*(-1.0_db + w(i,j,k))*w(i,j,k)) &
-			       + v(i,j,k)**2.0_db*(-1.0_db - 3.0_db*(-1.0_db + w(i,j,k))*w(i,j,k)) &
-			       + u(i,j,k)**2.0_db*(2.0_db - 3.0_db*v(i,j,k)**2.0_db + 6.0_db*( &
-			       -1.0_db + w(i,j,k))*w(i,j,k))))/108.0_db
-!16
-				  fneq1=(3.0_db*(2.0_db*pxx(i,j,k) + pxz(i,j,k)*(6.0_db &
-				   - 12.0_db*u(i,j,k)) - (pyy(i,j,k) - 2.0_db*pzz(i,j,k))*(1.0_db &
-				   + 3.0_db*(-1.0_db + u(i,j,k))*u(i,j,k)) - 6.0_db*(pxy(i,j,k) &
-				   + pyz(i,j,k))*(-1.0_db + 3.0_db*u(i,j,k))*v(i,j,k) &
-				   - 3.0_db*(2.0_db*pxx(i,j,k) + 3.0_db*pxz(i,j,k) &
-				   + pzz(i,j,k))*v(i,j,k)**2.0_db - 3.0_db*(2.0_db*pxx(i,j,k) &
-				   + pxz(i,j,k)*(4.0_db - 12.0_db*u(i,j,k)) + pyy(i,j,k)*(-1.0_db &
-				   + 6.0_db*u(i,j,k)) + 6.0_db*(2.0_db*pxy(i,j,k) + pyz(i,j,k))*v(i,j,k))*w(i,j,k) &
-				   + 6.0_db*(2.0_db*pxx(i,j,k) - pyy(i,j,k))*w(i,j,k)**2.0_db))/2.0_db
-#endif
-#ifdef SIXTH_ORDER
+#else
 !16
 			      feq=(2.0_db*rho(i,j,k) + 3.0_db*(2.0_db*(-1.0_db &
 			       + w(i,j,k))*w(i,j,k) + v(i,j,k)**2.0_db*(-1.0_db - 3.0_db*(-1.0_db &
@@ -1771,32 +1071,11 @@ contains
 			       + 3.0_db*v(i,j,k)**2.0_db)*(1.0_db + 3.0_db*(-1.0_db &
 			       + w(i,j,k))*w(i,j,k))))/108.0_db
 !16
-#ifdef GHOSTONE   
+#endif
 				  fneq1=3.0_db*pxx(i,j,k) + 9.0_db*pxz(i,j,k) &
 				   - (3.0_db*pyy(i,j,k))/2.0_db + 3.0_db*pzz(i,j,k)
-#else 
-				  fneq1=(3.0_db*(2.0_db*pxx(i,j,k) + pxz(i,j,k)*(6.0_db &
-				   - 12.0_db*u(i,j,k)) - (pyy(i,j,k) - 2.0_db*pzz(i,j,k))*(1.0_db &
-				   + 3.0_db*(-1.0_db + u(i,j,k))*u(i,j,k)) + 6.0_db*(pxy(i,j,k) &
-				   + pyz(i,j,k) - 3.0_db*pxy(i,j,k)*u(i,j,k) + 3.0_db*pyz(i,j,k)*( &
-				   -1.0_db + u(i,j,k))*u(i,j,k))*v(i,j,k) - 3.0_db*(2.0_db*pxx(i,j,k) &
-				   + pzz(i,j,k) + pxz(i,j,k)*(3.0_db - 6.0_db*u(i,j,k)) &
-				   + 3.0_db*pzz(i,j,k)*(-1.0_db + u(i,j,k))*u(i,j,k))*v(i,j,k)**2.0_db &
-				   + 3.0_db*(-2.0_db*pxx(i,j,k) + pyy(i,j,k) + 4.0_db*pxz(i,j,k)*( &
-				   -1.0_db + 3.0_db*u(i,j,k)) - 6.0_db*(2.0_db*pxy(i,j,k) &
-				   + pyz(i,j,k))*v(i,j,k) + 9.0_db*(pxx(i,j,k) + pxz(i,j,k) &
-				   - 2.0_db*pxz(i,j,k)*u(i,j,k))*v(i,j,k)**2.0_db + 6.0_db*u(i,j,k)*(pyy(i,j,k)*( &
-				   -1.0_db + u(i,j,k)) + 5.0_db*pxy(i,j,k)*v(i,j,k) &
-				   - 3.0_db*pyz(i,j,k)*(-1.0_db + u(i,j,k))*v(i,j,k)))*w(i,j,k) &
-				   - 3.0_db*(pyy(i,j,k)*(2.0_db + 9.0_db*(-1.0_db + u(i,j,k))*u(i,j,k)) &
-				   + 6.0_db*pxy(i,j,k)*(-3.0_db + 7.0_db*u(i,j,k))*v(i,j,k) + 4.0_db*pxx(i,j,k)*( &
-				   -1.0_db + 3.0_db*v(i,j,k)**2.0_db))*w(i,j,k)**2.0_db))/2.0_db
-#endif
-#endif
-!16
-#ifdef PHASE_CHANGE
-                  feq=feq+p2*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(forcex + forcez - 2.0_db*forcex*u(i,j,k) &
 				   - 3.0_db*forcez*u(i,j,k) + forcey*v(i,j,k) - 3.0_db*forcex*w(i,j,k) &
 				   - 2.0_db*forcez*w(i,j,k))/(-18.0_db*rhophi_loc)
@@ -1809,31 +1088,7 @@ contains
 			      feq=(2.0_db*rho(i,j,k) + 3.0_db*(2.0_db*u(i,j,k)**2.0_db &
 			       - v(i,j,k)**2.0_db + 2.0_db*w(i,j,k)*(1.0_db + w(i,j,k)) &
 			       - 2.0_db*u(i,j,k)*(1.0_db + 3.0_db*w(i,j,k))))/108.0_db
-!17
-				  fneq1=3.0_db*pxx(i,j,k) - 9.0_db*pxz(i,j,k) &
-				   - (3.0_db*pyy(i,j,k))/2.0_db + 3.0_db*pzz(i,j,k)
-#endif
-#ifdef FORTH_ORDER
-!17
-			      feq=(2.0_db*rho(i,j,k) + 3.0_db*(2.0_db*w(i,j,k)*(1.0_db &
-			       + w(i,j,k)) - v(i,j,k)**2.0_db*(1.0_db + 3.0_db*w(i,j,k)*(1.0_db &
-			       + w(i,j,k))) + u(i,j,k)**2.0_db*(2.0_db - 3.0_db*v(i,j,k)**2.0_db &
-			       + 6.0_db*w(i,j,k)*(1.0_db + w(i,j,k))) + u(i,j,k)*(-2.0_db &
-			       - 6.0_db*w(i,j,k)*(1.0_db + w(i,j,k)) + v(i,j,k)**2.0_db*(3.0_db &
-			       + 9.0_db*w(i,j,k)))))/108.0_db
-!17
-				  fneq1=(3.0_db*(6.0_db*pxz(i,j,k)*(-1.0_db + 2.0_db*u(i,j,k)) &
-				   - (pyy(i,j,k) - 2.0_db*pzz(i,j,k))*(1.0_db + 3.0_db*(-1.0_db &
-				   + u(i,j,k))*u(i,j,k)) - 6.0_db*(pxy(i,j,k) - pyz(i,j,k))*(-1.0_db &
-				   + 3.0_db*u(i,j,k))*v(i,j,k) + 3.0_db*(3.0_db*pxz(i,j,k) &
-				   - pzz(i,j,k))*v(i,j,k)**2.0_db + 3.0_db*(-4.0_db*pxz(i,j,k) &
-				   - pyy(i,j,k) + 6.0_db*(2.0_db*pxz(i,j,k) + pyy(i,j,k))*u(i,j,k) &
-				   + 12.0_db*pxy(i,j,k)*v(i,j,k) - 6.0_db*pyz(i,j,k)*v(i,j,k))*w(i,j,k) &
-				   - 6.0_db*pyy(i,j,k)*w(i,j,k)**2.0_db + pxx(i,j,k)*(2.0_db &
-				   - 6.0_db*v(i,j,k)**2.0_db + 6.0_db*w(i,j,k)*(1.0_db &
-				   + 2.0_db*w(i,j,k)))))/2.0_db
-#endif
-#ifdef SIXTH_ORDER
+#else
 !17
 			      feq=(2.0_db*rho(i,j,k) + 3.0_db*(2.0_db*w(i,j,k)*(1.0_db &
 			       + w(i,j,k)) - v(i,j,k)**2.0_db*(1.0_db + 3.0_db*w(i,j,k)*(1.0_db &
@@ -1842,32 +1097,11 @@ contains
 			       + 3.0_db*v(i,j,k)**2.0_db)*(1.0_db + 3.0_db*w(i,j,k)*(1.0_db &
 			       + w(i,j,k)))))/108.0_db
 !17
-#ifdef GHOSTONE   
+#endif
 				  fneq1=3.0_db*pxx(i,j,k) - 9.0_db*pxz(i,j,k) &
 				   - (3.0_db*pyy(i,j,k))/2.0_db + 3.0_db*pzz(i,j,k)
-#else 
-				  fneq1=(3.0_db*(2.0_db*pxx(i,j,k) + 6.0_db*pxz(i,j,k)*(-1.0_db &
-				   + 2.0_db*u(i,j,k)) - (pyy(i,j,k) - 2.0_db*pzz(i,j,k))*(1.0_db &
-				   + 3.0_db*(-1.0_db + u(i,j,k))*u(i,j,k)) - 6.0_db*(pyz(i,j,k) &
-				   + 3.0_db*pyz(i,j,k)*(-1.0_db + u(i,j,k))*u(i,j,k) + pxy(i,j,k)*(-1.0_db &
-				   + 3.0_db*u(i,j,k)))*v(i,j,k) - 3.0_db*(2.0_db*pxx(i,j,k) + pzz(i,j,k) &
-				   + 3.0_db*pzz(i,j,k)*(-1.0_db + u(i,j,k))*u(i,j,k) + pxz(i,j,k)*(-3.0_db &
-				   + 6.0_db*u(i,j,k)))*v(i,j,k)**2.0_db - 3.0_db*(-2.0_db*pxx(i,j,k) &
-				   + pyy(i,j,k) + pxz(i,j,k)*(4.0_db - 12.0_db*u(i,j,k)) &
-				   + 6.0_db*pyy(i,j,k)*(-1.0_db + u(i,j,k))*u(i,j,k) &
-				   + 6.0_db*(pyz(i,j,k) + 3.0_db*pyz(i,j,k)*(-1.0_db &
-				   + u(i,j,k))*u(i,j,k) + pxy(i,j,k)*(-2.0_db + 5.0_db*u(i,j,k)))*v(i,j,k) &
-				   + 9.0_db*(pxx(i,j,k) + pxz(i,j,k)*(-1.0_db &
-				   + 2.0_db*u(i,j,k)))*v(i,j,k)**2.0_db)*w(i,j,k) &
-				   - 3.0_db*(pyy(i,j,k)*(2.0_db + 9.0_db*(-1.0_db + u(i,j,k))*u(i,j,k)) &
-				   + 6.0_db*pxy(i,j,k)*(-3.0_db + 7.0_db*u(i,j,k))*v(i,j,k) &
-				   + 4.0_db*pxx(i,j,k)*(-1.0_db + 3.0_db*v(i,j,k)**2.0_db))*w(i,j,k)**2.0_db))/2.0_db
-#endif
-#endif
-!17
-#ifdef PHASE_CHANGE
-                  feq=feq+p2*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(forcex - forcez - 2.0_db*forcex*u(i,j,k) &
 				   + 3.0_db*forcez*u(i,j,k) + forcey*v(i,j,k) + 3.0_db*forcex*w(i,j,k) &
 				   - 2.0_db*forcez*w(i,j,k))/(-18.0_db*rhophi_loc)
@@ -1880,30 +1114,7 @@ contains
 			      feq=(2.0_db*rho(i,j,k) - 3.0_db*v(i,j,k)**2.0_db &
 			       - 6.0_db*w(i,j,k) + 6.0_db*(u(i,j,k) &
 			       + u(i,j,k)**2.0_db - 3.0_db*u(i,j,k)*w(i,j,k) + w(i,j,k)**2.0_db))/108.0_db
-!18
-				  fneq1=3.0_db*pxx(i,j,k) - 9.0_db*pxz(i,j,k) &
-				   - (3.0_db*pyy(i,j,k))/2.0_db + 3.0_db*pzz(i,j,k)
-#endif
-#ifdef FORTH_ORDER
-!18
-			      feq=(2.0_db*rho(i,j,k) + 3.0_db*(2.0_db*(-1.0_db &
-			       + w(i,j,k))*w(i,j,k) + v(i,j,k)**2.0_db*(-1.0_db - 3.0_db*(-1.0_db &
-			       + w(i,j,k))*w(i,j,k)) + u(i,j,k)**2.0_db*(2.0_db - 3.0_db*v(i,j,k)**2.0_db &
-			       + 6.0_db*(-1.0_db + w(i,j,k))*w(i,j,k)) + u(i,j,k)*(2.0_db + 6.0_db*(-1.0_db &
-			       + w(i,j,k))*w(i,j,k) + v(i,j,k)**2.0_db*(-3.0_db + 9.0_db*w(i,j,k)))))/108.0_db
-!18
-				  fneq1=(3.0_db*(2.0_db*pxx(i,j,k) - 6.0_db*pxz(i,j,k)*(1.0_db &
-				   + 2.0_db*u(i,j,k)) - (pyy(i,j,k) - 2.0_db*pzz(i,j,k))*(1.0_db &
-				   + 3.0_db*u(i,j,k)*(1.0_db + u(i,j,k))) - 6.0_db*(pxy(i,j,k) &
-				   - pyz(i,j,k))*(1.0_db + 3.0_db*u(i,j,k))*v(i,j,k) &
-				   - 3.0_db*(2.0_db*pxx(i,j,k) - 3.0_db*pxz(i,j,k) &
-				   + pzz(i,j,k))*v(i,j,k)**2.0_db + 3.0_db*(-2.0_db*pxx(i,j,k) &
-				   + 4.0_db*pxz(i,j,k) + pyy(i,j,k) + 6.0_db*(2.0_db*pxz(i,j,k) &
-				   + pyy(i,j,k))*u(i,j,k) + 12.0_db*pxy(i,j,k)*v(i,j,k) &
-				   - 6.0_db*pyz(i,j,k)*v(i,j,k))*w(i,j,k) + 6.0_db*(2.0_db*pxx(i,j,k) &
-				   - pyy(i,j,k))*w(i,j,k)**2.0_db))/2.0_db
-#endif
-#ifdef SIXTH_ORDER
+#else
 !18
 			      feq=(2.0_db*rho(i,j,k) + 3.0_db*(2.0_db*(-1.0_db &
 			       + w(i,j,k))*w(i,j,k) + v(i,j,k)**2.0_db*(-1.0_db &
@@ -1913,32 +1124,11 @@ contains
 			       + 3.0_db*v(i,j,k)**2.0_db)*(1.0_db + 3.0_db*(-1.0_db &
 			       + w(i,j,k))*w(i,j,k))))/108.0_db
 !18
-#ifdef GHOSTONE   
+#endif
 				  fneq1=3.0_db*pxx(i,j,k) - 9.0_db*pxz(i,j,k) &
 				   - (3.0_db*pyy(i,j,k))/2.0_db + 3.0_db*pzz(i,j,k)
-#else 
-				  fneq1=(3.0_db*(2.0_db*pxx(i,j,k) - 6.0_db*pxz(i,j,k)*(1.0_db &
-				   + 2.0_db*u(i,j,k)) - (pyy(i,j,k) - 2.0_db*pzz(i,j,k))*(1.0_db &
-				   + 3.0_db*u(i,j,k)*(1.0_db + u(i,j,k))) + 6.0_db*(pyz(i,j,k) &
-				   + 3.0_db*pyz(i,j,k)*u(i,j,k)*(1.0_db + u(i,j,k)) - pxy(i,j,k)*(1.0_db &
-				   + 3.0_db*u(i,j,k)))*v(i,j,k) - 3.0_db*(2.0_db*pxx(i,j,k) + pzz(i,j,k) &
-				   + 3.0_db*pzz(i,j,k)*u(i,j,k)*(1.0_db + u(i,j,k)) - 3.0_db*pxz(i,j,k)*(1.0_db &
-				   + 2.0_db*u(i,j,k)))*v(i,j,k)**2.0_db + 3.0_db*(-2.0_db*pxx(i,j,k) &
-				   + pyy(i,j,k) + 6.0_db*pyy(i,j,k)*u(i,j,k)*(1.0_db + u(i,j,k)) &
-				   + 4.0_db*pxz(i,j,k)*(1.0_db + 3.0_db*u(i,j,k)) + 6.0_db*pxy(i,j,k)*(2.0_db &
-				   + 5.0_db*u(i,j,k))*v(i,j,k) - 6.0_db*pyz(i,j,k)*(1.0_db &
-				   + 3.0_db*u(i,j,k)*(1.0_db + u(i,j,k)))*v(i,j,k) &
-				   + 9.0_db*(pxx(i,j,k) - pxz(i,j,k)*(1.0_db &
-				   + 2.0_db*u(i,j,k)))*v(i,j,k)**2.0_db)*w(i,j,k) &
-				   - 3.0_db*(pyy(i,j,k)*(2.0_db + 9.0_db*u(i,j,k)*(1.0_db &
-				   + u(i,j,k))) + 6.0_db*pxy(i,j,k)*(3.0_db + 7.0_db*u(i,j,k))*v(i,j,k) &
-				   + 4.0_db*pxx(i,j,k)*(-1.0_db + 3.0_db*v(i,j,k)**2.0_db))*w(i,j,k)**2.0_db))/2.0_db
-#endif
-#endif
-!18
-#ifdef PHASE_CHANGE
-                  feq=feq+p2*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(forcez + 3.0_db*forcez*u(i,j,k) + forcey*v(i,j,k) &
 				   - 2.0_db*forcez*w(i,j,k) + forcex*(-1.0_db - 2.0_db*u(i,j,k) &
 				   + 3.0_db*w(i,j,k)))/(-18.0_db*rhophi_loc)
@@ -1952,37 +1142,7 @@ contains
 			       + v(i,j,k) + 3.0_db*u(i,j,k)*v(i,j,k) + v(i,j,k)**2.0_db &
 			       + w(i,j,k) + 3.0_db*(u(i,j,k) + v(i,j,k))*w(i,j,k) &
 			       + w(i,j,k)**2.0_db))/216.0_db
-!19
-				  fneq1=3.0_db*(pxx(i,j,k) + 3.0_db*pxy(i,j,k) &
-				   + 3.0_db*pxz(i,j,k) + pyy(i,j,k) + 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#endif
-#ifdef FORTH_ORDER
-!19
-			      feq=(rho(i,j,k) + 3.0_db*(v(i,j,k) + v(i,j,k)**2.0_db &
-			       + w(i,j,k) + 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k))*w(i,j,k) &
-			       + (1.0_db + 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k)))*w(i,j,k)**2.0_db &
-			       + u(i,j,k)**2.0_db*(1.0_db + 3.0_db*w(i,j,k) + 3.0_db*(v(i,j,k) &
-			       + v(i,j,k)**2.0_db + 3.0_db*v(i,j,k)*w(i,j,k) + w(i,j,k)**2.0_db)) &
-			       + u(i,j,k)*(1.0_db + 3.0_db*w(i,j,k)*(1.0_db + w(i,j,k)) &
-			       + v(i,j,k)**2.0_db*(3.0_db + 9.0_db*w(i,j,k)) + v(i,j,k)*(3.0_db &
-			       + 9.0_db*w(i,j,k)*(1.0_db + w(i,j,k))))))/216.0_db
-!19
-				  fneq1=3.0_db*(pxy(i,j,k)*(3.0_db + 6.0_db*u(i,j,k)) &
-				   + pxz(i,j,k)*(3.0_db + 6.0_db*u(i,j,k)) + (pyy(i,j,k) &
-				   + 3.0_db*pyz(i,j,k) + pzz(i,j,k))*(1.0_db + 3.0_db*u(i,j,k)*(1.0_db &
-				   + u(i,j,k))) + 3.0_db*v(i,j,k)*((2.0_db*pyz(i,j,k) + pzz(i,j,k))*(1.0_db &
-				   + 3.0_db*u(i,j,k)) + pxy(i,j,k)*(2.0_db + 6.0_db*u(i,j,k)) &
-				   + pzz(i,j,k)*v(i,j,k) + 3.0_db*pxz(i,j,k)*(1.0_db &
-				   + 2.0_db*u(i,j,k) + v(i,j,k))) + 3.0_db*(pyy(i,j,k) &
-				   + 2.0_db*pyz(i,j,k) + 6.0_db*pyy(i,j,k)*u(i,j,k) &
-				   + 9.0_db*pyz(i,j,k)*u(i,j,k) + 6.0_db*pyz(i,j,k)*v(i,j,k) &
-				   + 3.0_db*pxy(i,j,k)*(1.0_db + 4.0_db*u(i,j,k) + 4.0_db*v(i,j,k)) &
-				   + pxz(i,j,k)*(2.0_db + 6.0_db*u(i,j,k) + 9.0_db*v(i,j,k)))*w(i,j,k) &
-				   + 6.0_db*(3.0_db*pxy(i,j,k) + pyy(i,j,k))*w(i,j,k)**2.0_db &
-				   + pxx(i,j,k)*(1.0_db + 6.0_db*v(i,j,k)**2.0_db + 3.0_db*w(i,j,k) &
-				   + 6.0_db*w(i,j,k)**2.0_db + 3.0_db*v(i,j,k)*(1.0_db + 6.0_db*w(i,j,k))))
-#endif
-#ifdef SIXTH_ORDER
+#else
 !19
 			      feq=(rho(i,j,k) + 3.0_db*(v(i,j,k) + v(i,j,k)**2.0_db &
 			       + w(i,j,k) + 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k))*w(i,j,k) + (1.0_db &
@@ -1991,37 +1151,11 @@ contains
 			       + w(i,j,k))) + u(i,j,k)**2.0_db*(1.0_db + 3.0_db*v(i,j,k)*(1.0_db &
 			       + v(i,j,k)))*(1.0_db + 3.0_db*w(i,j,k)*(1.0_db + w(i,j,k)))))/216.0_db
 !19
-#ifdef GHOSTONE   
+#endif
 				  fneq1=3.0_db*(pxx(i,j,k) + 3.0_db*pxy(i,j,k) &
 				   + 3.0_db*pxz(i,j,k) + pyy(i,j,k) + 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#else 
-				  fneq1=3.0_db*(pxy(i,j,k)*(3.0_db + 6.0_db*u(i,j,k)) &
-				   + pxz(i,j,k)*(3.0_db + 6.0_db*u(i,j,k)) + (pyy(i,j,k) &
-				   + 3.0_db*pyz(i,j,k) + pzz(i,j,k))*(1.0_db + 3.0_db*u(i,j,k)*(1.0_db &
-				   + u(i,j,k))) + 3.0_db*(v(i,j,k)*(pxy(i,j,k)*(2.0_db + 6.0_db*u(i,j,k)) &
-				   + 3.0_db*pxz(i,j,k)*(1.0_db + 2.0_db*u(i,j,k))*(1.0_db + v(i,j,k)) &
-				   + (1.0_db + 3.0_db*u(i,j,k)*(1.0_db + u(i,j,k)))*(2.0_db*pyz(i,j,k) &
-				   + pzz(i,j,k) + pzz(i,j,k)*v(i,j,k))) + (pyy(i,j,k) &
-				   + 2.0_db*pyz(i,j,k) + 3.0_db*(2.0_db*pyy(i,j,k) &
-				   + 3.0_db*pyz(i,j,k))*u(i,j,k)*(1.0_db + u(i,j,k)) &
-				   + 6.0_db*pyz(i,j,k)*(1.0_db + 3.0_db*u(i,j,k)*(1.0_db &
-				   + u(i,j,k)))*v(i,j,k) + 3.0_db*pxy(i,j,k)*(1.0_db + 4.0_db*v(i,j,k) &
-				   + 2.0_db*u(i,j,k)*(2.0_db + 5.0_db*v(i,j,k))) &
-				   + pxz(i,j,k)*(2.0_db + 9.0_db*v(i,j,k)*(1.0_db + v(i,j,k)) &
-				   + 6.0_db*u(i,j,k)*(1.0_db + 3.0_db*v(i,j,k)*(1.0_db &
-				   + v(i,j,k)))))*w(i,j,k) + (pyy(i,j,k)*(2.0_db &
-				   + 9.0_db*u(i,j,k)*(1.0_db + u(i,j,k))) + 6.0_db*pxy(i,j,k)*(1.0_db &
-				   + 3.0_db*v(i,j,k) + u(i,j,k)*(3.0_db + 7.0_db*v(i,j,k))))*w(i,j,k)**2.0_db) &
-				   + pxx(i,j,k)*(1.0_db + 3.0_db*w(i,j,k) + 6.0_db*w(i,j,k)**2.0_db &
-				   + 3.0_db*v(i,j,k)*(1.0_db + 3.0_db*w(i,j,k))**2.0_db &
-				   + 3.0_db*v(i,j,k)**2.0_db*(2.0_db + 3.0_db*w(i,j,k)*(3.0_db &
-				   + 4.0_db*w(i,j,k)))))
-#endif
-#endif
-!19
-#ifdef PHASE_CHANGE
-                  feq=feq+p3*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(forcez + 3.0_db*forcez*(u(i,j,k) + v(i,j,k)) &
 				   + 2.0_db*forcez*w(i,j,k) + forcey*(1.0_db + 3.0_db*u(i,j,k) &
 				   + 2.0_db*v(i,j,k) + 3.0_db*w(i,j,k)) + forcex*(1.0_db + 2.0_db*u(i,j,k) &
@@ -2037,37 +1171,7 @@ contains
 			       + v(i,j,k))*v(i,j,k) + (-1.0_db + 3.0_db*v(i,j,k))*w(i,j,k) &
 			       + w(i,j,k)**2.0_db + u(i,j,k)*(-1.0_db + 3.0_db*v(i,j,k) &
 			       + 3.0_db*w(i,j,k))))/216.0_db
-!20
-				  fneq1=3.0_db*(pxx(i,j,k) + 3.0_db*pxy(i,j,k) &
-				   + 3.0_db*pxz(i,j,k) + pyy(i,j,k) + 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#endif
-#ifdef FORTH_ORDER
-!20
-			      feq=(rho(i,j,k) + 3.0_db*((-1.0_db + v(i,j,k))*v(i,j,k) &
-			       + (-1.0_db - 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k))*w(i,j,k) &
-			       + (1.0_db + 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k))*w(i,j,k)**2.0_db &
-			       + u(i,j,k)**2.0_db*(1.0_db + 3.0_db*v(i,j,k)**2.0_db + 3.0_db*(-1.0_db &
-			       + w(i,j,k))*w(i,j,k) + v(i,j,k)*(-3.0_db + 9.0_db*w(i,j,k))) &
-			       + u(i,j,k)*(-1.0_db - 3.0_db*(-1.0_db + w(i,j,k))*w(i,j,k) &
-			       + v(i,j,k)**2.0_db*(-3.0_db + 9.0_db*w(i,j,k)) + v(i,j,k)*(3.0_db &
-			       + 9.0_db*(-1.0_db + w(i,j,k))*w(i,j,k)))))/216.0_db
-!20
-				  fneq1=3.0_db*(pxy(i,j,k)*(3.0_db - 6.0_db*u(i,j,k)) &
-				   + pxz(i,j,k)*(3.0_db - 6.0_db*u(i,j,k)) + (pyy(i,j,k) &
-				   + 3.0_db*pyz(i,j,k) + pzz(i,j,k))*(1.0_db + 3.0_db*(-1.0_db &
-				   + u(i,j,k))*u(i,j,k)) + 3.0_db*v(i,j,k)*((2.0_db*pyz(i,j,k) &
-				   + pzz(i,j,k))*(-1.0_db + 3.0_db*u(i,j,k)) + pxy(i,j,k)*(-2.0_db &
-				   + 6.0_db*u(i,j,k)) + pzz(i,j,k)*v(i,j,k) + 3.0_db*pxz(i,j,k)*(-1.0_db &
-				   + 2.0_db*u(i,j,k) + v(i,j,k))) + 3.0_db*(-pyy(i,j,k) &
-				   - 2.0_db*pyz(i,j,k) + 6.0_db*pyy(i,j,k)*u(i,j,k) &
-				   + 9.0_db*pyz(i,j,k)*u(i,j,k) + 6.0_db*pyz(i,j,k)*v(i,j,k) &
-				   + 3.0_db*pxy(i,j,k)*(-1.0_db + 4.0_db*u(i,j,k) + 4.0_db*v(i,j,k)) &
-				   + pxz(i,j,k)*(-2.0_db + 6.0_db*u(i,j,k) + 9.0_db*v(i,j,k)))*w(i,j,k) &
-				   + 6.0_db*(3.0_db*pxy(i,j,k) + pyy(i,j,k))*w(i,j,k)**2.0_db &
-				   + pxx(i,j,k)*(1.0_db + 6.0_db*v(i,j,k)**2.0_db - 3.0_db*w(i,j,k) &
-				   + 6.0_db*w(i,j,k)**2.0_db + 3.0_db*v(i,j,k)*(-1.0_db + 6.0_db*w(i,j,k))))
-#endif
-#ifdef SIXTH_ORDER
+#else
 !20
 			      feq=(rho(i,j,k) + 3.0_db*((-1.0_db + v(i,j,k))*v(i,j,k) &
 			       + (-1.0_db - 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k))*w(i,j,k) &
@@ -2077,37 +1181,11 @@ contains
 			       + 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k))*(1.0_db + 3.0_db*(-1.0_db &
 			       + w(i,j,k))*w(i,j,k))))/216.0_db
 !20
-#ifdef GHOSTONE   
+#endif
 				  fneq1=3.0_db*(pxx(i,j,k) + 3.0_db*pxy(i,j,k) &
-				   + 3.0_db*pxz(i,j,k) + pyy(i,j,k) + 3.0_db*pyz(i,j,k) + pzz(i,j,k))    
-#else 
-				  fneq1=3.0_db*(pxy(i,j,k)*(3.0_db - 6.0_db*u(i,j,k)) &
-				   + pxz(i,j,k)*(3.0_db - 6.0_db*u(i,j,k)) + (pyy(i,j,k) &
-				   + 3.0_db*pyz(i,j,k) + pzz(i,j,k))*(1.0_db + 3.0_db*(-1.0_db &
-				   + u(i,j,k))*u(i,j,k)) - 3.0_db*v(i,j,k)*(pxy(i,j,k)*(2.0_db &
-				   - 6.0_db*u(i,j,k)) + 3.0_db*pxz(i,j,k)*(-1.0_db &
-				   + 2.0_db*u(i,j,k))*(-1.0_db + v(i,j,k)) + (1.0_db &
-				   + 3.0_db*(-1.0_db + u(i,j,k))*u(i,j,k))*(2.0_db*pyz(i,j,k) &
-				   + pzz(i,j,k) - pzz(i,j,k)*v(i,j,k))) - 3.0_db*(pyy(i,j,k) &
-				   + 2.0_db*pyz(i,j,k) + 3.0_db*(2.0_db*pyy(i,j,k) &
-				   + 3.0_db*pyz(i,j,k))*(-1.0_db + u(i,j,k))*u(i,j,k) &
-				   - 6.0_db*pyz(i,j,k)*(1.0_db + 3.0_db*(-1.0_db &
-				   + u(i,j,k))*u(i,j,k))*v(i,j,k) + 3.0_db*pxy(i,j,k)*(1.0_db &
-				   - 4.0_db*v(i,j,k) + 2.0_db*u(i,j,k)*(-2.0_db + 5.0_db*v(i,j,k))) &
-				   + pxz(i,j,k)*(2.0_db + 9.0_db*(-1.0_db + v(i,j,k))*v(i,j,k) &
-				   - 6.0_db*u(i,j,k)*(1.0_db + 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k))))*w(i,j,k) &
-				   + 3.0_db*(pyy(i,j,k)*(2.0_db + 9.0_db*(-1.0_db + u(i,j,k))*u(i,j,k)) &
-				   + 6.0_db*pxy(i,j,k)*(1.0_db - 3.0_db*v(i,j,k) + u(i,j,k)*(-3.0_db &
-				   + 7.0_db*v(i,j,k))))*w(i,j,k)**2.0_db + pxx(i,j,k)*(1.0_db &
-				   - 3.0_db*v(i,j,k)*(1.0_db - 3.0_db*w(i,j,k))**2.0_db &
-				   - 3.0_db*w(i,j,k) + 6.0_db*w(i,j,k)**2.0_db + 3.0_db*v(i,j,k)**2.0_db*(2.0_db &
-				   + 3.0_db*w(i,j,k)*(-3.0_db + 4.0_db*w(i,j,k)))))
-#endif
-#endif
-!20
-#ifdef PHASE_CHANGE
-                  feq=feq+p3*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+				   + 3.0_db*pxz(i,j,k) + pyy(i,j,k) + 3.0_db*pyz(i,j,k) + pzz(i,j,k))
+
+
 				  F_discr=(forcez*(-1.0_db + 3.0_db*u(i,j,k) + 3.0_db*v(i,j,k) &
 				   + 2.0_db*w(i,j,k)) + forcey*(-1.0_db + 3.0_db*u(i,j,k) &
 				   + 2.0_db*v(i,j,k) + 3.0_db*w(i,j,k)) + forcex*(-1.0_db &
@@ -2123,36 +1201,7 @@ contains
 			       + v(i,j,k))*v(i,j,k) + w(i,j,k) - 3.0_db*v(i,j,k)*w(i,j,k) &
 			       + w(i,j,k)**2.0_db + u(i,j,k)*(1.0_db - 3.0_db*v(i,j,k) &
 			       + 3.0_db*w(i,j,k))))/216.0_db
-!21
-				  fneq1=3.0_db*(pxx(i,j,k) - 3.0_db*pxy(i,j,k) &
-				   + 3.0_db*pxz(i,j,k) + pyy(i,j,k) - 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#endif
-#ifdef FORTH_ORDER
-!21
-			      feq=(rho(i,j,k) + 3.0_db*((-1.0_db + v(i,j,k))*v(i,j,k) &
-			       + w(i,j,k) + 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k)*w(i,j,k) + (1.0_db &
-			       + 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k))*w(i,j,k)**2.0_db &
-			       + u(i,j,k)**2.0_db*(1.0_db + 3.0_db*v(i,j,k)**2.0_db &
-			       + 3.0_db*w(i,j,k)*(1.0_db + w(i,j,k)) - 3.0_db*v(i,j,k)*(1.0_db &
-			       + 3.0_db*w(i,j,k))) + u(i,j,k)*(1.0_db + 3.0_db*w(i,j,k)*(1.0_db &
-			       + w(i,j,k)) + v(i,j,k)**2.0_db*(3.0_db + 9.0_db*w(i,j,k)) &
-			       - 3.0_db*v(i,j,k)*(1.0_db + 3.0_db*w(i,j,k)*(1.0_db + w(i,j,k))))))/216.0_db
-!21
-				  fneq1=3.0_db*(-3.0_db*pxy(i,j,k)*(1.0_db + 2.0_db*u(i,j,k)) &
-				   + pxz(i,j,k)*(3.0_db + 6.0_db*u(i,j,k)) + (pyy(i,j,k) &
-				   - 3.0_db*pyz(i,j,k) + pzz(i,j,k))*(1.0_db + 3.0_db*u(i,j,k)*(1.0_db &
-				   + u(i,j,k))) + 3.0_db*v(i,j,k)*((2.0_db*pyz(i,j,k) - pzz(i,j,k))*(1.0_db &
-				   + 3.0_db*u(i,j,k)) + pxy(i,j,k)*(2.0_db + 6.0_db*u(i,j,k)) &
-				   + pzz(i,j,k)*v(i,j,k) + 3.0_db*pxz(i,j,k)*(-1.0_db - 2.0_db*u(i,j,k) &
-				   + v(i,j,k))) + 3.0_db*(pyy(i,j,k) - 2.0_db*pyz(i,j,k) + 6.0_db*pyy(i,j,k)*u(i,j,k) &
-				   - 9.0_db*pyz(i,j,k)*u(i,j,k) + pxz(i,j,k)*(2.0_db + 6.0_db*u(i,j,k) &
-				   - 9.0_db*v(i,j,k)) - 3.0_db*pxy(i,j,k)*(1.0_db + 4.0_db*u(i,j,k) &
-				   - 4.0_db*v(i,j,k)) + 6.0_db*pyz(i,j,k)*v(i,j,k))*w(i,j,k) &
-				   + 6.0_db*(-3.0_db*pxy(i,j,k) + pyy(i,j,k))*w(i,j,k)**2.0_db &
-				   + pxx(i,j,k)*(1.0_db + 6.0_db*v(i,j,k)**2.0_db + 3.0_db*w(i,j,k) &
-				   + 6.0_db*w(i,j,k)**2.0_db - 3.0_db*v(i,j,k)*(1.0_db + 6.0_db*w(i,j,k))))
-#endif
-#ifdef SIXTH_ORDER
+#else
 !21
 			      feq=(rho(i,j,k) + 3.0_db*((-1.0_db + v(i,j,k))*v(i,j,k) &
 			       + w(i,j,k) + 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k)*w(i,j,k) &
@@ -2162,35 +1211,11 @@ contains
 			       + 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k))*(1.0_db &
 			       + 3.0_db*w(i,j,k)*(1.0_db + w(i,j,k)))))/216.0_db
 !21
-#ifdef GHOSTONE   
+#endif 
 				  fneq1=3.0_db*(pxx(i,j,k) - 3.0_db*pxy(i,j,k) &
 				   + 3.0_db*pxz(i,j,k) + pyy(i,j,k) - 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#else 
-				  fneq1=3.0_db*(-3.0_db*pxy(i,j,k)*(1.0_db + 2.0_db*u(i,j,k)) &
-				   + pxz(i,j,k)*(3.0_db + 6.0_db*u(i,j,k)) + (pyy(i,j,k) &
-				   - 3.0_db*pyz(i,j,k) + pzz(i,j,k))*(1.0_db + 3.0_db*u(i,j,k)*(1.0_db &
-				   + u(i,j,k))) + pxx(i,j,k)*(1.0_db + 3.0_db*w(i,j,k) &
-				   + 6.0_db*w(i,j,k)**2.0_db - 3.0_db*v(i,j,k)*(1.0_db &
-				   + 3.0_db*w(i,j,k))**2.0_db + 3.0_db*v(i,j,k)**2.0_db*(2.0_db &
-				   + 3.0_db*w(i,j,k)*(3.0_db + 4.0_db*w(i,j,k)))) + 3.0_db*(((1.0_db &
-				   + 3.0_db*u(i,j,k)*(1.0_db + u(i,j,k)))*(2.0_db*pyz(i,j,k) &
-				   + pzz(i,j,k)*(-1.0_db + v(i,j,k))) + 3.0_db*pxz(i,j,k)*(1.0_db &
-				   + 2.0_db*u(i,j,k))*(-1.0_db + v(i,j,k)))*v(i,j,k) + (pyy(i,j,k) &
-				   + 6.0_db*pyy(i,j,k)*u(i,j,k)*(1.0_db + u(i,j,k)) + pyz(i,j,k)*(-2.0_db &
-				   + 6.0_db*v(i,j,k) + 9.0_db*u(i,j,k)*(1.0_db + u(i,j,k))*(-1.0_db &
-				   + 2.0_db*v(i,j,k))) + pxz(i,j,k)*(2.0_db + 9.0_db*(-1.0_db &
-				   + v(i,j,k))*v(i,j,k) + 6.0_db*u(i,j,k)*(1.0_db + 3.0_db*(-1.0_db &
-				   + v(i,j,k))*v(i,j,k))))*w(i,j,k) + pyy(i,j,k)*(2.0_db + 9.0_db*u(i,j,k)*(1.0_db &
-				   + u(i,j,k)))*w(i,j,k)**2.0_db + pxy(i,j,k)*(-3.0_db*w(i,j,k)*(1.0_db &
-				   + 2.0_db*w(i,j,k) + u(i,j,k)*(4.0_db + 6.0_db*w(i,j,k))) &
-				   + 2.0_db*v(i,j,k)*((1.0_db + 3.0_db*w(i,j,k))**2.0_db + 3.0_db*u(i,j,k)*(1.0_db &
-				   + w(i,j,k)*(5.0_db + 7.0_db*w(i,j,k)))))))
-#endif
-#endif
-!21
-#ifdef PHASE_CHANGE
-                  feq=feq+p3*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(forcez*(1.0_db + 3.0_db*u(i,j,k) - 3.0_db*v(i,j,k) &
 				   + 2.0_db*w(i,j,k)) + forcex*(1.0_db + 2.0_db*u(i,j,k) &
 				   - 3.0_db*v(i,j,k) + 3.0_db*w(i,j,k)) - forcey*(1.0_db &
@@ -2205,37 +1230,7 @@ contains
 			       + v(i,j,k)**2.0_db - 3.0_db*v(i,j,k)*w(i,j,k) + (-1.0_db &
 			       + w(i,j,k))*w(i,j,k) + u(i,j,k)*(-1.0_db - 3.0_db*v(i,j,k) &
 			       + 3.0_db*w(i,j,k))))/216.0_db
-!22
-				  fneq1=3.0_db*(pxx(i,j,k) - 3.0_db*pxy(i,j,k) &
-				   + 3.0_db*pxz(i,j,k) + pyy(i,j,k) - 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#endif
-#ifdef FORTH_ORDER
-!22
-			      feq=(rho(i,j,k) + 3.0_db*(v(i,j,k) + v(i,j,k)**2.0_db &
-			       - w(i,j,k) - 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k))*w(i,j,k) &
-			       + (1.0_db + 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k)))*w(i,j,k)**2.0_db &
-			       + u(i,j,k)*(-1.0_db - 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k)) &
-			       + 3.0_db*w(i,j,k) + 9.0_db*v(i,j,k)*(1.0_db + v(i,j,k))*w(i,j,k) &
-			       - 3.0_db*(1.0_db + 3.0_db*v(i,j,k))*w(i,j,k)**2.0_db) &
-			       + u(i,j,k)**2.0_db*(1.0_db - 3.0_db*w(i,j,k) + 3.0_db*(v(i,j,k) &
-			       + v(i,j,k)**2.0_db - 3.0_db*v(i,j,k)*w(i,j,k) + w(i,j,k)**2.0_db))))/216.0_db
-!22
-				  fneq1=3.0_db*(pxz(i,j,k)*(3.0_db - 6.0_db*u(i,j,k)) &
-				   + pxy(i,j,k)*(-3.0_db + 6.0_db*u(i,j,k)) + (pyy(i,j,k) &
-				   - 3.0_db*pyz(i,j,k) + pzz(i,j,k))*(1.0_db + 3.0_db*(-1.0_db &
-				   + u(i,j,k))*u(i,j,k)) + 3.0_db*v(i,j,k)*(-2.0_db*pyz(i,j,k) &
-				   + pzz(i,j,k) + 6.0_db*pyz(i,j,k)*u(i,j,k) - 3.0_db*pzz(i,j,k)*u(i,j,k) &
-				   + pxy(i,j,k)*(-2.0_db + 6.0_db*u(i,j,k)) + pzz(i,j,k)*v(i,j,k) &
-				   + 3.0_db*pxz(i,j,k)*(1.0_db - 2.0_db*u(i,j,k) + v(i,j,k))) &
-				   - 3.0_db*(pyy(i,j,k) - 2.0_db*pyz(i,j,k) - 6.0_db*pyy(i,j,k)*u(i,j,k) &
-				   + 9.0_db*pyz(i,j,k)*u(i,j,k) + 3.0_db*pxy(i,j,k)*(-1.0_db &
-				   + 4.0_db*u(i,j,k) - 4.0_db*v(i,j,k)) - 6.0_db*pyz(i,j,k)*v(i,j,k) &
-				   + pxz(i,j,k)*(2.0_db - 6.0_db*u(i,j,k) + 9.0_db*v(i,j,k)))*w(i,j,k) &
-				   + 6.0_db*(-3.0_db*pxy(i,j,k) + pyy(i,j,k))*w(i,j,k)**2.0_db &
-				   + pxx(i,j,k)*(1.0_db + 3.0_db*v(i,j,k) + 6.0_db*v(i,j,k)**2.0_db &
-				   - 3.0_db*(1.0_db + 6.0_db*v(i,j,k))*w(i,j,k) + 6.0_db*w(i,j,k)**2.0_db))
-#endif
-#ifdef SIXTH_ORDER
+#else
 !22
 			      feq=(rho(i,j,k) + 3.0_db*(v(i,j,k) + v(i,j,k)**2.0_db &
 			       - w(i,j,k) - 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k))*w(i,j,k) + (1.0_db &
@@ -2244,35 +1239,11 @@ contains
 			       + w(i,j,k))*w(i,j,k)) + u(i,j,k)**2.0_db*(1.0_db + 3.0_db*v(i,j,k)*(1.0_db &
 			       + v(i,j,k)))*(1.0_db + 3.0_db*(-1.0_db + w(i,j,k))*w(i,j,k))))/216.0_db
 !22
-#ifdef GHOSTONE   
+#endif
 				  fneq1=3.0_db*(pxx(i,j,k) - 3.0_db*pxy(i,j,k) &
 				   + 3.0_db*pxz(i,j,k) + pyy(i,j,k) - 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#else 
-				  fneq1=3.0_db*(pxz(i,j,k)*(3.0_db - 6.0_db*u(i,j,k)) &
-				   + pxy(i,j,k)*(-3.0_db + 6.0_db*u(i,j,k)) + (pyy(i,j,k) &
-				   - 3.0_db*pyz(i,j,k) + pzz(i,j,k))*(1.0_db + 3.0_db*(-1.0_db &
-				   + u(i,j,k))*u(i,j,k)) + 3.0_db*v(i,j,k)*(pxy(i,j,k)*(-2.0_db &
-				   + 6.0_db*u(i,j,k)) - 3.0_db*pxz(i,j,k)*(-1.0_db + 2.0_db*u(i,j,k))*(1.0_db &
-				   + v(i,j,k)) - (1.0_db + 3.0_db*(-1.0_db + u(i,j,k))*u(i,j,k))*(2.0_db*pyz(i,j,k) &
-				   - pzz(i,j,k)*(1.0_db + v(i,j,k)))) - 3.0_db*(pyy(i,j,k) &
-				   - 2.0_db*pyz(i,j,k) + 3.0_db*(2.0_db*pyy(i,j,k) - 3.0_db*pyz(i,j,k))*(-1.0_db &
-				   + u(i,j,k))*u(i,j,k) - 6.0_db*pyz(i,j,k)*(1.0_db + 3.0_db*(-1.0_db &
-				   + u(i,j,k))*u(i,j,k))*v(i,j,k) + 3.0_db*pxy(i,j,k)*(-1.0_db &
-				   - 4.0_db*v(i,j,k) + 2.0_db*u(i,j,k)*(2.0_db + 5.0_db*v(i,j,k))) &
-				   + pxz(i,j,k)*(2.0_db + 9.0_db*v(i,j,k)*(1.0_db + v(i,j,k)) &
-				   - 6.0_db*u(i,j,k)*(1.0_db + 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k)))))*w(i,j,k) &
-				   + 3.0_db*(pyy(i,j,k)*(2.0_db + 9.0_db*(-1.0_db + u(i,j,k))*u(i,j,k)) &
-				   + 6.0_db*pxy(i,j,k)*(-1.0_db - 3.0_db*v(i,j,k) + u(i,j,k)*(3.0_db &
-				   + 7.0_db*v(i,j,k))))*w(i,j,k)**2.0_db + pxx(i,j,k)*(1.0_db &
-				   + 3.0_db*v(i,j,k) + 6.0_db*v(i,j,k)**2.0_db - 3.0_db*(1.0_db &
-				   + 3.0_db*v(i,j,k))**2.0_db*w(i,j,k) + 3.0_db*(2.0_db &
-				   + 3.0_db*v(i,j,k)*(3.0_db + 4.0_db*v(i,j,k)))*w(i,j,k)**2.0_db))
-#endif
-#endif
-!22
-#ifdef PHASE_CHANGE
-                  feq=feq+p3*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(forcey*(1.0_db - 3.0_db*u(i,j,k) + 2.0_db*v(i,j,k) &
 				   - 3.0_db*w(i,j,k)) + forcez*(-1.0_db + 3.0_db*u(i,j,k) &
 				   - 3.0_db*v(i,j,k) + 2.0_db*w(i,j,k)) + forcex*(-1.0_db &
@@ -2287,38 +1258,7 @@ contains
 			      feq=(rho(i,j,k) + 3.0_db*(-u(i,j,k) + u(i,j,k)**2.0_db &
 			       - v(i,j,k) + 3.0_db*u(i,j,k)*v(i,j,k) + v(i,j,k)**2.0_db + w(i,j,k) &
 			       - 3.0_db*(u(i,j,k) + v(i,j,k))*w(i,j,k) + w(i,j,k)**2.0_db))/216.0_db
-!23
-				  fneq1=3.0_db*(pxx(i,j,k) + 3.0_db*pxy(i,j,k) &
-				   - 3.0_db*pxz(i,j,k) + pyy(i,j,k) - 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#endif
-#ifdef FORTH_ORDER
-!23
-			      feq=(rho(i,j,k) + 3.0_db*((-1.0_db + v(i,j,k))*v(i,j,k) &
-			       + w(i,j,k) + 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k)*w(i,j,k) + (1.0_db &
-			       + 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k))*w(i,j,k)**2.0_db &
-			       + u(i,j,k)**2.0_db*(1.0_db + 3.0_db*v(i,j,k)**2.0_db &
-			       + 3.0_db*w(i,j,k)*(1.0_db + w(i,j,k)) - 3.0_db*v(i,j,k)*(1.0_db &
-			       + 3.0_db*w(i,j,k))) - u(i,j,k)*(1.0_db + 3.0_db*w(i,j,k)*(1.0_db &
-			       + w(i,j,k)) + v(i,j,k)**2.0_db*(3.0_db + 9.0_db*w(i,j,k)) &
-			       - 3.0_db*v(i,j,k)*(1.0_db + 3.0_db*w(i,j,k)*(1.0_db + w(i,j,k))))))/216.0_db
-!23
-				  fneq1=3.0_db*(pxy(i,j,k)*(3.0_db - 6.0_db*u(i,j,k)) &
-				   + pxz(i,j,k)*(-3.0_db + 6.0_db*u(i,j,k)) + (pyy(i,j,k) &
-				   - 3.0_db*pyz(i,j,k) + pzz(i,j,k))*(1.0_db + 3.0_db*(-1.0_db &
-				   + u(i,j,k))*u(i,j,k)) - 3.0_db*v(i,j,k)*(-2.0_db*pyz(i,j,k) &
-				   + pzz(i,j,k) + pxy(i,j,k)*(2.0_db - 6.0_db*u(i,j,k)) &
-				   + 6.0_db*pyz(i,j,k)*u(i,j,k) - 3.0_db*pzz(i,j,k)*u(i,j,k) &
-				   - pzz(i,j,k)*v(i,j,k) + 3.0_db*pxz(i,j,k)*(-1.0_db + 2.0_db*u(i,j,k) &
-				   + v(i,j,k))) + 3.0_db*(pyy(i,j,k) - 2.0_db*pyz(i,j,k) &
-				   - 6.0_db*pyy(i,j,k)*u(i,j,k) + 9.0_db*pyz(i,j,k)*u(i,j,k) &
-				   + 6.0_db*pyz(i,j,k)*v(i,j,k) - 3.0_db*pxy(i,j,k)*(-1.0_db &
-				   + 4.0_db*u(i,j,k) + 4.0_db*v(i,j,k)) + pxz(i,j,k)*(-2.0_db &
-				   + 6.0_db*u(i,j,k) + 9.0_db*v(i,j,k)))*w(i,j,k) + 6.0_db*(3.0_db*pxy(i,j,k) &
-				   + pyy(i,j,k))*w(i,j,k)**2.0_db + pxx(i,j,k)*(1.0_db + 6.0_db*v(i,j,k)**2.0_db &
-				   + 3.0_db*w(i,j,k) + 6.0_db*w(i,j,k)**2.0_db - 3.0_db*v(i,j,k)*(1.0_db &
-				   + 6.0_db*w(i,j,k))))
-#endif
-#ifdef SIXTH_ORDER
+#else
 !23
 			      feq=(rho(i,j,k) + 3.0_db*((-1.0_db + v(i,j,k))*v(i,j,k) &
 			       + w(i,j,k) + 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k)*w(i,j,k) + (1.0_db &
@@ -2327,35 +1267,11 @@ contains
 			       + w(i,j,k))) + u(i,j,k)**2.0_db*(1.0_db + 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k))*(1.0_db &
 			       + 3.0_db*w(i,j,k)*(1.0_db + w(i,j,k)))))/216.0_db
 !23
-#ifdef GHOSTONE   
+#endif
 				  fneq1=3.0_db*(pxx(i,j,k) + 3.0_db*pxy(i,j,k) &
 				   - 3.0_db*pxz(i,j,k) + pyy(i,j,k) - 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#else 
-				  fneq1=3.0_db*(pxy(i,j,k)*(3.0_db - 6.0_db*u(i,j,k)) &
-				   + pxz(i,j,k)*(-3.0_db + 6.0_db*u(i,j,k)) + (pyy(i,j,k) &
-				   - 3.0_db*pyz(i,j,k) + pzz(i,j,k))*(1.0_db + 3.0_db*(-1.0_db &
-				   + u(i,j,k))*u(i,j,k)) + pxx(i,j,k)*(1.0_db + 3.0_db*w(i,j,k) &
-				   + 6.0_db*w(i,j,k)**2.0_db - 3.0_db*v(i,j,k)*(1.0_db &
-				   + 3.0_db*w(i,j,k))**2.0_db + 3.0_db*v(i,j,k)**2.0_db*(2.0_db &
-				   + 3.0_db*w(i,j,k)*(3.0_db + 4.0_db*w(i,j,k)))) + 3.0_db*(((1.0_db &
-				   + 3.0_db*(-1.0_db + u(i,j,k))*u(i,j,k))*(2.0_db*pyz(i,j,k) &
-				   + pzz(i,j,k)*(-1.0_db + v(i,j,k))) + 3.0_db*pxz(i,j,k)*(-1.0_db &
-				   + 2.0_db*u(i,j,k))*(-1.0_db + v(i,j,k)))*v(i,j,k) + (pyy(i,j,k) &
-				   + 6.0_db*pyy(i,j,k)*(-1.0_db + u(i,j,k))*u(i,j,k) + pyz(i,j,k)*(-2.0_db &
-				   + 6.0_db*v(i,j,k) + 9.0_db*(-1.0_db + u(i,j,k))*u(i,j,k)*(-1.0_db &
-				   + 2.0_db*v(i,j,k))) + pxz(i,j,k)*(-2.0_db - 9.0_db*(-1.0_db &
-				   + v(i,j,k))*v(i,j,k) + 6.0_db*u(i,j,k)*(1.0_db + 3.0_db*(-1.0_db &
-				   + v(i,j,k))*v(i,j,k))))*w(i,j,k) + pyy(i,j,k)*(2.0_db + 9.0_db*(-1.0_db &
-				   + u(i,j,k))*u(i,j,k))*w(i,j,k)**2.0_db + pxy(i,j,k)*(-2.0_db*v(i,j,k)*(1.0_db &
-				   + 3.0_db*w(i,j,k))**2.0_db + 3.0_db*w(i,j,k)*(1.0_db + 2.0_db*w(i,j,k) &
-				   - 2.0_db*u(i,j,k)*(2.0_db + 3.0_db*w(i,j,k))) + 6.0_db*u(i,j,k)*v(i,j,k)*(1.0_db &
-				   + w(i,j,k)*(5.0_db + 7.0_db*w(i,j,k))))))
-#endif
-#endif
-!23
-#ifdef PHASE_CHANGE
-                  feq=feq+p3*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(forcez - 3.0_db*forcez*(u(i,j,k) + v(i,j,k)) + forcey*(-1.0_db &
 				   + 3.0_db*u(i,j,k) + 2.0_db*v(i,j,k) - 3.0_db*w(i,j,k)) &
 				   + forcex*(-1.0_db + 2.0_db*u(i,j,k) + 3.0_db*v(i,j,k) &
@@ -2368,37 +1284,7 @@ contains
 			      feq=(rho(i,j,k) + 3.0_db*(u(i,j,k) + u(i,j,k)**2.0_db &
 			       + v(i,j,k) + 3.0_db*u(i,j,k)*v(i,j,k) + v(i,j,k)**2.0_db - w(i,j,k) &
 			       - 3.0_db*(u(i,j,k) + v(i,j,k))*w(i,j,k) + w(i,j,k)**2.0_db))/216.0_db
-!24
-				  fneq1=3.0_db*(pxx(i,j,k) + 3.0_db*pxy(i,j,k) &
-				   - 3.0_db*pxz(i,j,k) + pyy(i,j,k) - 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#endif
-#ifdef FORTH_ORDER
-!24
-			      feq=(rho(i,j,k) + 3.0_db*(v(i,j,k) + v(i,j,k)**2.0_db &
-			       - w(i,j,k) - 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k))*w(i,j,k) &
-			       + (1.0_db + 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k)))*w(i,j,k)**2.0_db &
-			       + u(i,j,k)*(1.0_db + v(i,j,k)**2.0_db*(3.0_db - 9.0_db*w(i,j,k)) &
-			       + 3.0_db*(-1.0_db + w(i,j,k))*w(i,j,k) + v(i,j,k)*(3.0_db &
-			       + 9.0_db*(-1.0_db + w(i,j,k))*w(i,j,k))) + u(i,j,k)**2.0_db*(1.0_db &
-			       - 3.0_db*w(i,j,k) + 3.0_db*(v(i,j,k) + v(i,j,k)**2.0_db &
-			       - 3.0_db*v(i,j,k)*w(i,j,k) + w(i,j,k)**2.0_db))))/216.0_db
-!24
-				  fneq1=3.0_db*(-3.0_db*pxz(i,j,k)*(1.0_db + 2.0_db*u(i,j,k)) &
-				   + pxy(i,j,k)*(3.0_db + 6.0_db*u(i,j,k)) + (pyy(i,j,k) &
-				   - 3.0_db*pyz(i,j,k) + pzz(i,j,k))*(1.0_db + 3.0_db*u(i,j,k)*(1.0_db &
-				   + u(i,j,k))) + 3.0_db*v(i,j,k)*(-2.0_db*pyz(i,j,k) + pzz(i,j,k) &
-				   - 6.0_db*pyz(i,j,k)*u(i,j,k) + 3.0_db*pzz(i,j,k)*u(i,j,k) &
-				   + pxy(i,j,k)*(2.0_db + 6.0_db*u(i,j,k)) + pzz(i,j,k)*v(i,j,k) &
-				   - 3.0_db*pxz(i,j,k)*(1.0_db + 2.0_db*u(i,j,k) + v(i,j,k))) &
-				   - 3.0_db*(pyy(i,j,k) - 2.0_db*pyz(i,j,k) + 6.0_db*pyy(i,j,k)*u(i,j,k) &
-				   - 9.0_db*pyz(i,j,k)*u(i,j,k) - 6.0_db*pyz(i,j,k)*v(i,j,k) &
-				   + 3.0_db*pxy(i,j,k)*(1.0_db + 4.0_db*u(i,j,k) + 4.0_db*v(i,j,k)) &
-				   - pxz(i,j,k)*(2.0_db + 6.0_db*u(i,j,k) + 9.0_db*v(i,j,k)))*w(i,j,k) &
-				   + 6.0_db*(3.0_db*pxy(i,j,k) + pyy(i,j,k))*w(i,j,k)**2.0_db &
-				   + pxx(i,j,k)*(1.0_db + 3.0_db*v(i,j,k) + 6.0_db*v(i,j,k)**2.0_db &
-				   - 3.0_db*(1.0_db + 6.0_db*v(i,j,k))*w(i,j,k) + 6.0_db*w(i,j,k)**2.0_db))
-#endif
-#ifdef SIXTH_ORDER
+#else
 !24
 			      feq=(rho(i,j,k) + 3.0_db*(v(i,j,k) + v(i,j,k)**2.0_db &
 			       - w(i,j,k) - 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k))*w(i,j,k) + (1.0_db &
@@ -2407,34 +1293,11 @@ contains
 			       + w(i,j,k))*w(i,j,k)) + u(i,j,k)**2.0_db*(1.0_db + 3.0_db*v(i,j,k)*(1.0_db &
 			       + v(i,j,k)))*(1.0_db + 3.0_db*(-1.0_db + w(i,j,k))*w(i,j,k))))/216.0_db
 !24
-#ifdef GHOSTONE   
+#endif
 				  fneq1=3.0_db*(pxx(i,j,k) + 3.0_db*pxy(i,j,k) &
 				   - 3.0_db*pxz(i,j,k) + pyy(i,j,k) - 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#else   
-				  fneq1=3.0_db*(-3.0_db*pxz(i,j,k)*(1.0_db + 2.0_db*u(i,j,k)) &
-				   + pxy(i,j,k)*(3.0_db + 6.0_db*u(i,j,k)) + (pyy(i,j,k) - 3.0_db*pyz(i,j,k) &
-				   + pzz(i,j,k))*(1.0_db + 3.0_db*u(i,j,k)*(1.0_db + u(i,j,k))) &
-				   + 3.0_db*v(i,j,k)*(pxy(i,j,k)*(2.0_db + 6.0_db*u(i,j,k)) &
-				   - 3.0_db*pxz(i,j,k)*(1.0_db + 2.0_db*u(i,j,k))*(1.0_db + v(i,j,k)) &
-				   - (1.0_db + 3.0_db*u(i,j,k)*(1.0_db + u(i,j,k)))*(2.0_db*pyz(i,j,k) &
-				   - pzz(i,j,k)*(1.0_db + v(i,j,k)))) - 3.0_db*(pyy(i,j,k) &
-				   - 2.0_db*pyz(i,j,k) + 3.0_db*(2.0_db*pyy(i,j,k) - 3.0_db*pyz(i,j,k))*u(i,j,k)*(1.0_db &
-				   + u(i,j,k)) - 6.0_db*pyz(i,j,k)*(1.0_db + 3.0_db*u(i,j,k)*(1.0_db &
-				   + u(i,j,k)))*v(i,j,k) + 3.0_db*pxy(i,j,k)*(1.0_db + 4.0_db*v(i,j,k) &
-				   + 2.0_db*u(i,j,k)*(2.0_db + 5.0_db*v(i,j,k))) - pxz(i,j,k)*(2.0_db &
-				   + 9.0_db*v(i,j,k)*(1.0_db + v(i,j,k)) + 6.0_db*u(i,j,k)*(1.0_db &
-				   + 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k)))))*w(i,j,k) + 3.0_db*(pyy(i,j,k)*(2.0_db &
-				   + 9.0_db*u(i,j,k)*(1.0_db + u(i,j,k))) + 6.0_db*pxy(i,j,k)*(1.0_db &
-				   + 3.0_db*v(i,j,k) + u(i,j,k)*(3.0_db + 7.0_db*v(i,j,k))))*w(i,j,k)**2.0_db &
-				   + pxx(i,j,k)*(1.0_db + 3.0_db*v(i,j,k) + 6.0_db*v(i,j,k)**2.0_db - 3.0_db*(1.0_db &
-				   + 3.0_db*v(i,j,k))**2.0_db*w(i,j,k) + 3.0_db*(2.0_db + 3.0_db*v(i,j,k)*(3.0_db &
-				   + 4.0_db*v(i,j,k)))*w(i,j,k)**2.0_db))
-#endif
-#endif
-!24
-#ifdef PHASE_CHANGE
-                  feq=feq+p3*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(-forcez - 3.0_db*forcez*(u(i,j,k) + v(i,j,k)) + forcey*(1.0_db &
 				   + 3.0_db*u(i,j,k) + 2.0_db*v(i,j,k) - 3.0_db*w(i,j,k)) + forcex*(1.0_db &
 				   + 2.0_db*u(i,j,k) + 3.0_db*v(i,j,k) - 3.0_db*w(i,j,k)) &
@@ -2449,36 +1312,7 @@ contains
 			       + v(i,j,k))*v(i,j,k) + u(i,j,k)*(1.0_db - 3.0_db*v(i,j,k) &
 			       - 3.0_db*w(i,j,k)) + (-1.0_db + 3.0_db*v(i,j,k))*w(i,j,k) &
 			       + w(i,j,k)**2.0_db))/216.0_db
-!25
-				  fneq1=3.0_db*(pxx(i,j,k) - 3.0_db*pxy(i,j,k) - 3.0_db*pxz(i,j,k) &
-				   + pyy(i,j,k) + 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#endif
-#ifdef FORTH_ORDER
-!25
-			      feq=(rho(i,j,k) + 3.0_db*((-1.0_db + v(i,j,k))*v(i,j,k) &
-			       + (-1.0_db - 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k))*w(i,j,k) + (1.0_db &
-			       + 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k))*w(i,j,k)**2.0_db &
-			       + u(i,j,k)**2.0_db*(1.0_db + 3.0_db*v(i,j,k)**2.0_db + 3.0_db*(-1.0_db &
-			       + w(i,j,k))*w(i,j,k) + v(i,j,k)*(-3.0_db + 9.0_db*w(i,j,k))) &
-			       + u(i,j,k)*(1.0_db + v(i,j,k)**2.0_db*(3.0_db - 9.0_db*w(i,j,k)) &
-			       + 3.0_db*(-1.0_db + w(i,j,k))*w(i,j,k) + v(i,j,k)*(-3.0_db - 9.0_db*(-1.0_db &
-			       + w(i,j,k))*w(i,j,k)))))/216.0_db
-!25
-				  fneq1=3.0_db*(-3.0_db*pxy(i,j,k)*(1.0_db + 2.0_db*u(i,j,k)) &
-				   - 3.0_db*pxz(i,j,k)*(1.0_db + 2.0_db*u(i,j,k)) + (pyy(i,j,k) &
-				   + 3.0_db*pyz(i,j,k) + pzz(i,j,k))*(1.0_db + 3.0_db*u(i,j,k)*(1.0_db &
-				   + u(i,j,k))) - 3.0_db*v(i,j,k)*(-2.0_db*pxy(i,j,k)*(1.0_db + 3.0_db*u(i,j,k)) &
-				   + (2.0_db*pyz(i,j,k) + pzz(i,j,k))*(1.0_db + 3.0_db*u(i,j,k)) &
-				   - pzz(i,j,k)*v(i,j,k) + 3.0_db*pxz(i,j,k)*(-1.0_db - 2.0_db*u(i,j,k) &
-				   + v(i,j,k))) - 3.0_db*(pyy(i,j,k) + 2.0_db*pyz(i,j,k) + 6.0_db*pyy(i,j,k)*u(i,j,k) &
-				   + 9.0_db*pyz(i,j,k)*u(i,j,k) - 3.0_db*pxy(i,j,k)*(1.0_db + 4.0_db*u(i,j,k) &
-				   - 4.0_db*v(i,j,k)) - 6.0_db*pyz(i,j,k)*v(i,j,k) + pxz(i,j,k)*(-2.0_db &
-				   - 6.0_db*u(i,j,k) + 9.0_db*v(i,j,k)))*w(i,j,k) + 6.0_db*(-3.0_db*pxy(i,j,k) &
-				   + pyy(i,j,k))*w(i,j,k)**2.0_db + pxx(i,j,k)*(1.0_db + 6.0_db*v(i,j,k)**2.0_db &
-				   - 3.0_db*w(i,j,k) + 6.0_db*w(i,j,k)**2.0_db + 3.0_db*v(i,j,k)*(-1.0_db &
-				   + 6.0_db*w(i,j,k))))
-#endif
-#ifdef SIXTH_ORDER
+#else
 !25
 			      feq=(rho(i,j,k) + 3.0_db*((-1.0_db + v(i,j,k))*v(i,j,k) &
 			       + (-1.0_db - 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k))*w(i,j,k) + (1.0_db &
@@ -2487,33 +1321,11 @@ contains
 			       + w(i,j,k))*w(i,j,k)) + u(i,j,k)**2.0_db*(1.0_db + 3.0_db*(-1.0_db &
 			       + v(i,j,k))*v(i,j,k))*(1.0_db + 3.0_db*(-1.0_db + w(i,j,k))*w(i,j,k))))/216.0_db
 !25
-#ifdef GHOSTONE   
+#endif
 				  fneq1=3.0_db*(pxx(i,j,k) - 3.0_db*pxy(i,j,k) - 3.0_db*pxz(i,j,k) &
 				   + pyy(i,j,k) + 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#else 
-				  fneq1=3.0_db*(-3.0_db*pxy(i,j,k)*(1.0_db + 2.0_db*u(i,j,k)) - 3.0_db*pxz(i,j,k)*(1.0_db &
-				   + 2.0_db*u(i,j,k)) + (pyy(i,j,k) + 3.0_db*pyz(i,j,k) + pzz(i,j,k))*(1.0_db &
-				   + 3.0_db*u(i,j,k)*(1.0_db + u(i,j,k))) - 3.0_db*v(i,j,k)*(-2.0_db*pxy(i,j,k)*(1.0_db &
-				   + 3.0_db*u(i,j,k)) + 3.0_db*pxz(i,j,k)*(1.0_db + 2.0_db*u(i,j,k))*(-1.0_db &
-				   + v(i,j,k)) + (1.0_db + 3.0_db*u(i,j,k)*(1.0_db + u(i,j,k)))*(2.0_db*pyz(i,j,k) &
-				   + pzz(i,j,k) - pzz(i,j,k)*v(i,j,k))) - 3.0_db*(pyy(i,j,k) + 2.0_db*pyz(i,j,k) &
-				   + 3.0_db*(2.0_db*pyy(i,j,k) + 3.0_db*pyz(i,j,k))*u(i,j,k)*(1.0_db + u(i,j,k)) &
-				   - 6.0_db*pyz(i,j,k)*(1.0_db + 3.0_db*u(i,j,k)*(1.0_db + u(i,j,k)))*v(i,j,k) &
-				   + 3.0_db*pxy(i,j,k)*(-1.0_db + 4.0_db*v(i,j,k) + 2.0_db*u(i,j,k)*(-2.0_db &
-				   + 5.0_db*v(i,j,k))) - pxz(i,j,k)*(2.0_db + 9.0_db*(-1.0_db + v(i,j,k))*v(i,j,k) &
-				   + 6.0_db*u(i,j,k)*(1.0_db + 3.0_db*(-1.0_db + v(i,j,k))*v(i,j,k))))*w(i,j,k) &
-				   + 3.0_db*(pyy(i,j,k)*(2.0_db + 9.0_db*u(i,j,k)*(1.0_db + u(i,j,k))) &
-				   + 6.0_db*pxy(i,j,k)*(-1.0_db + 3.0_db*v(i,j,k) + u(i,j,k)*(-3.0_db &
-				   + 7.0_db*v(i,j,k))))*w(i,j,k)**2.0_db + pxx(i,j,k)*(1.0_db &
-				   - 3.0_db*v(i,j,k)*(1.0_db - 3.0_db*w(i,j,k))**2.0_db - 3.0_db*w(i,j,k) &
-				   + 6.0_db*w(i,j,k)**2.0_db + 3.0_db*v(i,j,k)**2.0_db*(2.0_db &
-				   + 3.0_db*w(i,j,k)*(-3.0_db + 4.0_db*w(i,j,k)))))
-#endif
-#endif
-!25
-#ifdef PHASE_CHANGE
-                  feq=feq+p3*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+
+
 				  F_discr=(forcex*(1.0_db + 2.0_db*u(i,j,k) - 3.0_db*v(i,j,k) &
 				   - 3.0_db*w(i,j,k)) + forcez*(-1.0_db - 3.0_db*u(i,j,k) &
 				   + 3.0_db*v(i,j,k) + 2.0_db*w(i,j,k)) + forcey*(-1.0_db &
@@ -2528,37 +1340,7 @@ contains
 			       + v(i,j,k)**2.0_db + w(i,j,k) + 3.0_db*v(i,j,k)*w(i,j,k) &
 			       + w(i,j,k)**2.0_db - u(i,j,k)*(1.0_db + 3.0_db*v(i,j,k) &
 			       + 3.0_db*w(i,j,k))))/216.0_db
-!26
-				  fneq1=3.0_db*(pxx(i,j,k) - 3.0_db*pxy(i,j,k) &
-				   - 3.0_db*pxz(i,j,k) + pyy(i,j,k) + 3.0_db*pyz(i,j,k) + pzz(i,j,k))
-#endif
-#ifdef FORTH_ORDER
-!26
-			      feq=(rho(i,j,k) + 3.0_db*(v(i,j,k) + v(i,j,k)**2.0_db &
-			       + w(i,j,k) + 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k))*w(i,j,k) + (1.0_db &
-			       + 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k)))*w(i,j,k)**2.0_db &
-			       + u(i,j,k)**2.0_db*(1.0_db + 3.0_db*w(i,j,k) + 3.0_db*(v(i,j,k) &
-			       + v(i,j,k)**2.0_db + 3.0_db*v(i,j,k)*w(i,j,k) + w(i,j,k)**2.0_db)) &
-			       - u(i,j,k)*(1.0_db + 3.0_db*w(i,j,k)*(1.0_db + w(i,j,k)) &
-			       + v(i,j,k)**2.0_db*(3.0_db + 9.0_db*w(i,j,k)) + v(i,j,k)*(3.0_db &
-			       + 9.0_db*w(i,j,k)*(1.0_db + w(i,j,k))))))/216.0_db
-!26
-				  fneq1=3.0_db*(pxy(i,j,k)*(-3.0_db + 6.0_db*u(i,j,k)) &
-				   + pxz(i,j,k)*(-3.0_db + 6.0_db*u(i,j,k)) + (pyy(i,j,k) &
-				   + 3.0_db*pyz(i,j,k) + pzz(i,j,k))*(1.0_db + 3.0_db*(-1.0_db&
-				   + u(i,j,k))*u(i,j,k)) + 3.0_db*v(i,j,k)*(2.0_db*pyz(i,j,k) &
-				   + pzz(i,j,k) + 6.0_db*pxz(i,j,k)*u(i,j,k) - 3.0_db*(2.0_db*pyz(i,j,k) &
-				   + pzz(i,j,k))*u(i,j,k) + pxy(i,j,k)*(-2.0_db + 6.0_db*u(i,j,k)) &
-				   + pzz(i,j,k)*v(i,j,k) - 3.0_db*pxz(i,j,k)*(1.0_db + v(i,j,k))) &
-				   + 3.0_db*(pyy(i,j,k) + 2.0_db*pyz(i,j,k) - 6.0_db*pyy(i,j,k)*u(i,j,k) &
-				   - 9.0_db*pyz(i,j,k)*u(i,j,k) + pxz(i,j,k)*(-2.0_db + 6.0_db*u(i,j,k) &
-				   - 9.0_db*v(i,j,k)) + 3.0_db*pxy(i,j,k)*(-1.0_db + 4.0_db*u(i,j,k) &
-				   - 4.0_db*v(i,j,k)) + 6.0_db*pyz(i,j,k)*v(i,j,k))*w(i,j,k) &
-				   + 6.0_db*(-3.0_db*pxy(i,j,k) + pyy(i,j,k))*w(i,j,k)**2.0_db &
-				   + pxx(i,j,k)*(1.0_db + 6.0_db*v(i,j,k)**2.0_db + 3.0_db*w(i,j,k) &
-				   + 6.0_db*w(i,j,k)**2.0_db + 3.0_db*v(i,j,k)*(1.0_db + 6.0_db*w(i,j,k))))
-#endif
-#ifdef SIXTH_ORDER
+#else
 !26
 			      feq=(rho(i,j,k) + 3.0_db*(v(i,j,k) + v(i,j,k)**2.0_db &
 			       + w(i,j,k) + 3.0_db*v(i,j,k)*(1.0_db + v(i,j,k))*w(i,j,k) + (1.0_db &
@@ -2567,45 +1349,19 @@ contains
 			       + w(i,j,k))) + u(i,j,k)**2.0_db*(1.0_db + 3.0_db*v(i,j,k)*(1.0_db &
 			       + v(i,j,k)))*(1.0_db + 3.0_db*w(i,j,k)*(1.0_db + w(i,j,k)))))/216.0_db
 !26
-#ifdef GHOSTONE   
+#endif
 				  fneq1=3.0_db*(pxx(i,j,k) - 3.0_db*pxy(i,j,k) &
-				   - 3.0_db*pxz(i,j,k) + pyy(i,j,k) + 3.0_db*pyz(i,j,k) + pzz(i,j,k))  
-#else 
-				  fneq1=3.0_db*(pxy(i,j,k)*(-3.0_db + 6.0_db*u(i,j,k)) &
-				   + pxz(i,j,k)*(-3.0_db + 6.0_db*u(i,j,k)) + (pyy(i,j,k) &
-				   + 3.0_db*pyz(i,j,k) + pzz(i,j,k))*(1.0_db + 3.0_db*(-1.0_db &
-				   + u(i,j,k))*u(i,j,k)) + 3.0_db*(v(i,j,k)*(pxy(i,j,k)*(-2.0_db &
-				   + 6.0_db*u(i,j,k)) + 3.0_db*pxz(i,j,k)*(-1.0_db + 2.0_db*u(i,j,k))*(1.0_db &
-				   + v(i,j,k)) + (1.0_db + 3.0_db*(-1.0_db + u(i,j,k))*u(i,j,k))*(2.0_db*pyz(i,j,k) &
-				   + pzz(i,j,k) + pzz(i,j,k)*v(i,j,k))) + (-2.0_db*pxz(i,j,k) &
-				   + pyy(i,j,k) + 2.0_db*pyz(i,j,k) + 3.0_db*((2.0_db*pyy(i,j,k) &
-				   + 3.0_db*pyz(i,j,k))*(-1.0_db + u(i,j,k))*u(i,j,k) + 2.0_db*pyz(i,j,k)*v(i,j,k) &
-				   + 6.0_db*pyz(i,j,k)*(-1.0_db + u(i,j,k))*u(i,j,k)*v(i,j,k) &
-				   - 3.0_db*pxz(i,j,k)*v(i,j,k)*(1.0_db + v(i,j,k)) + pxz(i,j,k)*u(i,j,k)*(2.0_db &
-				   + 6.0_db*v(i,j,k)*(1.0_db + v(i,j,k))) + pxy(i,j,k)*(-1.0_db &
-				   - 4.0_db*v(i,j,k) + 2.0_db*u(i,j,k)*(2.0_db + 5.0_db*v(i,j,k)))))*w(i,j,k) &
-				   + (pyy(i,j,k)*(2.0_db + 9.0_db*(-1.0_db + u(i,j,k))*u(i,j,k)) &
-				   + 6.0_db*pxy(i,j,k)*(-1.0_db - 3.0_db*v(i,j,k) + u(i,j,k)*(3.0_db &
-				   + 7.0_db*v(i,j,k))))*w(i,j,k)**2.0_db) + pxx(i,j,k)*(1.0_db &
-				   + 3.0_db*w(i,j,k) + 6.0_db*w(i,j,k)**2.0_db + 3.0_db*v(i,j,k)*(1.0_db &
-				   + 3.0_db*w(i,j,k))**2.0_db + 3.0_db*v(i,j,k)**2.0_db*(2.0_db &
-				   + 3.0_db*w(i,j,k)*(3.0_db + 4.0_db*w(i,j,k)))))
-#endif
-#endif
-!26
-#ifdef PHASE_CHANGE
-                  feq=feq+p3*src(i,j,k)*(invrho_b-invrho_r)
-#endif
+				   - 3.0_db*pxz(i,j,k) + pyy(i,j,k) + 3.0_db*pyz(i,j,k) + pzz(i,j,k))
+
+
 				  F_discr=(forcex*(-1.0_db + 2.0_db*u(i,j,k) - 3.0_db*v(i,j,k) &
 				   - 3.0_db*w(i,j,k)) + forcez*(1.0_db - 3.0_db*u(i,j,k) &
 				   + 3.0_db*v(i,j,k) + 2.0_db*w(i,j,k)) + forcey*(1.0_db &
 				   - 3.0_db*u(i,j,k) + 2.0_db*v(i,j,k) + 3.0_db*w(i,j,k)))/(72.0_db*rhophi_loc)
                   f(i-1,j+1,k+1,26)=feq + (1.0_db-omega_loc)*fneq1*p3 + 0.5_db*(F_discr)
 
-
-
 #ifdef TWOCOMPONENT
-                feq= (( p1*(arr_x(i+1,j,k)-arr_x(i-1,j,k)) + &
+                 feq= (( p1*(arr_x(i+1,j,k)-arr_x(i-1,j,k)) + &
                      p2*( (arr_x(i+1,j+1,k)-arr_x(i-1,j-1,k))+(arr_x(i+1,j-1,k)-arr_x(i-1,j+1,k))+(arr_x(i+1,j,k+1)-arr_x(i-1,j,k-1))+(arr_x(i+1,j,k-1)-arr_x(i-1,j,k+1)) )  + &
                      p3*((arr_x(i+1,j+1,k+1)-arr_x(i-1,j-1,k-1))+(arr_x(i+1,j-1,k-1)-arr_x(i-1,j+1,k+1))+(arr_x(i+1,j-1,k+1)-arr_x(i-1,j+1,k-1))+(arr_x(i+1,j+1,k-1)-arr_x(i-1,j-1,k+1))))+ &
 
@@ -2621,247 +1377,24 @@ contains
 				  
 				  !reuse gradrhox,gradrhoy,gradrhoz as local velocity (reusing variables is saving register memory)
 				  !reuse gradfix,gradfiy,gradfiz
-#ifdef SECFD
-                  gradrhox=u(i,j,k) + 0.5_db*forcex/rhophi_loc
-				  gradrhoy=v(i,j,k) + 0.5_db*forcey/rhophi_loc
-				  gradrhoz=w(i,j,k) + 0.5_db*forcez/rhophi_loc
-#else				  
-				  gradrhox=u(i,j,k)
-				  gradrhoy=v(i,j,k)
-				  gradrhoz=w(i,j,k)
-#endif
-#ifdef UPWIND
-				  !upwind
-                  selphi(i,j,k,flop) = selphi(i,j,k,flip) - min(0.0_db,gradrhox)*(selphi(i+1,j,k,flip)-selphi(i,j,k,flip)) - max(0.0_db,gradrhox)*(selphi(i,j,k,flip)-selphi(i-1,j,k,flip)) &
-				   - min(0.0_db,gradrhoy)*(selphi(i,j+1,k,flip)-selphi(i,j,k,flip)) - max(0.0_db,gradrhoy)*(selphi(i,j,k,flip)-selphi(i,j-1,k,flip)) &
-				   - min(0.0_db,gradrhoz)*(selphi(i,j,k+1,flip)-selphi(i,j,k,flip)) - max(0.0_db,gradrhoz)*(selphi(i,j,k,flip)-selphi(i,j,k-1,flip))+ tau_diff*(lap_phi(i,j,k)) + feq
 
-#endif
-
-!**************************************aritra**************************************
-
-#ifdef WENO
-    !WENO5 
-	!gradrhox = u, gradrhoy = w, gradrhoz = v
-	!assuming dxi = dyi = dzi = dt =1
-
-	!
-        !!!!!!x-dirction!!!!!!!!!!!!
-
-		!! i + 1/2
-         
-		  
-		 beta1 = (13.0_db / 12.0_db) * (selphi(i-2,j,k,flip) - 2.0_db*selphi(i-1,j,k,flip) +     selphi(i,j,k,flip))**2 + &
-          	       (1.0_db / 4.0_db) * (selphi(i-2,j,k,flip) - 4.0_db*selphi(i-1,j,k,flip) + 3.0_db*selphi(i,j,k,flip))**2
-
-         beta2 = (13.0_db / 12.0_db) * (selphi(i-1,j,k,flip) - 2.0_db*selphi(i,j,k,flip) + selphi(i+1,j,k,flip))**2 + &
-          	       (1.0_db / 4.0_db) * (selphi(i+1,j,k,flip) -     selphi(i-1,j,k,flip))**2
-
-         beta3 = (13.0_db / 12.0_db) * (selphi(i,j,k,flip) - 2.0_db*selphi(i+1,j,k,flip) + selphi(i+2,j,k,flip))**2 + &
-               (1.0_db / 4.0_db) * (3.0_db*selphi(i,j,k,flip) - 4.0_db*selphi(i+1,j,k,flip) + selphi(i+2,j,k,flip))**2
- 
-	
-          fm1 = 0.1_db/(beta1+1e-7)**2   !alpha1
-          f0 = 0.6_db/(beta2+1e-7)**2    !alpha2
-          fp1 = 0.3_db/(beta3+1e-7)**2   !alpha3
-
-          sum_we = fm1+f0+fp1
-
-          we1 = fm1/sum_we
-          we2 = f0/sum_we
-          we3 = fp1/sum_we
-
-		  fp2 = we1*(c11*selphi(i-2,j,k,flip) + c21*selphi(i-1,j,k,flip) + c31*selphi(i,j,k,flip)) + &
-		        we2*(c12*selphi(i-1,j,k,flip) + c22*selphi(i,j,k,flip)   + c32*selphi(i+1,j,k,flip)) + &
-				we3*(c13*selphi(i,j,k,flip)   + c23*selphi(i+1,j,k,flip) + c33*selphi(i+2,j,k,flip))
-
-		 
-		  !! i - 1/2
-         
-		  beta1 = (13.0_db / 12.0_db) * (selphi(i-3,j,k,flip) - 2.0_db*selphi(i-2,j,k,flip) +     selphi(i-1,j,k,flip))**2 + &
-          	       (1.0_db / 4.0_db) * (selphi(i-3,j,k,flip) - 4.0_db*selphi(i-2,j,k,flip) + 3.0_db*selphi(i-1,j,k,flip))**2
-
-         beta2 = (13.0_db / 12.0_db) * (selphi(i-2,j,k,flip) - 2.0_db*selphi(i-1,j,k,flip) + selphi(i,j,k,flip))**2 + &
-          	       (1.0_db / 4.0_db) * (selphi(i,j,k,flip) -     selphi(i-2,j,k,flip))**2
-
-         beta3 = (13.0_db / 12.0_db) * (selphi(i-1,j,k,flip) - 2.0_db*selphi(i,j,k,flip) + selphi(i+1,j,k,flip))**2 + &
-               (1.0_db / 4.0_db) * (3.0_db*selphi(i-1,j,k,flip) - 4.0_db*selphi(i,j,k,flip) + selphi(i+1,j,k,flip))**2
- 
-	
-          fm1 = 0.1_db/(beta1+1e-7)**2   !alpha1
-          f0 = 0.6_db/(beta2+1e-7)**2    !alpha2
-          fp1 = 0.3_db/(beta3+1e-7)**2   !alpha3
-
-          sum_we = fm1+f0+fp1
-
-          we1 = fm1/sum_we
-          we2 = f0/sum_we
-          we3 = fp1/sum_we
-
-		  fm2 = we1*(c11*selphi(i-3,j,k,flip) + c21*selphi(i-2,j,k,flip) + c31*selphi(i-1,j,k,flip)) + &
-		        we2*(c12*selphi(i-2,j,k,flip) + c22*selphi(i-1,j,k,flip) + c32*selphi(i,j,k,flip)) + &
-				we3*(c13*selphi(i-1,j,k,flip) + c23*selphi(i,j,k,flip)   + c33*selphi(i+1,j,k,flip))
-		 
-	
-          !!the gradient in x-direction
-
-		  gradfix = fp2 - fm2
-
-		  
-
-          !
-         !!!!!!Y-dirction!!!!!!!!!!!!
-
-		 !! j + 1/2
-         
-		  
-		 beta1 = (13.0_db / 12.0_db) * (selphi(i,j-2,k,flip) - 2.0_db*selphi(i,j-1,k,flip) +     selphi(i,j,k,flip))**2 + &
-          	       (1.0_db / 4.0_db) * (selphi(i,j-2,k,flip) - 4.0_db*selphi(i,j-1,k,flip) + 3.0_db*selphi(i,j,k,flip))**2
-
-         beta2 = (13.0_db / 12.0_db) * (selphi(i,j-1,k,flip) - 2.0_db*selphi(i,j,k,flip) + selphi(i,j+1,k,flip))**2 + &
-          	       (1.0_db / 4.0_db) * (selphi(i,j+1,k,flip) -     selphi(i,j-1,k,flip))**2
-
-         beta3 = (13.0_db / 12.0_db) * (selphi(i,j,k,flip) - 2.0_db*selphi(i,j+1,k,flip) + selphi(i,j+2,k,flip))**2 + &
-               (1.0_db / 4.0_db) * (3.0_db*selphi(i,j,k,flip) - 4.0_db*selphi(i,j+1,k,flip) + selphi(i,j+2,k,flip))**2
- 
-	
-          fm1 = 0.1_db/(beta1+1e-7)**2   !alpha1
-          f0 = 0.6_db/(beta2+1e-7)**2    !alpha2
-          fp1 = 0.3_db/(beta3+1e-7)**2   !alpha3
-
-          sum_we = fm1+f0+fp1
-
-          we1 = fm1/sum_we
-          we2 = f0/sum_we
-          we3 = fp1/sum_we
-
-		  fp2 = we1*(c11*selphi(i,j-2,k,flip) + c21*selphi(i,j-1,k,flip) + c31*selphi(i,j,k,flip)) + &
-		        we2*(c12*selphi(i,j-1,k,flip) + c22*selphi(i,j,k,flip)   + c32*selphi(i,j+1,k,flip)) + &
-				we3*(c13*selphi(i,j,k,flip)   + c23*selphi(i,j+1,k,flip) + c33*selphi(i,j+2,k,flip))
-
-		 
-		  !! j - 1/2
-         
-		  beta1 = (13.0_db / 12.0_db) * (selphi(i,j-3,k,flip) - 2.0_db*selphi(i,j-2,k,flip) +     selphi(i,j-1,k,flip))**2 + &
-          	       (1.0_db / 4.0_db) * (selphi(i,j-3,k,flip) - 4.0_db*selphi(i,j-2,k,flip) + 3.0_db*selphi(i,j-1,k,flip))**2
-
-         beta2 = (13.0_db / 12.0_db) * (selphi(i,j-2,k,flip) - 2.0_db*selphi(i,j-1,k,flip) + selphi(i,j,k,flip))**2 + &
-          	       (1.0_db / 4.0_db) * (selphi(i,j,k,flip) -     selphi(i,j-2,k,flip))**2
-
-         beta3 = (13.0_db / 12.0_db) * (selphi(i,j-1,k,flip) - 2.0_db*selphi(i,j,k,flip) + selphi(i,j+1,k,flip))**2 + &
-               (1.0_db / 4.0_db) * (3.0_db*selphi(i,j-1,k,flip) - 4.0_db*selphi(i,j,k,flip) + selphi(i,j+1,k,flip))**2
- 
-	
-          fm1 = 0.1_db/(beta1+1e-7)**2   !alpha1
-          f0 = 0.6_db/(beta2+1e-7)**2    !alpha2
-          fp1 = 0.3_db/(beta3+1e-7)**2   !alpha3
-
-          sum_we = fm1+f0+fp1
-
-          we1 = fm1/sum_we
-          we2 = f0/sum_we
-          we3 = fp1/sum_we
-
-		  fm2 = we1*(c11*selphi(i,j-3,k,flip) + c21*selphi(i,j-2,k,flip) + c31*selphi(i,j-1,k,flip)) + &
-		        we2*(c12*selphi(i,j-2,k,flip) + c22*selphi(i,j-1,k,flip) + c32*selphi(i,j,k,flip)) + &
-				we3*(c13*selphi(i,j-1,k,flip) + c23*selphi(i,j,k,flip)   + c33*selphi(i,j+1,k,flip))
-		 
-	
-          !!the gradient in y-direction
-
-		  gradfiy = fp2 - fm2
-
-
-		
-
-         !!!!!!z-dirction!!!!!!!!!!!!
-
-		 
-         !! k + 1/2
-         
-		  
-		 beta1 = (13.0_db / 12.0_db) * (selphi(i,j,k-2,flip) - 2.0_db*selphi(i,j,k-1,flip) +     selphi(i,j,k,flip))**2 + &
-          	       (1.0_db / 4.0_db) * (selphi(i,j,k-2,flip) - 4.0_db*selphi(i,j,k-1,flip) + 3.0_db*selphi(i,j,k,flip))**2
-
-         beta2 = (13.0_db / 12.0_db) * (selphi(i,j,k-1,flip) - 2.0_db*selphi(i,j,k,flip) + selphi(i,j,k+1,flip))**2 + &
-          	       (1.0_db / 4.0_db) * (selphi(i,j,k+1,flip) -     selphi(i,j,k-1,flip))**2
-
-         beta3 = (13.0_db / 12.0_db) * (selphi(i,j,k,flip) - 2.0_db*selphi(i,j,k+1,flip) + selphi(i,j,k+2,flip))**2 + &
-               (1.0_db / 4.0_db) * (3.0_db*selphi(i,j,k,flip) - 4.0_db*selphi(i,j,k+1,flip) + selphi(i,j,k+2,flip))**2
- 
-	
-          fm1 = 0.1_db/(beta1+1e-7)**2   !alpha1
-          f0 = 0.6_db/(beta2+1e-7)**2    !alpha2
-          fp1 = 0.3_db/(beta3+1e-7)**2   !alpha3
-
-          sum_we = fm1+f0+fp1
-
-          we1 = fm1/sum_we
-          we2 = f0/sum_we
-          we3 = fp1/sum_we
-
-		  fp2 = we1*(c11*selphi(i,j,k-2,flip) + c21*selphi(i,j,k-1,flip) + c31*selphi(i,j,k,flip)) + &
-		        we2*(c12*selphi(i,j,k-1,flip) + c22*selphi(i,j,k,flip)   + c32*selphi(i,j,k+1,flip)) + &
-				we3*(c13*selphi(i,j,k,flip)   + c23*selphi(i,j,k+1,flip) + c33*selphi(i,j,k+2,flip))
-
-		 
-		  !! k - 1/2
-         
-		  beta1 = (13.0_db / 12.0_db) * (selphi(i,j,k-3,flip) - 2.0_db*selphi(i,j,k-2,flip) +     selphi(i,j,k-1,flip))**2 + &
-          	       (1.0_db / 4.0_db) * (selphi(i,j,k-3,flip) - 4.0_db*selphi(i,j,k-2,flip) + 3.0_db*selphi(i,j,k-1,flip))**2
-
-         beta2 = (13.0_db / 12.0_db) * (selphi(i,j,k-2,flip) - 2.0_db*selphi(i,j,k-1,flip) + selphi(i,j,k,flip))**2 + &
-          	       (1.0_db / 4.0_db) * (selphi(i,j,k,flip) -     selphi(i,j,k-2,flip))**2
-
-         beta3 = (13.0_db / 12.0_db) * (selphi(i,j,k-1,flip) - 2.0_db*selphi(i,j,k,flip) + selphi(i,j,k+1,flip))**2 + &
-               (1.0_db / 4.0_db) * (3.0*selphi(i,j,k-1,flip) - 4.0_db*selphi(i,j,k,flip) + selphi(i,j,k+1,flip))**2
- 
-	
-          fm1 = 0.1_db/(beta1+1e-7)**2   !alpha1
-          f0 = 0.6_db/(beta2+1e-7)**2    !alpha2
-          fp1 = 0.3_db/(beta3+1e-7)**2   !alpha3
-
-          sum_we = fm1+f0+fp1
-
-          we1 = fm1/sum_we
-          we2 = f0/sum_we
-          we3 = fp1/sum_we
-
-		  fm2 = we1*(c11*selphi(i,j,k-3,flip) + c21*selphi(i,j,k-2,flip) + c31*selphi(i,j,k-1,flip)) + &
-		        we2*(c12*selphi(i,j,k-2,flip) + c22*selphi(i,j,k-1,flip) + c32*selphi(i,j,k,flip)) + &
-				we3*(c13*selphi(i,j,k-1,flip) + c23*selphi(i,j,k,flip)   + c33*selphi(i,j,k+1,flip))
-		 
-	
-          !!the gradient in z-direction
-
-		  gradfiz = fp2 - fm2
-		  
-          selphi(i,j,k,flop) = selphi(i,j,k,flip) &
-           - gradrhox*gradfix - gradrhoy*gradfiy - gradrhoz*gradfiz + & 
-		   tau_diff*(lap_phi(i,j,k)) + feq	
-#endif	
-!**************************************aritra end**************************************
-
-#ifdef CENTRAL
-
-                  gradfix=selphi(i+1,j,k,flip)-selphi(i-1,j,k,flip)
-				  gradfiy=selphi(i,j+1,k,flip)-selphi(i,j-1,k,flip)
-		          gradfiz=selphi(i,j,k+1,flip)-selphi(i,j,k-1,flip)
+                  gradfix=normx(i,j,k)*modgrad(i,j,k)
+				  gradfiy=normy(i,j,k)*modgrad(i,j,k)
+		          gradfiz=normz(i,j,k)*modgrad(i,j,k)
                   selphi(i,j,k,flop) = selphi(i,j,k,flip) &
-                   - gradrhox*0.5_db*(gradfix) - gradrhoy*0.5_db*(gradfiy) &
-                   - gradrhoz*0.5_db*(gradfiz) + tau_diff*(lap_phi(i,j,k)) + feq
+                   - u(i,j,k)*0.5_db*(gradfix) - v(i,j,k)*0.5_db*(gradfiy) &
+                   - w(i,j,k)*0.5_db*(gradfiz) + tau_diff*lap_phi(i,j,k) + feq 
 #endif	
 
 #ifdef MONOD
 			    S_mono = mu_max * selphi(i,j,k,flip)/(Ks + selphi(i,j,k,flip)) * selphi(i,j,k,flip) * (1.0_db - selphi(i,j,k,flip))
 				selphi(i,j,k,flop)=selphi(i,j,k,flop) + S_mono
-				selphi(i,j,k,flop) = min(1.0_db, max(0.0_db, selphi(i,j,k,flop)));
-				
-#endif			 
+				!selphi(i,j,k,flop) = min(1.0_db, max(0.0_db, selphi(i,j,k,flop)))		 
 #endif
                
 
-   endsubroutine fused_LB_kernel
+   endsubroutine fused_LB_kernel   
+   
 
 
 
