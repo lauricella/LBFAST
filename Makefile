@@ -65,7 +65,7 @@ nvfortran-debug:
 	FC=nvfortran \
 	CFLAGS="-O3 -g -I $(CURDIR) " \
 	FCUDAFLAGS="-cuda -gpu=ccall,debug,keep,ptxinfo,lineinfo" \
-	FFLAGS="-O1 -g -cpp -acc -gpu=ccall,debug,keep,ptxinfo,lineinfo -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -I $(CURDIR) " \
+	FFLAGS="-O1 -g -cpp -acc -gpu=ccall,debug,keep,ptxinfo,lineinfo -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
 	LDFLAGS="-O3 -acc -gpu=ccall,lineinfo -Minfo=accel -DPRC=4 -I $(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EX) BINROOT=$(BINROOT) seq
@@ -85,7 +85,7 @@ nvfortran-mpi-debug:
 	FC=mpif90 \
 	CFLAGS="-O3 -g -I $(CURDIR) " \
 	FCUDAFLAGS="-cuda -gpu=ccall,debug,keep,ptxinfo,lineinfo" \
-	FFLAGS="-O1 -g -cpp -acc -gpu=ccall,debug,keep,ptxinfo,lineinfo -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -DMPI -I $(CURDIR) " \
+	FFLAGS="-O1 -g -cpp -acc -gpu=ccall,debug,keep,ptxinfo,lineinfo -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -DMPI -I $(CURDIR) " \
 	LDFLAGS="-O3 -acc -gpu=ccall,lineinfo -Minfo=accel -DPRC=4 -DMPI -I $(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EXP) BINROOT=$(BINROOT) seq

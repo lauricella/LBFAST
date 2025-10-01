@@ -1,6 +1,6 @@
 #include "defines.h"
-#if !defined(_KERNELCUDA) && !defined(_OPENACC)  
-#error "To use this module the macros _KERNELCUDA and _OPENACC should be defined."
+#if !defined(_OPENACC)  
+#error "To use this module the macros _OPENACC should be defined."
 #endif
 
 
@@ -13,14 +13,22 @@ module lb_cuda_kernels
    implicit none
    
    integer :: istat
-   integer, save :: TILE_DIMx=64
+   integer, save :: TILE_DIMx=4
    integer, save :: TILE_DIMy=4
-   integer, save :: TILE_DIMz=1
+   integer, save :: TILE_DIMz=4
    integer, save :: TILE_DIM=16
    integer, constant :: TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,TILE_DIM_d
    integer, constant :: nx_d,ny_d,nz_d
    integer, constant :: lx_d,ly_d,lz_d
+   integer, constant :: nxblock_d,nyblock_d,nzblock_d
+   integer, constant :: nxyblock_d,nblocks_d
    type (dim3) :: dimGrid,dimBlock
+   type (dim3) :: dimGridhalo,dimBlockhalo
+   type (dim3) :: dimBlockshared
+   type (dim3) :: dimGridx,dimGridy,dimGridz
+   type (dim3) :: dimBlock2
+   
+   integer :: nxblock,nyblock,nzblock,nxyblock,nblocks
 
 contains
 
@@ -69,9 +77,59 @@ contains
       if (mod(nz, TILE_DIMz) /= 0) then
         if(myrank==0)write(6,*) 'nz must be a multiple of TILE_DIMz'
         call dostop
-      end if         
+      end if
+      
+      dimGridhalo  = dim3((nx+TILE_DIMx-1)/TILE_DIMx +2,(ny+TILE_DIMy-1)/TILE_DIMy +2,(nz+TILE_DIMz-1)/TILE_DIMz +2)
+      dimBlockhalo = dim3(TILE_DIMx, TILE_DIMy, TILE_DIMz)
+      
+      dimBlockshared = dim3(TILE_DIMx +2, TILE_DIMy +2, TILE_DIMz +2)
+      
+      dimGridx  = dim3((ny+TILE_DIM-1)/TILE_DIM, (nz+TILE_DIM-1)/TILE_DIM, 1)
+      dimGridy  = dim3((nx+TILE_DIM-1)/TILE_DIM, (nz+TILE_DIM-1)/TILE_DIM, 1)
+      dimGridz  = dim3((nx+TILE_DIM-1)/TILE_DIM, (ny+TILE_DIM-1)/TILE_DIM, 1)
+      
+      dimBlock2 = dim3(TILE_DIM, TILE_DIM, 1)
+      !plus 2 for the halo forward and backward
+      nxblock=nx/TILE_DIMx +2
+      nyblock=ny/TILE_DIMy +2
+      nzblock=nz/TILE_DIMz +2
+      
+      nxyblock=nxblock*nyblock
+      nblocks=nxblock*nyblock*nzblock
+      
+      nxblock_d=nxblock
+      nyblock_d=nyblock
+      nzblock_d=nzblock
+      
+      nxyblock_d=nxyblock
+      nblocks_d=nblocks
+
+#if 1
+      if(myrank==0)then
+        write(6,*)'nx,ny,nz',nx,ny,nz
+        write(6,*)'TILE_DIMx,TILE_DIMy,TILE_DIMz',TILE_DIMx,TILE_DIMy,TILE_DIMz
+        write(6,*)'nxblock,nyblock,nzblock',nxblock,nyblock,nzblock
+        write(6,*)'nblocks',nblocks
+      endif
+#endif
+      
    
    endsubroutine setup_cuda
+   
+   subroutine test_LB_cuda
+
+   implicit none
+      
+!  if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
+   !$acc wait
+   istat = cudaDeviceSynchronize
+       
+   !$acc host_data use_device(myrank,nx,ny,nz,coords,selphi)
+   call test_LB_kernel<<<dimGrid, dimBlock>>>(myrank,nx,ny,nz,coords,selphi)
+   call test_LB_kernel_halo<<<dimGridhalo,dimBlockhalo>>>(myrank,nx,ny,nz,coords,selphi)
+   !$acc end host_data
+   
+   end subroutine test_LB_cuda
    
    subroutine moments_LB_cuda
 
@@ -199,15 +257,7 @@ contains
         if(myrank==0)write(6,*) cudaGetErrorString(istat)
         call doerror(6,'ERROR in fused_LB_cuda')
       endif
-      !$acc wait      
-
-      
-      
-      
-
-!!$acc host_data use_device(nx,ny,nz,coords,phi,phi_old)
-!      call test_LB_kernel<<<dimGrid, dimBlock>>>(nx,ny,nz,coords,phi,phi_old)
-!!$acc end host_data
+      !$acc wait
 
       
    end subroutine fused_LB_cuda
@@ -216,14 +266,14 @@ contains
    !****************************************************************************!
 
 
- attributes(global) subroutine test_LB_kernel(nx,ny,nz,coords,phi,phi_old)
+ attributes(global) subroutine test_LB_kernel(myrank,nx,ny,nz,coords,selphi)
       implicit none
       
-      integer :: nx,ny,nz
+      integer :: myrank,nx,ny,nz
       integer, dimension(3) :: coords
-      real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1) :: phi,phi_old
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,2) :: selphi
       
-      integer :: i,j,k,gi,gj,gk
+      integer :: i,j,k,gi,gj,gk,myblock
 
       i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
       j = (blockIdx%y-1) * TILE_DIMy_d + threadIdx%y
@@ -233,16 +283,55 @@ contains
       gj=ny*coords(2)+j
       gk=nz*coords(3)+k
       
-      if(gi==8 .and. gj==8 .and. gk==8)then
-        write(*,*)'eccomi',phi(i,j,k)
+      myblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1
+      
+      !if(myblock<344)then
+      if(gi==1 .and. gj==1 .and. gk==31)then
+        write(*,*)'i',gi,gj,gk,myblock,myrank
       endif
-     if(gi==1) write(*,*)'ciao',i,j,k,phi(i,j,k)
+     !if(gi==1) write(*,*)'ciao',i,j,k,phi(i,j,k)
      
-     phi_old(i,j,k)=phi(i,j,k)
+     !phi_old(i,j,k)=phi(i,j,k)
      
       
  end subroutine test_LB_kernel
  
+ attributes(global) subroutine test_LB_kernel_halo(myrank,nx,ny,nz,coords,selphi)
+      implicit none
+      
+      integer :: myrank,nx,ny,nz
+      integer, dimension(3) :: coords
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,2) :: selphi
+      
+      integer :: i,j,k,gi,gj,gk,myblock
+      integer :: xblock,yblock,zblock
+
+      i = (blockIdx%x-2) * TILE_DIMx_d + threadIdx%x
+      j = (blockIdx%y-2) * TILE_DIMy_d + threadIdx%y
+      k = (blockIdx%z-2) * TILE_DIMz_d + threadIdx%z
+      
+      gi=nx*coords(1)+i
+      gj=ny*coords(2)+j
+      gk=nz*coords(3)+k
+      
+      xblock=(i+2*TILE_DIMx_d-1)/TILE_DIMx_d
+	  yblock=(j+2*TILE_DIMy_d-1)/TILE_DIMy_d
+	  zblock=(k+2*TILE_DIMz_d-1)/TILE_DIMz_d
+      
+      myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+      
+      !if(myblock==20 .and. myrank==1)then
+      !if(blockIdx%x==1 .and. blockIdx%y==1 .and. blockIdx%z==1)then
+      if(gi==1 .and. gj==1 .and. gk==31)then
+        write(*,*)'e',gi,gj,gk,myblock,myrank
+      endif
+     !if(gi==1) write(*,*)'ciao',i,j,k,phi(i,j,k)
+     
+     !phi_old(i,j,k)=phi(i,j,k)
+     
+      
+ end subroutine test_LB_kernel_halo
+  
  attributes(global) subroutine moments_LB_kernel(flop,nx,ny,nz,coords,isfluid,f &
        ,rho,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz,fux,fvy,fwz &
 #ifdef TWOCOMPONENT

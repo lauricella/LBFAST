@@ -41,8 +41,8 @@ module integrator_module
     thinfilm_scan_mark,repulsive_flux_tangential,repulsive_flux_normal, &
 #endif
     moments_lb,compute_densityratio,fused_lb
-#if defined(_KERNELCUDA) && defined(_OPENACC)        
-   use lb_cuda_kernels, only : moments_LB_cuda,fused_lb_cuda
+#if defined(_OPENACC)        
+   use lb_cuda_kernels, only : moments_LB_cuda,fused_lb_cuda,test_LB_cuda
 #endif
    use profiling_m,   only : timer_init,itime_start, &
       startPreprocessingTime,print_timing_partial, &
@@ -295,7 +295,7 @@ contains
       !***********************************compute moments***********************
 	  if(ldiagnostic)call start_timing2("LB","moments")
 
-#if defined(_KERNELCUDA) && defined(_OPENACC)
+#if defined(_OPENACC)
       call moments_LB_cuda
 #else
       call moments_LB
@@ -311,6 +311,10 @@ contains
       time_init=current_time()
       time_actual_old=time_init
       call cpu_time(ts1)
+#if 1
+      call test_LB_cuda
+      goto 110
+#endif      
       do step=1,nsteps
          !***********************************Print on files 3D************************
 
@@ -446,7 +450,7 @@ contains
          !***********************************collision + no slip + forcing: fused implementation*********
 		 if(ldiagnostic)call start_timing2("LB","fused")
 
-#if defined(_KERNELCUDA) && defined(_OPENACC)      
+#if defined(_OPENACC)      
          call fused_LB_cuda
 #else
          call fused_LB
@@ -514,7 +518,7 @@ contains
  #endif
 
 
-#if defined(_KERNELCUDA) && defined(_OPENACC) 
+#if defined(_OPENACC) 
          call moments_LB_cuda
 #else
          call moments_LB

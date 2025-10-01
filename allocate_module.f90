@@ -23,7 +23,6 @@ contains
       allocate(fwz(1:nx,1:ny,1:nz))
 #ifdef TWOCOMPONENT
 
-
       allocate(selphi(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,2))
 	  
       selphi=ZERO
