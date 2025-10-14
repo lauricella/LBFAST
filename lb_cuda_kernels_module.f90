@@ -271,7 +271,20 @@ contains
 
 
    !****************************************************************************!
-
+ attributes(device) elemental function idx5d(ind1,ind2,ind3,ind4,ind5,m1,m2,m3,m4)
+ 
+  implicit none
+  
+  integer, intent(in) :: ind1,ind2,ind3,ind4,ind5,m1,m2,m3,m4
+  
+  integer :: idx5d
+  
+  idx5d=1+(ind1-1)+(ind2-1)*m1+(ind3-1)*(m1*m2)+(ind4-1)*(m1*m2*m3)+ &
+   (ind5-1)*(m1*m2*m3*m4)
+  
+  return
+  
+ end function idx5d
 
  attributes(global) subroutine test_LB_kernel(myrank,nx,ny,nz,coords,selphi)
       implicit none
@@ -371,6 +384,7 @@ contains
 	  zblock=(k+2*TILE_DIMz_d-1)/TILE_DIMz_d
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+      
       
       !if(myblock<344)then
       if(gi==17 .and. gj==17 .and. gk==17)then

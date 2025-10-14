@@ -807,4 +807,19 @@ function my_mod(n, m) result(res)
     endif
 end function my_mod
 
+elemental function idx5(ind1,ind2,ind3,ind4,ind5,m1,m2,m3,m4)
+ !$acc routine seq
+  implicit none
+  
+  integer, intent(in) :: ind1,ind2,ind3,ind4,ind5,m1,m2,m3,m4
+  
+  integer :: idx5
+  
+  idx5=1+(ind1-1)+(ind2-1)*m1+(ind3-1)*(m1*m2)+(ind4-1)*(m1*m2*m3)+ &
+   (ind5-1)*(m1*m2*m3*m4)
+  
+  return
+  
+end function idx5
+
 endmodule
