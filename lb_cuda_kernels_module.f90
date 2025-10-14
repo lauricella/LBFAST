@@ -25,6 +25,7 @@ module lb_cuda_kernels
    type (dim3) :: dimGrid,dimBlock
    type (dim3) :: dimGridhalo,dimBlockhalo
    type (dim3) :: dimBlockshared
+   type (dim3) :: dimGridInt
    type (dim3) :: dimGridx,dimGridy,dimGridz
    type (dim3) :: dimBlock2
    
@@ -79,6 +80,7 @@ contains
         call dostop
       end if
       
+      dimGridInt = dim3((nx+TILE_DIMx-1)/TILE_DIMx -2,(ny+TILE_DIMy-1)/TILE_DIMy -2,(nz+TILE_DIMz-1)/TILE_DIMz -2)
       dimGridhalo  = dim3((nx+TILE_DIMx-1)/TILE_DIMx +2,(ny+TILE_DIMy-1)/TILE_DIMy +2,(nz+TILE_DIMz-1)/TILE_DIMz +2)
       dimBlockhalo = dim3(TILE_DIMx, TILE_DIMy, TILE_DIMz)
       
@@ -126,9 +128,10 @@ contains
    istat = cudaDeviceSynchronize
        
    !$acc host_data use_device(myrank,nx,ny,nz,coords,selphi)
-   call test_LB_kernel_shared_x<<<dimGridx, dimBlockshared>>>(myrank,nx,ny,nz,coords,selphi)
+   !call test_LB_kernel_shared_x<<<dimGridx, dimBlockshared>>>(myrank,nx,ny,nz,coords,selphi)
    !call test_LB_kernel_shared_y<<<dimGridy, dimBlockshared>>>(myrank,nx,ny,nz,coords,selphi)
    !call test_LB_kernel_shared_z<<<dimGridz, dimBlockshared>>>(myrank,nx,ny,nz,coords,selphi)
+   call  test_LB_kernel_shared_internal<<<dimGridInt, dimBlockshared>>>(myrank,nx,ny,nz,coords,selphi)
    !call test_LB_kernel_shared<<<dimGrid, dimBlockshared>>>(myrank,nx,ny,nz,coords,selphi)
    !call test_LB_kernel_halo<<<dimGridhalo,dimBlockhalo>>>(myrank,nx,ny,nz,coords,selphi)
    !$acc end host_data
@@ -339,6 +342,46 @@ contains
      
       
  end subroutine test_LB_kernel_shared 
+ 
+ attributes(global) subroutine test_LB_kernel_shared_internal(myrank,nx,ny,nz,coords,selphi)
+      implicit none
+      
+      integer :: myrank,nx,ny,nz
+      integer, dimension(3) :: coords
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,2) :: selphi
+      
+      integer :: i,j,k,gi,gj,gk,myblock
+      integer :: li,lj,lk
+      integer :: xblock,yblock,zblock
+      
+      li = threadIdx%x-1
+      lj = threadIdx%y-1
+      lk = threadIdx%z-1
+
+      i = (blockIdx%x) * TILE_DIMx_d + li
+      j = (blockIdx%y) * TILE_DIMy_d + lj
+      k = (blockIdx%z) * TILE_DIMz_d + lk
+      
+      gi=nx*coords(1)+i
+      gj=ny*coords(2)+j
+      gk=nz*coords(3)+k
+      
+      xblock=(i+2*TILE_DIMx_d-1)/TILE_DIMx_d
+	  yblock=(j+2*TILE_DIMy_d-1)/TILE_DIMy_d
+	  zblock=(k+2*TILE_DIMz_d-1)/TILE_DIMz_d
+      
+      myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+      
+      !if(myblock<344)then
+      if(gi==17 .and. gj==17 .and. gk==17)then
+        write(*,*)'i',li,lj,lk,myrank
+      endif
+     !if(gi==1) write(*,*)'ciao',i,j,k,phi(i,j,k)
+     
+     !phi_old(i,j,k)=phi(i,j,k)
+     
+      
+ end subroutine test_LB_kernel_shared_internal 
  
  attributes(global) subroutine test_LB_kernel_shared_z(myrank,nx,ny,nz,coords,selphi)
       implicit none
