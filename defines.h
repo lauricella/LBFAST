@@ -1,7 +1,7 @@
 #define TWOCOMPONENT
 #define DENSRATIO
 #define DOBENCHMARK
-#define noDOXDMF
+#define DOXDMF
 #define noWRITEPRESS
 #define JAQMIN
 #define INTERFACE_INCOMP

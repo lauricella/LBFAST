@@ -139,7 +139,7 @@ module vars
 
    integer :: i,j,k,ll,l
    integer :: gi,gj,gk
-   integer :: nx,ny,nz,step,stamp,stamp2D,nsteps,ngpus
+   integer :: nx,ny,nz,step,step_flip,stamp,stamp2D,nsteps,ngpus
    integer :: stamp_term=huge(1)
    integer :: nxskip,nyskip,nzskip,lxskip,lyskip,lzskip
    integer :: stepskip=1
@@ -220,7 +220,9 @@ module vars
 #ifdef TWOCOMPONENT
    real(kind=db), allocatable, dimension(:,:,:) :: rhophi !ffx,ffy,ffz
 #endif
-   real(kind=db), allocatable, dimension(:,:,:,:) :: f
+   real(kind=db), allocatable, dimension(:,:,:,:) :: f       !pops
+   real(kind=db), allocatable, dimension(:) :: hfields_flip,hfields_flop  !allocate hudro fields flip and flop
+   
 #ifdef MULTIHIT
    real(kind=db), allocatable, dimension(:,:,:) ::ABCx,ABCy,ABCz
 #endif
