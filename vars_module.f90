@@ -167,6 +167,12 @@ module vars
    integer(acc_device_kind) :: devType
 #endif
 
+   integer, save :: TILE_DIMx=4
+   integer, save :: TILE_DIMy=4
+   integer, save :: TILE_DIMz=4
+   integer, save :: TILE_DIM=16
+   integer, save :: nxblock,nyblock,nzblock,nxyblock,nblocks
+
    real(kind=db),parameter :: pi_greek=3.14159265359793234626433
 
    real(kind=db)  :: ts1,ts2
@@ -221,7 +227,23 @@ module vars
    real(kind=db), allocatable, dimension(:,:,:) :: rhophi !ffx,ffy,ffz
 #endif
    real(kind=db), allocatable, dimension(:,:,:,:) :: f       !pops
-   real(kind=db), allocatable, dimension(:) :: hfields_flip,hfields_flop  !allocate hudro fields flip and flop
+   real(kind=db), allocatable, dimension(:) :: hfields_flip,hfields_flop  !allocate hydro fields flip and flop
+   real(kind=db), allocatable, dimension(:) :: phifields_flip,phifields_flop  !allocate phi fields flip and flop
+   real(kind=db), allocatable, dimension(:) :: auxfields !allocate aux fields
+   integer, parameter :: nhfields=10
+   integer, parameter :: nphifields=1
+#ifdef TWOCOMPONENT
+#ifdef DENSRATIO
+   integer, parameter :: nauxfields=7
+#else
+   integer, parameter :: nauxfields=6
+#endif
+#else   
+   integer, parameter :: nauxfields=3
+#endif   
+   integer, save :: ntothfields
+   integer, save :: ntotphifields
+   integer, save :: ntotauxfields
    
 #ifdef MULTIHIT
    real(kind=db), allocatable, dimension(:,:,:) ::ABCx,ABCy,ABCz
@@ -823,5 +845,18 @@ elemental function idx5(ind1,ind2,ind3,ind4,ind5,m1,m2,m3,m4)
   return
   
 end function idx5
+
+elemental function coordblock(idblock,nxblock,nxyblock)
+  !$acc routine seq
+  !return block coordinate from id block (idblock start from 1 so we apply minus 1)
+     implicit none
+     integer, intent(in) :: idblock,nxblock,nxyblock
+     integer, dimension(3) :: coordblock
+   
+     coordblock(3)=(idblock-1)/nxyblock +1
+     coordblock(2)=((idblock-1)-(coordblock(3)-1)*nxyblock)/nxblock +1
+     coordblock(1)=(idblock-1)-(coordblock(3)-1)*nxyblock-(coordblock(2)-1)*nxblock +1
+      
+end function coordblock
 
 endmodule

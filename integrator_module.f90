@@ -42,7 +42,8 @@ module integrator_module
 #endif
     moments_lb,compute_densityratio,fused_lb
 #if defined(_OPENACC)        
-   use lb_cuda_kernels, only : moments_LB_cuda,fused_lb_cuda,test_LB_cuda
+   use lb_cuda_kernels, only : moments_LB_cuda,fused_lb_cuda,test_LB_cuda, &
+    compute_densityratio_cuda
 #endif
    use profiling_m,   only : timer_init,itime_start, &
       startPreprocessingTime,print_timing_partial, &
@@ -65,6 +66,8 @@ contains
       implicit none
       integer :: subchords(3)
       logical :: ltime_actual=.false.
+      integer :: ii,jj,kk
+      integer :: xblock,yblock,zblock,myblock,iii,jjj,kkk
 
       step=0
 
@@ -76,7 +79,11 @@ contains
 	  !$acc& tau1,visc1,rho_r,rho_b,invrho_r,invrho_b,omega,lap_phi, &
       !$acc& intpbc_dir,num_links_pops,links_pops,datampi,f_datampi,uwall,udotc,uu, &
       !$acc& send_extr,recv_extr,f_send_extr,f_recv_extr,fux,fvy,fwz, &
+      !$acc& ntothfields,ntotphifields,ntotauxfields, &
+      !$acc& hfields_flip,hfields_flop,auxfields, &
+      !$acc& TILE_DIMx,TILE_DIMy,TILE_DIMz,nblocks,nxblock,nxyblock, &
 #ifdef TWOCOMPONENT
+      !$acc& phifields_flip,phifields_flop, &
       !$acc& sharp_c,beta,tau2,visc2, kapp, sigma,width,tau_diff,corr,global_phi_sum_ini,global_count,global_phi_sum,&
 	  !$acc& arr_x, arr_y, arr_z,normx,normy,normz,modgrad,selphi,global_phi_change, &
 #ifdef DENSRATIO
@@ -146,7 +153,11 @@ contains
          call read_restart_2c(iframe,iframe2D)
       endif
       if(ldiagnostic)call start_timing2("LB","moments_phi")
+#if defined(_OPENACC) 
+      call compute_densityratio_cuda
+#else
       call compute_densityratio
+#endif
       if(ldiagnostic)call end_timing2("LB","moments_phi")
 #else
       if(lrestart)then
@@ -193,20 +204,38 @@ contains
 #ifndef TWOCOMPONENT
          !$acc kernels present(rhoprint,velprint,rho,u,v,w)
 #endif
-         !$acc loop independent collapse(3)  private(i,j,k)
+         !$acc loop independent collapse(3)  private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock)
 #endif
          do k=1,nzskip
             do j=1,nyskip
                do i=1,nxskip
+                  ii=i*stepskip
+                  jj=j*stepskip
+                  kk=k*stepskip
+
+                  xblock=(ii+2*TILE_DIMx-1)/TILE_DIMx   
+                  yblock=(jj+2*TILE_DIMy-1)/TILE_DIMy     
+                  zblock=(kk+2*TILE_DIMz-1)/TILE_DIMz   
+                  
+                  myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+                  iii=ii-xblock*TILE_DIMx+2*TILE_DIMx
+                  jjj=jj-yblock*TILE_DIMy+2*TILE_DIMy
+                  kkk=kk-zblock*TILE_DIMz+2*TILE_DIMz                            
+                  
 #if defined(DENSRATIO) && defined(TWOCOMPONENT)
-                  rhoprint(i,j,k)=real(rhophi(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
+                  !rhoprint(i,j,k)=real(rhophi(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
+                  if(rhophi(ii,jj,kk)/=auxfields(idx5(iii,jjj,kkk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)))then
+                    write(6,*)i,j,k,rhophi(ii,jj,kk),auxfields(idx5(iii,jjj,kkk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+                  endif
+                  rhoprint(i,j,k)=real(auxfields(idx5(iii,jjj,kkk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)),kind=printdb)
 #ifdef WRITEPRESS                   
                   pressprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
 #endif
 #endif
 
 #if defined(TWOCOMPONENT) && !defined(DENSRATIO)
-                  rhoprint(i,j,k)=real(selphi(i*stepskip,j*stepskip,k*stepskip,flip),kind=printdb)
+                  !rhoprint(i,j,k)=real(selphi(i*stepskip,j*stepskip,k*stepskip,flip),kind=printdb)
+                  rhoprint(i,j,k)=real(phifields_flip(idx5(iii,jjj,kkk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields)),kind=printdb)
 #ifdef WRITEPRESS                  
                   pressprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)				  
 #endif
@@ -311,8 +340,8 @@ contains
       time_init=current_time()
       time_actual_old=time_init
       call cpu_time(ts1)
-#if 0
-      call test_LB_cuda
+#if 1
+      !call test_LB_cuda
       goto 110
 #endif      
       do step_flip=1,nsteps,2

@@ -7,7 +7,7 @@ program threadsafeLB
    use openacc
 #endif
 #if defined(_OPENACC)            
-   use lb_cuda_kernels, only : setup_cuda,TILE_DIMx,TILE_DIMy,TILE_DIMz,TILE_DIM
+   use lb_cuda_kernels, only : setup_cuda
 #endif
    use prints, only : intstr,copystring,driver_read_isfluid_raw, &
     driver_read_init_raw
@@ -19,7 +19,7 @@ program threadsafeLB
     timer_init,startpreprocessingtime,printsimulationtime,print_timing_final, &
     get_totram
    
-   use initial_condts
+   use initial_condts, only: initial_conditions_all
    implicit none
    
    logical :: lexist
@@ -191,11 +191,11 @@ program threadsafeLB
       endif
       open(unit=inputio,file=trim(inipFile),status='old')
       read(inputio,nml=simulation)
-      if(nplanes>0)then
-        if(allocated(ndir))deallocate(ndir)
-        if(allocated(npoint))deallocate(npoint)
-        allocate(ndir(nplanes),npoint(nplanes))
-      endif
+      
+      if(allocated(ndir))deallocate(ndir)
+      if(allocated(npoint))deallocate(npoint)
+      allocate(ndir(nplanes),npoint(nplanes))
+      
       read(inputio,nml=fluid)
       close(inputio)
       tau1=visc1/cssq + 0.5_db
@@ -231,11 +231,11 @@ program threadsafeLB
    !!!!!!!SETUP MPI!!!!!!!!!!!!!!!!!!!
    call setup_mpi()
    
-   call allocate_struct
-   
 #if defined(_OPENACC)
    call setup_cuda
 #endif
+
+   call allocate_struct
     
    !ex=(/0, 1, -1, 0,  0,  0,  0,  1,  -1,  1,  -1,  0,   0,  0,   0,  1,  -1,  -1,   1/)
    !ey=(/0, 0,  0, 1, -1,  0,  0,  1,  -1, -1,   1,  1,  -1,  1,  -1,  0,   0,   0,   0/)
@@ -309,7 +309,10 @@ program threadsafeLB
    
    
    !*************************************initial conditions ************************
-   
+   step=0
+
+   flip=mod(step,2)+1     
+   flop = 3 - flip
    call initial_conditions_all
    if(lreadinit)then
      if(myrank==0)write(6,'(a)') 'Reading initialization files.....'

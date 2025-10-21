@@ -14,6 +14,7 @@ module prints
     myoffset_3d,write_file_raw_par2D_nompiio,write_file_raw_par_nompiio, &
     lsizes,skip_lsizes,skip_myoffset,skip_gsizes,read_isfluid_parallel, &
     write_file_raw_par_isfluid,read_init_parallel
+
    implicit none
 
 contains
@@ -658,9 +659,25 @@ contains
       real(kind=db) :: fneq1,feq, rhophi_loc
 
       if(nprocs==1)then
-         call read_init_serial(iframe)
+        if(flop==1)then
+           call read_init_serial(iframe,hfields_flip,phifields_flip)
+        else
+           call read_init_serial(iframe,hfields_flop,phifields_flop)
+        endif
       else
-         call read_init_parallel(iframe,e_io)
+        if(flop==1)then
+          call read_init_parallel(iframe,e_io,hfields_flip,phifields_flip)
+        else
+          call read_init_parallel(iframe,e_io,hfields_flop,phifields_flop)
+        endif
+      endif
+      
+      if(flop==1)then
+        hfields_flop=hfields_flip
+        phifields_flop=phifields_flip
+      else
+        hfields_flip=hfields_flop
+        phifields_flip=phifields_flop
       endif
       
 !!!!common to every LB
@@ -708,13 +725,15 @@ contains
 
    end subroutine read_isfluid_serial
    
-   subroutine read_init_serial(iframe)
+   subroutine read_init_serial(iframe,hfields_s,phifields_s)
 
       implicit none
 
       integer, intent(in) :: iframe
+      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
       logical :: file_exists
-
+      integer :: ii,jj,kk,myblock,xblock,yblock,zblock
+      
       sevt1 = 'rho.raw'
       
       inquire(file=trim(sevt1), exist=file_exists)
@@ -727,6 +746,20 @@ contains
 
       read(345)lap_phi
       rho(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
 
       close(345)
       
@@ -742,7 +775,21 @@ contains
 
       read(345)lap_phi
       u(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
-
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
+      
       close(345)      
       
       sevt1 = 'v.raw'
@@ -757,6 +804,20 @@ contains
 
       read(345)lap_phi
       v(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
 
       close(345)   
       
@@ -772,6 +833,20 @@ contains
 
       read(345)lap_phi
       w(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
       
       close(345)      
 
@@ -788,6 +863,20 @@ contains
 
       read(345)lap_phi
       selphi(1:nx,1:ny,1:nz,flip)= lap_phi(1:nx,1:ny,1:nz)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
+               phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=lap_phi(i,j,k) 
+             enddo
+         enddo
+      enddo 
 
       close(345)
       
@@ -810,9 +899,17 @@ contains
       real(kind=db) :: feq,fneq1
 
       if(nprocs==1)then
-         call read_restart_serial_1c(iframe,iframe2D)
+         if(flop==1)then
+           call read_restart_serial_1c(iframe,iframe2D,hfields_flip)
+         else
+           call read_restart_serial_1c(iframe,iframe2D,hfields_flop)
+         endif
       else
-         call read_restart_parallel_1c(iframe,iframe2D,e_io)
+         if(flop==1)then
+           call read_restart_parallel_1c(iframe,iframe2D,e_io,hfields_flip)
+         else
+           call read_restart_parallel_1c(iframe,iframe2D,e_io,hfields_flop)
+         endif
       endif
       !$acc update device(rho,u,v,w,pxx,pxy,pxz,pyy,pyz,pzz)
       !recunstruct pops from Hydrovars
@@ -862,44 +959,202 @@ contains
        
        
       if(nprocs==1)then
-         call write_restart_serial_1c(iframe,iframe2D)
+         if(flop==1)then
+           call write_restart_serial_1c(iframe,iframe2D,hfields_flip)
+         else
+           call write_restart_serial_1c(iframe,iframe2D,hfields_flop)
+         endif
       else
-         call write_restart_parallel_1c(iframe,iframe2D,e_io)
+         if(flop==1)then
+           call write_restart_parallel_1c(iframe,iframe2D,e_io,hfields_flip)
+         else
+           call write_restart_parallel_1c(iframe,iframe2D,e_io,hfields_flop)
+         endif
       endif
 
    end subroutine write_restart_1c
 
-   subroutine write_restart_serial_1c(iframe,iframe2D)
+   subroutine write_restart_serial_1c(iframe,iframe2D,hfields_s)
 
       implicit none
 
       integer, intent(in) :: iframe,iframe2D
+      real(kind=db), allocatable, dimension(:) :: hfields_s
+      integer :: ii,jj,kk,xblock,yblock,zblock,myblock
 
       sevt1 = trim(dir_out) // 'restart.raw'
       open(unit=345,file=trim(sevt1), &
          status='replace',action='write',access='stream',form='unformatted')
 
       lap_phi(1:nx,1:ny,1:nz)= rho(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       write(345)lap_phi
 
       lap_phi(1:nx,1:ny,1:nz)= u(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       write(345)lap_phi
-      lap_phi(1:nx,1:ny,1:nz)= v(1:nx,1:ny,1:nz) 
+      
+      lap_phi(1:nx,1:ny,1:nz)= v(1:nx,1:ny,1:nz)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo  
       write(345)lap_phi
+      
+      
       lap_phi(1:nx,1:ny,1:nz)= w(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       write(345)lap_phi
 
       lap_phi(1:nx,1:ny,1:nz)= pxx(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       write(345)lap_phi
+      
       lap_phi(1:nx,1:ny,1:nz)= pxy(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       write(345)lap_phi
+      
       lap_phi(1:nx,1:ny,1:nz)= pxz(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       write(345)lap_phi
+      
       lap_phi(1:nx,1:ny,1:nz)= pyy(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       write(345)lap_phi
+      
       lap_phi(1:nx,1:ny,1:nz)= pyz(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       write(345)lap_phi
-      lap_phi(1:nx,1:ny,1:nz)= pzz(1:nx,1:ny,1:nz) 
+      
+      lap_phi(1:nx,1:ny,1:nz)= pzz(1:nx,1:ny,1:nz)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo  
       write(345)lap_phi
       
       write(345)iframe,iframe2D
@@ -908,12 +1163,14 @@ contains
 
    end subroutine write_restart_serial_1c
 
-   subroutine read_restart_serial_1c(iframe,iframe2D)
+   subroutine read_restart_serial_1c(iframe,iframe2D,hfields_s)
 
       implicit none
 
       integer, intent(out) :: iframe,iframe2D
+      real(kind=db), allocatable, dimension(:) :: hfields_s
       logical :: file_exists
+      integer :: ii,jj,kk,xblock,yblock,zblock,myblock
 
       sevt1 = trim(dir_out) // 'restart.raw'
       
@@ -927,26 +1184,173 @@ contains
 
       read(345)lap_phi
       rho(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo       
 
       read(345)lap_phi
       u(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
+            
       read(345)lap_phi
       v(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
+      
       read(345)lap_phi
       w(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo       
 
       read(345)lap_phi
       pxx(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
+            
       read(345)lap_phi
       pxy(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
+      
       read(345)lap_phi
       pxz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
+      
       read(345)lap_phi
       pyy(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
+      
       read(345)lap_phi
       pyz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
+      
       read(345)lap_phi
       pzz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
       
       read(345)iframe,iframe2D
 
@@ -965,9 +1369,17 @@ contains
       real(kind=db) :: feq,fneq1
 
       if(nprocs==1)then
-         call read_restart_serial_2c(iframe,iframe2D)
+         if(flop==1)then
+           call read_restart_serial_2c(iframe,iframe2D,hfields_flip,phifields_flip)
+         else
+           call read_restart_serial_2c(iframe,iframe2D,hfields_flop,phifields_flop)
+         endif
       else
-         call read_restart_parallel_2c(iframe,iframe2D,e_io)
+         if(flop==1)then
+           call read_restart_parallel_2c(iframe,iframe2D,e_io,hfields_flip,phifields_flip)
+         else
+           call read_restart_parallel_2c(iframe,iframe2D,e_io,hfields_flop,phifields_flop)
+         endif
       endif
       
       
@@ -1015,47 +1427,218 @@ contains
       integer :: e_io
       
       if(nprocs==1)then
-         call write_restart_serial_2c(iframe,iframe2D)
+         if(flop==1)then
+           call write_restart_serial_2c(iframe,iframe2D,hfields_flip,phifields_flip)
+         else
+           call write_restart_serial_2c(iframe,iframe2D,hfields_flip,phifields_flop)
+         endif
       else
-         call write_restart_parallel_2c(iframe,iframe2D,e_io)
+         if(flop==1)then
+           call write_restart_parallel_2c(iframe,iframe2D,e_io,hfields_flip,phifields_flip)
+         else
+           call write_restart_parallel_2c(iframe,iframe2D,e_io,hfields_flop,phifields_flop)
+         endif
       endif
 
    end subroutine write_restart_2c
 
-   subroutine write_restart_serial_2c(iframe,iframe2D)
+   subroutine write_restart_serial_2c(iframe,iframe2D,hfields_s,phifields_s)
 
       implicit none
 
       integer, intent(in) :: iframe,iframe2D
+      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
+      integer :: ii,jj,kk,xblock,yblock,zblock,myblock
 
       sevt1 = trim(dir_out) // 'restart.raw'
       open(unit=345,file=trim(sevt1), &
          status='replace',action='write',access='stream',form='unformatted')
 
       lap_phi(1:nx,1:ny,1:nz)= rho(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       write(345)lap_phi
 
       lap_phi(1:nx,1:ny,1:nz)= u(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       write(345)lap_phi
+      
       lap_phi(1:nx,1:ny,1:nz)= v(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       write(345)lap_phi
+      
       lap_phi(1:nx,1:ny,1:nz)= w(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       write(345)lap_phi
 
       lap_phi(1:nx,1:ny,1:nz)= pxx(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       write(345)lap_phi
+      
       lap_phi(1:nx,1:ny,1:nz)= pxy(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       write(345)lap_phi
+      
       lap_phi(1:nx,1:ny,1:nz)= pxz(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       write(345)lap_phi
+      
       lap_phi(1:nx,1:ny,1:nz)= pyy(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       write(345)lap_phi
+      
       lap_phi(1:nx,1:ny,1:nz)= pyz(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       write(345)lap_phi
+      
       lap_phi(1:nx,1:ny,1:nz)= pzz(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       write(345)lap_phi
 
       lap_phi(1:nx,1:ny,1:nz)= selphi(1:nx,1:ny,1:nz,flop)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
+               lap_phi(i,j,k)=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+             enddo
+         enddo
+      enddo         
       write(345)lap_phi
       
       write(345)iframe,iframe2D
@@ -1064,12 +1647,14 @@ contains
 
    end subroutine write_restart_serial_2c
 
-   subroutine read_restart_serial_2c(iframe,iframe2D)
+   subroutine read_restart_serial_2c(iframe,iframe2D,hfields_s,phifields_s)
 
       implicit none
 
       integer(kind=4), intent(out) :: iframe,iframe2D
+      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
       logical :: file_exists
+      integer :: ii,jj,kk,myblock,xblock,yblock,zblock
 
       sevt1 = trim(dir_out) // 'restart.raw'
       
@@ -1084,30 +1669,191 @@ contains
          status='old',action='read',access='stream',form='unformatted')
 
       read(345)lap_phi
-      rho(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
-
+      rho(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
+                
       read(345)lap_phi
       u(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo       
+      
       read(345)lap_phi
       v(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
+      
       read(345)lap_phi
       w(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
 
       read(345)lap_phi
       pxx(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
+            
       read(345)lap_phi
       pxy(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
+      
       read(345)lap_phi
       pxz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
+      
       read(345)lap_phi
       pyy(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
+      
       read(345)lap_phi
       pyz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
+      
       read(345)lap_phi
       pzz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
 
       read(345)lap_phi
       selphi(1:nx,1:ny,1:nz,flop)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
+               phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=lap_phi(i,j,k) 
+             enddo
+         enddo
+      enddo       
       
       read(345)iframe,iframe2D
 

@@ -9,6 +9,9 @@ contains
    !*******************************************************************!
    subroutine allocate_struct
       implicit none
+      
+      integer :: mydim
+      
       allocate(f(0:nx+1,0:ny+1,0:nz+1,0:nlinks))
       allocate(rho(0:nx+1,0:ny+1,0:nz+1))
       allocate(u(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff))
@@ -21,6 +24,21 @@ contains
       allocate(fux(1:nx,1:ny,1:nz))
       allocate(fvy(1:nx,1:ny,1:nz))
       allocate(fwz(1:nx,1:ny,1:nz))
+      
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      ntothfields=TILE_DIMx*TILE_DIMy*TILE_DIMz*nhfields*nblocks
+      allocate(hfields_flip(ntothfields))
+      allocate(hfields_flop(ntothfields))
+      
+      ntotphifields=TILE_DIMx*TILE_DIMy*TILE_DIMz*nphifields*nblocks
+      allocate(phifields_flip(ntotphifields))
+      allocate(phifields_flop(ntotphifields))
+      
+      ntotauxfields=TILE_DIMx*TILE_DIMy*TILE_DIMz*nauxfields*nblocks
+      allocate(auxfields(ntotauxfields))
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!      
+      
+      
 #ifdef TWOCOMPONENT
 
       allocate(selphi(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,2))

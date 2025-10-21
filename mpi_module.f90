@@ -16,7 +16,9 @@ module mpi_template
 	  Jx,Jy,Jz, &
 #endif
 #endif
-      normx,normy,normz,arr_x, arr_y, arr_z, u,v,w,pxx,pxy,pxz,pyy,pyz,pzz,physic_type
+      normx,normy,normz,arr_x, arr_y, arr_z, u,v,w,pxx,pxy,pxz,pyy,pyz,pzz,physic_type, &
+      idx5,nhfields,nphifields, &
+      TILE_DIMx,TILE_DIMy,TILE_DIMz,TILE_DIM,nxblock,nyblock,nzblock,nxyblock,nblocks
 #ifdef _OPENACC
    use openacc
 #endif
@@ -4094,7 +4096,7 @@ contains
 
    end subroutine write_file_vtk_par
 
-   subroutine write_restart_parallel_1c(iframe,iframe2D,e_io)
+   subroutine write_restart_parallel_1c(iframe,iframe2D,e_io,hfields_s)
 
 !***********************************************************************
 !
@@ -4110,6 +4112,7 @@ contains
       implicit none
 
       integer(kind=4), intent(in) :: iframe,iframe2D
+      real(kind=db), allocatable, dimension(:) :: hfields_s
       integer, intent(out) :: e_io
 #ifdef MPI
       integer(kind=MPI_OFFSET_KIND) :: tempoffset,offset_final
@@ -4128,6 +4131,7 @@ contains
 
 #ifdef MPI
       integer :: fdens
+      integer :: ii,jj,kk,myblock,xblock,yblock,zblock
 
       sevt1 = trim(dir_out) // 'restart.raw'
 
@@ -4155,26 +4159,173 @@ contains
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
       lap_phi(1:nx,1:ny,1:nz)= rho(1:nx,1:ny,1:nz)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
 
-      lap_phi(1:nx,1:ny,1:nz)= u(1:nx,1:ny,1:nz) 
+      lap_phi(1:nx,1:ny,1:nz)= u(1:nx,1:ny,1:nz)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+           
       lap_phi(1:nx,1:ny,1:nz)= v(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      
       lap_phi(1:nx,1:ny,1:nz)= w(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
 
       lap_phi(1:nx,1:ny,1:nz)= pxx(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      
       lap_phi(1:nx,1:ny,1:nz)= pxy(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      
       lap_phi(1:nx,1:ny,1:nz)= pxz(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      
       lap_phi(1:nx,1:ny,1:nz)= pyy(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+
       lap_phi(1:nx,1:ny,1:nz)= pyz(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      
       lap_phi(1:nx,1:ny,1:nz)= pzz(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
       call MPI_FILE_CLOSE(fdens, e_io)
@@ -4191,7 +4342,7 @@ contains
 
    end subroutine write_restart_parallel_1c
 
-   subroutine read_restart_parallel_1c(iframe,iframe2D,e_io)
+   subroutine read_restart_parallel_1c(iframe,iframe2D,e_io,hfields_s)
 
 !***********************************************************************
 !
@@ -4207,6 +4358,7 @@ contains
       implicit none
 
       integer(kind=4), intent(out) ::  iframe,iframe2D
+      real(kind=db), allocatable, dimension(:) :: hfields_s
       integer, intent(out) :: e_io
 #ifdef MPI
       integer(kind=MPI_OFFSET_KIND) :: tempoffset,offset_final
@@ -4226,6 +4378,7 @@ contains
 #ifdef MPI
       integer :: fdens
       logical :: file_exists
+      integer :: ii,jj,kk,myblock,xblock,yblock,zblock
 
       sevt1 = trim(dir_out) // 'restart.raw'
       
@@ -4258,26 +4411,173 @@ contains
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo   
       rho(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
 
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo   
       u(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo   
       v(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo   
       w(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
 
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo   
       pxx(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo   
       pxy(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo   
       pxz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo   
       pyy(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo   
       pyz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo   
       pzz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
       
       call MPI_FILE_CLOSE(fdens, e_io)
@@ -4300,7 +4600,7 @@ contains
 
    end subroutine read_restart_parallel_1c
 
-   subroutine write_restart_parallel_2c(iframe,iframe2D,e_io)
+   subroutine write_restart_parallel_2c(iframe,iframe2D,e_io,hfields_s,phifields_s)
 
 !***********************************************************************
 !
@@ -4316,6 +4616,7 @@ contains
       implicit none
 
       integer(kind=4), intent(in) :: iframe,iframe2D
+      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
       integer, intent(out) :: e_io
 #ifdef MPI
       integer(kind=MPI_OFFSET_KIND) :: tempoffset,offset_final
@@ -4334,6 +4635,7 @@ contains
 
 #ifdef MPI
       integer :: fdens
+      integer :: ii,jj,kk,myblock,xblock,yblock,zblock
 
       sevt1 = trim(dir_out) // 'restart.raw'
 
@@ -4360,29 +4662,191 @@ contains
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
-      lap_phi(1:nx,1:ny,1:nz)= rho(1:nx,1:ny,1:nz) 
+      lap_phi(1:nx,1:ny,1:nz)= rho(1:nx,1:ny,1:nz)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
 
       lap_phi(1:nx,1:ny,1:nz)= u(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      
       lap_phi(1:nx,1:ny,1:nz)= v(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      
       lap_phi(1:nx,1:ny,1:nz)= w(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
 
-      lap_phi(1:nx,1:ny,1:nz)= pxx(1:nx,1:ny,1:nz) 
+      lap_phi(1:nx,1:ny,1:nz)= pxx(1:nx,1:ny,1:nz)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      
       lap_phi(1:nx,1:ny,1:nz)= pxy(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      
       lap_phi(1:nx,1:ny,1:nz)= pxz(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      
       lap_phi(1:nx,1:ny,1:nz)= pyy(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
-      lap_phi(1:nx,1:ny,1:nz)= pyz(1:nx,1:ny,1:nz) 
+      
+      lap_phi(1:nx,1:ny,1:nz)= pyz(1:nx,1:ny,1:nz)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      
       lap_phi(1:nx,1:ny,1:nz)= pzz(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+             enddo
+         enddo
+      enddo
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      
       lap_phi(1:nx,1:ny,1:nz)= selphi(1:nx,1:ny,1:nz,flop)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               lap_phi(i,j,k)=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+             enddo
+         enddo
+      enddo
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
       call MPI_FILE_CLOSE(fdens, e_io)
@@ -4400,7 +4864,7 @@ contains
 
    end subroutine write_restart_parallel_2c
 
-   subroutine read_restart_parallel_2c(iframe,iframe2D,e_io)
+   subroutine read_restart_parallel_2c(iframe,iframe2D,e_io,hfields_s,phifields_s)
 
 !***********************************************************************
 !
@@ -4416,6 +4880,7 @@ contains
       implicit none
 
       integer(kind=4), intent(out) :: iframe,iframe2D
+      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
       integer, intent(out) :: e_io
 #ifdef MPI
       integer(kind=MPI_OFFSET_KIND) :: tempoffset,offset_final
@@ -4435,6 +4900,7 @@ contains
 #ifdef MPI
       integer :: fdens
       logical :: file_exists
+      integer :: ii,jj,kk,myblock,xblock,yblock,zblock
 
       sevt1 = trim(dir_out) // 'restart.raw'
       
@@ -4467,29 +4933,190 @@ contains
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo   
       rho(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
 
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo   
       u(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
-      v(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo   
+      v(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
+       
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo   
       w(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
 
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo   
       pxx(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
-      pxy(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo   
+      pxy(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
+      
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo   
       pxz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo   
       pyy(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo   
       pyz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo   
       pzz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
 
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
+               phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=lap_phi(i,j,k) 
+             enddo
+         enddo
+      enddo    
       selphi(1:nx,1:ny,1:nz,flop)= lap_phi(1:nx,1:ny,1:nz) 
 
       call MPI_FILE_CLOSE(fdens, e_io)
@@ -4587,7 +5214,7 @@ contains
 
    end subroutine read_isfluid_parallel
    
-   subroutine read_init_parallel(iframe,e_io)
+   subroutine read_init_parallel(iframe,e_io,hfields_s,phifields_s)
 
 !***********************************************************************
 !
@@ -4604,6 +5231,7 @@ contains
 
       integer(kind=4), intent(in) ::  iframe
       integer, intent(out) :: e_io
+      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
 #ifdef MPI
       integer(kind=MPI_OFFSET_KIND) :: tempoffset,offset_final
 #endif
@@ -4622,6 +5250,7 @@ contains
 #ifdef MPI
       integer :: fdens
       logical :: file_exists
+      integer :: ii,jj,kk,myblock,xblock,yblock,zblock
 !!!!!!!!!!!!!!!!!!!!!!!!!!rho!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       sevt1 = 'rho.raw'
       
@@ -4658,6 +5287,20 @@ contains
       call MPI_FILE_CLOSE(fdens,e_io)
       
       rho(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
       
 !!!!!!!!!!!!!!!!!!!!!!!!!!u!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       sevt1 = 'u.raw'
@@ -4695,7 +5338,21 @@ contains
       call MPI_FILE_CLOSE(fdens,e_io)
       
       u(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)      
-
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
+      
 !!!!!!!!!!!!!!!!!!!!!!!!!!v!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       sevt1 = 'v.raw'
       
@@ -4732,7 +5389,21 @@ contains
       call MPI_FILE_CLOSE(fdens,e_io)
       
       v(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
-
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
+      
 !!!!!!!!!!!!!!!!!!!!!!!!!!w!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       sevt1 = 'w.raw'
       
@@ -4769,6 +5440,20 @@ contains
       call MPI_FILE_CLOSE(fdens,e_io)
       
       w(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+             enddo
+         enddo
+      enddo 
 
 #ifdef TWOCOMPONENT      
 !!!!!!!!!!!!!!!!!!!!!!!!!!phi!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -4806,7 +5491,23 @@ contains
       
       call MPI_FILE_CLOSE(fdens,e_io)
       
-      selphi(1:nx,1:ny,1:nz,flip) = lap_phi(1:nx,1:ny,1:nz)     
+      selphi(1:nx,1:ny,1:nz,flip) = lap_phi(1:nx,1:ny,1:nz)  
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
+               phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=lap_phi(i,j,k) 
+             enddo
+         enddo
+      enddo    
+       
+      selphi(:,:,:,flop)=selphi(:,:,:,flip)  
 #ifdef DENSRATIO
       rhophi(:,:,:)=rho_r*selphi(:,:,:,flip)+(1.0_db-selphi(:,:,:,flip))*rho_b   
 #endif        

@@ -13,10 +13,7 @@ module lb_cuda_kernels
    implicit none
    
    integer :: istat
-   integer, save :: TILE_DIMx=4
-   integer, save :: TILE_DIMy=4
-   integer, save :: TILE_DIMz=4
-   integer, save :: TILE_DIM=16
+
    integer, constant :: TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,TILE_DIM_d
    integer, constant :: nx_d,ny_d,nz_d
    integer, constant :: lx_d,ly_d,lz_d
@@ -29,7 +26,7 @@ module lb_cuda_kernels
    type (dim3) :: dimGridx,dimGridy,dimGridz
    type (dim3) :: dimBlock2
    
-   integer :: nxblock,nyblock,nzblock,nxyblock,nblocks
+   
 
 contains
 
@@ -591,6 +588,83 @@ contains
      
       
  end subroutine test_LB_kernel_halo
+ 
+ subroutine compute_densityratio_cuda
+
+      implicit none
+      
+!      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
+
+#ifdef DENSRATIO
+      !$acc wait
+      istat = cudaDeviceSynchronize
+
+      if(flop==1)then
+!$acc host_data use_device(flop,nx,ny,nz,coords,isfluid,selphi &
+       !$acc& ,rhophi,rho_r,rho_b,ntotphifields,ntotauxfields,phifields_flip,auxfields)
+       call compute_densityratio_kernel<<<dimGrid, dimBlock>>>(flop,nx,ny,nz,coords,isfluid, &
+        selphi,rhophi,rho_r,rho_b,ntotphifields,ntotauxfields,phifields_flip,auxfields)
+!$acc end host_data
+      else
+!$acc host_data use_device(flop,nx,ny,nz,coords,isfluid,selphi &
+       !$acc& ,rhophi,rho_r,rho_b,ntotphifields,ntotauxfields,phifields_flop,auxfields)
+       call compute_densityratio_kernel<<<dimGrid, dimBlock>>>(flop,nx,ny,nz,coords,isfluid, &
+        selphi,rhophi,rho_r,rho_b,ntotphifields,ntotauxfields,phifields_flop,auxfields)
+!$acc end host_data
+      endif
+      istat = cudaDeviceSynchronize
+      istat = cudaGetLastError()
+      if (istat/= cudaSuccess) then
+        if(myrank==0)write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
+        if(myrank==0)write(6,*) cudaGetErrorString(istat)
+        call doerror(6,'ERROR in moments_LB_cuda')
+      endif
+      !$acc wait        
+#endif
+
+   endsubroutine compute_densityratio_cuda
+ 
+ attributes(global) subroutine compute_densityratio_kernel(flop,nx,ny,nz,coords,isfluid, &
+  selphi,rhophi,rho_r,rho_b,ntotphifields,ntotauxfields,phifields_s,auxfields_s)
+      implicit none
+      
+      integer :: flop,nx,ny,nz
+      integer, dimension(3) :: coords
+      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,2) :: selphi
+      real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1) :: rhophi
+      real(kind=db) :: rho_r,rho_b
+      integer :: ntotphifields,ntotauxfields
+      real(kind=db), dimension(ntotphifields) :: phifields_s
+      real(kind=db), dimension(ntotauxfields) :: auxfields_s
+      
+      integer :: i,j,k,gi,gj,gk,myblock,ii,jj,kk
+      real(kind=db) :: phitemp
+      
+      i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
+      j = (blockIdx%y-1) * TILE_DIMy_d + threadIdx%y
+      k = (blockIdx%z-1) * TILE_DIMz_d + threadIdx%z
+      
+      if(abs(isfluid(i,j,k)) .ne. 1)return
+      
+      gi=nx*coords(1)+i
+      gj=ny*coords(2)+j
+      gk=nz*coords(3)+k
+      
+      myblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1
+      
+      ii=threadIdx%x
+      jj=threadIdx%y
+      kk=threadIdx%z
+      
+      rhophi(i,j,k)=rho_r*selphi(i,j,k,flop)+(1.0_db-selphi(i,j,k,flop))*rho_b
+      
+      phitemp=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+      
+      auxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))=rho_r*phitemp+(ONE-phitemp)*rho_b
+     
+      
+ end subroutine compute_densityratio_kernel 
   
  attributes(global) subroutine moments_LB_kernel(flop,nx,ny,nz,coords,isfluid,f &
        ,rho,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz,fux,fvy,fwz &

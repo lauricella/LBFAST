@@ -83,10 +83,10 @@ nvfortran-mpi:
 nvfortran-mpi-debug:
 	$(MAKE) CC=mpicc \
 	FC=mpif90 \
-	CFLAGS="-O3 -g -I $(CURDIR) " \
-	FCUDAFLAGS="-cuda -gpu=ccall,debug,keep,ptxinfo,lineinfo" \
-	FFLAGS="-O1 -g -cpp -acc -gpu=ccall,debug,keep,ptxinfo,lineinfo -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -DMPI -I $(CURDIR) " \
-	LDFLAGS="-O3 -acc -gpu=ccall,lineinfo -Minfo=accel -DPRC=4 -DMPI -I $(CURDIR) -o" \
+	CFLAGS="-O1 -g -I $(CURDIR) " \
+	FCUDAFLAGS="-cuda -gpu=ccall,debug,keep,ptxinfo" \
+	FFLAGS="-O1 -g -cpp -acc -gpu=ccall,debug,keep,ptxinfo -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -DMPI -I $(CURDIR) " \
+	LDFLAGS="-O1 -acc -cuda -gpu=ccall -Minfo=accel -DPRC=4 -DMPI -I $(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EXP) BINROOT=$(BINROOT) seq
 
@@ -113,11 +113,11 @@ nvfortran-mpi-dble:
 
 
 seq:get_mem.o get_ram.o vars_module.o \
-	mpi_module.o profiling_m.o boundary_cds_module.o lb_cuda_kernels_module.o lb_kernels_module.o \
+	mpi_module.o profiling_m.o lb_cuda_kernels_module.o lb_kernels_module.o boundary_cds_module.o \
 	init_conditions_module.o statistics.o print_module.o allocate_module.o integrator_module.o \
 	LLBcuda.o
-	$(FC) $(LDFLAGS) $(EX) get_mem.o get_ram.o vars_module.o lb_kernels_module.o \
-	mpi_module.o profiling_m.o boundary_cds_module.o lb_cuda_kernels_module.o \
+	$(FC) $(LDFLAGS) $(EX) get_mem.o get_ram.o vars_module.o mpi_module.o \
+	profiling_m.o lb_cuda_kernels_module.o lb_kernels_module.o boundary_cds_module.o \
 	init_conditions_module.o statistics.o print_module.o allocate_module.o integrator_module.o \
 	LLBcuda.o
 #	mv $(EXP) $(EXEP)
@@ -136,18 +136,18 @@ mpi_module.o:mpi_module.f90
 
 profiling_m.o: profiling_m.f90
 	$(FC) $(FFLAGS) -c profiling_m.f90
-	
-boundary_cds_module.o:boundary_cds_module.f90
-	$(FC) $(FFLAGS) -c boundary_cds_module.f90
-
-init_conditions_module.o:init_conditions_module.f90
-	$(FC) $(FFLAGS) -c init_conditions_module.f90
 
 lb_kernels_module.o:lb_kernels_module.f90
 	$(FC) $(FFLAGS) -c lb_kernels_module.f90
 
 lb_cuda_kernels_module.o:lb_cuda_kernels_module.f90
 	$(FC) $(FFLAGS) $(FCUDAFLAGS) -c lb_cuda_kernels_module.f90
+
+boundary_cds_module.o:boundary_cds_module.f90
+	$(FC) $(FFLAGS) -c boundary_cds_module.f90
+
+init_conditions_module.o:init_conditions_module.f90
+	$(FC) $(FFLAGS) -c init_conditions_module.f90
 
 statistics.o:statistics.f90
 	$(FC) $(FFLAGS) -c statistics.f90
