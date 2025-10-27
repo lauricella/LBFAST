@@ -30,7 +30,7 @@ module integrator_module
     printdeviceproperties, &
 #endif
     write_restart_1c,write_restart_2c,driver_print_raw_sync2d, &
-    driver_print_raw_isfluid
+    driver_print_raw_isfluid,copy_print
    use vars
    use bcs3D, only : bcs_mesoscopic_all
    use lb_kernels, only :  &
@@ -166,100 +166,106 @@ contains
 #endif      
 
       if(lprint)then
-	 
-#ifdef ACCNOKERNELS
-#if defined(DENSRATIO) && defined(TWOCOMPONENT)
-#ifdef WRITEPRESS
-         !$acc parallel loop independent collapse(3) present(rhoprint,velprint,pressprint,rhophi,u,v,w)
-#else
-         !$acc parallel loop independent collapse(3) present(rhoprint,velprint,rhophi,u,v,w)
-#endif
-#endif
+        if(flop==1)then
+	      call copy_print(iframe,hfields_flip,phifields_flip,auxfields)
+	    else
+	      call copy_print(iframe,hfields_flop,phifields_flop,auxfields)
+	    endif
+	  
+	   
+!#ifdef ACCNOKERNELS
+!#if defined(DENSRATIO) && defined(TWOCOMPONENT)
+!#ifdef WRITEPRESS
+!         !$acc parallel loop independent collapse(3) present(rhoprint,velprint,pressprint,rhophi,u,v,w)
+!#else
+!         !$acc parallel loop independent collapse(3) present(rhoprint,velprint,rhophi,u,v,w)
+!#endif
+!#endif
 
-#if defined(TWOCOMPONENT) && !defined(DENSRATIO)
-#ifdef WRITEPRESS
-		 !$acc parallel loop independent collapse(3) present(rhoprint,velprint,,pressprint,selphi,rho,u,v,w)
-#else
-         !$acc parallel loop independent collapse(3) present(rhoprint,velprint,selphi,u,v,w)
-#endif 
-#endif                 
-#ifndef TWOCOMPONENT 
-         !$acc parallel loop independent collapse(3) present(rhoprint,velprint,rho,u,v,w)
-#endif         
-#else
-#if defined(DENSRATIO) && defined(TWOCOMPONENT)
-#ifdef WRITEPRESS
-         !$acc kernels present(rhoprint,velprint,pressprint,rhophi,u,v,w)
-#else
-         !$acc kernels present(rhoprint,velprint,rhophi,u,v,w)
-#endif
-#endif
-#if defined(TWOCOMPONENT) && !defined(DENSRATIO)
-#ifdef WRITEPRESS
-		 !$acc kernels present(rhoprint,velprint,pressprint,rho,selphi,u,v,w)
-#else
-         !$acc kernels present(rhoprint,velprint,selphi,u,v,w)
-#endif
-#endif
-#ifndef TWOCOMPONENT
-         !$acc kernels present(rhoprint,velprint,rho,u,v,w)
-#endif
-         !$acc loop independent collapse(3)  private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock)
-#endif
-         do k=1,nzskip
-            do j=1,nyskip
-               do i=1,nxskip
-                  ii=i*stepskip
-                  jj=j*stepskip
-                  kk=k*stepskip
+!#if defined(TWOCOMPONENT) && !defined(DENSRATIO)
+!#ifdef WRITEPRESS
+!		 !$acc parallel loop independent collapse(3) present(rhoprint,velprint,,pressprint,selphi,rho,u,v,w)
+!#else
+!         !$acc parallel loop independent collapse(3) present(rhoprint,velprint,selphi,u,v,w)
+!#endif 
+!#endif                 
+!#ifndef TWOCOMPONENT 
+!         !$acc parallel loop independent collapse(3) present(rhoprint,velprint,rho,u,v,w)
+!#endif         
+!#else
+!#if defined(DENSRATIO) && defined(TWOCOMPONENT)
+!#ifdef WRITEPRESS
+!         !$acc kernels present(rhoprint,velprint,pressprint,rhophi,u,v,w)
+!#else
+!         !$acc kernels present(rhoprint,velprint,rhophi,u,v,w)
+!#endif
+!#endif
+!#if defined(TWOCOMPONENT) && !defined(DENSRATIO)
+!#ifdef WRITEPRESS
+!		 !$acc kernels present(rhoprint,velprint,pressprint,rho,selphi,u,v,w)
+!#else
+!         !$acc kernels present(rhoprint,velprint,selphi,u,v,w)
+!#endif
+!#endif
+!#ifndef TWOCOMPONENT
+!         !$acc kernels present(rhoprint,velprint,rho,u,v,w)
+!#endif
+!         !$acc loop independent collapse(3)  private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock)
+!#endif
+!         do k=1,nzskip
+!            do j=1,nyskip
+!               do i=1,nxskip
+!                  ii=i*stepskip
+!                  jj=j*stepskip
+!                  kk=k*stepskip
 
-                  xblock=(ii+2*TILE_DIMx-1)/TILE_DIMx   
-                  yblock=(jj+2*TILE_DIMy-1)/TILE_DIMy     
-                  zblock=(kk+2*TILE_DIMz-1)/TILE_DIMz   
+!                  xblock=(ii+2*TILE_DIMx-1)/TILE_DIMx   
+!                  yblock=(jj+2*TILE_DIMy-1)/TILE_DIMy     
+!                  zblock=(kk+2*TILE_DIMz-1)/TILE_DIMz   
                   
-                  myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
-                  iii=ii-xblock*TILE_DIMx+2*TILE_DIMx
-                  jjj=jj-yblock*TILE_DIMy+2*TILE_DIMy
-                  kkk=kk-zblock*TILE_DIMz+2*TILE_DIMz                            
+!                  myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+!                  iii=ii-xblock*TILE_DIMx+2*TILE_DIMx
+!                  jjj=jj-yblock*TILE_DIMy+2*TILE_DIMy
+!                  kkk=kk-zblock*TILE_DIMz+2*TILE_DIMz                            
                   
-#if defined(DENSRATIO) && defined(TWOCOMPONENT)
-                  !rhoprint(i,j,k)=real(rhophi(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-                  if(rhophi(ii,jj,kk)/=auxfields(idx5(iii,jjj,kkk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)))then
-                    write(6,*)i,j,k,rhophi(ii,jj,kk),auxfields(idx5(iii,jjj,kkk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
-                  endif
-                  rhoprint(i,j,k)=real(auxfields(idx5(iii,jjj,kkk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)),kind=printdb)
-#ifdef WRITEPRESS                   
-                  pressprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-#endif
-#endif
+!#if defined(DENSRATIO) && defined(TWOCOMPONENT)
+!                  !rhoprint(i,j,k)=real(rhophi(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
+!                  if(rhophi(ii,jj,kk)/=auxfields(idx5(iii,jjj,kkk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)))then
+!                    write(6,*)i,j,k,rhophi(ii,jj,kk),auxfields(idx5(iii,jjj,kkk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+!                  endif
+!                  rhoprint(i,j,k)=real(auxfields(idx5(iii,jjj,kkk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)),kind=printdb)
+!#ifdef WRITEPRESS                   
+!                  pressprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
+!#endif
+!#endif
 
-#if defined(TWOCOMPONENT) && !defined(DENSRATIO)
-                  !rhoprint(i,j,k)=real(selphi(i*stepskip,j*stepskip,k*stepskip,flip),kind=printdb)
-                  rhoprint(i,j,k)=real(phifields_flip(idx5(iii,jjj,kkk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields)),kind=printdb)
-#ifdef WRITEPRESS                  
-                  pressprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)				  
-#endif
-#endif
-#ifndef TWOCOMPONENT
-				  rhoprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-#endif
-					velprint(1,i,j,k)=real(u(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-					velprint(2,i,j,k)=real(v(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-					velprint(3,i,j,k)=real(w(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-               enddo
-            enddo
-         enddo
-#ifdef ACCNOKERNELS
-         !$acc end parallel loop
-#else
-         !$acc end kernels
-#endif
-#if defined(WRITEPRESS)
-         !$acc update host(rhoprint,velprint,pressprint)
-#else
-         !$acc update host(rhoprint,velprint)
-#endif
-         !$acc wait
+!#if defined(TWOCOMPONENT) && !defined(DENSRATIO)
+!                  !rhoprint(i,j,k)=real(selphi(i*stepskip,j*stepskip,k*stepskip,flip),kind=printdb)
+!                  rhoprint(i,j,k)=real(phifields_flip(idx5(iii,jjj,kkk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields)),kind=printdb)
+!#ifdef WRITEPRESS                  
+!                  pressprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)				  
+!#endif
+!#endif
+!#ifndef TWOCOMPONENT
+!				  rhoprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
+!#endif
+!					velprint(1,i,j,k)=real(u(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
+!					velprint(2,i,j,k)=real(v(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
+!					velprint(3,i,j,k)=real(w(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
+!               enddo
+!            enddo
+!         enddo
+!#ifdef ACCNOKERNELS
+!         !$acc end parallel loop
+!#else
+!         !$acc end kernels
+!#endif
+!#if defined(WRITEPRESS)
+!         !$acc update host(rhoprint,velprint,pressprint)
+!#else
+!         !$acc update host(rhoprint,velprint)
+!#endif
+!         !$acc wait
          if(lvtk)then
             call driver_print_vtk_sync(iframe)
          endif
