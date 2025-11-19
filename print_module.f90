@@ -635,70 +635,73 @@ contains
    end subroutine printDeviceProperties
 #endif
 
-   subroutine copy_print(iframe,hfields_s,phifields_s,auxfields_s)
+   subroutine copy_print(iframe,hfields_s,phifields_s)
 
       implicit none
 
       integer, intent(in) :: iframe
-      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s,auxfields_s
+      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
       
       integer :: ii,jj,kk
       integer :: iii,jjj,kkk
       integer :: xblock,yblock,zblock,myblock
+      
+      real(kind=db) :: rhophi_loc
 
 #ifdef ACCNOKERNELS
 #if defined(DENSRATIO) && defined(TWOCOMPONENT)
 #ifdef WRITEPRESS
          !$acc parallel loop independent collapse(3) present(rhoprint,velprint,pressprint, &
-         !$acc& rhophi,u,v,w,hfields_s,phifields_s,auxfields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
-         !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock)
+         !$acc& rhophi,u,v,w,hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
+         !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock,rhophi_loc)
 #else
          !$acc parallel loop independent collapse(3) present(rhoprint,velprint,rhophi, &
-         !$acc& u,v,w,hfields_s,phifields_s,auxfields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
-         !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock)
+         !$acc& u,v,w,hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
+         !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock,rhophi_loc)
 #endif
 #endif
 
 #if defined(TWOCOMPONENT) && !defined(DENSRATIO)
 #ifdef WRITEPRESS
 		 !$acc parallel loop independent collapse(3) present(rhoprint,velprint,pressprint, &
-		 !$acc& selphi,rho,u,v,w,hfields_s,phifields_s,auxfields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
-		 !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock)
+		 !$acc& selphi,rho,u,v,w,hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
+		 !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock,rhophi_loc)
 #else
          !$acc parallel loop independent collapse(3) present(rhoprint,velprint,selphi, &
-         !$acc& u,v,w,hfields_s,phifields_s,auxfields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
-         !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock)
+         !$acc& u,v,w,hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
+         !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock,rhophi_loc)
 #endif 
 #endif                 
 #ifndef TWOCOMPONENT 
          !$acc parallel loop independent collapse(3) present(rhoprint,velprint, &
-         !$acc& rho,u,v,w,hfields_s,phifields_s,auxfields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
-         !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock)
+         !$acc& rho,u,v,w,hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
+         !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock,rhophi_loc)
 #endif         
 #else
 #if defined(DENSRATIO) && defined(TWOCOMPONENT)
 #ifdef WRITEPRESS
          !$acc kernels present(rhoprint,velprint,pressprint,rhophi,u,v,w, &
-         !$acc& hfields_s,phifields_s,auxfields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz)
+         !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz,rhophi_loc)
 #else
          !$acc kernels present(rhoprint,velprint,rhophi,u,v,w, &
-         !$acc& hfields_s,phifields_s,auxfields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz)
+         !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz,rhophi_loc)
 #endif
 #endif
 #if defined(TWOCOMPONENT) && !defined(DENSRATIO)
 #ifdef WRITEPRESS
 		 !$acc kernels present(rhoprint,velprint,pressprint,rho,selphi,u,v,w, &
-		 !$acc& hfields_s,phifields_s,auxfields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz)
+		 !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz,rhophi_loc)
 #else
          !$acc kernels present(rhoprint,velprint,selphi,u,v,w, &
-         !$acc& hfields_s,phifields_s,auxfields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz)
+         !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz,rhophi_loc)
 #endif
 #endif
 #ifndef TWOCOMPONENT
          !$acc kernels present(rhoprint,velprint,rho,u,v,w,hfields_s, &
-         !$acc& phifields_s,auxfields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz)
+         !$acc& phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz)
 #endif
-         !$acc loop independent collapse(3)  private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock)
+         !$acc loop independent collapse(3)  private(i,j,k,ii,jj,kk,iii,jjj,kkk, &
+         !$acc& xblock,yblock,zblock,myblock,rhophi_loc)
 #endif
          do k=1,nzskip
             do j=1,nyskip
@@ -718,7 +721,9 @@ contains
                   
 #if defined(DENSRATIO) && defined(TWOCOMPONENT)
                   !rhoprint(i,j,k)=real(rhophi(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-                  rhoprint(i,j,k)=real(auxfields_s(idx5(iii,jjj,kkk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)),kind=printdb)
+                  rhophi_loc=phifields_s(idx5(iii,jjj,kkk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+                  rhophi_loc=rho_r*rhophi_loc+(ONE-rhophi_loc)*rho_b
+                  rhoprint(i,j,k)=real(rhophi_loc,kind=printdb)
 #ifdef WRITEPRESS 
                   !pressprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)                  
                   pressprint(i,j,k)=real(hfields_s(idx5(iii,jjj,kkk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)),kind=printdb)
@@ -1010,88 +1015,42 @@ contains
 
    end subroutine read_init_serial
 
-   subroutine read_restart_1c(iframe,iframe2D)
+   subroutine read_restart_1c(iframe,iframe2D,hfields_s)
 
       implicit none
 
       integer, intent(out) :: iframe,iframe2D
+      real(kind=db), allocatable, dimension(:) :: hfields_s
 
       integer :: e_io,l,i,j,k
       
       real(kind=db) :: feq,fneq1
 
       if(nprocs==1)then
-         if(flop==1)then
-           call read_restart_serial_1c(iframe,iframe2D,hfields_flip)
-         else
-           call read_restart_serial_1c(iframe,iframe2D,hfields_flop)
-         endif
+        call read_restart_serial_1c(iframe,iframe2D,hfields_s)
       else
-         if(flop==1)then
-           call read_restart_parallel_1c(iframe,iframe2D,e_io,hfields_flip)
-         else
-           call read_restart_parallel_1c(iframe,iframe2D,e_io,hfields_flop)
-         endif
+        call read_restart_parallel_1c(iframe,iframe2D,e_io,hfields_s)
       endif
-      !$acc update device(rho,u,v,w,pxx,pxy,pxz,pyy,pyz,pzz)
-      !recunstruct pops from Hydrovars
-#ifdef ACCNOKERNELS
-      !$acc parallel loop collapse(3) present(f,rho,u,v,w,pxx,pxy,pxz,pyy,pyz,pzz &
-          !$acc& ) private(i,j,k,l,feq,fneq1,uu,udotc)
-#else
-      !$acc kernels present(f,rho,u,v,w,pxx,pxy,pxz,pyy,pyz,pzz &
-	  !$acc& )
-      !$acc loop collapse(3) private(i,j,k,l,feq,fneq1,uu,udotc &
-	  !$acc& )
-#endif
-      do k=1,nz
-         do j=1,ny
-            do i=1,nx
-               if(abs(isfluid(i,j,k)).eq.1)then
-               
-                  uu=HALF*(u(i,j,k)*u(i,j,k)+v(i,j,k)*v(i,j,k)+w(i,j,k)*w(i,j,k))/cssq
-				  do l=0,nlinks
-					udotc=(u(i,j,k)*dex(l) + v(i,j,k)*dey(l)+ w(i,j,k)*dez(l))/cssq
-					feq=p(l)*(rho(i,j,k) + (udotc+0.5_db*udotc*udotc - uu))
-					
-					
-				    fneq1=(0.5_db/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx(i,j,k) + (dey(l)*dey(l)-cssq)*pyy(i,j,k) + (dez(l)*dez(l)-cssq)*pzz(i,j,k) +&
-							 2.0_db*(dex(l)*dey(l))*pxy(i,j,k) + 2.0_db*(dex(l)*dez(l))*pxz(i,j,k) + 2.0_db*(dey(l)*dez(l))*pyz(i,j,k))
-                    
-					f(i,j,k,l)= feq + fneq1*p(l) 
-				  enddo 
-				endif
-		    enddo
-		 enddo
-	  enddo
-#ifdef ACCNOKERNELS
-          !$acc end parallel loop
-#else
-          !$acc end kernels
-#endif
+      !$acc update device(hfields_s)
+      !$acc wait
+      
    end subroutine read_restart_1c
 
-   subroutine write_restart_1c(iframe,iframe2D)
+   subroutine write_restart_1c(iframe,iframe2D,hfields_s)
 
       implicit none
 
       integer, intent(in) :: iframe,iframe2D
+      real(kind=db), allocatable, dimension(:) :: hfields_s
 
       integer :: e_io
-       
-       
+      
+      !$acc update host(hfields_s)
+      !$wait
       if(nprocs==1)then
-         if(flop==1)then
-           call write_restart_serial_1c(iframe,iframe2D,hfields_flip)
-         else
-           call write_restart_serial_1c(iframe,iframe2D,hfields_flop)
-         endif
+        call write_restart_serial_1c(iframe,iframe2D,hfields_s)
       else
-         if(flop==1)then
-           call write_restart_parallel_1c(iframe,iframe2D,e_io,hfields_flip)
-         else
-           call write_restart_parallel_1c(iframe,iframe2D,e_io,hfields_flop)
-         endif
+        call write_restart_parallel_1c(iframe,iframe2D,e_io,hfields_s)
       endif
 
    end subroutine write_restart_1c
@@ -1480,86 +1439,43 @@ contains
 
    end subroutine read_restart_serial_1c
 
-   subroutine read_restart_2c(iframe,iframe2D)
+   subroutine read_restart_2c(iframe,iframe2D,hfields_s,phifields_s)
 
       implicit none
 
       integer, intent(out) :: iframe,iframe2D
+      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
 
       integer :: e_io,l,i,j,k
       
       real(kind=db) :: feq,fneq1
 
       if(nprocs==1)then
-         if(flop==1)then
-           call read_restart_serial_2c(iframe,iframe2D,hfields_flip,phifields_flip)
-         else
-           call read_restart_serial_2c(iframe,iframe2D,hfields_flop,phifields_flop)
-         endif
+        call read_restart_serial_2c(iframe,iframe2D,hfields_s,phifields_s)
       else
-         if(flop==1)then
-           call read_restart_parallel_2c(iframe,iframe2D,e_io,hfields_flip,phifields_flip)
-         else
-           call read_restart_parallel_2c(iframe,iframe2D,e_io,hfields_flop,phifields_flop)
-         endif
+        call read_restart_parallel_2c(iframe,iframe2D,e_io,hfields_s,phifields_s)
       endif
       
+      !$acc update device(hfields_s,phifields_s)
+      !$acc wait
       
-      !$acc update device(rho,u,v,w,pxx,pxy,pxz,pyy,pyz,pzz,selphi)
-      !recunstruct pops from Hydrovars
-#ifdef ACCNOKERNELS
-      !$acc parallel loop collapse(3) present(f,rho,u,v,w,pxx,pxy,pxz,pyy,pyz,pzz) private(l,feq,fneq1,uu,udotc)
-#else
-      !$acc kernels present(f,rho,u,v,w,pxx,pxy,pxz,pyy,pyz,pzz)	  
-      !$acc loop collapse(3) private(i,j,k,l,feq,fneq1,uu,udotc)
-#endif
-      do k=1,nz
-         do j=1,ny
-            do i=1,nx
-               if(abs(isfluid(i,j,k)).eq.1)then
-               
-                  uu=HALF*(u(i,j,k)*u(i,j,k)+v(i,j,k)*v(i,j,k)+w(i,j,k)*w(i,j,k))/cssq
-				  do l=0,nlinks
-					udotc=(u(i,j,k)*dex(l) + v(i,j,k)*dey(l)+ w(i,j,k)*dez(l))/cssq
-					feq=p(l)*(rho(i,j,k) + (udotc+0.5_db*udotc*udotc - uu))
-					
-					
-				    fneq1=(0.5_db/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx(i,j,k) + (dey(l)*dey(l)-cssq)*pyy(i,j,k) + (dez(l)*dez(l)-cssq)*pzz(i,j,k) +&
-							 2.0_db*(dex(l)*dey(l))*pxy(i,j,k) + 2.0_db*(dex(l)*dez(l))*pxz(i,j,k) + 2.0_db*(dey(l)*dez(l))*pyz(i,j,k))
-                    
-					f(i,j,k,l)= feq + fneq1*p(l) 
-				  enddo 
-				endif
-		    enddo
-		 enddo
-	  enddo
-#ifdef ACCNOKERNELS
-          !$acc end parallel loop
-#else
-          !$acc end kernels
-#endif
    end subroutine read_restart_2c
 
-   subroutine write_restart_2c(iframe,iframe2D)
+   subroutine write_restart_2c(iframe,iframe2D,hfields_s,phifields_s)
 
       implicit none
 
       integer, intent(in) :: iframe,iframe2D
+      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
 
       integer :: e_io
       
+      !$acc update host(hfields_s,phifields_s)
+      !$wait
       if(nprocs==1)then
-         if(flop==1)then
-           call write_restart_serial_2c(iframe,iframe2D,hfields_flip,phifields_flip)
-         else
-           call write_restart_serial_2c(iframe,iframe2D,hfields_flip,phifields_flop)
-         endif
+        call write_restart_serial_2c(iframe,iframe2D,hfields_s,phifields_s)
       else
-         if(flop==1)then
-           call write_restart_parallel_2c(iframe,iframe2D,e_io,hfields_flip,phifields_flip)
-         else
-           call write_restart_parallel_2c(iframe,iframe2D,e_io,hfields_flop,phifields_flop)
-         endif
+        call write_restart_parallel_2c(iframe,iframe2D,e_io,hfields_s,phifields_s)
       endif
 
    end subroutine write_restart_2c
@@ -2003,6 +1919,7 @@ contains
 
       integer, intent(in) :: iframe
       character(len=8) :: namevarvtk_sub='isfluid '
+      logical :: lexit,lexist
 #ifdef DOXDMF      
       integer, parameter :: xml_file=734
       character(len=32) :: strx,stry,strz,bitorder
@@ -2033,8 +1950,8 @@ contains
       write(xml_file,'(a)') '    <Grid Name="ScalarField" GridType="Uniform">'
       write(xml_file,'(a)') ''
       write(xml_file,'(a)') '      <!-- Topology: 3D grid -->'
-      write(xml_file,'(7a)') '      <Topology TopologyType="3DCoRectMesh" Dimensions="' , &
-       trim(adjustl(strx)) , ' ' , trim(adjustl(stry)) , ' ' , trim(adjustl(strz)) , '"/>'
+      write(xml_file,'(7a)') '      <Topology TopologyType="3DCoRectMesh" Dimensions="' // &
+       trim(adjustl(strx)) // ' ' // trim(adjustl(stry)) // ' ' // trim(adjustl(strz)) // '"/>'
       write(xml_file,'(a)') ''
       write(xml_file,'(a)') '      <!-- Geometry: origin and spacing (dx, dy, dz) -->'
       write(xml_file,'(a)') '      <Geometry GeometryType="ORIGIN_DXDYDZ">'
@@ -2043,9 +1960,9 @@ contains
       write(xml_file,'(a)') '      </Geometry>'
       write(xml_file,'(a)') ''
       write(xml_file,'(a)') '      <!-- Scalar field associated with the grid -->'
-      write(xml_file,'(3a)') '      <Attribute Name="',trim(namevarvtk_sub),'" AttributeType="Scalar" Center="Node">'
-      write(xml_file,'(9a)') '        <DataItem Format="Binary" NumberType="Float" Precision="4" Dimensions="' , &
-       trim(adjustl(strx)) , ' ' , trim(adjustl(stry)) , ' ' , trim(adjustl(strz)) , '" Endian="',trim(adjustl(bitorder)),'">'
+      write(xml_file,'(3a)') '      <Attribute Name="'//trim(namevarvtk_sub)//'" AttributeType="Scalar" Center="Node">'
+      write(xml_file,'(7a)') '        <DataItem Format="Binary" NumberType="Float" Precision="4" Dimensions="' // &
+       trim(adjustl(strx)) // ' ' // trim(adjustl(stry)) // ' ' // trim(adjustl(strz)) // '">'
       write(xml_file,'(2a)') '          ',trim(sevt2)
       write(xml_file,'(a)') '        </DataItem>'
       write(xml_file,'(a)') '      </Attribute>'
@@ -2055,10 +1972,28 @@ contains
       write(xml_file,'(a)') '</Xdmf>'
       close(xml_file)     
 #endif      
-      lap_phi(1:nx,1:ny,1:nz)=real(isfluid(1:nx,1:ny,1:nz),kind=db) 
+
+      lexit=.false.
+      if (myrank == 0) then
+        inquire(file=trim(sevt1), exist=lexist)
+        if (lexist) then
+          lexit=.true.
+        endif
+      endif
+      call or_world_l(lexit)
+      if(lexit)return
+      
+      do k=1,nzskip
+        do j=1,nyskip
+          do i=1,nxskip
+            rhoprint(i,j,k)=real(isfluid(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
+          enddo
+        enddo
+      enddo
+      
       open(unit=345,file=trim(sevt1), &
          status='replace',action='write',access='stream',form='unformatted')
-      write(345)lap_phi
+      write(345)rhoprint
       close(345)
 
    end subroutine print_raw_isfluid

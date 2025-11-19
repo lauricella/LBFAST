@@ -3,7 +3,7 @@ module mpi_template
    
    use vars, only: db,isf,i,j,k,nx,ny,nz,lx,ly,lz,rho,f,isfluid,l,ll,opp,acc_device_radeon,&
       ex,ey,ez,nlinks,filenamevtk,namevarvtk,sevt1,sevt2,dir_out,write_fmtnumb2, &
-      write_fmtnumb,headervtk,nheadervtk,vtkoffset,ndatavtk,footervtk, &
+      write_fmtnumb,headervtk,nheadervtk,vtkoffset,ndatavtk,footervtk,printdb, &
       rhoprint,velprint,pressprint,space_fmtnumb,mxln,sevt3,lap_phi,ndir, &
       nxskip,nyskip,nzskip,lxskip,lyskip,lzskip,stepskip,nplanes,skip_npoint,npoint, &
 #ifdef _OPENACC
@@ -90,26 +90,26 @@ module mpi_template
    integer, dimension(nlinksmpi) :: send_dir,recv_dir
    logical, dimension(nlinksmpi) :: lsendpop_dir,lrecvpop_dir
    logical, dimension(nlinksmpi) :: lsend_dir,lrecv_dir
-   logical, dimension(nlinksmpi) :: lintpbc_dir,lintpbcpop_dir
-   logical, dimension(nlinksmpi) :: lintbb_dir
+   logical, dimension(nlinksmpi) :: lintpbc_dir
+   
    logical, dimension(3,nlinksmpi) :: intpbc_dir
    integer, dimension(3,nlinksmpi) :: send_dir_coord,recv_dir_coord
 
 
    integer, allocatable, save, dimension(:,:) :: links_faces,links_edges, &
       links_corners,links_pops
-   integer, allocatable, save, dimension(:,:) :: send_extr,recv_extr
+   
    integer, allocatable, save, dimension(:,:) :: f_send_extr,f_recv_extr
    integer, allocatable, save, dimension(:,:) :: fvec_send_extr,fvec_recv_extr
    integer, allocatable, save, dimension(:,:) :: b_send_extr,b_recv_extr
 
-   integer, save, dimension(nlinksmpi) :: num_extr,f_num_extr,fvec_num_extr, &
+   integer, save, dimension(nlinksmpi) :: f_num_extr,fvec_num_extr, &
       b_num_extr,i_num_extr
-   integer, save :: numtot_extr,f_numtot_extr,fvec_numtot_extr, &
+   integer, save :: f_numtot_extr,fvec_numtot_extr, &
       b_numtot_extr,i_numtot_extr
    integer, allocatable, save, dimension(:) :: num_links_pops
 
-   integer, dimension(13) :: datampi,f_datampi,fvec_datampi,b_datampi,i_datampi
+   integer, dimension(13) :: f_datampi,fvec_datampi,b_datampi,i_datampi
    integer, parameter :: num_f_datampi=1
 #ifdef EXCHANGEVEL
 #if defined(DENSRATIO) && defined(TWOCOMPONENT)
@@ -151,14 +151,11 @@ module mpi_template
 
    integer, parameter :: num_b_datampi=0 ! nel caso incrementare per piu' componenti(temperatura umidità...) da passare sulla cornice estesa
   
-#ifdef CRAY
-   real(kind=db), allocatable, save, dimension(:) :: int_buffpbc
-   integer, dimension(nlinksmpi) :: nbuffpbc_int
-#endif
-   integer, allocatable, save, dimension(:,:) :: intpbcsend_extr,intpbcrecv_extr
+
+  
    
-   real(kind=db), allocatable, save, dimension(:) :: send_buffmpi,recv_buffmpi
-   integer, dimension(nlinksmpi) :: nbuffmpi_send,nbuffmpi_recv
+   !real(kind=db), allocatable, save, dimension(:) :: send_buffmpi,recv_buffmpi
+  
 
    real(kind=db), allocatable, save, dimension(:) :: f_send_buffmpi,f_recv_buffmpi
    integer, dimension(nlinksmpi), save :: f_nbuffmpi_send,f_nbuffmpi_recv
@@ -195,12 +192,14 @@ module mpi_template
    integer, save :: ni_reqs
 
 #ifdef REPULSIVE_FLUX
-   integer, parameter :: nbuff=3
+   integer, parameter :: nbuff=3    !phifields
+   integer, parameter :: nbuffvec=3 !auxfields
 #else
-   integer, parameter :: nbuff=1
+   integer, parameter :: nbuff=1    !phifields
+   integer, parameter :: nbuffvec=1 !auxfields
 #endif
    logical, parameter :: lbuff=.false.
-   integer, parameter :: nbuffbvec=1
+   integer, parameter :: nbuffbvec=1 !hfields
 
 
 contains
@@ -947,13 +946,9 @@ contains
          lrecvpop_dir(l)=(lrecv_dir(l) .and. num_links_pops(l)>0)
       enddo
       !solo se ci sono popolazioni da fare pbc interno lo fai
-      do l=1,nlinksmpi
-         lintpbcpop_dir(l)=(lintpbc_dir(l) .and. num_links_pops(l)>0)
-      enddo
+
 
       !mi storo gli estremi i j k che devono essere inviati e ricevuti lungo ogni direzione l
-      allocate(send_extr(6,nlinksmpi))
-      allocate(recv_extr(6,nlinksmpi))
       allocate(f_send_extr(6,nlinksmpi))
       allocate(f_recv_extr(6,nlinksmpi))
       allocate(fvec_send_extr(6,nlinksmpi))
@@ -964,19 +959,6 @@ contains
       !faces
       do l=1,6
          if(exmpi(l)==1)then
-            send_extr(1,l)=nx+1
-            send_extr(2,l)=nx+1
-            send_extr(3,l)=1
-            send_extr(4,l)=ny
-            send_extr(5,l)=1
-            send_extr(6,l)=nz
-
-            recv_extr(1,l)=1
-            recv_extr(2,l)=1
-            recv_extr(3,l)=1
-            recv_extr(4,l)=ny
-            recv_extr(5,l)=1
-            recv_extr(6,l)=nz
 
             f_send_extr(1,l)=nx-nbuff+1
             f_send_extr(2,l)=nx
@@ -991,6 +973,20 @@ contains
             f_recv_extr(4,l)=ny
             f_recv_extr(5,l)=1
             f_recv_extr(6,l)=nz
+            
+            fvec_send_extr(1,l)=nx-nbuffvec+1
+            fvec_send_extr(2,l)=nx
+            fvec_send_extr(3,l)=1
+            fvec_send_extr(4,l)=ny
+            fvec_send_extr(5,l)=1
+            fvec_send_extr(6,l)=nz
+
+            fvec_recv_extr(1,l)=1-nbuffvec
+            fvec_recv_extr(2,l)=0
+            fvec_recv_extr(3,l)=1
+            fvec_recv_extr(4,l)=ny
+            fvec_recv_extr(5,l)=1
+            fvec_recv_extr(6,l)=nz
 
             b_send_extr(1,l)=nx-nbuffbvec+1
             b_send_extr(2,l)=nx
@@ -1007,19 +1003,6 @@ contains
             b_recv_extr(6,l)=nz
          endif
          if(exmpi(l)==-1)then
-            send_extr(1,l)=0
-            send_extr(2,l)=0
-            send_extr(3,l)=1
-            send_extr(4,l)=ny
-            send_extr(5,l)=1
-            send_extr(6,l)=nz
-
-            recv_extr(1,l)=nx
-            recv_extr(2,l)=nx
-            recv_extr(3,l)=1
-            recv_extr(4,l)=ny
-            recv_extr(5,l)=1
-            recv_extr(6,l)=nz
 
             f_send_extr(1,l)=1
             f_send_extr(2,l)=nbuff
@@ -1034,6 +1017,20 @@ contains
             f_recv_extr(4,l)=ny
             f_recv_extr(5,l)=1
             f_recv_extr(6,l)=nz
+            
+            fvec_send_extr(1,l)=1
+            fvec_send_extr(2,l)=nbuffvec
+            fvec_send_extr(3,l)=1
+            fvec_send_extr(4,l)=ny
+            fvec_send_extr(5,l)=1
+            fvec_send_extr(6,l)=nz
+
+            fvec_recv_extr(1,l)=nx+1
+            fvec_recv_extr(2,l)=nx+nbuffvec
+            fvec_recv_extr(3,l)=1
+            fvec_recv_extr(4,l)=ny
+            fvec_recv_extr(5,l)=1
+            fvec_recv_extr(6,l)=nz
 
             b_send_extr(1,l)=1
             b_send_extr(2,l)=nbuffbvec
@@ -1050,19 +1047,6 @@ contains
             b_recv_extr(6,l)=nz
          endif
          if(eympi(l)==1)then
-            send_extr(1,l)=1
-            send_extr(2,l)=nx
-            send_extr(3,l)=ny+1
-            send_extr(4,l)=ny+1
-            send_extr(5,l)=1
-            send_extr(6,l)=nz
-
-            recv_extr(1,l)=1
-            recv_extr(2,l)=nx
-            recv_extr(3,l)=1
-            recv_extr(4,l)=1
-            recv_extr(5,l)=1
-            recv_extr(6,l)=nz
 
             f_send_extr(1,l)=1
             f_send_extr(2,l)=nx
@@ -1077,6 +1061,20 @@ contains
             f_recv_extr(4,l)=0
             f_recv_extr(5,l)=1
             f_recv_extr(6,l)=nz
+            
+            fvec_send_extr(1,l)=1
+            fvec_send_extr(2,l)=nx
+            fvec_send_extr(3,l)=ny-nbuffvec+1
+            fvec_send_extr(4,l)=ny
+            fvec_send_extr(5,l)=1
+            fvec_send_extr(6,l)=nz
+
+            fvec_recv_extr(1,l)=1
+            fvec_recv_extr(2,l)=nx
+            fvec_recv_extr(3,l)=1-nbuffvec
+            fvec_recv_extr(4,l)=0
+            fvec_recv_extr(5,l)=1
+            fvec_recv_extr(6,l)=nz
 
             b_send_extr(1,l)=1
             b_send_extr(2,l)=nx
@@ -1093,19 +1091,6 @@ contains
             b_recv_extr(6,l)=nz
          endif
          if(eympi(l)==-1)then
-            send_extr(1,l)=1
-            send_extr(2,l)=nx
-            send_extr(3,l)=0
-            send_extr(4,l)=0
-            send_extr(5,l)=1
-            send_extr(6,l)=nz
-
-            recv_extr(1,l)=1
-            recv_extr(2,l)=nx
-            recv_extr(3,l)=ny
-            recv_extr(4,l)=ny
-            recv_extr(5,l)=1
-            recv_extr(6,l)=nz
 
             f_send_extr(1,l)=1
             f_send_extr(2,l)=nx
@@ -1120,6 +1105,20 @@ contains
             f_recv_extr(4,l)=ny+nbuff
             f_recv_extr(5,l)=1
             f_recv_extr(6,l)=nz
+            
+            fvec_send_extr(1,l)=1
+            fvec_send_extr(2,l)=nx
+            fvec_send_extr(3,l)=1
+            fvec_send_extr(4,l)=nbuffvec
+            fvec_send_extr(5,l)=1
+            fvec_send_extr(6,l)=nz
+
+            fvec_recv_extr(1,l)=1
+            fvec_recv_extr(2,l)=nx
+            fvec_recv_extr(3,l)=ny+1
+            fvec_recv_extr(4,l)=ny+nbuffvec
+            fvec_recv_extr(5,l)=1
+            fvec_recv_extr(6,l)=nz
 
             b_send_extr(1,l)=1
             b_send_extr(2,l)=nx
@@ -1136,19 +1135,6 @@ contains
             b_recv_extr(6,l)=nz
          endif
          if(ezmpi(l)==1)then
-            send_extr(1,l)=1
-            send_extr(2,l)=nx
-            send_extr(3,l)=1
-            send_extr(4,l)=ny
-            send_extr(5,l)=nz+1
-            send_extr(6,l)=nz+1
-
-            recv_extr(1,l)=1
-            recv_extr(2,l)=nx
-            recv_extr(3,l)=1
-            recv_extr(4,l)=ny
-            recv_extr(5,l)=1
-            recv_extr(6,l)=1
 
             f_send_extr(1,l)=1
             f_send_extr(2,l)=nx
@@ -1163,6 +1149,20 @@ contains
             f_recv_extr(4,l)=ny
             f_recv_extr(5,l)=1-nbuff
             f_recv_extr(6,l)=0
+            
+            fvec_send_extr(1,l)=1
+            fvec_send_extr(2,l)=nx
+            fvec_send_extr(3,l)=1
+            fvec_send_extr(4,l)=ny
+            fvec_send_extr(5,l)=nz-nbuffvec+1
+            fvec_send_extr(6,l)=nz
+
+            fvec_recv_extr(1,l)=1
+            fvec_recv_extr(2,l)=nx
+            fvec_recv_extr(3,l)=1
+            fvec_recv_extr(4,l)=ny
+            fvec_recv_extr(5,l)=1-nbuffvec
+            fvec_recv_extr(6,l)=0
 
             b_send_extr(1,l)=1
             b_send_extr(2,l)=nx
@@ -1179,19 +1179,6 @@ contains
             b_recv_extr(6,l)=0
          endif
          if(ezmpi(l)==-1)then
-            send_extr(1,l)=1
-            send_extr(2,l)=nx
-            send_extr(3,l)=1
-            send_extr(4,l)=ny
-            send_extr(5,l)=0
-            send_extr(6,l)=0
-
-            recv_extr(1,l)=1
-            recv_extr(2,l)=nx
-            recv_extr(3,l)=1
-            recv_extr(4,l)=ny
-            recv_extr(5,l)=nz
-            recv_extr(6,l)=nz
 
             f_send_extr(1,l)=1
             f_send_extr(2,l)=nx
@@ -1206,6 +1193,20 @@ contains
             f_recv_extr(4,l)=ny
             f_recv_extr(5,l)=nz+1
             f_recv_extr(6,l)=nz+nbuff
+            
+            fvec_send_extr(1,l)=1
+            fvec_send_extr(2,l)=nx
+            fvec_send_extr(3,l)=1
+            fvec_send_extr(4,l)=ny
+            fvec_send_extr(5,l)=1
+            fvec_send_extr(6,l)=nbuffvec
+
+            fvec_recv_extr(1,l)=1
+            fvec_recv_extr(2,l)=nx
+            fvec_recv_extr(3,l)=1
+            fvec_recv_extr(4,l)=ny
+            fvec_recv_extr(5,l)=nz+1
+            fvec_recv_extr(6,l)=nz+nbuffvec
 
             b_send_extr(1,l)=1
             b_send_extr(2,l)=nx
@@ -1226,19 +1227,6 @@ contains
       do l=7,18
          !!!!   x   y
          if(exmpi(l)==1 .and. eympi(l)==1)then
-            send_extr(1,l)=nx+1
-            send_extr(2,l)=nx+1
-            send_extr(3,l)=ny+1
-            send_extr(4,l)=ny+1
-            send_extr(5,l)=1
-            send_extr(6,l)=nz
-
-            recv_extr(1,l)=1
-            recv_extr(2,l)=1
-            recv_extr(3,l)=1
-            recv_extr(4,l)=1
-            recv_extr(5,l)=1
-            recv_extr(6,l)=nz
 
             f_send_extr(1,l)=nx-nbuff+1
             f_send_extr(2,l)=nx
@@ -1253,6 +1241,20 @@ contains
             f_recv_extr(4,l)=0
             f_recv_extr(5,l)=1
             f_recv_extr(6,l)=nz
+            
+            fvec_send_extr(1,l)=nx-nbuffvec+1
+            fvec_send_extr(2,l)=nx
+            fvec_send_extr(3,l)=ny-nbuffvec+1
+            fvec_send_extr(4,l)=ny
+            fvec_send_extr(5,l)=1
+            fvec_send_extr(6,l)=nz
+
+            fvec_recv_extr(1,l)=1-nbuffvec
+            fvec_recv_extr(2,l)=0
+            fvec_recv_extr(3,l)=1-nbuffvec
+            fvec_recv_extr(4,l)=0
+            fvec_recv_extr(5,l)=1
+            fvec_recv_extr(6,l)=nz
 
             b_send_extr(1,l)=nx-nbuffbvec+1
             b_send_extr(2,l)=nx
@@ -1269,19 +1271,6 @@ contains
             b_recv_extr(6,l)=nz
          endif
          if(exmpi(l)==-1 .and. eympi(l)==-1)then
-            send_extr(1,l)=0
-            send_extr(2,l)=0
-            send_extr(3,l)=0
-            send_extr(4,l)=0
-            send_extr(5,l)=1
-            send_extr(6,l)=nz
-
-            recv_extr(1,l)=nx
-            recv_extr(2,l)=nx
-            recv_extr(3,l)=ny
-            recv_extr(4,l)=ny
-            recv_extr(5,l)=1
-            recv_extr(6,l)=nz
 
             f_send_extr(1,l)=1
             f_send_extr(2,l)=nbuff
@@ -1296,6 +1285,20 @@ contains
             f_recv_extr(4,l)=ny+nbuff
             f_recv_extr(5,l)=1
             f_recv_extr(6,l)=nz
+            
+            fvec_send_extr(1,l)=1
+            fvec_send_extr(2,l)=nbuffvec
+            fvec_send_extr(3,l)=1
+            fvec_send_extr(4,l)=nbuffvec
+            fvec_send_extr(5,l)=1
+            fvec_send_extr(6,l)=nz
+
+            fvec_recv_extr(1,l)=nx+1
+            fvec_recv_extr(2,l)=nx+nbuffvec
+            fvec_recv_extr(3,l)=ny+1
+            fvec_recv_extr(4,l)=ny+nbuffvec
+            fvec_recv_extr(5,l)=1
+            fvec_recv_extr(6,l)=nz
 
             b_send_extr(1,l)=1
             b_send_extr(2,l)=nbuffbvec
@@ -1312,19 +1315,6 @@ contains
             b_recv_extr(6,l)=nz
          endif
          if(exmpi(l)==1 .and. eympi(l)==-1)then
-            send_extr(1,l)=nx+1
-            send_extr(2,l)=nx+1
-            send_extr(3,l)=0
-            send_extr(4,l)=0
-            send_extr(5,l)=1
-            send_extr(6,l)=nz
-
-            recv_extr(1,l)=1
-            recv_extr(2,l)=1
-            recv_extr(3,l)=ny
-            recv_extr(4,l)=ny
-            recv_extr(5,l)=1
-            recv_extr(6,l)=nz
 
             f_send_extr(1,l)=nx-nbuff+1
             f_send_extr(2,l)=nx
@@ -1339,6 +1329,20 @@ contains
             f_recv_extr(4,l)=ny+nbuff
             f_recv_extr(5,l)=1
             f_recv_extr(6,l)=nz
+            
+            fvec_send_extr(1,l)=nx-nbuffvec+1
+            fvec_send_extr(2,l)=nx
+            fvec_send_extr(3,l)=1
+            fvec_send_extr(4,l)=nbuffvec
+            fvec_send_extr(5,l)=1
+            fvec_send_extr(6,l)=nz
+
+            fvec_recv_extr(1,l)=1-nbuffvec
+            fvec_recv_extr(2,l)=0
+            fvec_recv_extr(3,l)=ny+1
+            fvec_recv_extr(4,l)=ny+nbuffvec
+            fvec_recv_extr(5,l)=1
+            fvec_recv_extr(6,l)=nz
 
             b_send_extr(1,l)=nx-nbuffbvec+1
             b_send_extr(2,l)=nx
@@ -1355,19 +1359,6 @@ contains
             b_recv_extr(6,l)=nz
          endif
          if(exmpi(l)==-1 .and. eympi(l)==1)then
-            send_extr(1,l)=0
-            send_extr(2,l)=0
-            send_extr(3,l)=ny+1
-            send_extr(4,l)=ny+1
-            send_extr(5,l)=1
-            send_extr(6,l)=nz
-
-            recv_extr(1,l)=nx
-            recv_extr(2,l)=nx
-            recv_extr(3,l)=1
-            recv_extr(4,l)=1
-            recv_extr(5,l)=1
-            recv_extr(6,l)=nz
 
             f_send_extr(1,l)=1
             f_send_extr(2,l)=nbuff
@@ -1382,6 +1373,20 @@ contains
             f_recv_extr(4,l)=0
             f_recv_extr(5,l)=1
             f_recv_extr(6,l)=nz
+            
+            fvec_send_extr(1,l)=1
+            fvec_send_extr(2,l)=nbuffvec
+            fvec_send_extr(3,l)=ny-nbuffvec+1
+            fvec_send_extr(4,l)=ny
+            fvec_send_extr(5,l)=1
+            fvec_send_extr(6,l)=nz
+
+            fvec_recv_extr(1,l)=nx+1
+            fvec_recv_extr(2,l)=nx+nbuffvec
+            fvec_recv_extr(3,l)=1-nbuffvec
+            fvec_recv_extr(4,l)=0
+            fvec_recv_extr(5,l)=1
+            fvec_recv_extr(6,l)=nz
 
             b_send_extr(1,l)=1
             b_send_extr(2,l)=nbuffbvec
@@ -1399,19 +1404,6 @@ contains
          endif
          !!!!   x   z
          if(exmpi(l)==1 .and. ezmpi(l)==1)then
-            send_extr(1,l)=nx+1
-            send_extr(2,l)=nx+1
-            send_extr(3,l)=1
-            send_extr(4,l)=ny
-            send_extr(5,l)=nz+1
-            send_extr(6,l)=nz+1
-
-            recv_extr(1,l)=1
-            recv_extr(2,l)=1
-            recv_extr(3,l)=1
-            recv_extr(4,l)=ny
-            recv_extr(5,l)=1
-            recv_extr(6,l)=1
 
             f_send_extr(1,l)=nx-nbuff+1
             f_send_extr(2,l)=nx
@@ -1426,6 +1418,20 @@ contains
             f_recv_extr(4,l)=ny
             f_recv_extr(5,l)=1-nbuff
             f_recv_extr(6,l)=0
+            
+            fvec_send_extr(1,l)=nx-nbuffvec+1
+            fvec_send_extr(2,l)=nx
+            fvec_send_extr(3,l)=1
+            fvec_send_extr(4,l)=ny
+            fvec_send_extr(5,l)=nz-nbuffvec+1
+            fvec_send_extr(6,l)=nz
+
+            fvec_recv_extr(1,l)=1-nbuffvec
+            fvec_recv_extr(2,l)=0
+            fvec_recv_extr(3,l)=1
+            fvec_recv_extr(4,l)=ny
+            fvec_recv_extr(5,l)=1-nbuffvec
+            fvec_recv_extr(6,l)=0
 
             b_send_extr(1,l)=nx-nbuffbvec+1
             b_send_extr(2,l)=nx
@@ -1442,19 +1448,6 @@ contains
             b_recv_extr(6,l)=0
          endif
          if(exmpi(l)==-1 .and. ezmpi(l)==-1)then
-            send_extr(1,l)=0
-            send_extr(2,l)=0
-            send_extr(3,l)=1
-            send_extr(4,l)=ny
-            send_extr(5,l)=0
-            send_extr(6,l)=0
-
-            recv_extr(1,l)=nx
-            recv_extr(2,l)=nx
-            recv_extr(3,l)=1
-            recv_extr(4,l)=ny
-            recv_extr(5,l)=nz
-            recv_extr(6,l)=nz
 
             f_send_extr(1,l)=1
             f_send_extr(2,l)=nbuff
@@ -1469,6 +1462,20 @@ contains
             f_recv_extr(4,l)=ny
             f_recv_extr(5,l)=nz+1
             f_recv_extr(6,l)=nz+nbuff
+            
+            fvec_send_extr(1,l)=1
+            fvec_send_extr(2,l)=nbuffvec
+            fvec_send_extr(3,l)=1
+            fvec_send_extr(4,l)=ny
+            fvec_send_extr(5,l)=1
+            fvec_send_extr(6,l)=nbuffvec
+
+            fvec_recv_extr(1,l)=nx+1
+            fvec_recv_extr(2,l)=nx+nbuffvec
+            fvec_recv_extr(3,l)=1
+            fvec_recv_extr(4,l)=ny
+            fvec_recv_extr(5,l)=nz+1
+            fvec_recv_extr(6,l)=nz+nbuffvec
 
             b_send_extr(1,l)=1
             b_send_extr(2,l)=nbuffbvec
@@ -1485,19 +1492,6 @@ contains
             b_recv_extr(6,l)=nz+nbuffbvec
          endif
          if(exmpi(l)==1 .and. ezmpi(l)==-1)then
-            send_extr(1,l)=nx+1
-            send_extr(2,l)=nx+1
-            send_extr(3,l)=1
-            send_extr(4,l)=ny
-            send_extr(5,l)=0
-            send_extr(6,l)=0
-
-            recv_extr(1,l)=1
-            recv_extr(2,l)=1
-            recv_extr(3,l)=1
-            recv_extr(4,l)=ny
-            recv_extr(5,l)=nz
-            recv_extr(6,l)=nz
 
             f_send_extr(1,l)=nx-nbuff+1
             f_send_extr(2,l)=nx
@@ -1512,6 +1506,20 @@ contains
             f_recv_extr(4,l)=ny
             f_recv_extr(5,l)=nz+1
             f_recv_extr(6,l)=nz+nbuff
+            
+            fvec_send_extr(1,l)=nx-nbuffvec+1
+            fvec_send_extr(2,l)=nx
+            fvec_send_extr(3,l)=1
+            fvec_send_extr(4,l)=ny
+            fvec_send_extr(5,l)=1
+            fvec_send_extr(6,l)=nbuffvec
+
+            fvec_recv_extr(1,l)=1-nbuffvec
+            fvec_recv_extr(2,l)=0
+            fvec_recv_extr(3,l)=1
+            fvec_recv_extr(4,l)=ny
+            fvec_recv_extr(5,l)=nz+1
+            fvec_recv_extr(6,l)=nz+nbuffvec
 
             b_send_extr(1,l)=nx-nbuffbvec+1
             b_send_extr(2,l)=nx
@@ -1528,19 +1536,6 @@ contains
             b_recv_extr(6,l)=nz+nbuffbvec
          endif
          if(exmpi(l)==-1 .and. ezmpi(l)==1)then
-            send_extr(1,l)=0
-            send_extr(2,l)=0
-            send_extr(3,l)=1
-            send_extr(4,l)=ny
-            send_extr(5,l)=nz+1
-            send_extr(6,l)=nz+1
-
-            recv_extr(1,l)=nx
-            recv_extr(2,l)=nx
-            recv_extr(3,l)=1
-            recv_extr(4,l)=ny
-            recv_extr(5,l)=1
-            recv_extr(6,l)=1
 
             f_send_extr(1,l)=1
             f_send_extr(2,l)=nbuff
@@ -1555,6 +1550,20 @@ contains
             f_recv_extr(4,l)=ny
             f_recv_extr(5,l)=1-nbuff
             f_recv_extr(6,l)=0
+            
+            fvec_send_extr(1,l)=1
+            fvec_send_extr(2,l)=nbuffvec
+            fvec_send_extr(3,l)=1
+            fvec_send_extr(4,l)=ny
+            fvec_send_extr(5,l)=nz-nbuffvec+1
+            fvec_send_extr(6,l)=nz
+
+            fvec_recv_extr(1,l)=nx+1
+            fvec_recv_extr(2,l)=nx+nbuffvec
+            fvec_recv_extr(3,l)=1
+            fvec_recv_extr(4,l)=ny
+            fvec_recv_extr(5,l)=1-nbuffvec
+            fvec_recv_extr(6,l)=0
 
             b_send_extr(1,l)=1
             b_send_extr(2,l)=nbuffbvec
@@ -1572,19 +1581,6 @@ contains
          endif
          !!!!   y   z
          if(eympi(l)==1 .and. ezmpi(l)==1)then
-            send_extr(1,l)=1
-            send_extr(2,l)=nx
-            send_extr(3,l)=ny+1
-            send_extr(4,l)=ny+1
-            send_extr(5,l)=nz+1
-            send_extr(6,l)=nz+1
-
-            recv_extr(1,l)=1
-            recv_extr(2,l)=nx
-            recv_extr(3,l)=1
-            recv_extr(4,l)=1
-            recv_extr(5,l)=1
-            recv_extr(6,l)=1
 
             f_send_extr(1,l)=1
             f_send_extr(2,l)=nx
@@ -1599,6 +1595,20 @@ contains
             f_recv_extr(4,l)=0
             f_recv_extr(5,l)=1-nbuff
             f_recv_extr(6,l)=0
+            
+            fvec_send_extr(1,l)=1
+            fvec_send_extr(2,l)=nx
+            fvec_send_extr(3,l)=ny-nbuffvec+1
+            fvec_send_extr(4,l)=ny
+            fvec_send_extr(5,l)=nz-nbuffvec+1
+            fvec_send_extr(6,l)=nz
+
+            fvec_recv_extr(1,l)=1
+            fvec_recv_extr(2,l)=nx
+            fvec_recv_extr(3,l)=1-nbuffvec
+            fvec_recv_extr(4,l)=0
+            fvec_recv_extr(5,l)=1-nbuffvec
+            fvec_recv_extr(6,l)=0
 
             b_send_extr(1,l)=1
             b_send_extr(2,l)=nx
@@ -1615,19 +1625,6 @@ contains
             b_recv_extr(6,l)=0
          endif
          if(eympi(l)==-1 .and. ezmpi(l)==-1)then
-            send_extr(1,l)=1
-            send_extr(2,l)=nx
-            send_extr(3,l)=0
-            send_extr(4,l)=0
-            send_extr(5,l)=0
-            send_extr(6,l)=0
-
-            recv_extr(1,l)=1
-            recv_extr(2,l)=nx
-            recv_extr(3,l)=ny
-            recv_extr(4,l)=ny
-            recv_extr(5,l)=nz
-            recv_extr(6,l)=nz
 
             f_send_extr(1,l)=1
             f_send_extr(2,l)=nx
@@ -1642,6 +1639,20 @@ contains
             f_recv_extr(4,l)=ny+nbuff
             f_recv_extr(5,l)=nz+1
             f_recv_extr(6,l)=nz+nbuff
+            
+            fvec_send_extr(1,l)=1
+            fvec_send_extr(2,l)=nx
+            fvec_send_extr(3,l)=1
+            fvec_send_extr(4,l)=nbuffvec
+            fvec_send_extr(5,l)=1
+            fvec_send_extr(6,l)=nbuffvec
+
+            fvec_recv_extr(1,l)=1
+            fvec_recv_extr(2,l)=nx
+            fvec_recv_extr(3,l)=ny+1
+            fvec_recv_extr(4,l)=ny+nbuffvec
+            fvec_recv_extr(5,l)=nz+1
+            fvec_recv_extr(6,l)=nz+nbuffvec
 
             b_send_extr(1,l)=1
             b_send_extr(2,l)=nx
@@ -1658,19 +1669,6 @@ contains
             b_recv_extr(6,l)=nz+nbuffbvec
          endif
          if(eympi(l)==1 .and. ezmpi(l)==-1)then
-            send_extr(1,l)=1
-            send_extr(2,l)=nx
-            send_extr(3,l)=ny+1
-            send_extr(4,l)=ny+1
-            send_extr(5,l)=0
-            send_extr(6,l)=0
-
-            recv_extr(1,l)=1
-            recv_extr(2,l)=nx
-            recv_extr(3,l)=1
-            recv_extr(4,l)=1
-            recv_extr(5,l)=nz
-            recv_extr(6,l)=nz
 
             f_send_extr(1,l)=1
             f_send_extr(2,l)=nx
@@ -1685,6 +1683,20 @@ contains
             f_recv_extr(4,l)=0
             f_recv_extr(5,l)=nz+1
             f_recv_extr(6,l)=nz+nbuff
+            
+            fvec_send_extr(1,l)=1
+            fvec_send_extr(2,l)=nx
+            fvec_send_extr(3,l)=ny-nbuffvec+1
+            fvec_send_extr(4,l)=ny
+            fvec_send_extr(5,l)=1
+            fvec_send_extr(6,l)=nbuffvec
+
+            fvec_recv_extr(1,l)=1
+            fvec_recv_extr(2,l)=nx
+            fvec_recv_extr(3,l)=1-nbuffvec
+            fvec_recv_extr(4,l)=0
+            fvec_recv_extr(5,l)=nz+1
+            fvec_recv_extr(6,l)=nz+nbuffvec
 
             b_send_extr(1,l)=1
             b_send_extr(2,l)=nx
@@ -1701,19 +1713,6 @@ contains
             b_recv_extr(6,l)=nz+nbuffbvec
          endif
          if(eympi(l)==-1 .and. ezmpi(l)==1)then
-            send_extr(1,l)=1
-            send_extr(2,l)=nx
-            send_extr(3,l)=0
-            send_extr(4,l)=0
-            send_extr(5,l)=nz+1
-            send_extr(6,l)=nz+1
-
-            recv_extr(1,l)=1
-            recv_extr(2,l)=nx
-            recv_extr(3,l)=ny
-            recv_extr(4,l)=ny
-            recv_extr(5,l)=1
-            recv_extr(6,l)=1
 
             f_send_extr(1,l)=1
             f_send_extr(2,l)=nx
@@ -1728,6 +1727,20 @@ contains
             f_recv_extr(4,l)=ny+nbuff
             f_recv_extr(5,l)=1-nbuff
             f_recv_extr(6,l)=0
+            
+            fvec_send_extr(1,l)=1
+            fvec_send_extr(2,l)=nx
+            fvec_send_extr(3,l)=1
+            fvec_send_extr(4,l)=nbuffvec
+            fvec_send_extr(5,l)=nz-nbuffvec+1
+            fvec_send_extr(6,l)=nz
+
+            fvec_recv_extr(1,l)=1
+            fvec_recv_extr(2,l)=nx
+            fvec_recv_extr(3,l)=ny+1
+            fvec_recv_extr(4,l)=ny+nbuffvec
+            fvec_recv_extr(5,l)=1-nbuffvec
+            fvec_recv_extr(6,l)=0
 
             b_send_extr(1,l)=1
             b_send_extr(2,l)=nx
@@ -1748,17 +1761,18 @@ contains
       !corner
       do l=19,nlinksmpi
          if(exmpi(l)==1)then
-            send_extr(1,l)=nx+1
-            send_extr(2,l)=nx+1
-
-            recv_extr(1,l)=1
-            recv_extr(2,l)=1
 
             f_send_extr(1,l)=nx-nbuff+1
             f_send_extr(2,l)=nx
 
             f_recv_extr(1,l)=1-nbuff
             f_recv_extr(2,l)=0
+            
+            fvec_send_extr(1,l)=nx-nbuffvec+1
+            fvec_send_extr(2,l)=nx
+
+            fvec_recv_extr(1,l)=1-nbuffvec
+            fvec_recv_extr(2,l)=0
 
             b_send_extr(1,l)=nx-nbuffbvec+1
             b_send_extr(2,l)=nx
@@ -1766,17 +1780,18 @@ contains
             b_recv_extr(1,l)=1-nbuffbvec
             b_recv_extr(2,l)=0
          else
-            send_extr(1,l)=0
-            send_extr(2,l)=0
-
-            recv_extr(1,l)=nx
-            recv_extr(2,l)=nx
 
             f_send_extr(1,l)=1
             f_send_extr(2,l)=nbuff
 
             f_recv_extr(1,l)=nx+1
             f_recv_extr(2,l)=nx+nbuff
+            
+            fvec_send_extr(1,l)=1
+            fvec_send_extr(2,l)=nbuffvec
+
+            fvec_recv_extr(1,l)=nx+1
+            fvec_recv_extr(2,l)=nx+nbuffvec
 
             b_send_extr(1,l)=1
             b_send_extr(2,l)=nbuffbvec
@@ -1785,17 +1800,18 @@ contains
             b_recv_extr(2,l)=nx+nbuffbvec
          endif
          if(eympi(l)==1)then
-            send_extr(3,l)=ny+1
-            send_extr(4,l)=ny+1
-
-            recv_extr(3,l)=1
-            recv_extr(4,l)=1
 
             f_send_extr(3,l)=ny-nbuff+1
             f_send_extr(4,l)=ny
 
             f_recv_extr(3,l)=1-nbuff
             f_recv_extr(4,l)=0
+            
+            fvec_send_extr(3,l)=ny-nbuffvec+1
+            fvec_send_extr(4,l)=ny
+
+            fvec_recv_extr(3,l)=1-nbuffvec
+            fvec_recv_extr(4,l)=0
 
             b_send_extr(3,l)=ny-nbuffbvec+1
             b_send_extr(4,l)=ny
@@ -1803,17 +1819,18 @@ contains
             b_recv_extr(3,l)=1-nbuffbvec
             b_recv_extr(4,l)=0
          else
-            send_extr(3,l)=0
-            send_extr(4,l)=0
-
-            recv_extr(3,l)=ny
-            recv_extr(4,l)=ny
 
             f_send_extr(3,l)=1
             f_send_extr(4,l)=nbuff
 
             f_recv_extr(3,l)=ny+1
             f_recv_extr(4,l)=ny+nbuff
+            
+            fvec_send_extr(3,l)=1
+            fvec_send_extr(4,l)=nbuffvec
+
+            fvec_recv_extr(3,l)=ny+1
+            fvec_recv_extr(4,l)=ny+nbuffvec
 
             b_send_extr(3,l)=1
             b_send_extr(4,l)=nbuffbvec
@@ -1822,17 +1839,18 @@ contains
             b_recv_extr(4,l)=ny+nbuffbvec
          endif
          if(ezmpi(l)==1)then
-            send_extr(5,l)=nz+1
-            send_extr(6,l)=nz+1
-
-            recv_extr(5,l)=1
-            recv_extr(6,l)=1
 
             f_send_extr(5,l)=nz-nbuff+1
             f_send_extr(6,l)=nz
 
             f_recv_extr(5,l)=1-nbuff
             f_recv_extr(6,l)=0
+            
+            fvec_send_extr(5,l)=nz-nbuffvec+1
+            fvec_send_extr(6,l)=nz
+
+            fvec_recv_extr(5,l)=1-nbuffvec
+            fvec_recv_extr(6,l)=0
 
             b_send_extr(5,l)=nz-nbuffbvec+1
             b_send_extr(6,l)=nz
@@ -1840,17 +1858,18 @@ contains
             b_recv_extr(5,l)=1-nbuffbvec
             b_recv_extr(6,l)=0
          else
-            send_extr(5,l)=0
-            send_extr(6,l)=0
-
-            recv_extr(5,l)=nz
-            recv_extr(6,l)=nz
 
             f_send_extr(5,l)=1
             f_send_extr(6,l)=nbuff
 
             f_recv_extr(5,l)=nz+1
             f_recv_extr(6,l)=nz+nbuff
+            
+            fvec_send_extr(5,l)=1
+            fvec_send_extr(6,l)=nbuffvec
+
+            fvec_recv_extr(5,l)=nz+1
+            fvec_recv_extr(6,l)=nz+nbuffvec
 
             b_send_extr(5,l)=1
             b_send_extr(6,l)=nbuffbvec
@@ -1861,25 +1880,22 @@ contains
       enddo
 
       !gli estremi di fvec sono gli stessi di f
-      fvec_send_extr(1:6,1:nlinksmpi)=f_send_extr(1:6,1:nlinksmpi)
-      fvec_recv_extr(1:6,1:nlinksmpi)=f_recv_extr(1:6,1:nlinksmpi)
+      !fvec_send_extr(1:6,1:nlinksmpi)=f_send_extr(1:6,1:nlinksmpi)
+      !fvec_recv_extr(1:6,1:nlinksmpi)=f_recv_extr(1:6,1:nlinksmpi)
       
 	  !gli estremi di bvec sono diversi da fvec perche seguono nbuffbvec
 
       !calcolo le quantita complessive da movimentare per ogni direzione l
       do l=1,nlinksmpi
-         num_extr(l)=(recv_extr(2,l)-recv_extr(1,l)+1)* &
-            (recv_extr(4,l)-recv_extr(3,l)+1)* &
-            (recv_extr(6,l)-recv_extr(5,l)+1)*num_links_pops(l)
          i_num_extr(l)=(f_recv_extr(2,l)-f_recv_extr(1,l)+1)* &
             (f_recv_extr(4,l)-f_recv_extr(3,l)+1)* &
             (f_recv_extr(6,l)-f_recv_extr(5,l)+1)
          f_num_extr(l)=(f_recv_extr(2,l)-f_recv_extr(1,l)+1)* &
             (f_recv_extr(4,l)-f_recv_extr(3,l)+1)* &
             (f_recv_extr(6,l)-f_recv_extr(5,l)+1)*num_f_datampi
-         fvec_num_extr(l)=(f_recv_extr(2,l)-f_recv_extr(1,l)+1)* &
-            (f_recv_extr(4,l)-f_recv_extr(3,l)+1)* &
-            (f_recv_extr(6,l)-f_recv_extr(5,l)+1)*num_fvec_datampi
+         fvec_num_extr(l)=(fvec_recv_extr(2,l)-fvec_recv_extr(1,l)+1)* &
+            (fvec_recv_extr(4,l)-fvec_recv_extr(3,l)+1)* &
+            (fvec_recv_extr(6,l)-fvec_recv_extr(5,l)+1)*num_fvec_datampi
          b_num_extr(l)=(b_recv_extr(2,l)-b_recv_extr(1,l)+1)* &
             (b_recv_extr(4,l)-b_recv_extr(3,l)+1)* &
             (b_recv_extr(6,l)-b_recv_extr(5,l)+1)*num_b_datampi
@@ -1889,19 +1905,6 @@ contains
 
 #ifdef VERBOSE
       !stampo per debug
-      if(myrank==0)write(6,'(a)')'#######################   send_extr    recv_extr #######################'
-      do l=1,nlinksmpi
-         if(myrank==0)write(6,'(a,i3,a,3i3,a,6i4,a,6i4,a,i4)')'dir l ',l,' disp ',&
-            exmpi(l),eympi(l),ezmpi(l),' extremes d',send_extr(1:6,l),&
-            ' s ',recv_extr(1:6,l),' num ',num_extr(l)
-         call flush(6)
-#ifdef MPI
-         call MPI_Barrier(MPI_COMM_WORLD,ierr)
-#endif
-      enddo
-#ifdef MPI
-      call MPI_Barrier(MPI_COMM_WORLD,ierr)
-#endif
       if(myrank==0)write(6,'(a)')'####################### f_send_extr  f_recv_extr #######################'
       do l=1,nlinksmpi
          if(myrank==0)write(6,'(a,i3,a,3i3,a,6i4,a,6i4,a,i4)')'dir l ',l,' disp ',&
@@ -1949,18 +1952,6 @@ contains
       !creo i tipi MPI contigui che mi servono per i send e receive
       !lo faccio su 13 direzioni perchè per l ed lopp le quantità da muovere sono uguali
 #ifdef MPI
-      do l=1,nlinksmpi,2
-         ll=(l+1)/2
-         call MPI_type_contiguous(num_extr(l), MYMPIREAL, datampi(ll), ierr) !!mpi contiguous definisce il ktipo mpi da passare
-         call MPI_type_commit(datampi(ll),ierr) !!qui lo alloca!
-#ifdef VERBOSE
-         if(myrank.eq.0) then
-            write(6,'(a,2i4,a,f16.8)') 'CREATE BUFFER: datampi',ll*2-1,ll*2,' (KB)-->',&
-               real(num_extr(l),kind=db) *4 / 1024
-            call flush(6)
-         endif
-#endif
-      enddo
 
       !dir
       do l=1,nlinksmpi,2
@@ -2024,53 +2015,12 @@ contains
 #endif
 
   
-      allocate(intpbcsend_extr(6,nlinksmpi))
-      allocate(intpbcrecv_extr(6,nlinksmpi))
-      intpbcsend_extr=send_extr
-      intpbcrecv_extr=intpbcsend_extr
-      do l=1,nlinksmpi
-         if (intpbc_dir(1, l))then
-           intpbcrecv_extr(1,l)=recv_extr(1,l)
-           intpbcrecv_extr(2,l)=recv_extr(2,l)
-         endif
-         if (intpbc_dir(2, l))then
-           intpbcrecv_extr(3,l)=recv_extr(3,l)
-           intpbcrecv_extr(4,l)=recv_extr(4,l)
-         endif
-         if (intpbc_dir(3, l))then
-           intpbcrecv_extr(5,l)=recv_extr(5,l)
-           intpbcrecv_extr(6,l)=recv_extr(6,l)
-         endif
-      enddo
-      !alloca i buffer per mandare e ricevere internamente in pbc per CRAY
-      ll=0
-      do l=1,nlinksmpi
-#ifdef CRAY
-         nbuffpbc_int(l)=ll+1
-#endif
-         if(lintpbcpop_dir(l))ll=ll+num_extr(l)
-      enddo
-#ifdef CRAY
-      allocate(int_buffpbc(ll))
-      int_buffpbc=real(0.d0,kind=db)
-#endif
-      !alloca i buffer per mandare e ricevere
-      numtot_extr=sum(num_extr)
-      ll=0
-      do l=1,nlinksmpi
-         nbuffmpi_send(l)=ll+1
-         if(lsendpop_dir(l))ll=ll+num_extr(l)
-      enddo
-      allocate(send_buffmpi(ll))
-      send_buffmpi=real(0.d0,kind=db)
       
-      ll=0
-      do l=1,nlinksmpi
-         nbuffmpi_recv(l)=ll+1
-         if(lrecvpop_dir(l))ll=ll+num_extr(l)
-      enddo
-      allocate(recv_buffmpi(ll))
-      recv_buffmpi=real(0.d0,kind=db)
+
+
+
+      !alloca i buffer per mandare e ricevere
+      
 
       !alloco per f
       f_numtot_extr=sum(f_num_extr)
@@ -2167,7 +2117,8 @@ contains
       integer, intent(in) :: l
       
       integer :: color,ierr
-#if defined(MPI)   
+#if defined(MPI)        
+      io_comm2d(1:nplanes) = MPI_COMM_NULL
       !qui seleziono solo i processi buoni, quelli che devono scrivere
       if (ldowrite)then
         color = 1  ! Gruppo che partecipa all'IO
@@ -2182,458 +2133,20 @@ contains
    end subroutine setup_io_comm2d   
       
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   subroutine setup_intbb
-
-      implicit none
-
-      integer(kind=isf), allocatable, dimension(:,:,:) :: myisfluid
-      integer :: lmio
-
-      !controllo se ho almeno un isfluid==0 nelle cornici
-      !se si lintbb_dir è true lungo la direzione lmio
-      do lmio=1,nlinksmpi
-         allocate(myisfluid(send_extr(1,lmio):send_extr(2,lmio),&
-            send_extr(3,lmio):send_extr(4,lmio),&
-            send_extr(5,lmio):send_extr(6,lmio)))
-
-         myisfluid(send_extr(1,lmio):send_extr(2,lmio),&
-            send_extr(3,lmio):send_extr(4,lmio),&
-            send_extr(5,lmio):send_extr(6,lmio)) = &
-            isfluid(send_extr(1,lmio):send_extr(2,lmio),&
-            send_extr(3,lmio):send_extr(4,lmio),&
-            send_extr(5,lmio):send_extr(6,lmio))
-         !lungo il settore di estremi lungo lmio (1-6 facce, 7-18 edges, 19-26 corner)
-         !solo se ho almeno un isfluid==0 e ci sono popolazioni entranti fai bounce back
-         lintbb_dir(lmio)=((any(myisfluid==0)) .and. num_links_pops(lmio)>0)
-         deallocate(myisfluid)
-      enddo
-
-   end subroutine setup_intbb
-
-   subroutine setup_bb
-
-      implicit none
-
-      integer(kind=isf), allocatable, dimension(:,:,:) :: myisfluid
-
-      allocate(myisfluid(1:nx,1:ny,1:nz))
-      myisfluid(1:nx,1:ny,1:nz)  = isfluid(1:nx,1:ny,1:nz)
-      lintbb=(any(myisfluid==0))
-      deallocate(myisfluid)
-
-
-   end subroutine setup_bb
-
-   subroutine perform_pops_bb
-
-      implicit none
-
-      integer :: lmio,lopp,ll,l,i,j,k,ii,jj,kk
-      integer :: imin,imax,jmin,jmax,kmin,kmax
-
-      !fai bounce-back nel bulk se necessario
-      if(lintbb)then
-#ifdef ACCNOKERNELS
-         !$acc parallel loop independent collapse(3) present(isfluid,f) private(ii,jj,kk,lopp)
-#else
-         !$acc kernels present(isfluid,f)
-         !$acc loop independent collapse(3) private(i,j,k,ii,jj,kk,lopp,l)
-#endif
-         do k=1,nz
-            do j=1,ny
-               do i=1,nx
-                  if(isfluid(i,j,k).ne.0)cycle
-                  do l=1,nlinks
-                     lopp=opp(l)
-                     ii=i+ex(l)
-                     jj=j+ey(l)
-                     kk=k+ez(l)
-                     f(ii,jj,kk,l)=f(i,j,k,lopp)
-                  enddo
-               enddo
-            enddo
-         enddo
-#ifdef ACCNOKERNELS
-         !$acc end parallel loop
-#else
-         !$acc end kernels
-#endif
-      endif
-      !$acc wait
-      !fai bounce back sulla cornice se necessario
-      do lmio=1,nlinksmpi
-         !lintbb_dir è true se esiste almeno in isfluid zero nell'intervallo send_extr
-         !lintbb_dir è true se nella cornice lungo la direzione lmio c'è almeno un isfluid==0
-         if(.not. lintbb_dir(lmio))cycle
-         imin=send_extr(1,lmio)
-         imax=send_extr(2,lmio)
-         jmin=send_extr(3,lmio)
-         jmax=send_extr(4,lmio)
-         kmin=send_extr(5,lmio)
-         kmax=send_extr(6,lmio)
-         do ll=1,num_links_pops(lmio)
-            !trovo la popolazioni da gestire dalla lista per la direzione lmio
-            !sono le stesse che uso per il send ma in direzione opposta perchè bounce-back
-            l=links_pops(ll,lmio)
-            lopp=opp(l)
-#ifdef ACCNOKERNELS
-            !$acc parallel loop independent collapse(3) present(send_extr,f,isfluid) private(ii,jj,kk) async
-#else
-            !$acc kernels present(send_extr,f,isfluid) async
-            !$acc loop independent collapse(3)  private(i,j,k,ii,jj,kk)
-#endif
-            do k=kmin,kmax
-               do j=jmin,jmax
-                  do i=imin,imax
-                     if(isfluid(i,j,k).ne. 0)cycle
-                     ii=i+ex(lopp)
-                     jj=j+ey(lopp)
-                     kk=k+ez(lopp)
-                     f(ii,jj,kk,lopp)=f(i,j,k,l)
-                  enddo
-               enddo
-            enddo
-#ifdef ACCNOKERNELS
-           !$acc end parallel loop
-#else
-           !$acc end kernels
-#endif
-         enddo
-      enddo
-      !$acc wait
-      
-   end subroutine perform_pops_bb
-   !***************************************************************************************************!
-   subroutine exchange_pops_intpbc
-
-      implicit none
-
-      integer :: l=0,ll,lmio,oi,oj,ok
-      integer :: imin,imax,jmin,jmax,kmin,kmax,lmax
-      integer :: imin2,jmin2,kmin2,ii,jj,kk
-
-#ifdef CRAY
-      integer :: myoffset
-      integer :: m1,m2,m3
-      integer :: idx=0
-      
-      do lmio=1,nlinksmpi
-        if(.not. lintpbcpop_dir(lmio)) cycle
-        myoffset=nbuffpbc_int(lmio)
-        m1=intpbcsend_extr(2,lmio)-intpbcsend_extr(1,lmio)+1
-        m2=intpbcsend_extr(4,lmio)-intpbcsend_extr(3,lmio)+1
-        m3=intpbcsend_extr(6,lmio)-intpbcsend_extr(5,lmio)+1
-        lmax=num_links_pops(lmio)
-        imin=intpbcsend_extr(1,lmio)
-        imax=intpbcsend_extr(2,lmio)
-        jmin=intpbcsend_extr(3,lmio)
-        jmax=intpbcsend_extr(4,lmio)
-        kmin=intpbcsend_extr(5,lmio)
-        kmax=intpbcsend_extr(6,lmio)
-#ifdef ACCNOKERNELS
-        !$acc parallel loop independent collapse(4) present(int_buffpbc,intpbcsend_extr,links_pops,f) private(idx,l)
-#else
-        !$acc kernels present(int_buffpbc,intpbcsend_extr,links_pops,f)
-        !$acc loop independent collapse(4) private(i,j,k,idx,l,ll)
-#endif
-        !scorro sul numero di popolazioni da prendere per la direzione lmio
-        do ll=1,lmax
-           !trovo la popolazioni da gestire dalla lista per la direzione lmio
-           do k=kmin,kmax
-              do j=jmin,jmax
-                 do i=imin,imax
-                    l=links_pops(ll,lmio)
-                    !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
-                    !poi mandero solo i pezzi contigui che mi servono per la data direzione
-                    idx=myoffset+(i-intpbcsend_extr(1,lmio))+(j-intpbcsend_extr(3,lmio))*m1+(&
-                       k-intpbcsend_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-                    int_buffpbc(idx)=f(i,j,k,l)
-                 enddo
-              enddo
-           enddo
-        enddo
-#ifdef ACCNOKERNELS
-       !$acc end parallel loop
-#else
-       !$acc end kernels
-#endif     
-      enddo
-      !$acc wait
-      do lmio=1,nlinksmpi
-        if(.not. lintpbcpop_dir(lmio)) cycle
-        myoffset=nbuffpbc_int(lmio)
-        m1=intpbcrecv_extr(2,lmio)-intpbcrecv_extr(1,lmio)+1
-        m2=intpbcrecv_extr(4,lmio)-intpbcrecv_extr(3,lmio)+1
-        m3=intpbcrecv_extr(6,lmio)-intpbcrecv_extr(5,lmio)+1
-        lmax=num_links_pops(lmio)
-        imin=intpbcrecv_extr(1,lmio)
-        imax=intpbcrecv_extr(2,lmio)
-        jmin=intpbcrecv_extr(3,lmio)
-        jmax=intpbcrecv_extr(4,lmio)
-        kmin=intpbcrecv_extr(5,lmio)
-        kmax=intpbcrecv_extr(6,lmio)
-#ifdef ACCNOKERNELS
-        !$acc parallel loop independent collapse(4) present(int_buffpbc,links_pops,f,intpbcrecv_extr) private(idx,l)
-#else
-        !$acc kernels present(int_buffpbc,links_pops,f,intpbcrecv_extr)
-        !$acc loop independent collapse(4)  private(i,j,k,idx,l,ll)
-#endif
-        !scorro sul numero di popolazioni da prendere per la direzione lmio
-        do ll=1,lmax
-           do k=kmin,kmax
-              do j=jmin,jmax
-                 do i=imin,imax
-                    !trovo la popolazioni da gestire dalla lista per la direzione lmio
-                    l=links_pops(ll,lmio)
-                    !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
-                    !poi mandero solo i pezzi contigui che mi servono per la data direzione
-                    idx=myoffset+(i-intpbcrecv_extr(1,lmio))+(j-intpbcrecv_extr(3,lmio))*m1+(&
-                       k-intpbcrecv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-                    f(i,j,k,l)=int_buffpbc(idx)
-                 enddo
-              enddo
-           enddo
-        enddo
-#ifdef ACCNOKERNELS
-        !$acc end parallel loop
-#else
-        !$acc end kernels
-#endif  
-      enddo
-      !$acc wait
-
-#else
-
-      
-      !faccio le pbc per le popolazioni se interne allo stesso processo MPI, lintpbcpop_dir(lmio)=true
-      !occhio se non ci sono popolazioni da mandare lintpbcpop_dir è falso
-      do lmio=1,nlinksmpi
-         if(.not. lintpbcpop_dir(lmio)) cycle
-         lmax=num_links_pops(lmio)
-         imin=send_extr(1,lmio)
-         imax=send_extr(2,lmio)
-         jmin=send_extr(3,lmio)
-         jmax=send_extr(4,lmio)
-         kmin=send_extr(5,lmio)
-         kmax=send_extr(6,lmio)
-         !scorro sul numero di popolazioni da prendere per la direzione lmio
-#ifdef ACCNOKERNELS
-         !$acc parallel loop independent collapse(4) present(intpbc_dir,links_pops,f) private(oi,oj,ok,l) async
-#else
-         !$acc kernels present(intpbc_dir,links_pops,f) async
-         !$acc loop independent collapse(4) private(i,j,k,oi,oj,ok,ll,l)
-#endif
-         do ll=1,lmax
-            do k=kmin,kmax
-               do j=jmin,jmax
-                  do i=imin,imax
-                     !trovo la popolazioni da gestire dalla lista per la direzione lmio
-                     l=links_pops(ll,lmio)
-                     oi=i ! destinazione delle periodic bc all'interno dello stesso processo!
-                     oj=j
-                     ok=k
-                     if(intpbc_dir(1,lmio)) oi=mod(oi+nx-1,nx)+1
-                     if(intpbc_dir(2,lmio)) oj=mod(oj+ny-1,ny)+1
-                     if(intpbc_dir(3,lmio)) ok=mod(ok+nz-1,nz)+1
-                     f(oi,oj,ok,l)=f(i,j,k,l)
-                  enddo
-               enddo
-            enddo
-
-         enddo
-#ifdef ACCNOKERNELS
-         !$acc end parallel loop
-#else
-         !$acc end kernels
-#endif
-      enddo
-      !$acc wait
-
-#endif
-   end subroutine exchange_pops_intpbc
-
-   subroutine exchange_pops_sendrecv
-
-      implicit none
-
-      integer :: l,ll,myoffset,tag,ierr,mm
-#ifndef MPI
-      return
-#endif
-      do l=1,nlinksmpi
-         !se devo mandare lungo l allora impacchetto
-         if(lsendpop_dir(l))call packaging_buffmpi(l) !! qui impacchetto send_buffmpi
-      enddo
-      !$acc wait
-      !recv_buffmpi=send_buffmpi
-#ifdef MPI
-      mm=0
-      do l=1,nlinksmpi
-         ll=(l+1)/2
-         if(lsendpop_dir(l))then
-            mm=mm+1
-            myoffset=nbuffmpi_send(l) !!! myoffset ---> legge da nbuffmpi_send(l) chje copntiene gli offset per la l-esima direzione
-            !$acc host_data use_device(send_buffmpi)
-            call mpi_isend(send_buffmpi(myoffset),1,datampi(ll),send_dir(l), &
-               mpitag(l),lbecomm,reqs(mm),ierr)
-            !$acc end host_data
-         endif
-         if(lrecvpop_dir(l))then
-            mm=mm+1
-            myoffset=nbuffmpi_recv(l)
-            !$acc host_data use_device(recv_buffmpi)
-            call mpi_irecv(recv_buffmpi(myoffset),1,datampi(ll),recv_dir(l), &
-               mpitag(l),lbecomm,reqs(mm),ierr)
-            !$acc end host_data
-         endif
-      enddo
-      nreqs=mm
-#endif
-
-
-   end subroutine exchange_pops_sendrecv
-
-   subroutine exchange_pops_wait
-
-      implicit none
-
-      integer :: l,ll,myoffset,tag,ierr
-#ifdef MPI      
-      integer, dimension(:), allocatable :: myierr
-      integer, dimension(:,:), allocatable :: mystatus
-#else
-      return
-#endif
-#ifdef MPI
-
-      allocate(myierr(nreqs))
-      myierr=0
-
-      allocate(mystatus(MPI_STATUS_SIZE,nreqs))
-      !$acc wait
-      call mpi_waitall(nreqs,reqs,mystatus,ierr)
-      !$acc wait
-      if(any(myierr.ne.0))call doerror(6,'ERROR in exchange_pops_wait')
-#endif
-      do l=1,nlinksmpi
-         if(lrecvpop_dir(l))call depackaging_buffmpi(l)
-      enddo
-
-   end subroutine exchange_pops_wait
-
-   subroutine packaging_buffmpi(lmio)
-
-      implicit none
-
-      integer, intent(in) :: lmio
-      integer :: myoffset
-
-      integer :: i,j,k,l=0,ll,m1,m2,m3
-      integer :: imin,imax,jmin,jmax,kmin,kmax,lmax
-
-      integer :: idx=0
-
-      myoffset=nbuffmpi_send(lmio)
-      m1=send_extr(2,lmio)-send_extr(1,lmio)+1
-      m2=send_extr(4,lmio)-send_extr(3,lmio)+1
-      m3=send_extr(6,lmio)-send_extr(5,lmio)+1
-      lmax=num_links_pops(lmio)
-      imin=send_extr(1,lmio)
-      imax=send_extr(2,lmio)
-      jmin=send_extr(3,lmio)
-      jmax=send_extr(4,lmio)
-      kmin=send_extr(5,lmio)
-      kmax=send_extr(6,lmio)
-#ifdef ACCNOKERNELS
-      !$acc parallel loop independent collapse(4) present(send_buffmpi,send_extr,links_pops,f) private(idx,l)
-#else
-      !$acc kernels present(send_buffmpi,send_extr,links_pops,f)
-      !$acc loop independent collapse(4) private(i,j,k,idx,l,ll)
-#endif
-      !scorro sul numero di popolazioni da prendere per la direzione lmio
-      do ll=1,lmax
-         !trovo la popolazioni da gestire dalla lista per la direzione lmio
-         do k=kmin,kmax
-            do j=jmin,jmax
-               do i=imin,imax
-                  l=links_pops(ll,lmio)
-                  !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
-                  !poi mandero solo i pezzi contigui che mi servono per la data direzione
-                  idx=myoffset+(i-send_extr(1,lmio))+(j-send_extr(3,lmio))*m1+(&
-                     k-send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-                  send_buffmpi(idx)=f(i,j,k,l)
-               enddo
-            enddo
-         enddo
-      enddo
-#ifdef ACCNOKERNELS
-     !$acc end parallel loop
-#else
-     !$acc end kernels
-#endif
-
-   end subroutine packaging_buffmpi
-
-   subroutine depackaging_buffmpi(lmio)
-
-      implicit none
-
-      integer, intent(in) :: lmio
-      integer :: myoffset
-      integer :: imin,imax,jmin,jmax,kmin,kmax,lmax
-      
-      integer :: i,j,k,l=0,ll,m1,m2,m3
-
-      integer :: idx=0
-
-      myoffset=nbuffmpi_recv(lmio)
-      m1=recv_extr(2,lmio)-recv_extr(1,lmio)+1
-      m2=recv_extr(4,lmio)-recv_extr(3,lmio)+1
-      m3=recv_extr(6,lmio)-recv_extr(5,lmio)+1
-      lmax=num_links_pops(lmio)
-      imin=recv_extr(1,lmio)
-      imax=recv_extr(2,lmio)
-      jmin=recv_extr(3,lmio)
-      jmax=recv_extr(4,lmio)
-      kmin=recv_extr(5,lmio)
-      kmax=recv_extr(6,lmio)
-#ifdef ACCNOKERNELS
-      !$acc parallel loop independent collapse(4) present(recv_buffmpi,links_pops,f,recv_extr) private(idx,l)
-#else
-      !$acc kernels present(recv_buffmpi,links_pops,f,recv_extr)
-      !$acc loop independent collapse(4)  private(i,j,k,idx,l,ll)
-#endif
-      !scorro sul numero di popolazioni da prendere per la direzione lmio
-      do ll=1,lmax
-         do k=kmin,kmax
-            do j=jmin,jmax
-               do i=imin,imax
-                  !trovo la popolazioni da gestire dalla lista per la direzione lmio
-                  l=links_pops(ll,lmio)
-                  !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
-                  !poi mandero solo i pezzi contigui che mi servono per la data direzione
-                  idx=myoffset+(i-recv_extr(1,lmio))+(j-recv_extr(3,lmio))*m1+(&
-                     k-recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-                  f(i,j,k,l)=recv_buffmpi(idx)
-               enddo
-            enddo
-         enddo
-      enddo
-#ifdef ACCNOKERNELS
-      !$acc end parallel loop
-#else
-      !$acc end kernels
-#endif
-
-   end subroutine depackaging_buffmpi
 
 !*******************************PHI********************************************************************!
-   subroutine exchange_float_intpbc
+   subroutine exchange_phifields_intpbc(phifields_s)
 
       implicit none
-
-      integer :: lmio,oi,oj,ok
+      
+      real(kind=db), allocatable, dimension(:) :: phifields_s
+      integer :: lmio
+      integer :: oi,oj,ok
+      integer :: ii,jj,kk
+      integer :: oii,ojj,okk
       integer :: imin,imax,jmin,jmax,kmin,kmax
+      integer :: oxblock,oyblock,ozblock,omyblock
+      integer :: xblock,yblock,zblock,myblock
 
       do lmio=1,nlinksmpi
          if(.not. lintpbc_dir(lmio))cycle
@@ -2644,10 +2157,13 @@ contains
          kmin=f_recv_extr(5,lmio)
          kmax=f_recv_extr(6,lmio)
 #ifdef ACCNOKERNELS
-         !$acc parallel loop independent collapse(3) present(intpbc_dir,selphi) private(oi,oj,ok)
+         !$acc parallel loop independent collapse(3) present(intpbc_dir,phifields_s, &
+         !$acc& TILE_DIMx,TILE_DIMy,TILE_DIMz) private(i,j,k,ii,jj,kk,myblock, &
+         !$acc& oi,oj,ok,oii,ojj,okk,omyblock)
 #else
-         !$acc kernels present(intpbc_dir,selphi)
-         !$acc loop independent collapse(3) private(i,j,k,oi,oj,ok)
+         !$acc kernels present(intpbc_dir,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz)
+         !$acc loop independent collapse(3) private(i,j,k,ii,jj,kk,myblock, &
+         !$acc& oi,oj,ok,oii,ojj,okk,omyblock)
 #endif
          do k=kmin,kmax
             do j=jmin,jmax
@@ -2658,7 +2174,27 @@ contains
                   if(intpbc_dir(1,lmio))oi=mod(oi+nx-1,nx)+1
                   if(intpbc_dir(2,lmio))oj=mod(oj+ny-1,ny)+1
                   if(intpbc_dir(3,lmio))ok=mod(ok+nz-1,nz)+1
-                  selphi(i,j,k,flop)=selphi(oi,oj,ok,flop)                
+                  
+                  oxblock=(oi+2*TILE_DIMx-1)/TILE_DIMx   
+                  oyblock=(oj+2*TILE_DIMy-1)/TILE_DIMy     
+                  ozblock=(ok+2*TILE_DIMz-1)/TILE_DIMz 
+                  omyblock=(oxblock-1)+(oyblock-1)*nxblock+(ozblock-1)*nxyblock+1
+                  oii=oi-oxblock*TILE_DIMx+2*TILE_DIMx
+                  ojj=oj-oyblock*TILE_DIMy+2*TILE_DIMy
+                  okk=ok-ozblock*TILE_DIMz+2*TILE_DIMz
+                  
+                  xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+                  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+                  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+                  myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+                  ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
+                  
+                 
+                  phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))= &
+                   phifields_s(idx5(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+                                 
                enddo
             enddo
          enddo
@@ -2669,18 +2205,19 @@ contains
 #endif
       enddo
 
-   end subroutine exchange_float_intpbc
+   end subroutine exchange_phifields_intpbc
 
-   subroutine exchange_float_sendrecv
+   subroutine exchange_phifields_sendrecv(phifields_s)
 
       implicit none
-
+      
+      real(kind=db), allocatable, dimension(:) :: phifields_s
       integer :: l,ll,myoffset,tag,ierr,mm
 #ifndef MPI
       return
 #endif
       do l=1,nlinksmpi
-         if(lsend_dir(l))call packaging_float_buffmpi(l)
+         if(lsend_dir(l))call packaging_phifields_buffmpi(l,phifields_s)
       enddo
       !$acc wait
       !f_recv_buffmpi=f_send_buffmpi
@@ -2709,12 +2246,13 @@ contains
 #endif
 
 
-   end subroutine exchange_float_sendrecv
+   end subroutine exchange_phifields_sendrecv
 
-   subroutine exchange_float_wait
+   subroutine exchange_phifields_wait(phifields_s)
 
       implicit none
-
+      
+      real(kind=db), allocatable, dimension(:) :: phifields_s
       integer :: l,ll,myoffset,tag,ierr
 #ifdef MPI
       integer, dimension(:), allocatable :: myierr
@@ -2732,24 +2270,26 @@ contains
       call mpi_waitall(nf_reqs,f_reqs,mystatus,ierr)
       !$acc wait
 
-      if(any(myierr.ne.0))call doerror(6,'ERROR in exchange_float_sendrecv')
+      if(any(myierr.ne.0))call doerror(6,'ERROR in exchange_phifields_sendrecv')
 #endif
       do l=1,nlinksmpi
-         if(lrecv_dir(l))call depackaging_float_buffmpi(l)
+         if(lrecv_dir(l))call depackaging_phifields_buffmpi(l,phifields_s)
       enddo
 
-   end subroutine exchange_float_wait
+   end subroutine exchange_phifields_wait
 
-   subroutine packaging_float_buffmpi(lmio)
+   subroutine packaging_phifields_buffmpi(lmio,phifields_s)
 
       implicit none
 
       integer, intent(in) :: lmio
+      real(kind=db), allocatable, dimension(:) :: phifields_s
       integer :: myoffset
 
       integer :: i,j,k,l,ll,m1,m2,m3
       integer :: imin,imax,jmin,jmax,kmin,kmax
       integer :: idx=0
+      integer :: ii,jj,kk,xblock,yblock,zblock,myblock
 
       myoffset=f_nbuffmpi_send(lmio)
       m1=f_send_extr(2,lmio)-f_send_extr(1,lmio)+1
@@ -2764,19 +2304,27 @@ contains
       kmin=f_send_extr(5,lmio)
       kmax=f_send_extr(6,lmio)
 #ifdef ACCNOKERNELS
-      !$acc parallel loop independent collapse(3) present(f_send_buffmpi,selphi,f_send_extr) private(idx)
+      !$acc parallel loop independent collapse(3) present(f_send_buffmpi,phifields_s,f_send_extr) &
+      !$acc& private(idx,ii,jj,kk,xblock,yblock,zblock,myblock)
 #else
-      !$acc kernels present(f_send_buffmpi,selphi,f_send_extr)
-      !$acc loop independent collapse(3)  private(i,j,k,idx)
+      !$acc kernels present(f_send_buffmpi,phifields_s,f_send_extr)
+      !$acc loop independent collapse(3)  private(i,j,k,idx,ii,jj,kk,xblock,yblock,zblock,myblock)
 #endif
       do k=kmin,kmax
          do j=jmin,jmax
             do i=imin,imax
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+               yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+               zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz    
                !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
                !poi mandero solo i pezzi contigui che mi servono per la data direzione
                idx=myoffset+(i-f_send_extr(1,lmio))+(j-f_send_extr(3,lmio))*m1+(&
                   k-f_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               f_send_buffmpi(idx)=selphi(i,j,k,flop)		   
+               f_send_buffmpi(idx)=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))		   
             enddo
          enddo
       enddo
@@ -2787,18 +2335,20 @@ contains
 #endif
 
 
-   end subroutine packaging_float_buffmpi
+   end subroutine packaging_phifields_buffmpi
 
-   subroutine depackaging_float_buffmpi(lmio)
+   subroutine depackaging_phifields_buffmpi(lmio,phifields_s)
 
       implicit none
 
       integer, intent(in) :: lmio
+      real(kind=db), allocatable, dimension(:) :: phifields_s
       integer :: myoffset
 
       integer :: i,j,k,l,ll,m1,m2,m3
       integer :: imin,imax,jmin,jmax,kmin,kmax
       integer :: idx=0
+      integer :: ii,jj,kk,xblock,yblock,zblock,myblock
 
       myoffset=f_nbuffmpi_recv(lmio)
       m1=f_recv_extr(2,lmio)-f_recv_extr(1,lmio)+1
@@ -2813,19 +2363,27 @@ contains
       kmin=f_recv_extr(5,lmio)
       kmax=f_recv_extr(6,lmio)
 #ifdef ACCNOKERNELS
-      !$acc parallel loop independent collapse(3) present(f_recv_buffmpi,selphi,f_recv_extr) private(idx)
+      !$acc parallel loop independent collapse(3) present(f_recv_buffmpi,phifields_s,f_recv_extr) &
+      !$acc& private(idx,ii,jj,kk,xblock,yblock,zblock,myblock)
 #else
-      !$acc kernels present(f_recv_buffmpi,selphi,f_recv_extr)
-      !$acc loop independent collapse(3)  private(i,j,k,idx)
+      !$acc kernels present(f_recv_buffmpi,phifields_s,f_recv_extr)
+      !$acc loop independent collapse(3)  private(i,j,k,idx,ii,jj,kk,xblock,yblock,zblock,myblock)
 #endif
       do k=kmin,kmax
          do j=jmin,jmax
             do i=imin,imax
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+               yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+               zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
                !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
                !poi mandero solo i pezzi contigui che mi servono per la data direzione
                idx=myoffset+(i-f_recv_extr(1,lmio))+(j-f_recv_extr(3,lmio))*m1+(&
                   k-f_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               selphi(i,j,k,flop)=f_recv_buffmpi(idx)
+               phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=f_recv_buffmpi(idx)
             enddo
          enddo
       enddo
@@ -2836,10 +2394,10 @@ contains
 #endif
 
 
-   end subroutine depackaging_float_buffmpi
+   end subroutine depackaging_phifields_buffmpi
 
    !****************************** normx normy normz********************************************************************!
-   subroutine exchange_floatvec_intpbc
+   subroutine exchange_auxfields_intpbc
 
       implicit none
 
@@ -2946,9 +2504,9 @@ contains
 #endif
       enddo
 
-   end subroutine exchange_floatvec_intpbc
+   end subroutine exchange_auxfields_intpbc
 
-   subroutine exchange_floatvec_sendrecv
+   subroutine exchange_auxfields_sendrecv
 
       implicit none
 
@@ -2958,7 +2516,7 @@ contains
       return
 #endif
       do l=1,nlinksmpi
-         if(lsend_dir(l))call packaging_floatvec_buffmpi(l)
+         if(lsend_dir(l))call packaging_auxfields_buffmpi(l)
       enddo
       !$acc wait
 #ifdef MPI
@@ -2986,9 +2544,9 @@ contains
 #endif
 
 
-   end subroutine exchange_floatvec_sendrecv
+   end subroutine exchange_auxfields_sendrecv
 
-   subroutine exchange_floatvec_wait
+   subroutine exchange_auxfields_wait
 
       implicit none
 
@@ -3009,15 +2567,15 @@ contains
       call mpi_waitall(nfvec_reqs,fvec_reqs,mystatus,ierr)
       !$acc wait
 
-      if(any(myierr.ne.0))call doerror(6,'ERROR in exchange_floatvec_wait')
+      if(any(myierr.ne.0))call doerror(6,'ERROR in exchange_auxfields_wait')
 #endif
       do l=1,nlinksmpi
-         if(lrecv_dir(l))call depackaging_floatvec_buffmpi(l)
+         if(lrecv_dir(l))call depackaging_auxfields_buffmpi(l)
       enddo
 
-   end subroutine exchange_floatvec_wait
+   end subroutine exchange_auxfields_wait
 
-   subroutine packaging_floatvec_buffmpi(lmio)
+   subroutine packaging_auxfields_buffmpi(lmio)
 
       implicit none
 
@@ -3347,9 +2905,9 @@ contains
       !$acc end kernels
 #endif
 
-   end subroutine packaging_floatvec_buffmpi
+   end subroutine packaging_auxfields_buffmpi
 
-   subroutine depackaging_floatvec_buffmpi(lmio)
+   subroutine depackaging_auxfields_buffmpi(lmio)
 
       implicit none
 
@@ -3686,7 +3244,222 @@ contains
       !$acc end kernels
 #endif
 
-   end subroutine depackaging_floatvec_buffmpi
+   end subroutine depackaging_auxfields_buffmpi
+   
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!BVEC!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+   subroutine exchange_bvec_intpbc
+
+      implicit none
+      integer :: imin,imax,jmin,jmax,kmin,kmax
+      integer :: lmio,oi,oj,ok
+!!!!!b_send_extr   !!!!!!!!!!!!b_recv_extr
+      do lmio=1,nlinksmpi
+         if(.not. lintpbc_dir(lmio))cycle
+         imin=b_recv_extr(1,lmio)
+         imax=b_recv_extr(2,lmio)
+         jmin=b_recv_extr(3,lmio)
+         jmax=b_recv_extr(4,lmio)
+         kmin=b_recv_extr(5,lmio)
+         kmax=b_recv_extr(6,lmio)
+#ifdef ACCNOKERNELS
+         !$acc parallel loop independent collapse(3) present(intpbc_dir,selphi) private(oi,oj,ok)
+#else
+         !$acc kernels present(intpbc_dir,selphi)
+         !$acc loop independent collapse(3) private(i,j,k,oi,oj,ok)
+#endif
+         do k=kmin,kmax
+           do j=jmin,jmax
+              do i=imin,imax
+                  oi=i
+                  oj=j
+                  ok=k
+                  if(intpbc_dir(1,lmio))oi=mod(oi+nx-1,nx)+1
+                  if(intpbc_dir(2,lmio))oj=mod(oj+ny-1,ny)+1
+                  if(intpbc_dir(3,lmio))ok=mod(ok+nz-1,nz)+1
+                  selphi(i,j,k,flop)=selphi(oi,oj,ok,flop)				  
+               enddo
+            enddo
+         enddo
+#ifdef ACCNOKERNELS
+        !$acc end parallel loop
+#else
+        !$acc end kernels
+#endif
+      enddo
+
+   end subroutine exchange_bvec_intpbc
+
+   subroutine exchange_bvec_sendrecv
+
+      implicit none
+
+      integer :: l,ll,myoffset,tag,ierr,mm
+#ifndef MPI
+      return
+#endif
+      do l=1,nlinksmpi
+         if(lsend_dir(l))call packaging_bvec_buffmpi(l)
+      enddo
+      !$acc wait
+#ifdef MPI
+      mm=0
+      do l=1,nlinksmpi
+         ll=(l+1)/2
+         if(lsend_dir(l))then
+            mm=mm+1
+            myoffset=b_nbuffmpi_send(l)
+            !$acc host_data use_device(b_send_buffmpi)
+            call mpi_isend(b_send_buffmpi(myoffset),1,b_datampi(ll),send_dir(l), &
+               b_mpitag(l),lbecomm,b_reqs(mm),ierr)
+            !$acc end host_data
+         endif
+         if(lrecv_dir(l))then
+            mm=mm+1
+            myoffset=b_nbuffmpi_recv(l)
+            !$acc host_data use_device(b_recv_buffmpi)
+            call mpi_irecv(b_recv_buffmpi(myoffset),1,b_datampi(ll),recv_dir(l), &
+               b_mpitag(l),lbecomm,b_reqs(mm),ierr)
+            !$acc end host_data
+         endif
+      enddo
+      nb_reqs=mm
+#endif
+
+
+   end subroutine exchange_bvec_sendrecv
+
+   subroutine exchange_bvec_wait
+
+      implicit none
+
+      integer :: l,ll,myoffset,tag,ierr
+      integer, dimension(:), allocatable :: myierr
+      integer, dimension(:,:), allocatable :: mystatus
+#ifndef MPI
+      return
+#endif
+#ifdef MPI
+
+      allocate(myierr(nb_reqs))
+      myierr=0
+
+      allocate(mystatus(MPI_STATUS_SIZE,nb_reqs))
+      !$acc wait
+      call mpi_waitall(nb_reqs,b_reqs,mystatus,ierr)
+      !$acc wait
+
+      if(any(myierr.ne.0))call doerror(6,'ERROR in exchange_bvec_wait')
+#endif
+      do l=1,nlinksmpi
+         if(lrecv_dir(l))call depackaging_bvec_buffmpi(l)
+      enddo
+
+   end subroutine exchange_bvec_wait
+
+   subroutine packaging_bvec_buffmpi(lmio)
+
+      implicit none
+
+      integer, intent(in) :: lmio
+      integer :: myoffset
+
+      integer :: i,j,k,l,ll=0,m1,m2,m3
+      integer :: imin,imax,jmin,jmax,kmin,kmax
+      integer :: idx=0
+
+      myoffset=b_nbuffmpi_send(lmio)
+      m1=b_send_extr(2,lmio)-b_send_extr(1,lmio)+1
+      m2=b_send_extr(4,lmio)-b_send_extr(3,lmio)+1
+      m3=b_send_extr(6,lmio)-b_send_extr(5,lmio)+1
+      imin=b_send_extr(1,lmio)
+      imax=b_send_extr(2,lmio)
+      jmin=b_send_extr(3,lmio)
+      jmax=b_send_extr(4,lmio)
+      kmin=b_send_extr(5,lmio)
+      kmax=b_send_extr(6,lmio)
+#ifdef ACCNOKERNELS
+      !$acc parallel loop independent collapse(3) present(b_send_buffmpi,b_send_extr,selphi) private(ll,idx)
+#else
+      !$acc kernels present(b_send_buffmpi,b_send_extr,selphi)
+      !$acc loop independent collapse(3)  private(i,j,k,ll,idx)
+#endif
+      do k=kmin,kmax
+         do j=jmin,jmax
+            do i=imin,imax
+               !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
+               !poi mandero solo i pezzi contigui che mi servono per la data direzione
+
+               !scorro sul numero di campi da prendere il massimo previsto è num_b_datampi
+
+               ll=1
+               idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
+                  k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               b_send_buffmpi(idx)=selphi(i,j,k,flop)
+
+            enddo
+         enddo
+      enddo
+#ifdef ACCNOKERNELS
+      !$acc end parallel loop
+#else
+      !$acc end kernels
+#endif
+
+
+   end subroutine packaging_bvec_buffmpi
+
+   subroutine depackaging_bvec_buffmpi(lmio)
+
+      implicit none
+
+      integer, intent(in) :: lmio
+      integer :: myoffset
+
+      integer :: i,j,k,l,ll=0,m1,m2,m3
+      integer :: imin,imax,jmin,jmax,kmin,kmax
+      integer :: idx=0
+
+      myoffset=b_nbuffmpi_recv(lmio)
+      m1=b_recv_extr(2,lmio)-b_recv_extr(1,lmio)+1
+      m2=b_recv_extr(4,lmio)-b_recv_extr(3,lmio)+1
+      m3=b_recv_extr(6,lmio)-b_recv_extr(5,lmio)+1
+      imin=b_recv_extr(1,lmio)
+      imax=b_recv_extr(2,lmio)
+      jmin=b_recv_extr(3,lmio)
+      jmax=b_recv_extr(4,lmio)
+      kmin=b_recv_extr(5,lmio)
+      kmax=b_recv_extr(6,lmio)
+#ifdef ACCNOKERNELS
+      !$acc parallel loop independent collapse(3) present(b_recv_buffmpi,b_recv_extr,selphi) private(ll,idx)
+#else
+      !$acc kernels present(b_recv_buffmpi,b_recv_extr,selphi)
+      !$acc loop independent collapse(3)  private(i,j,k,ll,idx)
+#endif
+      do k=kmin,kmax
+         do j=jmin,jmax
+            do i=imin,imax
+               !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
+               !poi mandero solo i pezzi contigui che mi servono per la data direzione
+
+               !scorro sul numero di campi da prendere il massimo previsto è num_b_datampi
+
+               ll=1
+               idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
+                  k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               selphi(i,j,k,flop)=b_recv_buffmpi(idx)
+
+            enddo
+         enddo
+      enddo
+#ifdef ACCNOKERNELS
+      !$acc end parallel loop
+#else
+      !$acc end kernels
+#endif
+
+
+   end subroutine depackaging_bvec_buffmpi   
    
 !!!!!!!!!!!!!!!!!!!!!!!!!!!ISFLUID!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    subroutine exchange_isf_intpbc
@@ -3874,23 +3647,43 @@ contains
       integer, dimension(3) :: memDims,memOffs
       integer, dimension(4) :: velglobalDims,velldims,velmystarts, &
          velmemDims,velmemOffs
+      integer :: elen,amode
+      logical :: lexist
 #ifdef MPI
-      integer :: fdens
-      integer :: fvel
+      integer :: fdens=MPI_FILE_NULL
+      integer :: fvel=MPI_FILE_NULL
+      character(len=MPI_MAX_ERROR_STRING) :: emsg
+      
+     
 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!density!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
       sevt1 = trim(dir_out) // trim(filenamevtk)//'_'//trim(namevarvtk(1))// &
          '_'//trim(write_fmtnumb(iframe)) // '.vti'
 
-
-
-
-      call MPI_FILE_OPEN(MPI_COMM_WORLD, trim(sevt1), &
-         MPI_MODE_CREATE + MPI_MODE_WRONLY, &
-         MPI_INFO_NULL,fdens,e_io)
-
+      if (myrank == 0) then
+        inquire(file=trim(sevt1), exist=lexist)
+        if (lexist) then
+          call MPI_File_delete(trim(sevt1), MPI_INFO_NULL, e_io)
+        endif
+      endif
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      
+      amode = IOR(MPI_MODE_CREATE, MPI_MODE_WRONLY) 
+      
+      call MPI_FILE_OPEN(MPI_COMM_WORLD, trim(sevt1),amode, &
+        MPI_INFO_NULL,fdens,e_io)
+      
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_open error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif     
+         
+      call MPI_File_set_size(fdens, 0_MPI_OFFSET_KIND, e_io) 
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
       sheadervtk=repeat(' ',500)
@@ -3944,19 +3737,50 @@ contains
       if(myrank==0)call MPI_File_write_at(fdens,tempoffset,footervtk(1),30, &
          MPI_CHARACTER,MPI_STATUS_IGNORE,e_io)
 
-      call MPI_FILE_CLOSE(fdens,e_io)
+      call MPI_Type_free(imemtype,   e_io)
+      call MPI_Type_free(filetypesub,e_io)
+      call MPI_File_sync(fdens, e_io)
+      
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
+      call MPI_FILE_CLOSE(fdens, e_io)
 
-
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif  
+      
+      call mpi_barrier(MPI_COMM_WORLD,e_io)
+      fdens = MPI_FILE_NULL
+      
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!velocity!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
+       
       sevt2 = trim(dir_out) // trim(filenamevtk)//'_'//trim(namevarvtk(2))// &
          '_'//trim(write_fmtnumb(iframe)) // '.vti'
-
-      call MPI_FILE_OPEN(MPI_COMM_WORLD,trim(sevt2), &
-         MPI_MODE_WRONLY + MPI_MODE_CREATE, &
+      
+      if (myrank == 0) then
+        inquire(file=trim(sevt2), exist=lexist)
+        if (lexist) then
+          call MPI_File_delete(trim(sevt2), MPI_INFO_NULL, e_io)
+        endif
+      endif
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      
+      amode = IOR(MPI_MODE_CREATE, MPI_MODE_WRONLY) 
+      
+      call MPI_FILE_OPEN(MPI_COMM_WORLD,trim(sevt2),amode, &
          MPI_INFO_NULL,fvel,e_io)
 
-
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_open error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt2)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif     
+         
+      call MPI_File_set_size(fvel, 0_MPI_OFFSET_KIND, e_io) 
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
       sheadervtk=repeat(' ',500)
@@ -4017,8 +3841,23 @@ contains
 
       if(myrank==0)call MPI_File_write_at(fvel,tempoffset,footervtk(2),30, &
          MPI_CHARACTER,MPI_STATUS_IGNORE,e_io)
-
+      
+      call MPI_Type_free(imemtype,   e_io)
+      call MPI_Type_free(filetypesub,e_io)
+      call MPI_File_sync(fvel, e_io)
+      
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
       call MPI_FILE_CLOSE(fvel, e_io)
+      
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt2)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif  
+      
+      call mpi_barrier(MPI_COMM_WORLD,e_io)
+      fvel = MPI_FILE_NULL
       
 #if defined(TWOCOMPONENT) && defined(WRITEPRESS)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!pressure!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -4027,12 +3866,28 @@ contains
          '_'//trim(write_fmtnumb(iframe)) // '.vti'
 
 
+      if (myrank == 0) then
+        inquire(file=trim(sevt3), exist=lexist)
+        if (lexist) then
+          call MPI_File_delete(trim(sevt3), MPI_INFO_NULL, e_io)
+        endif
+      endif
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      
+      amode = IOR(MPI_MODE_CREATE, MPI_MODE_WRONLY) 
 
-
-      call MPI_FILE_OPEN(MPI_COMM_WORLD, trim(sevt3), &
-         MPI_MODE_CREATE + MPI_MODE_WRONLY, &
+      call MPI_FILE_OPEN(MPI_COMM_WORLD, trim(sevt3),amode, &
          MPI_INFO_NULL,fdens,e_io)
-
+      
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_open error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt3)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif     
+         
+      call MPI_File_set_size(fdens, 0_MPI_OFFSET_KIND, e_io) 
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
       sheadervtk=repeat(' ',500)
@@ -4087,7 +3942,23 @@ contains
       if(myrank==0)call MPI_File_write_at(fdens,tempoffset,footervtk(3),30, &
          MPI_CHARACTER,MPI_STATUS_IGNORE,e_io)
 
-      call MPI_FILE_CLOSE(fdens,e_io)
+      
+      call MPI_Type_free(imemtype,   e_io)
+      call MPI_Type_free(filetypesub,e_io)
+      call MPI_File_sync(fdens, e_io)
+      
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
+      call MPI_FILE_CLOSE(fdens, e_io)
+      
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt3)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif  
+      
+      call mpi_barrier(MPI_COMM_WORLD,e_io)
+      fdens = MPI_FILE_NULL
 
 #endif
 
@@ -4126,19 +3997,42 @@ contains
       integer, parameter :: byter8  = 8
       integer, parameter :: nbuffsub = 0
       integer :: filetypesub,imemtype,filetypesubv,ierr
-
+      logical :: lexist
       integer, dimension(3) :: memDims,memOffs
+      integer :: elen,amode
+      integer :: xblock,yblock,zblock,myblock
+      integer :: ii,jj,kk
 
 #ifdef MPI
-      integer :: fdens
-      integer :: ii,jj,kk,myblock,xblock,yblock,zblock
-
+      integer :: fdens=MPI_FILE_NULL
+      character(len=MPI_MAX_ERROR_STRING) :: emsg
+      
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      
       sevt1 = trim(dir_out) // 'restart.raw'
-
-      call MPI_FILE_OPEN(MPI_COMM_WORLD, trim(sevt1), &
-         MPI_MODE_CREATE + MPI_MODE_WRONLY, &
-         MPI_INFO_NULL,fdens,e_io)
-
+      
+      if (myrank == 0) then
+        inquire(file=trim(sevt1), exist=lexist)
+        if (lexist) then
+          call MPI_File_delete(trim(sevt1), MPI_INFO_NULL, e_io)
+          !write(6,*)'replace ',trim(sevt1)
+        endif
+      endif
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      
+      amode = IOR(MPI_MODE_CREATE, MPI_MODE_WRONLY) 
+      
+      call MPI_File_open(MPI_COMM_WORLD, trim(sevt1),amode, MPI_INFO_NULL, fdens, e_io)   
+         
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_open error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif    
+      
+      call MPI_File_set_size(fdens, 0_MPI_OFFSET_KIND, e_io) 
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
 
@@ -4149,6 +4043,7 @@ contains
 
       call MPI_File_Set_View(fdens,tempoffset,MYMPIREAL,filetypesub, &
          "native",MPI_INFO_NULL,e_io)
+      
       ! We need full local sizes: memDims
       memDims = lsizes + 2*nbuffsub
       memOffs = [ nbuffsub, nbuffsub, nbuffsub ]
@@ -4158,7 +4053,7 @@ contains
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
-      lap_phi(1:nx,1:ny,1:nz)= rho(1:nx,1:ny,1:nz)
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4175,7 +4070,7 @@ contains
       enddo
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
 
-      lap_phi(1:nx,1:ny,1:nz)= u(1:nx,1:ny,1:nz)
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4192,7 +4087,7 @@ contains
       enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
            
-      lap_phi(1:nx,1:ny,1:nz)= v(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4209,7 +4104,7 @@ contains
       enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
-      lap_phi(1:nx,1:ny,1:nz)= w(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4226,7 +4121,7 @@ contains
       enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
 
-      lap_phi(1:nx,1:ny,1:nz)= pxx(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4243,7 +4138,7 @@ contains
       enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
-      lap_phi(1:nx,1:ny,1:nz)= pxy(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4260,7 +4155,7 @@ contains
       enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
-      lap_phi(1:nx,1:ny,1:nz)= pxz(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4277,7 +4172,7 @@ contains
       enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
-      lap_phi(1:nx,1:ny,1:nz)= pyy(1:nx,1:ny,1:nz) 
+       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4294,7 +4189,7 @@ contains
       enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
 
-      lap_phi(1:nx,1:ny,1:nz)= pyz(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4311,7 +4206,7 @@ contains
       enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
-      lap_phi(1:nx,1:ny,1:nz)= pzz(1:nx,1:ny,1:nz) 
+       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4328,15 +4223,39 @@ contains
       enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
+      call MPI_Type_free(imemtype,   e_io)
+      call MPI_Type_free(filetypesub,e_io)
+      call MPI_File_sync(fdens, e_io)
+      
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
       call MPI_FILE_CLOSE(fdens, e_io)
+      
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif  
+      
+      call mpi_barrier(MPI_COMM_WORLD,e_io)
+      fdens = MPI_FILE_NULL
       if (myrank == 0) then
         call MPI_FILE_OPEN(MPI_COMM_SELF, trim(sevt1), MPI_MODE_WRONLY, MPI_INFO_NULL, fdens, e_io)
+        if (e_io /= MPI_SUCCESS) then
+          call MPI_Error_string(e_io, emsg, elen, ierr)
+          write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_open error: ', trim(emsg)
+          write(6,'(A)') 'Path tried: '//trim(sevt1)
+          call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+        endif    
+        call MPI_File_set_view(fdens, 0_MPI_OFFSET_KIND, MPI_BYTE, MPI_BYTE, "native", MPI_INFO_NULL, e_io) 
         offset_final = int(lx * ly * lz * 10 * db, kind=MPI_OFFSET_KIND)
         call MPI_FILE_WRITE_AT(fdens, offset_final, iframe, 1, MPI_INTEGER, MPI_STATUS_IGNORE, e_io)
         call MPI_FILE_WRITE_AT(fdens, offset_final + byteint, iframe2D, 1, MPI_INTEGER, MPI_STATUS_IGNORE, e_io)
+        call MPI_File_sync(fdens, e_io)
         call MPI_FILE_CLOSE(fdens, e_io)
       endif
-
+      fdens = MPI_FILE_NULL
+      call mpi_barrier(MPI_COMM_WORLD,e_io)
 #endif
       return
 
@@ -4372,11 +4291,13 @@ contains
       integer, parameter :: byter8  = 8
       integer, parameter :: nbuffsub = 0
       integer :: filetypesub,imemtype,filetypesubv,ierr
-
+      logical :: lexist
       integer, dimension(3) :: memDims,memOffs
+      integer :: elen,amode
 
 #ifdef MPI
-      integer :: fdens
+      integer :: fdens=MPI_FILE_NULL
+      character(len=MPI_MAX_ERROR_STRING) :: emsg
       logical :: file_exists
       integer :: ii,jj,kk,myblock,xblock,yblock,zblock
 
@@ -4390,17 +4311,27 @@ contains
       call MPI_FILE_OPEN(MPI_COMM_WORLD, trim(sevt1), &
          MPI_MODE_RDONLY, &
          MPI_INFO_NULL,fdens,e_io)
-
-      tempoffset=int(0,kind=MPI_OFFSET_KIND)
-
+         
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_open error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif   
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
 
       call MPI_Type_create_subarray(3,gsizes,lsizes,myoffset, &
          MPI_ORDER_FORTRAN,MYMPIREAL,filetypesub,e_io)
 
       call MPI_Type_commit(filetypesub, e_io)
-
+      
+      tempoffset=int(0,kind=MPI_OFFSET_KIND)
+      
       call MPI_File_Set_View(fdens,tempoffset,MYMPIREAL,filetypesub, &
          "native",MPI_INFO_NULL,e_io)
+         
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      
       ! We need full local sizes: memDims
       memDims = lsizes + 2*nbuffsub
       memOffs = [ nbuffsub, nbuffsub, nbuffsub ]
@@ -4425,7 +4356,7 @@ contains
              enddo
          enddo
       enddo   
-      rho(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
 
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
@@ -4442,7 +4373,7 @@ contains
              enddo
          enddo
       enddo   
-      u(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+       
       
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
@@ -4459,7 +4390,7 @@ contains
              enddo
          enddo
       enddo   
-      v(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
@@ -4476,7 +4407,7 @@ contains
              enddo
          enddo
       enddo   
-      w(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
 
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
@@ -4493,7 +4424,7 @@ contains
              enddo
          enddo
       enddo   
-      pxx(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
@@ -4510,7 +4441,7 @@ contains
              enddo
          enddo
       enddo   
-      pxy(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
@@ -4527,7 +4458,7 @@ contains
              enddo
          enddo
       enddo   
-      pxz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
@@ -4544,7 +4475,7 @@ contains
              enddo
          enddo
       enddo   
-      pyy(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
@@ -4561,7 +4492,7 @@ contains
              enddo
          enddo
       enddo   
-      pyz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
@@ -4578,13 +4509,29 @@ contains
              enddo
          enddo
       enddo   
-      pzz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
       
+      call MPI_Type_free(imemtype, e_io)
+      call MPI_Type_free(filetypesub, e_io)
+      
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
       call MPI_FILE_CLOSE(fdens, e_io)
-
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif     
+      fdens = MPI_FILE_NULL
+      call mpi_barrier(MPI_COMM_WORLD,e_io)
+      
       if(myrank == 0) then
         call MPI_FILE_OPEN(MPI_COMM_SELF, trim(sevt1), MPI_MODE_RDONLY, MPI_INFO_NULL, fdens, e_io)
-
+        if (e_io /= MPI_SUCCESS) then
+          call MPI_Error_string(e_io, emsg, elen, ierr)
+          write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_open error: ', trim(emsg)
+          write(6,'(A)') 'Path tried: '//trim(sevt1)
+          call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+        endif  
         call MPI_File_set_view(fdens, 0_MPI_OFFSET_KIND, MPI_BYTE, MPI_BYTE, "native", MPI_INFO_NULL, e_io)
 
         offset_final = int(lx * ly * lz * 10 * db, kind=MPI_OFFSET_KIND)
@@ -4593,7 +4540,8 @@ contains
 
         call MPI_FILE_CLOSE(fdens, e_io)
       endif
-      
+      fdens = MPI_FILE_NULL
+      call mpi_barrier(MPI_COMM_WORLD,e_io)
 
 #endif
       return
@@ -4630,19 +4578,42 @@ contains
       integer, parameter :: byter8  = 8
       integer, parameter :: nbuffsub = 0
       integer :: filetypesub,imemtype,filetypesubv,ierr
-
+      logical :: lexist
       integer, dimension(3) :: memDims,memOffs
+      integer :: elen,amode
+      integer :: xblock,yblock,zblock,myblock
+      integer :: ii,jj,kk
 
 #ifdef MPI
-      integer :: fdens
-      integer :: ii,jj,kk,myblock,xblock,yblock,zblock
-
+      integer :: fdens=MPI_FILE_NULL
+      character(len=MPI_MAX_ERROR_STRING) :: emsg
+      
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      
       sevt1 = trim(dir_out) // 'restart.raw'
-
-      call MPI_FILE_OPEN(MPI_COMM_WORLD, trim(sevt1), &
-         MPI_MODE_CREATE + MPI_MODE_WRONLY, &
-         MPI_INFO_NULL,fdens,e_io)
-
+      
+      if (myrank == 0) then
+        inquire(file=trim(sevt1), exist=lexist)
+        if (lexist) then
+          call MPI_File_delete(trim(sevt1), MPI_INFO_NULL, e_io)
+          !write(6,*)'replace ',trim(sevt1)
+        endif
+      endif
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      
+      amode = IOR(MPI_MODE_CREATE, MPI_MODE_WRONLY) 
+      
+      call MPI_File_open(MPI_COMM_WORLD, trim(sevt1),amode, MPI_INFO_NULL, fdens, e_io)   
+         
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_open error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif     
+         
+      call MPI_File_set_size(fdens, 0_MPI_OFFSET_KIND, e_io) 
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
 
@@ -4662,7 +4633,7 @@ contains
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
-      lap_phi(1:nx,1:ny,1:nz)= rho(1:nx,1:ny,1:nz)
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4679,7 +4650,7 @@ contains
       enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
 
-      lap_phi(1:nx,1:ny,1:nz)= u(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4696,7 +4667,7 @@ contains
       enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
-      lap_phi(1:nx,1:ny,1:nz)= v(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4713,7 +4684,7 @@ contains
       enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
-      lap_phi(1:nx,1:ny,1:nz)= w(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4730,7 +4701,7 @@ contains
       enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
 
-      lap_phi(1:nx,1:ny,1:nz)= pxx(1:nx,1:ny,1:nz)
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4747,7 +4718,7 @@ contains
       enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
-      lap_phi(1:nx,1:ny,1:nz)= pxy(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4764,7 +4735,7 @@ contains
       enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
-      lap_phi(1:nx,1:ny,1:nz)= pxz(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4781,7 +4752,7 @@ contains
       enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
-      lap_phi(1:nx,1:ny,1:nz)= pyy(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4798,7 +4769,7 @@ contains
       enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
-      lap_phi(1:nx,1:ny,1:nz)= pyz(1:nx,1:ny,1:nz)
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4815,7 +4786,7 @@ contains
       enddo 
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
-      lap_phi(1:nx,1:ny,1:nz)= pzz(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4832,7 +4803,7 @@ contains
       enddo
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
-      lap_phi(1:nx,1:ny,1:nz)= selphi(1:nx,1:ny,1:nz,flop)
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4849,15 +4820,41 @@ contains
       enddo
       call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
+      call MPI_Type_free(imemtype,   e_io)
+      call MPI_Type_free(filetypesub,e_io)
+      call MPI_File_sync(fdens, e_io)
+      
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
       call MPI_FILE_CLOSE(fdens, e_io)
+      
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif  
+      
+      call mpi_barrier(MPI_COMM_WORLD,e_io)
+      fdens = MPI_FILE_NULL
+      
       if (myrank == 0) then
+
         call MPI_FILE_OPEN(MPI_COMM_SELF, trim(sevt1), MPI_MODE_WRONLY, MPI_INFO_NULL, fdens, e_io)
+        if (e_io /= MPI_SUCCESS) then
+          call MPI_Error_string(e_io, emsg, elen, ierr)
+          write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_open error: ', trim(emsg)
+          write(6,'(A)') 'Path tried: '//trim(sevt1)
+          call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+        endif    
+        call MPI_File_set_view(fdens, 0_MPI_OFFSET_KIND, MPI_BYTE, MPI_BYTE, "native", MPI_INFO_NULL, e_io) 
         offset_final = int(lx * ly * lz * 11 * db, kind=MPI_OFFSET_KIND)
         call MPI_FILE_WRITE_AT(fdens, offset_final, iframe, 1, MPI_INTEGER, MPI_STATUS_IGNORE, e_io)
         call MPI_FILE_WRITE_AT(fdens, offset_final + byteint, iframe2D, 1, MPI_INTEGER, MPI_STATUS_IGNORE, e_io)
+        call MPI_File_sync(fdens, e_io)
         call MPI_FILE_CLOSE(fdens, e_io)
       endif
-
+      fdens = MPI_FILE_NULL
+      call mpi_barrier(MPI_COMM_WORLD,e_io)
 
 #endif
       return
@@ -4895,13 +4892,17 @@ contains
       integer, parameter :: nbuffsub = 0
       integer :: filetypesub,imemtype,filetypesubv,ierr
 
+      logical :: lexist
       integer, dimension(3) :: memDims,memOffs
+      integer :: elen,amode
 
 #ifdef MPI
-      integer :: fdens
+      integer :: fdens = MPI_FILE_NULL
       logical :: file_exists
       integer :: ii,jj,kk,myblock,xblock,yblock,zblock
-
+      character(len=MPI_MAX_ERROR_STRING) :: emsg
+      
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
       sevt1 = trim(dir_out) // 'restart.raw'
       
       inquire(file=trim(sevt1), exist=file_exists)
@@ -4912,17 +4913,28 @@ contains
       call MPI_FILE_OPEN(MPI_COMM_WORLD, trim(sevt1), &
          MPI_MODE_RDONLY, &
          MPI_INFO_NULL,fdens,e_io)
-
-      tempoffset=int(0,kind=MPI_OFFSET_KIND)
-
-
+      
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_open error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif     
+      
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      
       call MPI_Type_create_subarray(3,gsizes,lsizes,myoffset, &
          MPI_ORDER_FORTRAN,MYMPIREAL,filetypesub,e_io)
 
       call MPI_Type_commit(filetypesub, e_io)
+      
+      tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
       call MPI_File_Set_View(fdens,tempoffset,MYMPIREAL,filetypesub, &
          "native",MPI_INFO_NULL,e_io)
+      
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      
       ! We need full local sizes: memDims
       memDims = lsizes + 2*nbuffsub
       memOffs = [ nbuffsub, nbuffsub, nbuffsub ]
@@ -4947,7 +4959,7 @@ contains
              enddo
          enddo
       enddo   
-      rho(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
 
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
@@ -4964,7 +4976,7 @@ contains
              enddo
          enddo
       enddo   
-      u(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
@@ -4981,7 +4993,7 @@ contains
              enddo
          enddo
       enddo   
-      v(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
+      
        
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
@@ -4998,7 +5010,7 @@ contains
              enddo
          enddo
       enddo   
-      w(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
 
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
@@ -5015,7 +5027,7 @@ contains
              enddo
          enddo
       enddo   
-      pxx(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+       
       
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
@@ -5032,7 +5044,7 @@ contains
              enddo
          enddo
       enddo   
-      pxy(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
+      
       
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
@@ -5049,7 +5061,7 @@ contains
              enddo
          enddo
       enddo   
-      pxz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
@@ -5066,7 +5078,7 @@ contains
              enddo
          enddo
       enddo   
-      pyy(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
@@ -5083,7 +5095,7 @@ contains
              enddo
          enddo
       enddo   
-      pyz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
@@ -5100,7 +5112,7 @@ contains
              enddo
          enddo
       enddo   
-      pzz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
 
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
@@ -5117,13 +5129,28 @@ contains
              enddo
          enddo
       enddo    
-      selphi(1:nx,1:ny,1:nz,flop)= lap_phi(1:nx,1:ny,1:nz) 
-
+      
+      call MPI_Type_free(imemtype, e_io)
+      call MPI_Type_free(filetypesub, e_io)
+      
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
       call MPI_FILE_CLOSE(fdens, e_io)
-
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif     
+      fdens = MPI_FILE_NULL
+      call mpi_barrier(MPI_COMM_WORLD,e_io)
       if(myrank == 0) then
         call MPI_FILE_OPEN(MPI_COMM_SELF, trim(sevt1), MPI_MODE_RDONLY, MPI_INFO_NULL, fdens, e_io)
-
+        if (e_io /= MPI_SUCCESS) then
+          call MPI_Error_string(e_io, emsg, elen, ierr)
+          write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_open error: ', trim(emsg)
+          write(6,'(A)') 'Path tried: '//trim(sevt1)
+          call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+        endif  
         call MPI_File_set_view(fdens, 0_MPI_OFFSET_KIND, MPI_BYTE, MPI_BYTE, "native", MPI_INFO_NULL, e_io)
 
         offset_final = int(lx * ly * lz * 11 * db, kind=MPI_OFFSET_KIND)
@@ -5131,8 +5158,15 @@ contains
         call MPI_FILE_READ_AT(fdens, offset_final + byteint, iframe2D, 1, MPI_INTEGER, MPI_STATUS_IGNORE, e_io)
 
         call MPI_FILE_CLOSE(fdens, e_io)
+        if (e_io /= MPI_SUCCESS) then
+          call MPI_Error_string(e_io, emsg, elen, ierr)
+          write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+          write(6,'(A)') 'Path tried: '//trim(sevt1)
+          call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+        endif 
       endif
-
+      fdens = MPI_FILE_NULL
+      call mpi_barrier(MPI_COMM_WORLD,e_io)
 #endif
       return
 
@@ -5167,11 +5201,13 @@ contains
       integer, parameter :: byter8  = 8
       integer, parameter :: nbuffsub = 0
       integer :: filetypesub,imemtype,filetypesubv,ierr
-
+      logical :: lexist
       integer, dimension(3) :: memDims,memOffs
+      integer :: elen,amode
 
 #ifdef MPI
-      integer :: fdens
+      integer :: fdens=MPI_FILE_NULL
+      character(len=MPI_MAX_ERROR_STRING) :: emsg
       logical :: file_exists
 
       sevt1 = 'isfluid.raw'
@@ -5184,17 +5220,26 @@ contains
       call MPI_FILE_OPEN(MPI_COMM_WORLD, trim(sevt1), &
          MPI_MODE_RDONLY, &
          MPI_INFO_NULL,fdens,e_io)
-
-      tempoffset=int(0,kind=MPI_OFFSET_KIND)
-
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_open error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif   
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
 
       call MPI_Type_create_subarray(3,gsizes,lsizes,myoffset, &
          MPI_ORDER_FORTRAN,MYMPIREAL,filetypesub,e_io)
-
+      
       call MPI_Type_commit(filetypesub, e_io)
+      
+      tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
       call MPI_File_Set_View(fdens,tempoffset,MYMPIREAL,filetypesub, &
          "native",MPI_INFO_NULL,e_io)
+      
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      
       ! We need full local sizes: memDims
       memDims = lsizes + 2*nbuffsub
       memOffs = [ nbuffsub, nbuffsub, nbuffsub ]
@@ -5207,7 +5252,19 @@ contains
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       isfluid(1:nx,1:ny,1:nz)= int(lap_phi(1:nx,1:ny,1:nz),kind=isf) 
       
-      call MPI_FILE_CLOSE(fdens,e_io)
+      call MPI_Type_free(imemtype, e_io)
+      call MPI_Type_free(filetypesub, e_io)
+      
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
+      call MPI_FILE_CLOSE(fdens, e_io)
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif     
+      fdens = MPI_FILE_NULL
+      call mpi_barrier(MPI_COMM_WORLD,e_io)
       
 #endif
       return
@@ -5244,11 +5301,13 @@ contains
       integer, parameter :: byter8  = 8
       integer, parameter :: nbuffsub = 0
       integer :: filetypesub,imemtype,filetypesubv,ierr
-
+      logical :: lexist
       integer, dimension(3) :: memDims,memOffs
+      integer :: elen,amode
 
 #ifdef MPI
-      integer :: fdens
+      integer :: fdens=MPI_FILE_NULL
+      character(len=MPI_MAX_ERROR_STRING) :: emsg
       logical :: file_exists
       integer :: ii,jj,kk,myblock,xblock,yblock,zblock
 !!!!!!!!!!!!!!!!!!!!!!!!!!rho!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -5262,17 +5321,26 @@ contains
       call MPI_FILE_OPEN(MPI_COMM_WORLD, trim(sevt1), &
          MPI_MODE_RDONLY, &
          MPI_INFO_NULL,fdens,e_io)
-
-      tempoffset=int(0,kind=MPI_OFFSET_KIND)
-
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_open error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif   
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
 
       call MPI_Type_create_subarray(3,gsizes,lsizes,myoffset, &
          MPI_ORDER_FORTRAN,MYMPIREAL,filetypesub,e_io)
 
       call MPI_Type_commit(filetypesub, e_io)
+      
+      tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
       call MPI_File_Set_View(fdens,tempoffset,MYMPIREAL,filetypesub, &
          "native",MPI_INFO_NULL,e_io)
+      
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      
       ! We need full local sizes: memDims
       memDims = lsizes + 2*nbuffsub
       memOffs = [ nbuffsub, nbuffsub, nbuffsub ]
@@ -5284,7 +5352,19 @@ contains
 
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
-      call MPI_FILE_CLOSE(fdens,e_io)
+      call MPI_Type_free(imemtype, e_io)
+      call MPI_Type_free(filetypesub, e_io)
+      
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
+      call MPI_FILE_CLOSE(fdens, e_io)
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif     
+      fdens = MPI_FILE_NULL
+      call mpi_barrier(MPI_COMM_WORLD,e_io)
       
       rho(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
       do k=1,nz
@@ -5313,17 +5393,26 @@ contains
       call MPI_FILE_OPEN(MPI_COMM_WORLD, trim(sevt1), &
          MPI_MODE_RDONLY, &
          MPI_INFO_NULL,fdens,e_io)
-
-      tempoffset=int(0,kind=MPI_OFFSET_KIND)
-
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_open error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif   
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
 
       call MPI_Type_create_subarray(3,gsizes,lsizes,myoffset, &
          MPI_ORDER_FORTRAN,MYMPIREAL,filetypesub,e_io)
 
       call MPI_Type_commit(filetypesub, e_io)
+      
+      tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
       call MPI_File_Set_View(fdens,tempoffset,MYMPIREAL,filetypesub, &
          "native",MPI_INFO_NULL,e_io)
+      
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      
       ! We need full local sizes: memDims
       memDims = lsizes + 2*nbuffsub
       memOffs = [ nbuffsub, nbuffsub, nbuffsub ]
@@ -5335,7 +5424,19 @@ contains
 
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
-      call MPI_FILE_CLOSE(fdens,e_io)
+      call MPI_Type_free(imemtype, e_io)
+      call MPI_Type_free(filetypesub, e_io)
+      
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
+      call MPI_FILE_CLOSE(fdens, e_io)
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif     
+      fdens = MPI_FILE_NULL
+      call mpi_barrier(MPI_COMM_WORLD,e_io)
       
       u(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)      
       do k=1,nz
@@ -5364,17 +5465,26 @@ contains
       call MPI_FILE_OPEN(MPI_COMM_WORLD, trim(sevt1), &
          MPI_MODE_RDONLY, &
          MPI_INFO_NULL,fdens,e_io)
-
-      tempoffset=int(0,kind=MPI_OFFSET_KIND)
-
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_open error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif   
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
 
       call MPI_Type_create_subarray(3,gsizes,lsizes,myoffset, &
          MPI_ORDER_FORTRAN,MYMPIREAL,filetypesub,e_io)
 
       call MPI_Type_commit(filetypesub, e_io)
+      
+      tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
       call MPI_File_Set_View(fdens,tempoffset,MYMPIREAL,filetypesub, &
          "native",MPI_INFO_NULL,e_io)
+      
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      
       ! We need full local sizes: memDims
       memDims = lsizes + 2*nbuffsub
       memOffs = [ nbuffsub, nbuffsub, nbuffsub ]
@@ -5386,7 +5496,19 @@ contains
 
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
-      call MPI_FILE_CLOSE(fdens,e_io)
+      call MPI_Type_free(imemtype, e_io)
+      call MPI_Type_free(filetypesub, e_io)
+      
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
+      call MPI_FILE_CLOSE(fdens, e_io)
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif     
+      fdens = MPI_FILE_NULL
+      call mpi_barrier(MPI_COMM_WORLD,e_io)
       
       v(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
       do k=1,nz
@@ -5415,17 +5537,26 @@ contains
       call MPI_FILE_OPEN(MPI_COMM_WORLD, trim(sevt1), &
          MPI_MODE_RDONLY, &
          MPI_INFO_NULL,fdens,e_io)
-
-      tempoffset=int(0,kind=MPI_OFFSET_KIND)
-
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_open error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif   
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
 
       call MPI_Type_create_subarray(3,gsizes,lsizes,myoffset, &
          MPI_ORDER_FORTRAN,MYMPIREAL,filetypesub,e_io)
 
       call MPI_Type_commit(filetypesub, e_io)
+      
+      tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
       call MPI_File_Set_View(fdens,tempoffset,MYMPIREAL,filetypesub, &
          "native",MPI_INFO_NULL,e_io)
+      
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      
       ! We need full local sizes: memDims
       memDims = lsizes + 2*nbuffsub
       memOffs = [ nbuffsub, nbuffsub, nbuffsub ]
@@ -5437,7 +5568,19 @@ contains
 
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
-      call MPI_FILE_CLOSE(fdens,e_io)
+      call MPI_Type_free(imemtype, e_io)
+      call MPI_Type_free(filetypesub, e_io)
+      
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
+      call MPI_FILE_CLOSE(fdens, e_io)
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif     
+      fdens = MPI_FILE_NULL
+      call mpi_barrier(MPI_COMM_WORLD,e_io)
       
       w(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
       do k=1,nz
@@ -5467,17 +5610,26 @@ contains
       call MPI_FILE_OPEN(MPI_COMM_WORLD, trim(sevt1), &
          MPI_MODE_RDONLY, &
          MPI_INFO_NULL,fdens,e_io)
-
-      tempoffset=int(0,kind=MPI_OFFSET_KIND)
-
-
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_open error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif   
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      
       call MPI_Type_create_subarray(3,gsizes,lsizes,myoffset, &
          MPI_ORDER_FORTRAN,MYMPIREAL,filetypesub,e_io)
 
       call MPI_Type_commit(filetypesub, e_io)
+      
+      tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
       call MPI_File_Set_View(fdens,tempoffset,MYMPIREAL,filetypesub, &
          "native",MPI_INFO_NULL,e_io)
+      
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      
       ! We need full local sizes: memDims
       memDims = lsizes + 2*nbuffsub
       memOffs = [ nbuffsub, nbuffsub, nbuffsub ]
@@ -5489,8 +5641,20 @@ contains
 
       call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
-      call MPI_FILE_CLOSE(fdens,e_io)
+      call MPI_Type_free(imemtype, e_io)
+      call MPI_Type_free(filetypesub, e_io)
       
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
+      call MPI_FILE_CLOSE(fdens, e_io)
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif     
+      fdens = MPI_FILE_NULL
+      call mpi_barrier(MPI_COMM_WORLD,e_io)
+
       selphi(1:nx,1:ny,1:nz,flip) = lap_phi(1:nx,1:ny,1:nz)  
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -5547,18 +5711,27 @@ contains
       integer, parameter :: byter8  = 8
       integer, parameter :: nbuffsub = 0
       integer :: filetypesub,imemtype,filetypesubv,ierr
+      logical :: lexist,lexit
 
+      integer :: elen,amode
+      
       integer, dimension(3) :: memDims,memOffs
       integer, dimension(4) :: velglobalDims,velldims,velmystarts, &
          velmemDims,velmemOffs
 #ifdef MPI
-      integer :: fdens
-      integer :: fvel
+      integer :: fdens= MPI_FILE_NULL
+      integer :: fvel= MPI_FILE_NULL
+      character(len=MPI_MAX_ERROR_STRING) :: emsg
 #ifdef DOXDMF      
       integer, parameter :: xml_file=734
       character(len=32) :: strx,stry,strz
 #endif
+
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!density!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+ 
 
       sevt1 = trim(dir_out) // trim(filenamevtk)//'_'//trim(namevarvtk_sub)// &
          '_'//trim(write_fmtnumb(iframe)) // '.raw'
@@ -5610,13 +5783,40 @@ contains
         
       endif
 #endif
+      
+      do k=1,nzskip
+        do j=1,nyskip
+          do i=1,nxskip
+            rhoprint(i,j,k)=real(isfluid(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
+          enddo
+        enddo
+      enddo
+      
+      lexit=.false.
+      if (myrank == 0) then
+        inquire(file=trim(sevt1), exist=lexist)
+        if (lexist) then
+          lexit=.true.
+        endif
+      endif
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      call or_world_l(lexit)
+      if(lexit)return
+      
+      amode = IOR(MPI_MODE_CREATE, MPI_MODE_WRONLY) 
 
-      lap_phi(1:nx,1:ny,1:nz)=real(isfluid(1:nx,1:ny,1:nz),kind=db) 
+      call MPI_File_open(MPI_COMM_WORLD, trim(sevt1),amode, MPI_INFO_NULL, fdens, e_io)
 
-      call MPI_FILE_OPEN(MPI_COMM_WORLD, trim(sevt1), &
-         MPI_MODE_CREATE + MPI_MODE_WRONLY, &
-         MPI_INFO_NULL,fdens,e_io)
-
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_open error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif     
+      
+        call MPI_File_set_size(fdens, 0_MPI_OFFSET_KIND, e_io)  
+      
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)     ! o il communicator usato per aprire il file
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
 #ifdef PRINTHALF
@@ -5649,9 +5849,19 @@ contains
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
       call MPI_FILE_WRITE_ALL(fdens,rhoprint,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_Type_free(imemtype,   e_io)
+      call MPI_Type_free(filetypesub,e_io)
+      call MPI_File_sync(fdens, e_io)
 
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
       call MPI_FILE_CLOSE(fdens,e_io)
-
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif     
+      fdens = MPI_FILE_NULL
 #endif
 
       return
@@ -5691,9 +5901,12 @@ contains
       integer, dimension(3) :: memDims,memOffs
       integer, dimension(4) :: velglobalDims,velldims,velmystarts, &
          velmemDims,velmemOffs
+      integer :: elen,amode
+      logical :: lexist
 #ifdef MPI
-      integer :: fdens
-      integer :: fvel
+      integer :: fdens=MPI_FILE_NULL
+      integer :: fvel=MPI_FILE_NULL
+      character(len=MPI_MAX_ERROR_STRING) :: emsg
 #ifdef DOXDMF      
       integer, parameter :: xml_file=734
       character(len=32) :: strx,stry,strz
@@ -5750,12 +5963,21 @@ contains
         
       endif
 #endif
-
+      
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      if (myrank == 0) then
+        inquire(file=trim(sevt1), exist=lexist)
+        if (lexist) then
+          call MPI_File_delete(trim(sevt1), MPI_INFO_NULL, e_io)
+          !write(6,*)'replace ',trim(sevt1)
+        endif
+      endif
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
 
       call MPI_FILE_OPEN(MPI_COMM_WORLD, trim(sevt1), &
          MPI_MODE_CREATE + MPI_MODE_WRONLY, &
          MPI_INFO_NULL,fdens,e_io)
-
+      call MPI_File_set_size(fdens, 0_MPI_OFFSET_KIND, e_io)
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
 #ifdef PRINTHALF
@@ -5788,8 +6010,20 @@ contains
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
       call MPI_FILE_WRITE_ALL(fdens,rhoprint,1,imemtype,MPI_STATUS_IGNORE,e_io)
-
+      call MPI_Type_free(imemtype,   e_io)
+      call MPI_Type_free(filetypesub,e_io)
+      call MPI_File_sync(fdens, e_io)  
       call MPI_FILE_CLOSE(fdens,e_io)
+
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif  
+      
+      call mpi_barrier(MPI_COMM_WORLD,e_io)
+      fdens = MPI_FILE_NULL
 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!velocity!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -5842,10 +6076,20 @@ contains
       endif
 #endif
 
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      if (myrank == 0) then
+        inquire(file=trim(sevt2), exist=lexist)
+        if (lexist) then
+          call MPI_File_delete(trim(sevt2), MPI_INFO_NULL, e_io)
+          !write(6,*)'replace ',trim(sevt2)
+        endif
+      endif
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+ 
       call MPI_FILE_OPEN(MPI_COMM_WORLD,trim(sevt2), &
          MPI_MODE_WRONLY + MPI_MODE_CREATE, &
          MPI_INFO_NULL,fvel,e_io)
-
+      call MPI_File_set_size(fvel, 0_MPI_OFFSET_KIND, e_io)
 
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
@@ -5885,8 +6129,20 @@ contains
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
       call MPI_FILE_WRITE_ALL(fvel,velprint,1,imemtype,MPI_STATUS_IGNORE,e_io)
-
+      call MPI_Type_free(imemtype,    e_io)
+      call MPI_Type_free(filetypesubv, e_io)
+      call MPI_File_sync(fvel, e_io)   
       call MPI_FILE_CLOSE(fvel, e_io)
+
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt2)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif  
+      
+      call mpi_barrier(MPI_COMM_WORLD,e_io)
+      fvel = MPI_FILE_NULL
       
       
 #if defined(TWOCOMPONENT) && defined(WRITEPRESS)      
@@ -5942,12 +6198,21 @@ contains
         
       endif
 #endif
-
+      
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      if (myrank == 0) then
+        inquire(file=trim(sevt1), exist=lexist)
+        if (lexist) then
+          call MPI_File_delete(trim(sevt1), MPI_INFO_NULL, e_io)
+          !write(6,*)'replace ',trim(sevt1)
+        endif
+      endif
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
 
       call MPI_FILE_OPEN(MPI_COMM_WORLD, trim(sevt1), &
          MPI_MODE_CREATE + MPI_MODE_WRONLY, &
          MPI_INFO_NULL,fdens,e_io)
-
+      call MPI_File_set_size(fdens, 0_MPI_OFFSET_KIND, e_io)
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
 #ifdef PRINTHALF
@@ -5978,8 +6243,20 @@ contains
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
       call MPI_FILE_WRITE_ALL(fdens,pressprint,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_Type_free(imemtype,   e_io)
+      call MPI_Type_free(filetypesub,e_io)
+      call MPI_File_sync(fdens, e_io) 
+      call MPI_FILE_CLOSE(fdens,e_io)    
 
-      call MPI_FILE_CLOSE(fdens,e_io)     
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(MPI_COMM_WORLD, e_io, ierr)
+      endif  
+      
+      call mpi_barrier(MPI_COMM_WORLD,e_io)
+      fdens = MPI_FILE_NULL
 #endif
 
 
@@ -6277,15 +6554,18 @@ contains
       integer, dimension(3) :: memDims,memOffs
       integer, dimension(4) :: velglobalDims,velldims,velmystarts, &
          velmemDims,velmemOffs
+      integer :: elen,amode
+      logical :: lexist
 #ifdef MPI
-      integer :: fdens
-      integer :: fvel
+      integer :: fdens=MPI_FILE_NULL
+      integer :: fvel=MPI_FILE_NULL
+      character(len=MPI_MAX_ERROR_STRING) :: emsg
 
 #ifdef DOXDMF      
       integer, parameter :: xml_file=734
       character(len=32) :: strx,stry,strz
 #endif
-
+    
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!density!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       sevt1=repeat(' ',mxln)
       sevt1 = trim(dir_out) // trim(filenamevtk)//'_'//trim(adjustl(space_fmtnumb(mydir)))// &
@@ -6341,13 +6621,35 @@ contains
         
       endif
 #endif
+
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      if (myrank == 0) then
+        inquire(file=trim(sevt1), exist=lexist)
+        if (lexist) then
+          call MPI_File_delete(trim(sevt1), MPI_INFO_NULL, e_io)
+          !write(6,*)'replace ',trim(sevt1)
+        endif
+      endif
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
      
     if(ldowrite)then
+      
+      call MPI_Barrier(io_comm2d(myid), e_io)
+      
+      amode = IOR(MPI_MODE_CREATE, MPI_MODE_WRONLY) 
 
-      call MPI_FILE_OPEN(io_comm2d(myid), trim(sevt1), &
-         MPI_MODE_CREATE + MPI_MODE_WRONLY, &
+      call MPI_FILE_OPEN(io_comm2d(myid), trim(sevt1),amode, &
          MPI_INFO_NULL,fdens,e_io)
-
+         
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_open error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(io_comm2d(myid), e_io, ierr)
+      endif
+         
+      call MPI_File_set_size(fdens, 0_MPI_OFFSET_KIND, e_io)
+      call MPI_Barrier(io_comm2d(myid), e_io)  
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
 #ifdef PRINTHALF
@@ -6378,11 +6680,37 @@ contains
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
       call MPI_FILE_WRITE_ALL(fdens,service1,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_Type_free(imemtype,   e_io)
+      call MPI_Type_free(filetypesub,e_io)
+      call MPI_File_sync(fdens, e_io)
+      
+      call MPI_Barrier(io_comm2d(myid), ierr)
+      call MPI_FILE_CLOSE(fdens, e_io)
+      
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(io_comm2d(myid), e_io, ierr)
+      endif  
+      
+      call mpi_barrier(io_comm2d(myid),e_io)
+      fdens = MPI_FILE_NULL
 
-      call MPI_FILE_CLOSE(fdens,e_io)
     endif
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!velocity!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      if (myrank == 0) then
+        inquire(file=trim(sevt2), exist=lexist)
+        if (lexist) then
+          call MPI_File_delete(trim(sevt2), MPI_INFO_NULL, e_io)
+          !write(6,*)'replace ',trim(sevt2)
+        endif
+      endif
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      
       sevt2=repeat(' ',mxln)
       sevt2 = trim(dir_out) // trim(filenamevtk)//'_'//trim(adjustl(space_fmtnumb(mydir)))// &
          '_'//trim(adjustl(space_fmtnumb(mypoint)))//'_'//trim(namevarvtk(2))// &
@@ -6438,7 +6766,7 @@ contains
          MPI_MODE_WRONLY + MPI_MODE_CREATE, &
          MPI_INFO_NULL,fvel,e_io)
 
-
+      call MPI_File_set_size(fvel, 0_MPI_OFFSET_KIND, e_io)
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
 
@@ -6477,8 +6805,20 @@ contains
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
       call MPI_FILE_WRITE_ALL(fvel,service3,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_Type_free(imemtype, e_io) 
+      call MPI_Type_free(filetypesubv,e_io) 
+      call MPI_File_sync(fvel, e_io)
 
       call MPI_FILE_CLOSE(fvel, e_io)
+
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt2)
+        call MPI_Abort(io_comm2d(myid), e_io, ierr)
+      endif  
+      call mpi_barrier(io_comm2d(myid),e_io)
+      fvel = MPI_FILE_NULL  
     endif
 #if defined(TWOCOMPONENT) && defined(WRITEPRESS)
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!pressure!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -6536,11 +6876,22 @@ contains
         
       endif
 #endif
+    
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+      if (myrank == 0) then
+        inquire(file=trim(sevt1), exist=lexist)
+        if (lexist) then
+          call MPI_File_delete(trim(sevt1), MPI_INFO_NULL, e_io)
+          !write(6,*)'replace ',trim(sevt1)
+        endif
+      endif
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)
+    
     if(ldowrite)then
       call MPI_FILE_OPEN(io_comm2d(myid), trim(sevt1), &
          MPI_MODE_CREATE + MPI_MODE_WRONLY, &
          MPI_INFO_NULL,fdens,e_io)
-
+      call MPI_File_set_size(fdens, 0_MPI_OFFSET_KIND, e_io)
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
 #ifdef PRINTHALF
@@ -6571,8 +6922,18 @@ contains
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
       call MPI_FILE_WRITE_ALL(fdens,service2,1,imemtype,MPI_STATUS_IGNORE,e_io)
-
+      call MPI_Type_free(imemtype, e_io) 
+      call MPI_Type_free(filetypesub,e_io) 
+      call MPI_File_sync(fdens, e_io)
       call MPI_FILE_CLOSE(fdens,e_io)
+      if (e_io /= MPI_SUCCESS) then
+        call MPI_Error_string(e_io, emsg, elen, ierr)
+        write(6,'(A,I6,2A)') 'Rank', myrank, ' MPI_File_close error: ', trim(emsg)
+        write(6,'(A)') 'Path tried: '//trim(sevt1)
+        call MPI_Abort(io_comm2d(myid), e_io, ierr)
+      endif
+      call mpi_barrier(io_comm2d(myid),e_io)
+      fdens = MPI_FILE_NULL  
     endif
 #endif
 

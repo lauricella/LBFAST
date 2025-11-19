@@ -75,12 +75,18 @@
 
 #ifdef REPULSIVE_FLUX
 #warning "Repulsive interfacial flux: actiaved"
+#ifndef TWOCOMPONENT
+#error "TWOCOMPONENT must be actiaved if REPULSIVE_FLUX is activated"
+#endif
 #endif
 
 #ifdef INTERFACE_INCOMP
 #warning "reinforce incompressibility at interface: actiaved"
 #endif
 
+#ifdef SMAGORINSKI
+#warning "SMAGORINSKI LES: activated"
+#endif
 
 module vars
 #ifdef _OPENACC
@@ -230,20 +236,26 @@ module vars
    real(kind=db), allocatable, dimension(:) :: hfields_flip,hfields_flop  !allocate hydro fields flip and flop
    real(kind=db), allocatable, dimension(:) :: phifields_flip,phifields_flop  !allocate phi fields flip and flop
    real(kind=db), allocatable, dimension(:) :: auxfields !allocate aux fields
+   real(kind=db), allocatable, dimension(:) :: locauxfields !allocate aux fields
    integer, parameter :: nhfields=10
    integer, parameter :: nphifields=1
 #ifdef TWOCOMPONENT
-#ifdef DENSRATIO
-   integer, parameter :: nauxfields=7
+#ifdef REPULSIVE_FLUX
+   integer, parameter :: nauxfields=10    ! 3 norm unit vec ! 1 modgrad ! 3 arr_ ! 3 Jx vector 
 #else
-   integer, parameter :: nauxfields=6
+   integer, parameter :: nauxfields=7    ! 3 norm unit vec ! 1 modgrad ! 3 arr_ 
 #endif
+   integer, parameter :: nlocauxfields=4 ! 3 force components !1 lap_phi  
 #else   
-   integer, parameter :: nauxfields=3
+   integer, parameter :: nauxfields=0    ! 
+   integer, parameter :: nlocauxfields=3 ! 3 force components 
 #endif   
+   
+   
    integer, save :: ntothfields
    integer, save :: ntotphifields
    integer, save :: ntotauxfields
+   integer, save :: ntotlocauxfields
    
 #ifdef MULTIHIT
    real(kind=db), allocatable, dimension(:,:,:) ::ABCx,ABCy,ABCz
@@ -277,7 +289,7 @@ module vars
    
    !****************************print vars**************************************!
 
-   integer, parameter :: mxln=120
+   integer, parameter :: mxln=256
    character(len=mxln) :: inipFile
    character(len=8), allocatable, dimension(:) :: namevarvtk
    character(len=500), allocatable, dimension(:) :: headervtk
@@ -295,7 +307,7 @@ module vars
    real(kind=printdb), allocatable, dimension(:,:,:) :: pressprint
    real(kind=printdb), allocatable, dimension(:,:,:,:) :: velprint
    logical :: lelittle
-   character(len=mxln) :: dir_out
+   character(len=mxln), save :: dir_out
    character(len=mxln) :: extentvtk
    character(len=mxln) :: sevt1,sevt2,sevt3,arg,directive
    character(len=1), allocatable, dimension(:) :: head1,head2,head3
@@ -691,7 +703,7 @@ contains
 
    end function dimenumb
 
-   function write_fmtnumb(inum)
+   pure function write_fmtnumb(inum)
 
       !***********************************************************************
       !
@@ -709,20 +721,11 @@ contains
 
       integer,intent(in) :: inum
       character(len=6) :: write_fmtnumb
-      integer :: numdigit,irest
-      !real*8 :: tmp
-      character(len=22) :: cnumberlabel
-
-      numdigit=dimenumb(inum)
-      irest=6-numdigit
-      if(irest>0)then
-         write(cnumberlabel,"(a,i8,a,i8,a)")"(a",irest,",i",numdigit,")"
-         write(write_fmtnumb,fmt=cnumberlabel)repeat('0',irest),inum
-      else
-         write(cnumberlabel,"(a,i8,a)")"(i",numdigit,")"
-         write(write_fmtnumb,fmt=cnumberlabel)inum
-      endif
-
+      integer :: tmp
+      
+      tmp = max(0, min(999999, inum))  
+      write(write_fmtnumb,'(I6.6)') tmp
+      
       return
    end function write_fmtnumb
 
@@ -744,19 +747,10 @@ contains
 
       integer,intent(in) :: inum
       character(len=2) :: write_fmtnumb2
-      integer :: numdigit,irest
-      !real*8 :: tmp
-      character(len=22) :: cnumberlabel
-
-      numdigit=dimenumb(inum)
-      irest=2-numdigit
-      if(irest>0)then
-         write(cnumberlabel,"(a,i8,a,i8,a)")"(a",irest,",i",numdigit,")"
-         write(write_fmtnumb2,fmt=cnumberlabel)repeat('0',irest),inum
-      else
-         write(cnumberlabel,"(a,i8,a)")"(i",numdigit,")"
-         write(write_fmtnumb2,fmt=cnumberlabel)inum
-      endif
+      integer :: tmp
+      
+      tmp = max(0, min(99, inum))  
+      write(write_fmtnumb2,'(I2.2)') tmp
 
       return
    end function write_fmtnumb2

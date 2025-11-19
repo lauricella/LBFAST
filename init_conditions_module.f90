@@ -61,7 +61,7 @@ contains
 				 rho(i,j,k)=ZERO  !tot dens
 #ifdef DENSRATIO
 				 rhophi(i,j,k)=ZERO  !tot dens
-				 auxfields(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
+				 !locauxfields(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
 #endif
 #ifdef TWOCOMPONENT
 				 selphi(i,j,k,flip)=ZERO
@@ -71,9 +71,9 @@ contains
 				 normx(i,j,k)=ZERO
 				 normy(i,j,k)=ZERO
 				 normz(i,j,k)=ZERO
-				 auxfields(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
-				 auxfields(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
-				 auxfields(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
+				 auxfields(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
+				 auxfields(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
+				 auxfields(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
 #endif
               enddo
             enddo
@@ -119,8 +119,8 @@ contains
 #ifdef DENSRATIO
 				 rhophi(i,j,k) = rho_r * tempphi + &
 								(ONE - tempphi) * rho_b
-				 auxfields(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=rho_r * tempphi + &
-								(ONE - tempphi) * rho_b
+				 !locauxfields(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=rho_r * tempphi + &
+				!				(ONE - tempphi) * rho_b
 #endif
 			    ! crisp velocity: uniform inside each core (phi~1 region)
 				!if (sel1 > 0.1_db) then 
@@ -190,7 +190,7 @@ contains
 				 rho(i,j,k)=ZERO  !tot dens
 #ifdef DENSRATIO
 				 rhophi(i,j,k)=ZERO  !tot dens
-				 auxfields(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
+				 !locauxfields(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
 #endif
 #ifdef TWOCOMPONENT
 				 selphi(i,j,k,flip)=ZERO
@@ -200,9 +200,9 @@ contains
 				 normx(i,j,k)=ZERO
 				 normy(i,j,k)=ZERO
 				 normz(i,j,k)=ZERO
-				 auxfields(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
-				 auxfields(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
-				 auxfields(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
+				 auxfields(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
+				 auxfields(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
+				 auxfields(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
 #endif
               enddo
             enddo
@@ -244,8 +244,8 @@ contains
                    rhophi(i,j,k)=rho_r*tempphi+(ONE-tempphi)*rho_b
                    rhophi_loc = rhophi(i,j,k)
                    
-                   auxfields(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=rho_r*tempphi+(ONE-tempphi)*rho_b !rhophi(i,j,k)
-                   rhophi_loc = auxfields(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)) !rhophi(i,j,k)
+                   !locauxfields(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=rho_r*tempphi+(ONE-tempphi)*rho_b !rhophi(i,j,k)
+                   rhophi_loc = rho_r*tempphi+(ONE-tempphi)*rho_b !rhophi(i,j,k)
                    
 #else
                    rhophi_loc = 1.0_db
@@ -332,7 +332,9 @@ contains
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
                
-               if(rhophi(i,j,k)/=auxfields(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)))then
+               tempphi=phifields_flip(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+               rhophi_loc = rho_r*tempphi+(ONE-tempphi)*rho_b
+               if(rhophi(i,j,k).ne.rhophi_loc)then
                  write(6,*)'cazzi1 in',i,j,k,nxblock,nxyblock
                endif
                

@@ -481,15 +481,17 @@ contains
       integer :: gi,gj,gk
 
       real(kind=db) :: F_discr,fneq1,feq,forcex,forcey,forcez
+      real(kind=db) :: tau_loc,visc_loc
 #ifdef TWOCOMPONENT
-      real(kind=db) :: tau_loc
-      real(kind=db) :: visc_loc,gradfix,gradfiy,gradfiz
+      real(kind=db) :: gradfix,gradfiy,gradfiz
 #ifdef MONOD
-	  real(kind=db) :: S_mono
+      real(kind=db) :: S_mono
 #endif
 #endif
       real(kind=db) :: omega_loc, rhophi_loc
-
+#ifdef SMAGORINSKI
+      real(kind=db) :: QQ
+#endif
 
 
 #ifdef ACCNOKERNELS
@@ -506,9 +508,10 @@ contains
 #ifdef ELASTIC_FORCE
           !$acc& ,u_ref,v_ref,w_ref &
 #endif
-          !$acc& ) private(l,i,j,k,F_discr,forcex,forcey,forcez,feq,fneq1,uu,omega_loc,udotc,rhophi_loc &
+          !$acc& ) private(l,i,j,k,F_discr,forcex,forcey,forcez,feq,fneq1 &
+          !$acc& ,uu,omega_loc,udotc,rhophi_loc,visc_loc,tau_loc &
 #ifdef TWOCOMPONENT
-          !$acc& ,visc_loc,tau_loc,gradfix,gradfiy,gradfiz &
+          !$acc& ,gradfix,gradfiy,gradfiz &
 #ifdef MONOD
 		  !$acc& , S_mono &
 #endif
@@ -529,9 +532,10 @@ contains
           !$acc& ,u_ref,v_ref,w_ref &
 #endif
           !$acc& )
-      !$acc loop independent collapse(3) private(l,i,j,k,F_discr,forcex,forcey,forcez,feq,fneq1,uu,omega_loc,udotc,rhophi_loc &
+      !$acc loop independent collapse(3) private(l,i,j,k,F_discr,forcex,forcey,forcez &
+      !$acc& ,visc_loc,tau_loc,feq,fneq1,uu,omega_loc,udotc,rhophi_loc &
 #ifdef TWOCOMPONENT
-          !$acc& ,visc_loc,tau_loc,gradfix,gradfiy,gradfiz &
+          !$acc& ,gradfix,gradfiy,gradfiz &
 #ifdef MONOD
 		  !$acc& , S_mono &
 #endif
@@ -555,17 +559,31 @@ contains
 
 
 #ifdef TWOCOMPONENT
-
                   visc_loc=(rho_r*visc1*selphi(i,j,k,flip)+(1.0_db-selphi(i,j,k,flip))*visc2*rho_b)/rhophi_loc  
-
-				  
-                  tau_loc=(visc_loc/cssq + 0.5_db) !è una tau
-				  
-                  omega_loc=1.0_db/tau_loc !è una omega
-				  
 #else
-				  omega_loc=omega
+#ifdef SMAGORINSKI
+                  visc_loc=visc1
 #endif
+#endif
+
+#ifdef SMAGORINSKI
+                  QQ=pxx(i,j,k)**2.0 + pyy(i,j,k)**2.0 + pzz(i,j,k)**2.0 + &
+                   2.0*(pxy(i,j,k)**2.0 + pxz(i,j,k)**2.0 + pyz(i,j,k)**2.0)
+                  !!!smago
+                  tau_loc= 0.5_db + (1.0_db/6.0_db)*(3.0_db*visc_loc + &
+                   sqrt((3.0*visc_loc)**2.0 + 0.053*18.0*sqrt(2.0*QQ)/rhophi_loc))
+                  omega_loc=1.0_db/tau_loc !è una omega
+
+#else
+#ifdef TWOCOMPONENT
+                     tau_loc=(visc_loc/cssq + 0.5_db) !è una tau
+                     omega_loc=1.0_db/tau_loc !è una omega
+#else
+                     omega_loc=omega
+#endif
+#endif
+
+
 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!0
@@ -1400,13 +1418,13 @@ contains
 	  real(kind=db) :: dx,dy,dz, r, rinv, face, arg_arcosh, ach, Wfilm, wdth
 	  real(kind=db) :: nsx,nsy,nsz, nsmag,alpha,cap,scales
 	  real(kind=db), parameter :: eps = 1.0e-9_db
- #ifdef ACCNOKERNELS
-		 !$acc parallel loop collapse(3) present(normx,normy,normz,rep_mask,pair_i,pair_j,pair_k,selphi,Jx,Jy,Jz)&
-		 !$acc& private(rinv,wfilm,wdth,ach,qcl,q2,q1,nsz,nsy,nsx,nsmag,kk,nz1,ny1,nx1,ny2,nx2,dz,dy,dx,arg_arcosh,r,qpair,jj,ii,face,nz2)
- #else
-		 !$acc kernels present(normx,normy,normz,rep_mask,pair_i,pair_j,pair_k,selphi,Jx,Jy,Jz)
-		 !$acc loop collapse(3) private(rinv,wfilm,wdth,ach,qcl,q2,q1,nsz,nsy,nsx,nsmag,kk,nz1,ny1,nx1,ny2,nx2,dz,dy,dx,arg_arcosh,r,qpair,jj,ii,face,nz2) 
- #endif
+#ifdef ACCNOKERNELS
+      !$acc parallel loop collapse(3) present(normx,normy,normz,rep_mask,pair_i,pair_j,pair_k,selphi,Jx,Jy,Jz)&
+      !$acc& private(rinv,wfilm,wdth,ach,qcl,q2,q1,nsz,nsy,nsx,nsmag,kk,nz1,ny1,nx1,ny2,nx2,dz,dy,dx,arg_arcosh,r,qpair,jj,ii,face,nz2)
+#else
+	  !$acc kernels present(normx,normy,normz,rep_mask,pair_i,pair_j,pair_k,selphi,Jx,Jy,Jz)
+      !$acc loop collapse(3) private(rinv,wfilm,wdth,ach,qcl,q2,q1,nsz,nsy,nsx,nsmag,kk,nz1,ny1,nx1,ny2,nx2,dz,dy,dx,arg_arcosh,r,qpair,jj,ii,face,nz2) 
+#endif
 	  do k=1,nz
 		do j=1,ny
 		  do i=1,nx

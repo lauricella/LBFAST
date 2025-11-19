@@ -247,12 +247,12 @@ contains
        ,wettab_r,wettab_b &
 #endif  
 #ifdef TWOCOMPONENT 
-       ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
 #ifdef MONOD
 	   ,mu_max,Ks &
 #endif
 #endif   
-       ,omega,fx,fy,fz)
+       ,visc1,omega,fx,fy,fz)
 !$acc end host_data
       istat = cudaDeviceSynchronize
       istat = cudaGetLastError()
@@ -589,9 +589,10 @@ contains
       
  end subroutine test_LB_kernel_halo
  
- subroutine compute_densityratio_cuda
+ subroutine compute_densityratio_cuda(phifields_s)
 
       implicit none
+      real(kind=db), allocatable, dimension(:) :: phifields_s
       
 !      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
 
@@ -599,19 +600,11 @@ contains
       !$acc wait
       istat = cudaDeviceSynchronize
 
-      if(flop==1)then
 !$acc host_data use_device(flop,nx,ny,nz,coords,isfluid,selphi &
-       !$acc& ,rhophi,rho_r,rho_b,ntotphifields,ntotauxfields,phifields_flip,auxfields)
+       !$acc& ,rhophi,rho_r,rho_b,ntotphifields,ntotlocauxfields,phifields_s,locauxfields)
        call compute_densityratio_kernel<<<dimGrid, dimBlock>>>(flop,nx,ny,nz,coords,isfluid, &
-        selphi,rhophi,rho_r,rho_b,ntotphifields,ntotauxfields,phifields_flip,auxfields)
+        selphi,rhophi,rho_r,rho_b,ntotphifields,ntotlocauxfields,phifields_s,locauxfields)
 !$acc end host_data
-      else
-!$acc host_data use_device(flop,nx,ny,nz,coords,isfluid,selphi &
-       !$acc& ,rhophi,rho_r,rho_b,ntotphifields,ntotauxfields,phifields_flop,auxfields)
-       call compute_densityratio_kernel<<<dimGrid, dimBlock>>>(flop,nx,ny,nz,coords,isfluid, &
-        selphi,rhophi,rho_r,rho_b,ntotphifields,ntotauxfields,phifields_flop,auxfields)
-!$acc end host_data
-      endif
       istat = cudaDeviceSynchronize
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
@@ -625,7 +618,7 @@ contains
    endsubroutine compute_densityratio_cuda
  
  attributes(global) subroutine compute_densityratio_kernel(flop,nx,ny,nz,coords,isfluid, &
-  selphi,rhophi,rho_r,rho_b,ntotphifields,ntotauxfields,phifields_s,auxfields_s)
+  selphi,rhophi,rho_r,rho_b,ntotphifields,ntotlocauxfields,phifields_s,locauxfields_s)
       implicit none
       
       integer :: flop,nx,ny,nz
@@ -634,9 +627,9 @@ contains
       real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,2) :: selphi
       real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1) :: rhophi
       real(kind=db) :: rho_r,rho_b
-      integer :: ntotphifields,ntotauxfields
+      integer :: ntotphifields,ntotlocauxfields
       real(kind=db), dimension(ntotphifields) :: phifields_s
-      real(kind=db), dimension(ntotauxfields) :: auxfields_s
+      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
       
       integer :: i,j,k,gi,gj,gk,myblock,ii,jj,kk
       real(kind=db) :: phitemp
@@ -661,10 +654,160 @@ contains
       
       phitemp=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
       
-      auxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))=rho_r*phitemp+(ONE-phitemp)*rho_b
+      !locauxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))=rho_r*phitemp+(ONE-phitemp)*rho_b
      
       
  end subroutine compute_densityratio_kernel 
+ 
+ subroutine compute_norm_interface_cuda(phifields_s)
+
+      implicit none
+      real(kind=db), allocatable, dimension(:) :: phifields_s
+ 
+      
+#ifdef TWOCOMPONENT
+      !$acc wait
+      istat = cudaDeviceSynchronize
+
+!$acc host_data use_device(flop,nx,ny,nz,coords,isfluid,selphi &
+       !$acc& ,rhophi,rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+       call compute_norm_interface_kernel<<<dimGrid, dimBlockshared>>>(flop,nx,ny,nz,coords,isfluid, &
+        selphi,rhophi,rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+!$acc end host_data
+      istat = cudaDeviceSynchronize
+      istat = cudaGetLastError()
+      if (istat/= cudaSuccess) then
+        if(myrank==0)write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
+        if(myrank==0)write(6,*) cudaGetErrorString(istat)
+        call doerror(6,'ERROR in moments_LB_cuda')
+      endif
+      !$acc wait        
+#endif
+      
+      return
+      
+ endsubroutine compute_norm_interface_cuda
+ 
+ attributes(global) subroutine compute_norm_interface_kernel(flop,nx,ny,nz,coords,isfluid, &
+  selphi,rhophi,rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields_s,locauxfields_s)
+
+      implicit none
+      integer :: flop,nx,ny,nz
+      integer, dimension(3) :: coords
+      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,2) :: selphi
+      real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1) :: rhophi
+      real(kind=db) :: rho_r,rho_b
+      integer :: ntotphifields,ntotauxfields,ntotlocauxfields
+      real(kind=db), dimension(ntotphifields) :: phifields_s
+      real(kind=db), dimension(ntotauxfields) :: auxfields_s
+      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
+      
+      real(kind=db), shared :: myphi(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
+      real(kind=db):: grad_fix,grad_fiy,grad_fiz,mod_grad
+      
+      integer :: i,j,k,gi,gj,gk,myblock,idblock
+      integer :: ii,jj,kk
+      integer :: li,lj,lk
+      integer :: xblock,yblock,zblock
+      
+      li = threadIdx%x-1
+      lj = threadIdx%y-1
+      lk = threadIdx%z-1
+
+      i = (blockIdx%x-1) * TILE_DIMx_d + li
+      j = (blockIdx%y-1) * TILE_DIMy_d + lj
+      k = (blockIdx%z-1) * TILE_DIMz_d + lk
+      
+      gi=nx*coords(1)+i
+      gj=ny*coords(2)+j
+      gk=nz*coords(3)+k
+      
+      xblock=(i+2*TILE_DIMx_d-1)/TILE_DIMx_d
+	  yblock=(j+2*TILE_DIMy_d-1)/TILE_DIMy_d
+	  zblock=(k+2*TILE_DIMz_d-1)/TILE_DIMz_d
+      
+      myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+      ii=i-xblock*TILE_DIMx_d+2*TILE_DIMx_d
+      jj=j-yblock*TILE_DIMy_d+2*TILE_DIMy_d
+      kk=k-zblock*TILE_DIMz_d+2*TILE_DIMz_d
+      
+      myphi(li,lj,lk)=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+      
+      call syncthreads
+      
+      if(abs(isfluid(i,j,k)) .ne. 1)return
+      
+      !idblock is the index of the block of internal nodes without the surrounding halo
+	  idblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1
+	  !If my block index does not match the index of the internal-node block, it means my thread is on the outer halo and must exit.
+	  if(myblock .ne. idblock)return
+
+	  grad_fix=3.0_db*(p1*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
+		 p2*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
+		 (myphi(li+1,lj-1,lk)-myphi(li-1,lj+1,lk))+ &
+		 (myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
+		 (myphi(li+1,lj,lk-1)-myphi(li-1,lj,lk+1)) )  + &
+		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
+		 (myphi(li+1,lj-1,lk-1)-myphi(li-1,lj+1,lk+1))+ &
+		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
+		 (myphi(li+1,lj+1,lk-1)-myphi(li-1,lj-1,lk+1))))
+
+	  grad_fiy=3.0_db*(p1*(myphi(li,lj+1,lk)-myphi(li,lj-1,lk)) + &
+		 p2*((myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
+		 (myphi(li-1,lj+1,lk)-myphi(li+1,lj-1,lk))+ &
+		 (myphi(li,lj+1,lk+1)-myphi(li,lj-1,lk-1))+ &
+		 (myphi(li,lj+1,lk-1)-myphi(li,lj-1,lk+1)) ) + &
+		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
+		 (myphi(li-1,lj+1,lk-1)-myphi(li+1,lj-1,lk+1))+ &
+		 (myphi(li+1,lj+1,lk-1)-myphi(li-1,lj-1,lk+1))+ &
+		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
+
+	  grad_fiz=3.0_db*(p1*(myphi(li,lj,lk+1)-myphi(li,lj,lk-1)) + &
+		 p2*((myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
+		 (myphi(li-1,lj,lk+1)-myphi(li+1,lj,lk-1))+ &
+		 (myphi(li,lj+1,lk+1)-myphi(li,lj-1,lk-1))+ &
+		 (myphi(li,lj-1,lk+1)-myphi(li,lj+1,lk-1)) ) + &
+		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1)) &
+		 +(myphi(li-1,lj-1,lk+1)-myphi(li+1,lj+1,lk-1))+ &
+		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
+		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
+      
+	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
+
+	  auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))=grad_fix/(mod_grad+1.0e-9)
+	  auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))=grad_fiy/(mod_grad+1.0e-9)
+	  auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))=grad_fiz/(mod_grad+1.0e-9)
+	  
+	  auxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))=mod_grad
+
+	  auxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))= &
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9))
+	  auxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))= &
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9))
+	  auxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))= &
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9))
+	   
+      !lap_phi here
+      locauxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))= &
+                   (2.0_db/cssq)*(myphi(li,lj,lk)*(p0-1.0_db) + &
+                   ( p1*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
+                   myphi(li,lj+1,lk)+myphi(li,lj-1,lk) + &
+                   myphi(li,lj,lk+1)+myphi(li,lj,lk-1)) + &
+                   p2*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
+                   (myphi(li+1,lj-1,lk)+myphi(li-1,lj+1,lk))+ &
+                   (myphi(li+1,lj,lk+1)+myphi(li-1,lj,lk-1))+ &
+                   (myphi(li+1,lj,lk-1)+myphi(li-1,lj,lk+1)) + &
+                   (myphi(li,lj+1,lk+1)+myphi(li,lj-1,lk-1))+ &
+                   (myphi(li,lj+1,lk-1)+myphi(li,lj-1,lk+1)) )  + &
+                   p3*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
+                   (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
+                   (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
+                   (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1)))))
+      
+      return
+      
+   endsubroutine compute_norm_interface_kernel 
   
  attributes(global) subroutine moments_LB_kernel(flop,nx,ny,nz,coords,isfluid,f &
        ,rho,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz,fux,fvy,fwz &
@@ -1000,18 +1143,18 @@ contains
 #endif
 #endif    
 #ifdef MULTIHIT
-	   ,ABCx,ABCy,ABCz &
+       ,ABCx,ABCy,ABCz &
 #endif 
 #ifdef WETTABILITY
        ,wettab_r,wettab_b &
 #endif  
 #ifdef TWOCOMPONENT 
-       ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
 #ifdef MONOD	
-	   ,mu_max,Ks &
+       ,mu_max,Ks &
 #endif
 #endif   
-       ,omega,fx,fy,fz)
+       ,visc1,omega,fx,fy,fz)
 
       implicit none
       
@@ -1039,17 +1182,17 @@ contains
       real(kind=db) :: wettab_r,wettab_b  
 #endif  
 #ifdef TWOCOMPONENT 
-      real(kind=db) :: visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
+      real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
 #ifdef MONOD
       real(kind=db) :: mu_max,Ks
 #endif
 #endif           
-      real(kind=db) :: omega,fx,fy,fz
+      real(kind=db) :: visc1,omega,fx,fy,fz
 
   
       real(kind=db) :: F_discr,fneq1,feq,forcex,forcey,forcez
 #ifdef TWOCOMPONENT
-      real(kind=db) :: tau_loc,gradfix,gradfiy,gradfiz
+      real(kind=db) :: gradfix,gradfiy,gradfiz
       real(kind=db) :: gradrhox,gradrhoy,gradrhoz,wet_loc,visc_loc
 #ifdef MONOD
 	  real(kind=db) :: S_mono
@@ -1058,7 +1201,10 @@ contains
       real(kind=db) :: curvature
 #endif
 #endif
-      real(kind=db) :: omega_loc, rhophi_loc
+      real(kind=db) :: omega_loc, rhophi_loc, tau_loc
+#ifdef SMAGORINSKI
+      real(kind=db) :: QQ
+#endif
 #ifdef WENO
       real(kind=db) :: fm2,fm1,f0,fp1,fp2,a
       real(kind=db) :: beta1,beta2,beta3
@@ -1092,18 +1238,29 @@ contains
 				  forcez=fwz(i,j,k)
 
 
-
 #ifdef TWOCOMPONENT
-
-                  visc_loc=(rho_r*visc1*selphi(i,j,k,flip)+(1.0_db-selphi(i,j,k,flip))*visc2*rho_b)/rhophi_loc  
-
-				  
-                  tau_loc=(visc_loc/cssq + 0.5_db) !è una tau
-				  
-                  omega_loc=1.0_db/tau_loc !è una omega
-				  
+                  visc_loc=(rho_r*visc1*selphi(i,j,k,flip)+(1.0_db-selphi(i,j,k,flip))*visc2*rho_b)/rhophi_loc
 #else
-				  omega_loc=omega
+#ifdef SMAGORINSKI
+                  visc_loc=visc1
+#endif
+#endif
+
+#ifdef SMAGORINSKI
+                  QQ=pxx(i,j,k)**2.0 + pyy(i,j,k)**2.0 + pzz(i,j,k)**2.0 + &
+                   2.0*(pxy(i,j,k)**2.0 + pxz(i,j,k)**2.0 + pyz(i,j,k)**2.0)
+                  !!!smago
+                  tau_loc= 0.5_db + (1.0_db/6.0_db)*(3.0_db*visc_loc + &
+                   sqrt((3.0*visc_loc)**2.0 + 0.053*18.0*sqrt(2.0*QQ)/rhophi_loc))
+                  omega_loc=1.0_db/tau_loc !è una omega
+
+#else
+#ifdef TWOCOMPONENT
+                     tau_loc=(visc_loc/cssq + 0.5_db) !è una tau
+                     omega_loc=1.0_db/tau_loc !è una omega
+#else
+                     omega_loc=omega
+#endif
 #endif
 
 

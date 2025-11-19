@@ -5,22 +5,21 @@ module integrator_module
    use openacc
 #endif
    use mpi_template, only : nbuff,coords,myoffset,myrank,nprocs,intpbc_dir, &
-           num_links_pops,links_pops,datampi,f_datampi,fvec_datampi,b_datampi,i_datampi, &
-           send_extr,recv_extr,f_send_extr,f_recv_extr,fvec_send_extr,fvec_recv_extr, &
-           b_send_extr,b_recv_extr,send_buffmpi,recv_buffmpi,nbuffmpi_send,nbuffmpi_recv, &
+           num_links_pops,links_pops,f_datampi,fvec_datampi,b_datampi,i_datampi, &
+           f_send_extr,f_recv_extr,fvec_send_extr,fvec_recv_extr, &
+           b_send_extr,b_recv_extr, &
            f_send_buffmpi,f_recv_buffmpi,f_nbuffmpi_send,f_nbuffmpi_recv,lbuff, &
            fvec_send_buffmpi,fvec_recv_buffmpi,fvec_nbuffmpi_send,fvec_nbuffmpi_recv, &
            b_send_buffmpi,b_recv_buffmpi,b_nbuffmpi_send,b_nbuffmpi_recv, &
-           exchange_float_sendrecv,exchange_float_intpbc,exchange_float_wait, &
-           exchange_floatvec_sendrecv,exchange_floatvec_intpbc,exchange_floatvec_wait, &
-#ifdef REPULSIVE_FLUX 
+           exchange_phifields_sendrecv,exchange_phifields_intpbc,exchange_phifields_wait, &
+           exchange_auxfields_sendrecv,exchange_auxfields_intpbc,exchange_auxfields_wait, &
+           exchange_hfields_sendrecv,exchange_hfields_intpbc,exchange_hfields_wait, &
            exchange_bvec_intpbc,exchange_bvec_wait,exchange_bvec_sendrecv, &
-#endif
 #ifdef CRAY 
            int_buffpbc,nbuffpbc_int, &
 #endif
-           intpbcsend_extr,intpbcrecv_extr,skip_myoffset,or_world_l, &
-           exchange_pops_sendrecv,exchange_pops_intpbc,exchange_pops_wait,dostop
+           skip_myoffset,or_world_l, &
+           dostop
            
            
    use prints, only : get_memory_gpu,print_memory_registration_gpu, &
@@ -40,10 +39,10 @@ module integrator_module
 #ifdef REPULSIVE_FLUX
     thinfilm_scan_mark,repulsive_flux_tangential,repulsive_flux_normal, &
 #endif
-    moments_lb,compute_densityratio,fused_lb
+    moments_lb,fused_lb
 #if defined(_OPENACC)        
    use lb_cuda_kernels, only : moments_LB_cuda,fused_lb_cuda,test_LB_cuda, &
-    compute_densityratio_cuda
+    compute_norm_interface_cuda
 #endif
    use profiling_m,   only : timer_init,itime_start, &
       startPreprocessingTime,print_timing_partial, &
@@ -77,10 +76,10 @@ contains
       !$acc data copy(step,lx,ly,lz,nx,ny,nz,coords,myoffset,f,isfluid,myrank, &
       !$acc& pxx,pyy,pzz,pxy,pxz,pyz,rho,u,v,w,rhoprint,velprint,radius, &
 	  !$acc& tau1,visc1,rho_r,rho_b,invrho_r,invrho_b,omega,lap_phi, &
-      !$acc& intpbc_dir,num_links_pops,links_pops,datampi,f_datampi,uwall,udotc,uu, &
-      !$acc& send_extr,recv_extr,f_send_extr,f_recv_extr,fux,fvy,fwz, &
-      !$acc& ntothfields,ntotphifields,ntotauxfields, &
-      !$acc& hfields_flip,hfields_flop,auxfields, &
+      !$acc& intpbc_dir,num_links_pops,links_pops,f_datampi,uwall,udotc,uu, &
+      !$acc& f_send_extr,f_recv_extr,fux,fvy,fwz, &
+      !$acc& ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields, &
+      !$acc& hfields_flip,hfields_flop,auxfields,locauxfields, &
       !$acc& TILE_DIMx,TILE_DIMy,TILE_DIMz,nblocks,nxblock,nxyblock, &
 #ifdef TWOCOMPONENT
       !$acc& phifields_flip,phifields_flop, &
@@ -115,9 +114,8 @@ contains
 #ifdef CRAY 
       !$acc& int_buffpbc,nbuffpbc_int, &
 #endif
-      !$acc& intpbcsend_extr,intpbcrecv_extr, &
       !$acc& fvec_send_extr,fvec_recv_extr,fx,fy,fz) &
-      !$acc& create(send_buffmpi,recv_buffmpi,f_send_buffmpi, &
+      !$acc& create(f_send_buffmpi, &
       !$acc& f_recv_buffmpi,fvec_send_buffmpi &
 #if defined REPULSIVE_FLUX
       !$acc& ,b_send_buffmpi,b_recv_buffmpi &
@@ -150,122 +148,16 @@ contains
       !***********************************read restart************************
 #ifdef TWOCOMPONENT
       if(lrestart)then
-         call read_restart_2c(iframe,iframe2D)
+         call read_restart_2c(iframe,iframe2D,hfields_flop,phifields_flop)
       endif
-      if(ldiagnostic)call start_timing2("LB","moments_phi")
-#if defined(_OPENACC) 
-      call compute_densityratio_cuda
-#else
-      call compute_densityratio
-#endif
-      if(ldiagnostic)call end_timing2("LB","moments_phi")
 #else
       if(lrestart)then
-         call read_restart_1c(iframe,iframe2D)
+         call read_restart_1c(iframe,iframe2D,hfields_flop)
       endif
 #endif      
 
       if(lprint)then
-        if(flop==1)then
-	      call copy_print(iframe,hfields_flip,phifields_flip,auxfields)
-	    else
-	      call copy_print(iframe,hfields_flop,phifields_flop,auxfields)
-	    endif
-	  
-	   
-!#ifdef ACCNOKERNELS
-!#if defined(DENSRATIO) && defined(TWOCOMPONENT)
-!#ifdef WRITEPRESS
-!         !$acc parallel loop independent collapse(3) present(rhoprint,velprint,pressprint,rhophi,u,v,w)
-!#else
-!         !$acc parallel loop independent collapse(3) present(rhoprint,velprint,rhophi,u,v,w)
-!#endif
-!#endif
-
-!#if defined(TWOCOMPONENT) && !defined(DENSRATIO)
-!#ifdef WRITEPRESS
-!		 !$acc parallel loop independent collapse(3) present(rhoprint,velprint,,pressprint,selphi,rho,u,v,w)
-!#else
-!         !$acc parallel loop independent collapse(3) present(rhoprint,velprint,selphi,u,v,w)
-!#endif 
-!#endif                 
-!#ifndef TWOCOMPONENT 
-!         !$acc parallel loop independent collapse(3) present(rhoprint,velprint,rho,u,v,w)
-!#endif         
-!#else
-!#if defined(DENSRATIO) && defined(TWOCOMPONENT)
-!#ifdef WRITEPRESS
-!         !$acc kernels present(rhoprint,velprint,pressprint,rhophi,u,v,w)
-!#else
-!         !$acc kernels present(rhoprint,velprint,rhophi,u,v,w)
-!#endif
-!#endif
-!#if defined(TWOCOMPONENT) && !defined(DENSRATIO)
-!#ifdef WRITEPRESS
-!		 !$acc kernels present(rhoprint,velprint,pressprint,rho,selphi,u,v,w)
-!#else
-!         !$acc kernels present(rhoprint,velprint,selphi,u,v,w)
-!#endif
-!#endif
-!#ifndef TWOCOMPONENT
-!         !$acc kernels present(rhoprint,velprint,rho,u,v,w)
-!#endif
-!         !$acc loop independent collapse(3)  private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock)
-!#endif
-!         do k=1,nzskip
-!            do j=1,nyskip
-!               do i=1,nxskip
-!                  ii=i*stepskip
-!                  jj=j*stepskip
-!                  kk=k*stepskip
-
-!                  xblock=(ii+2*TILE_DIMx-1)/TILE_DIMx   
-!                  yblock=(jj+2*TILE_DIMy-1)/TILE_DIMy     
-!                  zblock=(kk+2*TILE_DIMz-1)/TILE_DIMz   
-                  
-!                  myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
-!                  iii=ii-xblock*TILE_DIMx+2*TILE_DIMx
-!                  jjj=jj-yblock*TILE_DIMy+2*TILE_DIMy
-!                  kkk=kk-zblock*TILE_DIMz+2*TILE_DIMz                            
-                  
-!#if defined(DENSRATIO) && defined(TWOCOMPONENT)
-!                  !rhoprint(i,j,k)=real(rhophi(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-!                  if(rhophi(ii,jj,kk)/=auxfields(idx5(iii,jjj,kkk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)))then
-!                    write(6,*)i,j,k,rhophi(ii,jj,kk),auxfields(idx5(iii,jjj,kkk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
-!                  endif
-!                  rhoprint(i,j,k)=real(auxfields(idx5(iii,jjj,kkk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)),kind=printdb)
-!#ifdef WRITEPRESS                   
-!                  pressprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-!#endif
-!#endif
-
-!#if defined(TWOCOMPONENT) && !defined(DENSRATIO)
-!                  !rhoprint(i,j,k)=real(selphi(i*stepskip,j*stepskip,k*stepskip,flip),kind=printdb)
-!                  rhoprint(i,j,k)=real(phifields_flip(idx5(iii,jjj,kkk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields)),kind=printdb)
-!#ifdef WRITEPRESS                  
-!                  pressprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)				  
-!#endif
-!#endif
-!#ifndef TWOCOMPONENT
-!				  rhoprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-!#endif
-!					velprint(1,i,j,k)=real(u(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-!					velprint(2,i,j,k)=real(v(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-!					velprint(3,i,j,k)=real(w(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-!               enddo
-!            enddo
-!         enddo
-!#ifdef ACCNOKERNELS
-!         !$acc end parallel loop
-!#else
-!         !$acc end kernels
-!#endif
-!#if defined(WRITEPRESS)
-!         !$acc update host(rhoprint,velprint,pressprint)
-!#else
-!         !$acc update host(rhoprint,velprint)
-!#endif
-!         !$acc wait
+	     call copy_print(iframe,hfields_flop,phifields_flop)
          if(lvtk)then
             call driver_print_vtk_sync(iframe)
          endif
@@ -275,7 +167,7 @@ contains
             call driver_print_raw_sync2D(iframe2D,nplanes,ndir,npoint)
          endif
       endif
-
+       
 
 
       ! start diagnostic if requested
@@ -289,47 +181,42 @@ contains
             'Occupied memory after setup MPI','Total memory',smemory,sram)
       endif
       !***********************************moments initialization************************
-  
 
       !***********************************scambio moments************************
 #ifdef TWOCOMPONENT
-	  if(ldiagnostic)call start_timing2("LB","exchange_float_sendrecv")         
-          if(lbuff)call exchange_bvec_sendrecv
-	  call exchange_float_sendrecv
-	  if(ldiagnostic)call end_timing2("LB","exchange_float_sendrecv")
+	  if(ldiagnostic)call start_timing2("LB","ex_phifields_sendrecv")         
+	  call exchange_phifields_sendrecv(phifields_flop)
+	  if(ldiagnostic)call end_timing2("LB","ex_phifields_sendrecv")
 
-	  if(ldiagnostic)call start_timing2("LB","exchange_float_intpbc")
- 	  if(lbuff)call exchange_bvec_intpbc
-	  call exchange_float_intpbc
-	  if(ldiagnostic)call end_timing2("LB","exchange_float_intpbc")
+	  if(ldiagnostic)call start_timing2("LB","ex_phifields_intpbc")
+	  call exchange_phifields_intpbc(phifields_flop)
+	  if(ldiagnostic)call end_timing2("LB","ex_phifields_intpbc")
 	  
-	  if(ldiagnostic)call start_timing2("LB","exchange_float_wait")
-          if(lbuff)call exchange_bvec_wait
-	  call exchange_float_wait
-	  if(ldiagnostic)call end_timing2("LB","exchange_float_wait")
+	  if(ldiagnostic)call start_timing2("LB","ex_phifields_wait")
+	  call exchange_phifields_wait(phifields_flop)
+	  if(ldiagnostic)call end_timing2("LB","ex_phifields_wait")
       !***********************************ora che ho phi in cornice calcolo normx normy normz************************
       if(ldiagnostic)call start_timing2("LB","compute_norm")
-      call compute_norm_interface
+      call compute_norm_interface_cuda(phifields_flop)
       if(ldiagnostic)call end_timing2("LB","compute_norm")
       !***********************************scambio normx normy normz************************
-      if(ldiagnostic)call start_timing2("LB","exchange_floatvec_sendrecv")
-      call exchange_floatvec_sendrecv
-	  if(ldiagnostic)call end_timing2("LB","exchange_floatvec_sendrecv")
-	  if(ldiagnostic)call start_timing2("LB","exchange_floatvec_intpbc")
-      call exchange_floatvec_intpbc
-	  if(ldiagnostic)call end_timing2("LB","exchange_floatvec_intpbc")
+      if(ldiagnostic)call start_timing2("LB","ex_auxfields_sendrecv")
+      call exchange_auxfields_sendrecv
+	  if(ldiagnostic)call end_timing2("LB","ex_auxfields_sendrecv")
+	  if(ldiagnostic)call start_timing2("LB","ex_auxfields_intpbc")
+      call exchange_auxfields_intpbc
+	  if(ldiagnostic)call end_timing2("LB","ex_auxfields_intpbc")
 	  
-      if(ldiagnostic)call start_timing2("LB","exchange_floatvec_wait")
-	  call exchange_floatvec_wait
-      if(ldiagnostic)call end_timing2("LB","exchange_floatvec_wait")
-      !***********************************compute laplacian************************
-      if(ldiagnostic)call start_timing2("LB","force_2c")
-      call compute_laplacian_phi
-      if(ldiagnostic)call end_timing2("LB","force_2c")
-#endif	  
+      if(ldiagnostic)call start_timing2("LB","ex_auxfields_wait")
+	  call exchange_auxfields_wait
+      if(ldiagnostic)call end_timing2("LB","ex_auxfields_wait")
+#endif	
       !***********************************compute moments***********************
 	  if(ldiagnostic)call start_timing2("LB","moments")
-
+#ifdef REPULSIVE_FLUX
+      call thinfilm_scan_mark
+	  call repulsive_flux_normal
+#endif      
 #if defined(_OPENACC)
       call moments_LB_cuda
 #else
@@ -361,98 +248,22 @@ contains
          !$acc update device(step,flip,flop)
          !$acc wait
         
-         if(lprint)then
-            
-            if(mod(step,stamp).eq.0 .or. mod(step,stamp2D).eq.0 .or. mod(step,stamp_term).eq.0)then
-               if(ldiagnostic)call start_timing2("IO","print")
-               !write(6,*)'vorrei stampare'
-#ifdef ACCNOKERNELS
-#if defined(DENSRATIO) && defined(TWOCOMPONENT)
-#ifdef WRITEPRESS
-               !$acc parallel loop independent collapse(3) present(rhoprint,velprint,pressprint,rhophi,u,v,w)
-#else
-               !$acc parallel loop independent collapse(3) present(rhoprint,velprint,rhophi,u,v,w)
-#endif
-#endif
-#if defined(TWOCOMPONENT) && !defined(DENSRATIO)
-#ifdef WRITEPRESS
-			   !$acc parallel loop independent collapse(3) present(rhoprint,velprint,pressprint,rho,selphi,u,v,w)
-#else
-               !$acc parallel loop independent collapse(3) present(rhoprint,velprint,selphi,u,v,w)
-#endif
-#endif
-#ifndef TWOCOMPONENT
-                !$acc parallel loop independent collapse(3) present(rhoprint,velprint,rho,u,v,w)
-#endif
-#else
-#if defined(DENSRATIO) && defined(TWOCOMPONENT)
-#ifdef WRITEPRESS
-               !$acc kernels present(rhoprint,velprint,pressprint,rhophi,u,v,w)
-#else
-               !$acc kernels present(rhoprint,velprint,rhophi,u,v,w)
-#endif
-#endif
-#if defined(TWOCOMPONENT) && !defined(DENSRATIO)
-#ifdef WRITEPRESS
-		       !$acc kernels present(rhoprint,velprint,pressprint,rho,selphi,u,v,w)
-#else
-			   !$acc kernels present(rhoprint,velprint,selphi,u,v,w)
-#endif
-#endif
-#ifndef TWOCOMPONENT
-			   !$acc kernels present(rhoprint,velprint,rho,u,v,w)
-#endif
-               !$acc loop independent collapse(3)  private(i,j,k)
-#endif
-               do k=1,nzskip
-                  do j=1,nyskip
-                     do i=1,nxskip
-#if defined(DENSRATIO) && defined(TWOCOMPONENT)
-						rhoprint(i,j,k)=real(rhophi(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-#ifdef WRITEPRESS                  
-                        pressprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-#endif
-#endif
-
-#if defined(TWOCOMPONENT) && !defined(DENSRATIO)
-                        rhoprint(i,j,k)=real(selphi(i*stepskip,j*stepskip,k*stepskip,flip),kind=printdb)
-#ifdef WRITEPRESS                  
-                        pressprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-#endif
-#endif
-#ifndef TWOCOMPONENT
-						rhoprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-#endif
-                        velprint(1,i,j,k)=real(u(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-						velprint(2,i,j,k)=real(v(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-						velprint(3,i,j,k)=real(w(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-                     enddo
-                  enddo
-               enddo
-#ifdef ACCNOKERNELS
-               !$acc end parallel loop
-#else
-               !$acc end kernels
-#endif
-#if defined(WRITEPRESS)
-               !$acc update host(rhoprint,velprint,pressprint)
-#else
-               !$acc update host(rhoprint,velprint)
-#endif
-               !$acc wait
-            !endif
-
-            if(mod(step,stamp).eq.0)then
+         if(lprint)then 
+           if(mod(step,stamp).eq.0 .or. mod(step,stamp2D).eq.0 .or. mod(step,stamp_term).eq.0)then
+             if(ldiagnostic)call start_timing2("IO","print")
+	         call copy_print(iframe,hfields_flop,phifields_flop)
+             !write(6,*)'vorrei stampare'
+             if(mod(step,stamp).eq.0)then
                iframe=iframe+1
                if(lvtk)then
-                  call driver_print_vtk_sync(iframe)
+                 call driver_print_vtk_sync(iframe)
                endif
                if(lraw)then
-                  call driver_print_raw_sync(iframe)
+                 call driver_print_raw_sync(iframe)
                endif
-            endif
-            !***********************************Print on files 2D************************
-            if(mod(step,stamp2D).eq.0 .and. lraw)then
+             endif
+             !***********************************Print on files 2D************************
+             if(mod(step,stamp2D).eq.0 .and. lraw)then
                iframe2D=iframe2D+1
                call driver_print_raw_sync2D(iframe2D,nplanes,ndir,npoint)
              endif
@@ -470,11 +281,11 @@ contains
                  write(6,'(a,4i6,f10.2,a,i2,9g16.8)')'stamp step : ',step, &
                   (gi/stepskip)*stepskip,(gj/stepskip)*stepskip,(gk/stepskip)*stepskip, &
                   (time_actual-time_actual_old)/real(stamp_term,kind=db)*real(nsteps-step,kind=db), &
-                       '; probe values : ',isfluid(i,j,k),rhoprint(i,j,k),velprint(1:3,i,j,k), &
+                  '; probe values : ',isfluid(i,j,k),rhoprint(i,j,k),velprint(1:3,i,j,k), &
 #if defined(INTERNAL_OBSTACLES)                       
-                       corr,dphi,global_phi_sum_ini,global_phi_sum_new-global_phi_change_new,global_phi_sum_new !real(global_count_new)
+                   corr,dphi,global_phi_sum_ini,global_phi_sum_new-global_phi_change_new,global_phi_sum_new !real(global_count_new)
 #else
-                       0.0e0                       
+                   0.0e0                       
 #endif                       
                  call flush(6)
                endif
@@ -495,66 +306,54 @@ contains
          if(ldiagnostic)call end_timing2("LB","fused")
 #ifdef TWOCOMPONENT	 
 !****************scambio phi: boundary condition periodiche su phi************************
-		 if(ldiagnostic)call start_timing2("LB","exchange_float_sendrecv")
-                 if(lbuff)call exchange_bvec_sendrecv
-		 call exchange_float_sendrecv
-		 if(ldiagnostic)call end_timing2("LB","exchange_float_sendrecv")
+		 if(ldiagnostic)call start_timing2("LB","ex_phifields_sendrecv")
+		 call exchange_phifields_sendrecv(phifields_flip)
+		 if(ldiagnostic)call end_timing2("LB","ex_phifields_sendrecv")
 		 
-         if(ldiagnostic)call start_timing2("LB","exchange_float_intpbc")
-                 if(lbuff)call exchange_bvec_intpbc
-		 call exchange_float_intpbc
-		 if(ldiagnostic)call end_timing2("LB","exchange_float_intpbc")
+         if(ldiagnostic)call start_timing2("LB","ex_phifields_intpbc")
+		 call exchange_phifields_intpbc(phifields_flip)
+		 if(ldiagnostic)call end_timing2("LB","ex_phifields_intpbc")
 		 
-         if(ldiagnostic)call start_timing2("LB","exchange_float_wait")
-                 if(lbuff)call exchange_bvec_wait
-		 call exchange_float_wait
-		 if(ldiagnostic)call end_timing2("LB","exchange_float_wait")
+         if(ldiagnostic)call start_timing2("LB","ex_phifields_wait")
+		 call exchange_phifields_wait(phifields_flip)
+		 if(ldiagnostic)call end_timing2("LB","ex_phifields_wait")
          !***********************************ora che ho phi in cornice calcolo normx normy normz************************
          if(ldiagnostic)call start_timing2("LB","compute_norm")
-         call compute_norm_interface
+         call compute_norm_interface_cuda(phifields_flip)
          if(ldiagnostic)call end_timing2("LB","compute_norm")
          !***********************************scambio normx normy normz************************
-         if(ldiagnostic)call start_timing2("LB","exchange_floatvec_sendrecv")
-		 call exchange_floatvec_sendrecv
-		 if(ldiagnostic)call end_timing2("LB","exchange_floatvec_sendrecv")
-		 if(ldiagnostic)call start_timing2("LB","exchange_floatvec_intpbc")
-		 call exchange_floatvec_intpbc
-		 if(ldiagnostic)call end_timing2("LB","exchange_floatvec_intpbc")
-		 if(ldiagnostic)call start_timing2("LB","exchange_floatvec_wait")
-		 call exchange_floatvec_wait
-		 if(ldiagnostic)call end_timing2("LB","exchange_floatvec_wait")
+         if(ldiagnostic)call start_timing2("LB","ex_auxfields_sendrecv")
+		 call exchange_auxfields_sendrecv
+		 if(ldiagnostic)call end_timing2("LB","ex_auxfields_sendrecv")
+		 if(ldiagnostic)call start_timing2("LB","ex_auxfields_intpbc")
+		 call exchange_auxfields_intpbc
+		 if(ldiagnostic)call end_timing2("LB","ex_auxfields_intpbc")
+		 if(ldiagnostic)call start_timing2("LB","ex_auxfields_wait")
+		 call exchange_auxfields_wait
+		 if(ldiagnostic)call end_timing2("LB","ex_auxfields_wait")
          
-         if(ldiagnostic)call start_timing2("LB","force_2c")
-         call compute_laplacian_phi
-         if(ldiagnostic)call end_timing2("LB","force_2c")
 #endif
  
 		 !***********************************pbcs boundary conditions ********************************!
-		 !call pbcs
-         if(ldiagnostic)call start_timing2("LB","pbcs")
-         call exchange_pops_sendrecv
-         call exchange_pops_intpbc
-         call exchange_pops_wait
-         if(ldiagnostic)call end_timing2("LB","pbcs")
+         if(ldiagnostic)call start_timing2("LB","ex_hfields_sendrecv")
+		 call exchange_hfields_sendrecv
+		 if(ldiagnostic)call end_timing2("LB","ex_hfields_sendrecv")
+		 if(ldiagnostic)call start_timing2("LB","ex_hfields_intpbc")
+		 call exchange_hfields_intpbc
+		 if(ldiagnostic)call end_timing2("LB","ex_hfields_intpbc")
+		 if(ldiagnostic)call start_timing2("LB","ex_hfields_wait")
+		 call exchange_hfields_wait
+		 if(ldiagnostic)call end_timing2("LB","ex_hfields_wait")
          !************ thread-safe boundary condition setup
          if(ldiagnostic)call start_timing2("LB","bcs_TSLB")
          call bcs_mesoscopic_all  
          if(ldiagnostic)call end_timing2("LB","bcs_TSLB") 
          !***********************************moments************************
-#ifdef DENSRATIO
-         if(ldiagnostic)call start_timing2("LB","moments_phi")
-         call compute_densityratio
-         if(ldiagnostic)call end_timing2("LB","moments_phi")
-#endif
          if(ldiagnostic)call start_timing2("LB","moments")
-
-
- #ifdef REPULSIVE_FLUX
+#ifdef REPULSIVE_FLUX
 		  call thinfilm_scan_mark
 		  call repulsive_flux_normal
- #endif
-
-
+#endif
 #if defined(_OPENACC) 
          call moments_LB_cuda
 #else
@@ -593,98 +392,22 @@ contains
          !$acc update device(step,flip,flop)
          !$acc wait
         
-         if(lprint)then
-            
-            if(mod(step,stamp).eq.0 .or. mod(step,stamp2D).eq.0 .or. mod(step,stamp_term).eq.0)then
-               if(ldiagnostic)call start_timing2("IO","print")
-               !write(6,*)'vorrei stampare'
-#ifdef ACCNOKERNELS
-#if defined(DENSRATIO) && defined(TWOCOMPONENT)
-#ifdef WRITEPRESS
-               !$acc parallel loop independent collapse(3) present(rhoprint,velprint,pressprint,rhophi,u,v,w)
-#else
-               !$acc parallel loop independent collapse(3) present(rhoprint,velprint,rhophi,u,v,w)
-#endif
-#endif
-#if defined(TWOCOMPONENT) && !defined(DENSRATIO)
-#ifdef WRITEPRESS
-			   !$acc parallel loop independent collapse(3) present(rhoprint,velprint,pressprint,rho,selphi,u,v,w)
-#else
-               !$acc parallel loop independent collapse(3) present(rhoprint,velprint,selphi,u,v,w)
-#endif
-#endif
-#ifndef TWOCOMPONENT
-                !$acc parallel loop independent collapse(3) present(rhoprint,velprint,rho,u,v,w)
-#endif
-#else
-#if defined(DENSRATIO) && defined(TWOCOMPONENT)
-#ifdef WRITEPRESS
-               !$acc kernels present(rhoprint,velprint,pressprint,rhophi,u,v,w)
-#else
-               !$acc kernels present(rhoprint,velprint,rhophi,u,v,w)
-#endif
-#endif
-#if defined(TWOCOMPONENT) && !defined(DENSRATIO)
-#ifdef WRITEPRESS
-		       !$acc kernels present(rhoprint,velprint,pressprint,rho,selphi,u,v,w)
-#else
-			   !$acc kernels present(rhoprint,velprint,selphi,u,v,w)
-#endif
-#endif
-#ifndef TWOCOMPONENT
-			   !$acc kernels present(rhoprint,velprint,rho,u,v,w)
-#endif
-               !$acc loop independent collapse(3)  private(i,j,k)
-#endif
-               do k=1,nzskip
-                  do j=1,nyskip
-                     do i=1,nxskip
-#if defined(DENSRATIO) && defined(TWOCOMPONENT)
-						rhoprint(i,j,k)=real(rhophi(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-#ifdef WRITEPRESS                  
-                        pressprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-#endif
-#endif
-
-#if defined(TWOCOMPONENT) && !defined(DENSRATIO)
-                        rhoprint(i,j,k)=real(selphi(i*stepskip,j*stepskip,k*stepskip,flip),kind=printdb)
-#ifdef WRITEPRESS                  
-                        pressprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-#endif
-#endif
-#ifndef TWOCOMPONENT
-						rhoprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-#endif
-                        velprint(1,i,j,k)=real(u(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-						velprint(2,i,j,k)=real(v(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-						velprint(3,i,j,k)=real(w(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
-                     enddo
-                  enddo
-               enddo
-#ifdef ACCNOKERNELS
-               !$acc end parallel loop
-#else
-               !$acc end kernels
-#endif
-#if defined(WRITEPRESS)
-               !$acc update host(rhoprint,velprint,pressprint)
-#else
-               !$acc update host(rhoprint,velprint)
-#endif
-               !$acc wait
-            !endif
-
-            if(mod(step,stamp).eq.0)then
+         if(lprint)then 
+           if(mod(step,stamp).eq.0 .or. mod(step,stamp2D).eq.0 .or. mod(step,stamp_term).eq.0)then
+             if(ldiagnostic)call start_timing2("IO","print")
+             call copy_print(iframe,hfields_flip,phifields_flip)
+             !write(6,*)'vorrei stampare'
+             if(mod(step,stamp).eq.0)then
                iframe=iframe+1
                if(lvtk)then
-                  call driver_print_vtk_sync(iframe)
+                 call driver_print_vtk_sync(iframe)
                endif
                if(lraw)then
-                  call driver_print_raw_sync(iframe)
+                 call driver_print_raw_sync(iframe)
                endif
-            endif
-            !***********************************Print on files 2D************************
-            if(mod(step,stamp2D).eq.0 .and. lraw)then
+             endif
+             !***********************************Print on files 2D************************
+             if(mod(step,stamp2D).eq.0 .and. lraw)then
                iframe2D=iframe2D+1
                call driver_print_raw_sync2D(iframe2D,nplanes,ndir,npoint)
              endif
@@ -702,11 +425,11 @@ contains
                  write(6,'(a,4i6,f10.2,a,i2,9g16.8)')'stamp step : ',step, &
                   (gi/stepskip)*stepskip,(gj/stepskip)*stepskip,(gk/stepskip)*stepskip, &
                   (time_actual-time_actual_old)/real(stamp_term,kind=db)*real(nsteps-step,kind=db), &
-                       '; probe values : ',isfluid(i,j,k),rhoprint(i,j,k),velprint(1:3,i,j,k), &
+                  '; probe values : ',isfluid(i,j,k),rhoprint(i,j,k),velprint(1:3,i,j,k), &
 #if defined(INTERNAL_OBSTACLES)                       
-                       corr,dphi,global_phi_sum_ini,global_phi_sum_new-global_phi_change_new,global_phi_sum_new !real(global_count_new)
+                   corr,dphi,global_phi_sum_ini,global_phi_sum_new-global_phi_change_new,global_phi_sum_new !real(global_count_new)
 #else
-                       0.0e0                       
+                   0.0e0                       
 #endif                       
                  call flush(6)
                endif
@@ -727,66 +450,55 @@ contains
          if(ldiagnostic)call end_timing2("LB","fused")
 #ifdef TWOCOMPONENT	 
 !****************scambio phi: boundary condition periodiche su phi************************
-		 if(ldiagnostic)call start_timing2("LB","exchange_float_sendrecv")
-                 if(lbuff)call exchange_bvec_sendrecv
-		 call exchange_float_sendrecv
-		 if(ldiagnostic)call end_timing2("LB","exchange_float_sendrecv")
+		 if(ldiagnostic)call start_timing2("LB","ex_phifields_sendrecv")
+		 call exchange_phifields_sendrecv(phifields_flop)
+		 if(ldiagnostic)call end_timing2("LB","ex_phifields_sendrecv")
 		 
-         if(ldiagnostic)call start_timing2("LB","exchange_float_intpbc")
-                 if(lbuff)call exchange_bvec_intpbc
-		 call exchange_float_intpbc
-		 if(ldiagnostic)call end_timing2("LB","exchange_float_intpbc")
+         if(ldiagnostic)call start_timing2("LB","ex_phifields_intpbc")
+		 call exchange_phifields_intpbc(phifields_flop)
+		 if(ldiagnostic)call end_timing2("LB","ex_phifields_intpbc")
 		 
-         if(ldiagnostic)call start_timing2("LB","exchange_float_wait")
-                 if(lbuff)call exchange_bvec_wait
-		 call exchange_float_wait
-		 if(ldiagnostic)call end_timing2("LB","exchange_float_wait")
+         if(ldiagnostic)call start_timing2("LB","ex_phifields_wait")
+		 call exchange_phifields_wait(phifields_flop)
+		 if(ldiagnostic)call end_timing2("LB","ex_phifields_wait")
          !***********************************ora che ho phi in cornice calcolo normx normy normz************************
          if(ldiagnostic)call start_timing2("LB","compute_norm")
-         call compute_norm_interface
+         call compute_norm_interface_cuda(phifields_flop)
          if(ldiagnostic)call end_timing2("LB","compute_norm")
          !***********************************scambio normx normy normz************************
-         if(ldiagnostic)call start_timing2("LB","exchange_floatvec_sendrecv")
-		 call exchange_floatvec_sendrecv
-		 if(ldiagnostic)call end_timing2("LB","exchange_floatvec_sendrecv")
-		 if(ldiagnostic)call start_timing2("LB","exchange_floatvec_intpbc")
-		 call exchange_floatvec_intpbc
-		 if(ldiagnostic)call end_timing2("LB","exchange_floatvec_intpbc")
-		 if(ldiagnostic)call start_timing2("LB","exchange_floatvec_wait")
-		 call exchange_floatvec_wait
-		 if(ldiagnostic)call end_timing2("LB","exchange_floatvec_wait")
+         if(ldiagnostic)call start_timing2("LB","ex_auxfields_sendrecv")
+		 call exchange_auxfields_sendrecv
+		 if(ldiagnostic)call end_timing2("LB","ex_auxfields_sendrecv")
+		 if(ldiagnostic)call start_timing2("LB","ex_auxfields_intpbc")
+		 call exchange_auxfields_intpbc
+		 if(ldiagnostic)call end_timing2("LB","ex_auxfields_intpbc")
+		 if(ldiagnostic)call start_timing2("LB","ex_auxfields_wait")
+		 call exchange_auxfields_wait
+		 if(ldiagnostic)call end_timing2("LB","ex_auxfields_wait")
          
-         if(ldiagnostic)call start_timing2("LB","force_2c")
-         call compute_laplacian_phi
-         if(ldiagnostic)call end_timing2("LB","force_2c")
 #endif
  
 		 !***********************************pbcs boundary conditions ********************************!
-		 !call pbcs
-         if(ldiagnostic)call start_timing2("LB","pbcs")
-         call exchange_pops_sendrecv
-         call exchange_pops_intpbc
-         call exchange_pops_wait
-         if(ldiagnostic)call end_timing2("LB","pbcs")
+         if(ldiagnostic)call start_timing2("LB","ex_hfields_sendrecv")
+		 call exchange_hfields_sendrecv
+		 if(ldiagnostic)call end_timing2("LB","ex_hfields_sendrecv")
+		 if(ldiagnostic)call start_timing2("LB","ex_hfields_intpbc")
+		 call exchange_hfields_intpbc
+		 if(ldiagnostic)call end_timing2("LB","ex_hfields_intpbc")
+		 if(ldiagnostic)call start_timing2("LB","ex_hfields_wait")
+		 call exchange_hfields_wait
+		 if(ldiagnostic)call end_timing2("LB","ex_hfields_wait")
          !************ thread-safe boundary condition setup
          if(ldiagnostic)call start_timing2("LB","bcs_TSLB")
          call bcs_mesoscopic_all  
          if(ldiagnostic)call end_timing2("LB","bcs_TSLB") 
          !***********************************moments************************
-#ifdef DENSRATIO
-         if(ldiagnostic)call start_timing2("LB","moments_phi")
-         call compute_densityratio
-         if(ldiagnostic)call end_timing2("LB","moments_phi")
-#endif
          if(ldiagnostic)call start_timing2("LB","moments")
-
-
- #ifdef REPULSIVE_FLUX
+         
+#ifdef REPULSIVE_FLUX
 		  call thinfilm_scan_mark
 		  call repulsive_flux_normal
- #endif
-
-
+#endif
 #if defined(_OPENACC) 
          call moments_LB_cuda
 #else
@@ -821,13 +533,9 @@ contains
       !***********************************write restart************************
       if(lwriterestart)then
 #ifdef TWOCOMPONENT
-      !$acc update host(rho,u,v,w,pxx,pxy,pxz,pyy,pyz,pzz,selphi)
-      !$wait
-      call write_restart_2c(iframe,iframe2D)
+      call write_restart_2c(iframe,iframe2D,hfields_flop,phifields_flop)
 #else      
-      !$acc update host(rho,u,v,w,pxx,pxy,pxz,pyy,pyz,pzz)
-      !$wait
-      call write_restart_1c(iframe,iframe2D)
+      call write_restart_1c(iframe,iframe2D,hfields_flop)
 #endif
       endif
 120   continue

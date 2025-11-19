@@ -6,6 +6,8 @@
 #define JAQMIN
 #define INTERFACE_INCOMP
 
+#define SMAGORINSKI
+
 #define noINTERNAL_OBSTACLES
 
 
