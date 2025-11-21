@@ -5,6 +5,7 @@
 #define noWRITEPRESS
 #define JAQMIN
 #define INTERFACE_INCOMP
+#define REPULSIVE_FLUX
 
 #define SMAGORINSKI
 

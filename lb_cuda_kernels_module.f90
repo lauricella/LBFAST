@@ -775,18 +775,21 @@ contains
       
 	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
 
-	  auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))=grad_fix/(mod_grad+1.0e-9)
-	  auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))=grad_fiy/(mod_grad+1.0e-9)
-	  auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))=grad_fiz/(mod_grad+1.0e-9)
+	  auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))= &
+	   grad_fix/(mod_grad+1.0e-9_db)
+	  auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))= &
+	   grad_fiy/(mod_grad+1.0e-9_db)
+	  auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))= &
+	   grad_fiz/(mod_grad+1.0e-9_db)
 	  
 	  auxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))=mod_grad
 
 	  auxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9))
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9_db))
 	  auxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9))
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9_db))
 	  auxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9))
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9_db))
 	   
       !lap_phi here
       locauxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))= &
@@ -808,7 +811,341 @@ contains
       return
       
    endsubroutine compute_norm_interface_kernel 
-  
+   
+   subroutine thinfilm_scan_mark_cuda(phifields_s)
+
+      implicit none
+      real(kind=db), allocatable, dimension(:) :: phifields_s
+ 
+   
+#if defined(TWOCOMPONENT) && defined(REPULSIVE_FLUX)
+      !$acc wait
+      istat = cudaDeviceSynchronize
+
+
+!$acc host_data use_device(flop,nx,ny,nz,coords,q_th,win,cosOppT,pwr,A_rep,isfluid,rep_mask &
+       !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+       call thinfilm_scan_mark_kernel<<<dimGrid, dimBlock>>>(flop,nx,ny,nz,coords,q_th,win,cosOppT,pwr,A_rep,isfluid, &
+        rep_mask,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+!$acc end host_data
+      istat = cudaDeviceSynchronize
+      istat = cudaGetLastError()
+      if (istat/= cudaSuccess) then
+        if(myrank==0)write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
+        if(myrank==0)write(6,*) cudaGetErrorString(istat)
+        call doerror(6,'ERROR in moments_LB_cuda')
+      endif
+      !$acc wait        
+#endif
+
+   
+      return
+      
+   endsubroutine thinfilm_scan_mark_cuda
+   
+   attributes(global) subroutine thinfilm_scan_mark_kernel(flop,nx,ny,nz,coords,q_th,win,cosOppT,pwr,A_rep,isfluid, &
+    rep_mask,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields_s,locauxfields_s)
+      implicit none
+      
+      integer :: flop,nx,ny,nz
+      integer, dimension(3) :: coords
+      real(kind=db) :: q_th,win,cosOppT,pwr,A_rep	
+      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
+      integer(kind=isf), dimension(1:nx,1:ny,1:nz) :: rep_mask
+      integer :: ntotphifields,ntotauxfields,ntotlocauxfields
+      real(kind=db), dimension(ntotphifields) :: phifields_s
+      real(kind=db), dimension(ntotauxfields) :: auxfields_s
+      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
+      
+      integer :: i,j,k,gi,gj,gk,myblock,ii,jj,kk,iii,jjj,kkk
+      
+      integer :: di,dj,dk
+	  integer :: diii,djjj,dkkk
+	  real(kind=db) :: nix,niy,niz, dotn, qloc, qneig, face
+	  real(kind=db) :: best_r2, r2, best_face
+	  integer :: iii_best, jjj_best, kkk_best
+	  logical :: found
+	  real(kind=db), parameter :: eps = 1.0e-12_db
+	  integer :: oii,ojj,okk
+      integer :: oxblock,oyblock,ozblock,omyblock
+      
+      i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
+      j = (blockIdx%y-1) * TILE_DIMy_d + threadIdx%y
+      k = (blockIdx%z-1) * TILE_DIMz_d + threadIdx%z
+      
+      if(abs(isfluid(i,j,k)) .ne. 1)return
+      
+      gi=nx*coords(1)+i
+      gj=ny*coords(2)+j
+      gk=nz*coords(3)+k
+      
+      myblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1
+      
+      ii=threadIdx%x
+      jj=threadIdx%y
+      kk=threadIdx%z
+      
+      rep_mask(i,j,k) = 0
+      locauxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)) = 0
+      locauxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)) = 0
+      locauxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)) = 0
+
+	  ! gate: interfacial cell (use clamped phi for q)
+      qloc = phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+      qloc = min(max(qloc,0.0_db),1.0_db)
+      qloc = qloc*(1.0_db - qloc)
+      if (qloc < q_th) return
+
+      nix = auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields)) 
+      niy = auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))
+      niz = auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))
+
+      best_r2   = HUGE(1.0_db)
+      best_face = -1.0_db
+      found     = .false.
+
+      do di = -win, win
+        do dj = -win, win
+          do dk = -win, win
+                  if (di==0 .and. dj==0 .and. dk==0) cycle
+
+				  ! ---- 
+				  iii = i + di
+				  jjj = j + dj
+				  kkk = k + dk
+				  
+				  if(abs(isfluid(iii,jjj,kkk)) .ne. 1)cycle
+
+				  ! ---- minimum-image index differences
+				  diii = iii - i
+				 
+				  djjj = jjj - j
+				  
+				  dkkk = kkk - k
+				  
+                  
+				  r2 = real(diii,db)*real(diii,db) + real(djjj,db)*real(djjj,db) + real(dkkk,db)*real(dkkk,db)
+				  if (r2 < eps) cycle
+
+				  ! ---- neighbor interfacial gate (clamped) + similarity
+				  
+				  oxblock=(iii+2*TILE_DIMx_d-1)/TILE_DIMx_d   
+                  oyblock=(jjj+2*TILE_DIMy_d-1)/TILE_DIMy_d     
+                  ozblock=(kkk+2*TILE_DIMz_d-1)/TILE_DIMz_d 
+                  omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+                  oii=iii-oxblock*TILE_DIMx_d+2*TILE_DIMx_d
+                  ojj=jjj-oyblock*TILE_DIMy_d+2*TILE_DIMy_d
+                  okk=kkk-ozblock*TILE_DIMz_d+2*TILE_DIMz_d
+				  
+				  qneig = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+				  qneig = min(max(qneig,0.0_db),1.0_db)
+				  qneig = qneig*(1.0_db - qneig)
+				  if ( (qneig < q_th) .or. (abs(qneig - qloc) > 0.1_db*max(qloc,1.0e-12_db)) ) cycle
+
+				  ! ---- facing condition (opposite normals): dotn <= cosOppT
+				  dotn = nix*auxfields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields)) &
+				   + niy*auxfields_s(idx5d(oii,ojj,okk,2,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields)) &
+				   + niz*auxfields_s(idx5d(oii,ojj,okk,3,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields)) 
+				  if (dotn > cosOppT) cycle
+				  face = 0.5_db*(1.0_db - dotn)   ! in [0,1]
+
+				  ! ---- pick nearest; tie-break by larger 'face'
+				  if (r2 < best_r2 - 1.0e-14_db) then
+					best_r2 = r2; best_face = face
+					iii_best = iii; jjj_best = jjj; kkk_best = kkk
+					found   = .true.
+				  else if (abs(r2 - best_r2) <= 1.0e-14_db) then
+					if (face > best_face) then
+					  best_face = face
+					  iii_best = iii; jjj_best = jjj; kkk_best = kkk
+					  found   = .true.
+					end if
+				  end if
+
+				end do
+			  end do
+			end do
+
+			if (found) then
+			  locauxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)) = iii_best
+			  locauxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)) = jjj_best
+			  locauxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)) = kkk_best
+			  rep_mask(i,j,k) = 1
+			end if
+   
+      return
+      
+   endsubroutine thinfilm_scan_mark_kernel
+   
+   subroutine repulsive_flux_normal_cuda(phifields_s)
+
+      implicit none
+      real(kind=db), allocatable, dimension(:) :: phifields_s
+ 
+   
+#if defined(TWOCOMPONENT) && defined(REPULSIVE_FLUX)
+      !$acc wait
+      istat = cudaDeviceSynchronize
+
+
+!$acc host_data use_device(flop,nx,ny,nz,coords,width,q_th,win,cosOppT,pwr,A_rep,isfluid,rep_mask &
+       !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+       call repulsive_flux_normal_kernel<<<dimGrid, dimBlock>>>(flop,nx,ny,nz,coords,width,q_th,win,cosOppT,pwr,A_rep,isfluid, &
+        rep_mask,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+!$acc end host_data
+      istat = cudaDeviceSynchronize
+      istat = cudaGetLastError()
+      if (istat/= cudaSuccess) then
+        if(myrank==0)write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
+        if(myrank==0)write(6,*) cudaGetErrorString(istat)
+        call doerror(6,'ERROR in moments_LB_cuda')
+      endif
+      !$acc wait        
+#endif
+
+   
+      return
+      
+   endsubroutine repulsive_flux_normal_cuda
+   
+   attributes(global) subroutine repulsive_flux_normal_kernel(flop,nx,ny,nz,coords,width,q_th,win,cosOppT,pwr,A_rep,isfluid, &
+    rep_mask,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields_s,locauxfields_s)
+      implicit none
+      
+      integer :: flop,nx,ny,nz
+      integer, dimension(3) :: coords
+      real(kind=db) :: width,q_th,win,cosOppT,pwr,A_rep	
+      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
+      integer(kind=isf), dimension(1:nx,1:ny,1:nz) :: rep_mask
+      integer :: ntotphifields,ntotauxfields,ntotlocauxfields
+      real(kind=db), dimension(ntotphifields) :: phifields_s
+      real(kind=db), dimension(ntotauxfields) :: auxfields_s
+      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
+      
+      integer :: i,j,k,gi,gj,gk,myblock,ii,jj,kk,iii,jjj,kkk
+      
+      real(kind=db) :: q1,q2,qpair,qcl,loc_phi,loc_phi2
+	  real(kind=db) :: nx1,ny1,nz1, nx2,ny2,nz2
+	  real(kind=db) :: dx,dy,dz, r, rinv, face, arg_arcosh, ach, Wfilm, wdth
+	  real(kind=db) :: nsx,nsy,nsz, nsmag,alpha,cap,scales
+	  real(kind=db), parameter :: eps = 1.0e-9_db
+      
+	  integer :: oii,ojj,okk
+      integer :: oxblock,oyblock,ozblock,omyblock
+      
+      i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
+      j = (blockIdx%y-1) * TILE_DIMy_d + threadIdx%y
+      k = (blockIdx%z-1) * TILE_DIMz_d + threadIdx%z
+      
+      if(abs(isfluid(i,j,k)) .ne. 1)return
+      
+      gi=nx*coords(1)+i
+      gj=ny*coords(2)+j
+      gk=nz*coords(3)+k
+      
+      myblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1
+      
+      ii=threadIdx%x
+      jj=threadIdx%y
+      kk=threadIdx%z
+
+	  locauxfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))=0.0_db
+	  locauxfields_s(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))=0.0_db
+	  locauxfields_s(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))=0.0_db
+	
+	  if (rep_mask(i,j,k) .ne. 1) return
+      
+      loc_phi=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+      
+	  q1 = loc_phi*(1.0_db - loc_phi)
+	
+	  if (q1 <= eps) return
+
+	  iii = int(locauxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)))
+	  jjj = int(locauxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)))
+	  kkk = int(locauxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)))
+
+	  !line-of-centers
+	  dx = real(iii - i,db)
+	  dy = real(jjj - j,db)
+	  dz = real(kkk - k,db)
+	  r  = sqrt(dx*dx + dy*dy + dz*dz)
+	  if (r <= eps) return
+	  rinv = 1.0_db / r
+	  dx = dx*rinv; dy = dy*rinv; dz = dz*rinv      ! u
+
+	  !normals
+	  nx1 = auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields)) 
+      ny1 = auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))
+      nz1 = auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))
+	  
+	  
+	  oxblock=(iii+2*TILE_DIMx_d-1)/TILE_DIMx_d   
+      oyblock=(jjj+2*TILE_DIMy_d-1)/TILE_DIMy_d     
+      ozblock=(kkk+2*TILE_DIMz_d-1)/TILE_DIMz_d 
+      omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+      oii=iii-oxblock*TILE_DIMx_d+2*TILE_DIMx_d
+      ojj=jjj-oyblock*TILE_DIMy_d+2*TILE_DIMy_d
+      okk=kkk-ozblock*TILE_DIMz_d+2*TILE_DIMz_d
+                  
+	  nx2 = auxfields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))
+	  ny2 = auxfields_s(idx5d(oii,ojj,okk,2,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))
+	  nz2 = auxfields_s(idx5d(oii,ojj,okk,3,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))
+
+	  !facing factor in [0,1]
+	  face = max( 0.0_db, -(nx1*nx2 + ny1*ny2 + nz1*nz2) )
+
+	  if (face <= eps) return
+
+	  !symmetric normal: bisector n1 - n2 (for facing sheets)
+	  nsx = nx1 - nx2
+	  nsy = ny1 - ny2
+	  nsz = nz1 - nz2
+	  nsmag = sqrt(nsx*nsx + nsy*nsy + nsz*nsz)
+	  if (nsmag <= eps) then
+	    !fallback to line-of-centers
+	    nsx = dx; nsy = dy; nsz = dz
+	  else
+	    nsx = nsx / nsmag
+	    nsy = nsy / nsmag
+	    nsz = nsz / nsmag
+	  end if
+
+	  !orient so u·nsym >= 0  (partner will flip)
+	  if (dx*nsx + dy*nsy + dz*nsz < 0.0_db) then
+	    nsx = -nsx; nsy = -nsy; nsz = -nsz
+	  end if
+
+	  !symmetric magnitude from qpair
+	  loc_phi2=phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+	  q2 = loc_phi2*(1.0_db - loc_phi2)
+	  qpair = 0.5_db*(q1 + q2)
+	  qcl   = min( max(qpair, eps), 0.25_db - eps )
+
+	  arg_arcosh = 1.0_db / ( 2.0_db*sqrt(qcl) )
+	  if (arg_arcosh <= 1.0_db) return
+
+	  ach   = log( arg_arcosh + sqrt(arg_arcosh*arg_arcosh - 1.0_db) )
+	  Wfilm = width * ach
+	  if (Wfilm <= 0.0_db) return
+
+	  wdth  = 1.0_db /(1.0 + wfilm**4.0) ! ( 1.0_db + (1.0_db/Wfilm)**4 )
+
+	  !final purely-normal, symmetric repulsive flux
+	  dx = A_rep * wdth * qcl * face * nsx
+	  dy = A_rep * wdth * qcl * face * nsy
+	  dz = A_rep * wdth * qcl * face * nsz
+	
+	  alpha = 1.5_db
+	  cap   = alpha * (abs(dx)+abs(dy)+abs(dz)) 
+	  scales = min(1.0_db, loc_phi / max(cap, 1.0e-9_db))
+	  
+	  locauxfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)) = dx * scales
+	  locauxfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)) = dy * scales
+	  locauxfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)) = dz * scales
+       
+ end subroutine repulsive_flux_normal_kernel
+       
  attributes(global) subroutine moments_LB_kernel(flop,nx,ny,nz,coords,isfluid,f &
        ,rho,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz,fux,fvy,fwz &
 #ifdef TWOCOMPONENT

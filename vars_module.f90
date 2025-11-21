@@ -237,15 +237,17 @@ module vars
    real(kind=db), allocatable, dimension(:) :: phifields_flip,phifields_flop  !allocate phi fields flip and flop
    real(kind=db), allocatable, dimension(:) :: auxfields !allocate aux fields
    real(kind=db), allocatable, dimension(:) :: locauxfields !allocate aux fields
+   
    integer, parameter :: nhfields=10
    integer, parameter :: nphifields=1
 #ifdef TWOCOMPONENT
-#ifdef REPULSIVE_FLUX
-   integer, parameter :: nauxfields=10    ! 3 norm unit vec ! 1 modgrad ! 3 arr_ ! 3 Jx vector 
-#else
    integer, parameter :: nauxfields=7    ! 3 norm unit vec ! 1 modgrad ! 3 arr_ 
+#ifdef REPULSIVE_FLUX
+   integer, parameter :: nlocauxfields=10 ! 3 force components !1 lap_phi ! 3 pair_i ! 3 Jx vector 
+#else
+   integer, parameter :: nlocauxfields=4 ! 3 force components !1 lap_phi
 #endif
-   integer, parameter :: nlocauxfields=4 ! 3 force components !1 lap_phi  
+   
 #else   
    integer, parameter :: nauxfields=0    ! 
    integer, parameter :: nlocauxfields=3 ! 3 force components 
@@ -269,7 +271,7 @@ module vars
 #endif
 
 #ifdef REPULSIVE_FLUX
-	integer, allocatable,dimension(:,:,:) :: rep_mask
+	integer(kind=isf), allocatable,dimension(:,:,:) :: rep_mask
 	integer,allocatable,dimension(:,:,:) :: pair_i,pair_j,pair_k
 	real(kind=db),allocatable,dimension(:,:,:) :: Jx,Jy,Jz
 	real(kind=db) :: q_th,win,cosOppT,pwr,A_rep	

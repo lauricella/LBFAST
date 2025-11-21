@@ -42,7 +42,7 @@ module integrator_module
     moments_lb,fused_lb
 #if defined(_OPENACC)        
    use lb_cuda_kernels, only : moments_LB_cuda,fused_lb_cuda,test_LB_cuda, &
-    compute_norm_interface_cuda
+    compute_norm_interface_cuda,thinfilm_scan_mark_cuda,repulsive_flux_normal_cuda
 #endif
    use profiling_m,   only : timer_init,itime_start, &
       startPreprocessingTime,print_timing_partial, &
@@ -214,8 +214,8 @@ contains
       !***********************************compute moments***********************
 	  if(ldiagnostic)call start_timing2("LB","moments")
 #ifdef REPULSIVE_FLUX
-      call thinfilm_scan_mark
-	  call repulsive_flux_normal
+      call thinfilm_scan_mark_cuda(phifields_flop)
+	  call repulsive_flux_normal_cuda(phifields_flop)
 #endif      
 #if defined(_OPENACC)
       call moments_LB_cuda
@@ -336,13 +336,13 @@ contains
  
 		 !***********************************pbcs boundary conditions ********************************!
          if(ldiagnostic)call start_timing2("LB","ex_hfields_sendrecv")
-		 call exchange_hfields_sendrecv
+		 call exchange_hfields_sendrecv(hfields_flip)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_sendrecv")
 		 if(ldiagnostic)call start_timing2("LB","ex_hfields_intpbc")
-		 call exchange_hfields_intpbc
+		 call exchange_hfields_intpbc(hfields_flip)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_intpbc")
 		 if(ldiagnostic)call start_timing2("LB","ex_hfields_wait")
-		 call exchange_hfields_wait
+		 call exchange_hfields_wait(hfields_flip)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_wait")
          !************ thread-safe boundary condition setup
          if(ldiagnostic)call start_timing2("LB","bcs_TSLB")
@@ -351,8 +351,8 @@ contains
          !***********************************moments************************
          if(ldiagnostic)call start_timing2("LB","moments")
 #ifdef REPULSIVE_FLUX
-		  call thinfilm_scan_mark
-		  call repulsive_flux_normal
+		  call thinfilm_scan_mark_cuda(phifields_flip)
+		  call repulsive_flux_normal_cuda(phifields_flip)
 #endif
 #if defined(_OPENACC) 
          call moments_LB_cuda
@@ -480,13 +480,13 @@ contains
  
 		 !***********************************pbcs boundary conditions ********************************!
          if(ldiagnostic)call start_timing2("LB","ex_hfields_sendrecv")
-		 call exchange_hfields_sendrecv
+		 call exchange_hfields_sendrecv(hfields_flop)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_sendrecv")
 		 if(ldiagnostic)call start_timing2("LB","ex_hfields_intpbc")
-		 call exchange_hfields_intpbc
+		 call exchange_hfields_intpbc(hfields_flop)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_intpbc")
 		 if(ldiagnostic)call start_timing2("LB","ex_hfields_wait")
-		 call exchange_hfields_wait
+		 call exchange_hfields_wait(hfields_flop)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_wait")
          !************ thread-safe boundary condition setup
          if(ldiagnostic)call start_timing2("LB","bcs_TSLB")
@@ -496,8 +496,8 @@ contains
          if(ldiagnostic)call start_timing2("LB","moments")
          
 #ifdef REPULSIVE_FLUX
-		  call thinfilm_scan_mark
-		  call repulsive_flux_normal
+		  call thinfilm_scan_mark_cuda(phifields_flop)
+		  call repulsive_flux_normal_cuda(phifields_flop)
 #endif
 #if defined(_OPENACC) 
          call moments_LB_cuda

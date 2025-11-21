@@ -17,7 +17,7 @@ module mpi_template
 #endif
 #endif
       normx,normy,normz,arr_x, arr_y, arr_z, u,v,w,pxx,pxy,pxz,pyy,pyz,pzz,physic_type, &
-      idx5,nhfields,nphifields, &
+      idx5,nhfields,nphifields,auxfields,nauxfields, &
       TILE_DIMx,TILE_DIMy,TILE_DIMz,TILE_DIM,nxblock,nyblock,nzblock,nxyblock,nblocks
 #ifdef _OPENACC
    use openacc
@@ -82,8 +82,6 @@ module mpi_template
       oppmpi=(/0, 2, 1, 4, 3, 6, 5, 8, 7,10, 9,12,11,14,13,16,15,18,17,20,19,22,21,24,23,26,25/)
 
    
-
-   
    integer, save :: nlinks_faces,nlinks_edges,nlinks_corners,nlinks_max
    integer, save :: nfaces,nedges,ncorners
    logical, save :: lintbb=.false.
@@ -110,52 +108,14 @@ module mpi_template
    integer, allocatable, save, dimension(:) :: num_links_pops
 
    integer, dimension(13) :: f_datampi,fvec_datampi,b_datampi,i_datampi
-   integer, parameter :: num_f_datampi=1
-#ifdef EXCHANGEVEL
-#if defined(DENSRATIO) && defined(TWOCOMPONENT)
-#ifdef REPULSIVE_FLUX
-	integer, parameter :: num_fvec_datampi=13 !perchè devo passare anche modgrad e arrx,y,z
-#else
-   integer, parameter :: num_fvec_datampi=10 !perchè devo passare anche modgrad e arrx,y,z
-#endif
-#endif
-#if !defined(DENSRATIO) && defined(TWOCOMPONENT)
-#ifdef REPULSIVE_FLUX
-	integer, parameter :: num_fvec_datampi=12 !perchè devo passare anche modgrad e arrx,y,z
-#else
-   integer, parameter :: num_fvec_datampi=9 !passo solo normx/y/z arrx,y,z
-#endif
-#endif
-#if !defined(DENSRATIO) && !defined(TWOCOMPONENT)
-   integer, parameter :: num_fvec_datampi=3 !non passo nulla
-#endif
-#else
-#ifdef TWOCOMPONENT
-#ifdef DENSRATIO
-#ifdef REPULSIVE_FLUX
-	integer, parameter :: num_fvec_datampi=10 !perchè devo passare anche modgrad e arrx,y,z
-#else
-   integer, parameter :: num_fvec_datampi=7 !perchè devo passare anche modgrad e arrx,y,z. 
-#endif
-#else
-#ifdef REPULSIVE_FLUX
-	integer, parameter :: num_fvec_datampi=9 !perchè devo passare anche modgrad e arrx,y,z
-#else
-   integer, parameter :: num_fvec_datampi=6 !passo solo normx/y/z
-#endif
-#endif
-#else
-   integer, parameter :: num_fvec_datampi=0 !non passo nulla
-#endif
-#endif
-
-   integer, parameter :: num_b_datampi=0 ! nel caso incrementare per piu' componenti(temperatura umidità...) da passare sulla cornice estesa
-  
-
-  
    
-   !real(kind=db), allocatable, save, dimension(:) :: send_buffmpi,recv_buffmpi
-  
+   integer, parameter :: num_hfields_datampi=10 
+#ifdef TWOCOMPONENT
+   integer, parameter :: num_auxfields_datampi=7    ! 3 norm unit vec ! 1 modgrad ! 3 arr_ 
+#else
+   integer, parameter :: num_auxfields_datampi=0
+#endif
+   integer, parameter :: num_phifields_datampi=1
 
    real(kind=db), allocatable, save, dimension(:) :: f_send_buffmpi,f_recv_buffmpi
    integer, dimension(nlinksmpi), save :: f_nbuffmpi_send,f_nbuffmpi_recv
@@ -1892,13 +1852,13 @@ contains
             (f_recv_extr(6,l)-f_recv_extr(5,l)+1)
          f_num_extr(l)=(f_recv_extr(2,l)-f_recv_extr(1,l)+1)* &
             (f_recv_extr(4,l)-f_recv_extr(3,l)+1)* &
-            (f_recv_extr(6,l)-f_recv_extr(5,l)+1)*num_f_datampi
+            (f_recv_extr(6,l)-f_recv_extr(5,l)+1)*num_phifields_datampi
          fvec_num_extr(l)=(fvec_recv_extr(2,l)-fvec_recv_extr(1,l)+1)* &
             (fvec_recv_extr(4,l)-fvec_recv_extr(3,l)+1)* &
-            (fvec_recv_extr(6,l)-fvec_recv_extr(5,l)+1)*num_fvec_datampi
+            (fvec_recv_extr(6,l)-fvec_recv_extr(5,l)+1)*num_auxfields_datampi
          b_num_extr(l)=(b_recv_extr(2,l)-b_recv_extr(1,l)+1)* &
             (b_recv_extr(4,l)-b_recv_extr(3,l)+1)* &
-            (b_recv_extr(6,l)-b_recv_extr(5,l)+1)*num_b_datampi
+            (b_recv_extr(6,l)-b_recv_extr(5,l)+1)*num_hfields_datampi
       enddo
 
 
@@ -2403,6 +2363,12 @@ contains
 
       integer :: lmio,oi,oj,ok
       integer :: imin,imax,jmin,jmax,kmin,kmax
+      integer :: ii,jj,kk
+      integer :: oii,ojj,okk
+      integer :: oxblock,oyblock,ozblock,omyblock
+      integer :: xblock,yblock,zblock,myblock
+      
+      if(nauxfields==0)return
 
       do lmio=1,nlinksmpi
          if(.not. lintpbc_dir(lmio))cycle
@@ -2413,42 +2379,14 @@ contains
          kmin=fvec_recv_extr(5,lmio)
          kmax=fvec_recv_extr(6,lmio)
 #ifdef ACCNOKERNELS
-#ifdef TWOCOMPONENT
-#ifdef DENSRATIO
-         !$acc parallel loop independent collapse(3) present(intpbc_dir,modgrad, arr_x, arr_y, arr_z,normx,normy,normz &
-#ifdef REPULSIVE_FLUX
-		 !$acc& ,Jx,Jy,Jz &
-#endif
-		!$acc& ) private(oi,oj,ok)
+         !$acc parallel loop independent collapse(3) present(intpbc_dir,auxfields) &
+         !$acc& private(ii,jj,kk,oi,oj,ok,oii,ojj,okk,oxblock,oyblock,ozblock, &
+         !$acc& omyblock,xblock,yblock,zblock,myblock)
 #else
-         !$acc parallel loop independent collapse(3) present(intpbc_dir, arr_x, arr_y, arr_z,normx,normy,normz &
-#ifdef REPULSIVE_FLUX
-		 !$acc& ,Jx,Jy,Jz &
-#endif
-		!$acc& ) private(oi,oj,ok)
-#endif
-#else
-         !$acc parallel loop independent collapse(3) present(intpbc_dir) private(oi,oj,ok)
-#endif
-#else
-#ifdef TWOCOMPONENT
-#ifdef DENSRATIO
-         !$acc kernels present(intpbc_dir,modgrad, arr_x, arr_y, arr_z,normx,normy,normz &
-#ifdef REPULSIVE_FLUX
-		 !$acc& ,Jx,Jy,Jz &
-#endif
-		!$acc& )
-#else
-         !$acc kernels present(intpbc_dir, arr_x, arr_y, arr_z,normx,normy,normz &
-#ifdef REPULSIVE_FLUX
-		 !$acc& ,Jx,Jy,Jz &
-#endif
-		!$acc& )
-#endif
-#else
-         !$acc kernels present(intpbc_dir)
-#endif
-         !$acc loop independent collapse(3)  private(i,j,k,oi,oj,ok)
+         !$acc kernels present(intpbc_dir,auxfields)
+         !$acc loop independent collapse(3)  private(i,j,k,ii,jj,kk, &
+         !$acc& oi,oj,ok,oii,ojj,okk,oxblock,oyblock,ozblock, &
+         !$acc& omyblock,xblock,yblock,zblock,myblock)
 #endif
          do k=kmin,kmax
             do j=jmin,jmax
@@ -2459,40 +2397,45 @@ contains
                   if(intpbc_dir(1,lmio))oi=mod(oi+nx-1,nx)+1
                   if(intpbc_dir(2,lmio))oj=mod(oj+ny-1,ny)+1
                   if(intpbc_dir(3,lmio))ok=mod(ok+nz-1,nz)+1
+                  
+                  oxblock=(oi+2*TILE_DIMx-1)/TILE_DIMx   
+                  oyblock=(oj+2*TILE_DIMy-1)/TILE_DIMy     
+                  ozblock=(ok+2*TILE_DIMz-1)/TILE_DIMz 
+                  omyblock=(oxblock-1)+(oyblock-1)*nxblock+(ozblock-1)*nxyblock+1
+                  oii=oi-oxblock*TILE_DIMx+2*TILE_DIMx
+                  ojj=oj-oyblock*TILE_DIMy+2*TILE_DIMy
+                  okk=ok-ozblock*TILE_DIMz+2*TILE_DIMz
+                  
+                  xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+                  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+                  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+                  myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+                  ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+                   
 #ifdef TWOCOMPONENT
-#ifdef DENSRATIO
-#ifdef REPULSIVE_FLUX
-				  Jx(i,j,k)=Jx(oi,oj,ok)
-                  Jy(i,j,k)=Jy(oi,oj,ok)
-                  Jz(i,j,k)=Jz(oi,oj,ok)
-#endif
-                  normx(i,j,k)=normx(oi,oj,ok)
-                  normy(i,j,k)=normy(oi,oj,ok)
-                  normz(i,j,k)=normz(oi,oj,ok)
-				  
-				  arr_x(i,j,k)=arr_x(oi,oj,ok)
-                  arr_y(i,j,k)=arr_y(oi,oj,ok)
-                  arr_z(i,j,k)=arr_z(oi,oj,ok)
-                  modgrad(i,j,k)=modgrad(oi,oj,ok)
-#else
-#ifdef REPULSIVE_FLUX
-				  Jx(i,j,k)=Jx(oi,oj,ok)
-                  Jy(i,j,k)=Jy(oi,oj,ok)
-                  Jz(i,j,k)=Jz(oi,oj,ok)
-#endif
-                  normx(i,j,k)=normx(oi,oj,ok)
-                  normy(i,j,k)=normy(oi,oj,ok)
-                  normz(i,j,k)=normz(oi,oj,ok)
-
-				  arr_x(i,j,k)=arr_x(oi,oj,ok)
-                  arr_y(i,j,k)=arr_y(oi,oj,ok)
-                  arr_z(i,j,k)=arr_z(oi,oj,ok)
-#endif
-#endif
-#ifdef EXCHANGEVEL
-                  u(i,j,k)=u(oi,oj,ok)
-                  v(i,j,k)=v(oi,oj,ok)
-                  w(i,j,k)=w(oi,oj,ok)
+                  auxfields(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
+                   auxfields(idx5(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+                   
+                  auxfields(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
+                   auxfields(idx5(oii,ojj,okk,2,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+                   
+                  auxfields(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
+                   auxfields(idx5(oii,ojj,okk,3,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+                   
+                  auxfields(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
+                   auxfields(idx5(oii,ojj,okk,4,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+                   
+                  auxfields(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
+                   auxfields(idx5(oii,ojj,okk,5,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+                  
+                  auxfields(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
+                   auxfields(idx5(oii,ojj,okk,6,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+                  
+                  auxfields(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
+                   auxfields(idx5(oii,ojj,okk,7,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+                    
 #endif
                enddo
             enddo
@@ -2511,10 +2454,12 @@ contains
       implicit none
 
       integer :: l,ll,myoffset,tag,ierr,mm
-
+      
 #ifndef MPI
       return
 #endif
+      if(nauxfields==0)return
+      
       do l=1,nlinksmpi
          if(lsend_dir(l))call packaging_auxfields_buffmpi(l)
       enddo
@@ -2557,6 +2502,7 @@ contains
 #else
       return
 #endif
+      if(nauxfields==0)return
 #ifdef MPI
 
       allocate(myierr(nfvec_reqs))
@@ -2585,6 +2531,7 @@ contains
       integer :: i,j,k,l,ll=0,m1,m2,m3
       integer :: imin,imax,jmin,jmax,kmin,kmax
       integer :: idx=0
+      integer :: ii,jj,kk,xblock,yblock,zblock,myblock
 
       myoffset=fvec_nbuffmpi_send(lmio)
       m1=fvec_send_extr(2,lmio)-fvec_send_extr(1,lmio)+1
@@ -2597,304 +2544,66 @@ contains
       kmin=fvec_send_extr(5,lmio)
       kmax=fvec_send_extr(6,lmio)
 #ifdef ACCNOKERNELS
-#ifdef TWOCOMPONENT
-#ifdef DENSRATIO
-      !$acc parallel loop independent collapse(3) present(fvec_send_buffmpi,fvec_send_extr,modgrad,arr_x,arr_y,arr_z,normx,normy,normz &
-#ifdef REPULSIVE_FLUX
-	  !$acc& ,Jx,Jy,Jz &
-#endif
-      !$acc& ) private(ll,idx)
+      !$acc parallel loop independent collapse(3) present(fvec_send_buffmpi,fvec_send_extr,auxfields) &
+      !$acc& private(ll,idx,ii,jj,kk,xblock,yblock,zblock,myblock)
 #else
-      !$acc parallel loop independent collapse(3) present(fvec_send_buffmpi,fvec_send_extr,arr_x,arr_y,arr_z,normx,normy,normz &
-#ifdef REPULSIVE_FLUX
-	  !$acc& ,Jx,Jy,Jz &
-#endif
-      !$acc& ) private(ll,idx)
-#endif
-#else
-      !$acc parallel loop independent collapse(3) present(fvec_send_buffmpi,fvec_send_extr) private(ll,idx)
-#endif
-#else
-#ifdef TWOCOMPONENT
-#ifdef DENSRATIO
-      !$acc kernels present(fvec_send_buffmpi,fvec_send_extr,modgrad,arr_x,arr_y,arr_z,normx,normy,normz &
-#ifdef REPULSIVE_FLUX
-	  !$acc& ,Jx,Jy,Jz &
-#endif
-      !$acc& )
-#else
-      !$acc kernels present(fvec_send_buffmpi,fvec_send_extr,arr_x,arr_y,arr_z,normx,normy,normz &
-#ifdef REPULSIVE_FLUX
-	  !$acc& ,Jx,Jy,Jz &
-#endif
-      !$acc& )
-#endif
-#else
-      !$acc kernels present(fvec_send_buffmpi,fvec_send_extr)
-#endif
-      !$acc loop independent collapse(3)  private(i,j,k,ll,idx)
+      !$acc kernels present(fvec_send_buffmpi,fvec_send_extr,auxfields)
+      !$acc loop independent collapse(3) private(i,j,k,ll,idx,ii,jj,kk,xblock,yblock,zblock,myblock)
 #endif
       do k=kmin,kmax
          do j=jmin,jmax
             do i=imin,imax
+            
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+               yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+               zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
+            
                !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
                !poi mandero solo i pezzi contigui che mi servono per la data direzione
 
-               !scorro sul numero di campi da prendere il massimo previsto è num_fvec_datampi
-#ifdef EXCHANGEVEL
-#if defined(DENSRATIO) && defined(TWOCOMPONENT)
+               !scorro sul numero di campi da prendere il massimo previsto è num_auxfields_datampi
 
-               ll=1
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=normx(i,j,k)
-
-               ll=2
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=normy(i,j,k)
-
-               ll=3
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=normz(i,j,k)
-			   
-               ll=4
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=modgrad(i,j,k)
-			   
-			   ll=5
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=arr_x(i,j,k)
-			   
-			   ll=6
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=arr_y(i,j,k)
-			   
-			   ll=7
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=arr_z(i,j,k)
-               
-               ll=8
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=u(i,j,k)
-			   
-			   ll=9
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=v(i,j,k)
-			   
-			   ll=10
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=w(i,j,k)
-#ifdef REPULSIVE_FLUX
-               ll=11
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=Jx(i,j,k)
-
-               ll=12
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=Jy(i,j,k)
-
-               ll=13
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=Jz(i,j,k)
-#endif
-#endif
-#if !defined(DENSRATIO) && defined(TWOCOMPONENT)
-
-               ll=1
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=normx(i,j,k)
-
-               ll=2
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=normy(i,j,k)
-
-               ll=3
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=normz(i,j,k)
-
-			   
-			   ll=4
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=arr_x(i,j,k)
-			   
-			   ll=5
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=arr_y(i,j,k)
-			   
-			   ll=6
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=arr_z(i,j,k)
-               
-               ll=7
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=u(i,j,k)
-
-               ll=8
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=v(i,j,k)
-
-               ll=9
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=w(i,j,k)
-#ifdef REPULSIVE_FLUX
-               ll=10
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=Jx(i,j,k)
-
-               ll=11
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=Jy(i,j,k)
-
-               ll=12
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=Jz(i,j,k)
-#endif
-#endif
-#if !defined(DENSRATIO) && !defined(TWOCOMPONENT)
-               ll=1
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=u(i,j,k)
-
-               ll=2
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=v(i,j,k)
-
-               ll=3
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=w(i,j,k)
-#endif
-#else
 #ifdef TWOCOMPONENT
-#ifdef DENSRATIO
 
                ll=1
                idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
                   k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=normx(i,j,k)
+               fvec_send_buffmpi(idx)=auxfields(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
 
                ll=2
                idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
                   k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=normy(i,j,k)
+               fvec_send_buffmpi(idx)=auxfields(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
 
                ll=3
                idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
                   k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=normz(i,j,k)
-
-
+               fvec_send_buffmpi(idx)=auxfields(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+			   
                ll=4
                idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
                   k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=modgrad(i,j,k)
+               fvec_send_buffmpi(idx)=auxfields(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
 			   
 			   ll=5
                idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
                   k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=arr_x(i,j,k)
+               fvec_send_buffmpi(idx)=auxfields(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
 			   
 			   ll=6
                idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
                   k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=arr_y(i,j,k)
+               fvec_send_buffmpi(idx)=auxfields(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
 			   
 			   ll=7
                idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
                   k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=arr_z(i,j,k)
-#ifdef REPULSIVE_FLUX
-               ll=8
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=Jx(i,j,k)
+               fvec_send_buffmpi(idx)=auxfields(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
 
-               ll=9
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=Jy(i,j,k)
-
-               ll=10
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=Jz(i,j,k)
-#endif
-#else
-
-               ll=1
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=normx(i,j,k)
-
-               ll=2
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=normy(i,j,k)
-
-               ll=3
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=normz(i,j,k)
-
-			   
-			   ll=4
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=arr_x(i,j,k)
-			   
-			   ll=5
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=arr_y(i,j,k)
-			   
-			   ll=6
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=arr_z(i,j,k)
-#ifdef REPULSIVE_FLUX
-               ll=7
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=Jx(i,j,k)
-
-               ll=8
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=Jy(i,j,k)
-
-               ll=9
-               idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
-                  k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=Jz(i,j,k)
-#endif
-#endif
-#endif
 #endif
             enddo
          enddo
@@ -2917,6 +2626,7 @@ contains
       integer :: i,j,k,l,ll=0,m1,m2,m3
       integer :: imin,imax,jmin,jmax,kmin,kmax
       integer :: idx=0
+      integer :: ii,jj,kk,xblock,yblock,zblock,myblock
 
       myoffset=fvec_nbuffmpi_recv(lmio)
       m1=fvec_recv_extr(2,lmio)-fvec_recv_extr(1,lmio)+1
@@ -2929,310 +2639,64 @@ contains
       kmin=fvec_recv_extr(5,lmio)
       kmax=fvec_recv_extr(6,lmio)
 #ifdef ACCNOKERNELS
-#ifdef TWOCOMPONENT
-#ifdef DENSRATIO
-      !$acc parallel loop independent collapse(3) present(fvec_recv_buffmpi,fvec_recv_extr,arr_x, arr_y, arr_z, modgrad,normx,normy,normz & 
-#ifdef REPULSIVE_FLUX
-	  !$acc& ,Jx,Jy,Jz &
-#endif	  
-	  !$acc& ) private(ll,idx)
+      !$acc parallel loop independent collapse(3) present(fvec_send_buffmpi,fvec_send_extr,auxfields) &
+      !$acc& private(ll,idx,ii,jj,kk,xblock,yblock,zblock,myblock)
 #else
-      !$acc parallel loop independent collapse(3) present(fvec_recv_buffmpi,fvec_recv_extr,arr_x, arr_y, arr_z,normx,normy,normz & 
-#ifdef REPULSIVE_FLUX
-	  !$acc& ,Jx,Jy,Jz &
-#endif	  
-	  !$acc& ) private(ll,idx)
-#endif
-#else
-      !$acc parallel loop independent collapse(3) present(fvec_recv_buffmpi,fvec_recv_extr) private(ll,idx)
-#endif
-#else
-#ifdef TWOCOMPONENT
-#ifdef DENSRATIO
-      !$acc kernels present(fvec_recv_buffmpi,fvec_recv_extr,arr_x, arr_y, arr_z, modgrad,normx,normy,normz & 
-#ifdef REPULSIVE_FLUX
-	  !$acc& ,Jx,Jy,Jz &
-#endif	  
-	  !$acc& )
-#else
-      !$acc kernels present(fvec_recv_buffmpi,fvec_recv_extr,arr_x, arr_y, arr_z,normx,normy,normz &  
-#ifdef REPULSIVE_FLUX
-	  !$acc& ,Jx,Jy,Jz &
-#endif	  
-	  !$acc& )
-#endif
-#else
-      !$acc kernels present(fvec_recv_buffmpi,fvec_recv_extr)
-#endif
-      !$acc loop independent collapse(3)  private(i,j,k,ll,idx)
+      !$acc kernels present(fvec_send_buffmpi,fvec_send_extr,auxfields)
+      !$acc loop independent collapse(3) private(i,j,k,ll,idx,ii,jj,kk,xblock,yblock,zblock,myblock)
 #endif
       do k=kmin,kmax
          do j=jmin,jmax
             do i=imin,imax
+            
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+               yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+               zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
+               
                !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
                !poi mandero solo i pezzi contigui che mi servono per la data direzione
 
-               !scorro sul numero di campi da prendere il massimo previsto è num_fvec_datampi
-#ifdef EXCHANGEVEL
-
-#if defined(DENSRATIO) && defined(TWOCOMPONENT)
-
-               ll=1
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               normx(i,j,k)=fvec_recv_buffmpi(idx)
-
-               ll=2
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               normy(i,j,k)=fvec_recv_buffmpi(idx)
-
-               ll=3
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               normz(i,j,k)=fvec_recv_buffmpi(idx)
-
-               ll=4
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               modgrad(i,j,k)=fvec_recv_buffmpi(idx)
-			   
-			   ll=5
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               arr_x(i,j,k)=fvec_recv_buffmpi(idx)
-			   
-			   ll=6
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               arr_y(i,j,k)=fvec_recv_buffmpi(idx)
-			   
-			   ll=7
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               arr_z(i,j,k)=fvec_recv_buffmpi(idx)
-               
-               ll=8
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               u(i,j,k)=fvec_recv_buffmpi(idx)
-			   
-			   ll=9
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               v(i,j,k)=fvec_recv_buffmpi(idx)
-			   
-			   ll=10
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               w(i,j,k)=fvec_recv_buffmpi(idx)
-#ifdef REPULSIVE_FLUX
-               ll=11
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               Jx(i,j,k)=fvec_recv_buffmpi(idx)
-
-               ll=12
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               Jy(i,j,k)=fvec_recv_buffmpi(idx)
-
-               ll=13
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               Jz(i,j,k)=fvec_recv_buffmpi(idx)
-#endif
-#endif
-
-#if !defined(DENSRATIO) && defined(TWOCOMPONENT)
-
-
-               ll=1
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               normx(i,j,k)=fvec_recv_buffmpi(idx)
-
-               ll=2
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               normy(i,j,k)=fvec_recv_buffmpi(idx)
-
-               ll=3
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               normz(i,j,k)=fvec_recv_buffmpi(idx)
-
-               
-			   ll=4
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               arr_x(i,j,k)=fvec_recv_buffmpi(idx)
-			   
-			   ll=5
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               arr_y(i,j,k)=fvec_recv_buffmpi(idx)
-			   
-			   ll=6
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               arr_z(i,j,k)=fvec_recv_buffmpi(idx)
-			   
-               ll=7
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               u(i,j,k)=fvec_recv_buffmpi(idx)
-
-               ll=8
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               v(i,j,k)=fvec_recv_buffmpi(idx)
-
-               ll=9
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               w(i,j,k)=fvec_recv_buffmpi(idx)
-#ifdef REPULSIVE_FLUX
-               ll=10
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               Jx(i,j,k)=fvec_recv_buffmpi(idx)
-
-               ll=11
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               Jy(i,j,k)=fvec_recv_buffmpi(idx)
-
-               ll=12
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               Jz(i,j,k)=fvec_recv_buffmpi(idx)
-#endif
-#endif
-
-#if !defined(DENSRATIO) && !defined(TWOCOMPONENT)
-               ll=1
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               u(i,j,k)=fvec_recv_buffmpi(idx)
-
-               ll=2
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               v(i,j,k)=fvec_recv_buffmpi(idx)
-
-               ll=3
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               w(i,j,k)=fvec_recv_buffmpi(idx)
-#endif
-
-#else
-
+               !scorro sul numero di campi da prendere il massimo previsto è num_auxfields_datampi
 #ifdef TWOCOMPONENT
-#ifdef DENSRATIO
 
                ll=1
                idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
                   k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               normx(i,j,k)=fvec_recv_buffmpi(idx)
+               auxfields(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=fvec_recv_buffmpi(idx)
 
                ll=2
                idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
                   k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               normy(i,j,k)=fvec_recv_buffmpi(idx)
+               auxfields(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=fvec_recv_buffmpi(idx)
 
                ll=3
                idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
                   k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               normz(i,j,k)=fvec_recv_buffmpi(idx)
-
+               auxfields(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=fvec_recv_buffmpi(idx)
 
                ll=4
                idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
                   k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               modgrad(i,j,k)=fvec_recv_buffmpi(idx)
+               auxfields(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=fvec_recv_buffmpi(idx)
 			   
 			   ll=5
                idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
                   k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               arr_x(i,j,k)=fvec_recv_buffmpi(idx)
+               auxfields(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=fvec_recv_buffmpi(idx)
 			   
 			   ll=6
                idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
                   k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               arr_y(i,j,k)=fvec_recv_buffmpi(idx)
+               auxfields(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=fvec_recv_buffmpi(idx)
 			   
 			   ll=7
                idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
                   k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               arr_z(i,j,k)=fvec_recv_buffmpi(idx)
-#ifdef REPULSIVE_FLUX
-               ll=8
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               Jx(i,j,k)=fvec_recv_buffmpi(idx)
-
-               ll=9
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               Jy(i,j,k)=fvec_recv_buffmpi(idx)
-
-               ll=10
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               Jz(i,j,k)=fvec_recv_buffmpi(idx)
-#endif
-#else
-
-               ll=1
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               normx(i,j,k)=fvec_recv_buffmpi(idx)
-
-               ll=2
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               normy(i,j,k)=fvec_recv_buffmpi(idx)
-
-               ll=3
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               normz(i,j,k)=fvec_recv_buffmpi(idx)
-
-			   
-			   ll=4
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               arr_x(i,j,k)=fvec_recv_buffmpi(idx)
-			   
-			   ll=5
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               arr_y(i,j,k)=fvec_recv_buffmpi(idx)
-			   
-			   ll=6
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               arr_z(i,j,k)=fvec_recv_buffmpi(idx)
-#ifdef REPULSIVE_FLUX
-               ll=7
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               Jx(i,j,k)=fvec_recv_buffmpi(idx)
-
-               ll=8
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               Jy(i,j,k)=fvec_recv_buffmpi(idx)
-
-               ll=9
-               idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
-                  k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               Jz(i,j,k)=fvec_recv_buffmpi(idx)
-#endif
-#endif
-#endif
+               auxfields(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=fvec_recv_buffmpi(idx)
 
 #endif
             enddo
@@ -3248,11 +2712,17 @@ contains
    
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!BVEC!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-   subroutine exchange_bvec_intpbc
+   subroutine exchange_hfields_intpbc(hfields_s)
 
       implicit none
+      
+      real(kind=db), allocatable, dimension(:) :: hfields_s
       integer :: imin,imax,jmin,jmax,kmin,kmax
       integer :: lmio,oi,oj,ok
+      integer :: ii,jj,kk,xblock,yblock,zblock,myblock
+      integer :: oii,ojj,okk
+      integer :: oxblock,oyblock,ozblock,omyblock
+      
 !!!!!b_send_extr   !!!!!!!!!!!!b_recv_extr
       do lmio=1,nlinksmpi
          if(.not. lintpbc_dir(lmio))cycle
@@ -3263,10 +2733,14 @@ contains
          kmin=b_recv_extr(5,lmio)
          kmax=b_recv_extr(6,lmio)
 #ifdef ACCNOKERNELS
-         !$acc parallel loop independent collapse(3) present(intpbc_dir,selphi) private(oi,oj,ok)
+         !$acc parallel loop independent collapse(3) present(intpbc_dir,hfields_s) &
+         !$acc& private(ii,jj,kk,oi,oj,ok,oii,ojj,okk,oxblock,oyblock,ozblock, &
+         !$acc& omyblock,xblock,yblock,zblock,myblock)
 #else
-         !$acc kernels present(intpbc_dir,selphi)
-         !$acc loop independent collapse(3) private(i,j,k,oi,oj,ok)
+         !$acc kernels present(intpbc_dir,hfields_s)
+         !$acc loop independent collapse(3) &
+         !$acc& private(i,j,k,ii,jj,kk,oi,oj,ok,oii,ojj,okk,oxblock,oyblock,ozblock, &
+         !$acc& omyblock,xblock,yblock,zblock,myblock)
 #endif
          do k=kmin,kmax
            do j=jmin,jmax
@@ -3277,7 +2751,53 @@ contains
                   if(intpbc_dir(1,lmio))oi=mod(oi+nx-1,nx)+1
                   if(intpbc_dir(2,lmio))oj=mod(oj+ny-1,ny)+1
                   if(intpbc_dir(3,lmio))ok=mod(ok+nz-1,nz)+1
-                  selphi(i,j,k,flop)=selphi(oi,oj,ok,flop)				  
+                  
+                  oxblock=(oi+2*TILE_DIMx-1)/TILE_DIMx   
+                  oyblock=(oj+2*TILE_DIMy-1)/TILE_DIMy     
+                  ozblock=(ok+2*TILE_DIMz-1)/TILE_DIMz 
+                  omyblock=(oxblock-1)+(oyblock-1)*nxblock+(ozblock-1)*nxyblock+1
+                  oii=oi-oxblock*TILE_DIMx+2*TILE_DIMx
+                  ojj=oj-oyblock*TILE_DIMy+2*TILE_DIMy
+                  okk=ok-ozblock*TILE_DIMz+2*TILE_DIMz
+                  
+                  xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+                  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+                  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+                  myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+                  ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+                  
+                  hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
+                   hfields_s(idx5(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  
+                  hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
+                   hfields_s(idx5(oii,ojj,okk,2,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  
+                  hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
+                   hfields_s(idx5(oii,ojj,okk,3,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  
+                  hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
+                   hfields_s(idx5(oii,ojj,okk,4,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  
+                  hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
+                   hfields_s(idx5(oii,ojj,okk,5,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  
+                  hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
+                   hfields_s(idx5(oii,ojj,okk,6,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  
+                  hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
+                   hfields_s(idx5(oii,ojj,okk,7,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  
+                  hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
+                   hfields_s(idx5(oii,ojj,okk,8,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  
+                  hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
+                   hfields_s(idx5(oii,ojj,okk,9,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  
+                  hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
+                   hfields_s(idx5(oii,ojj,okk,10,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  
                enddo
             enddo
          enddo
@@ -3288,18 +2808,20 @@ contains
 #endif
       enddo
 
-   end subroutine exchange_bvec_intpbc
+   end subroutine exchange_hfields_intpbc
 
-   subroutine exchange_bvec_sendrecv
+   subroutine exchange_hfields_sendrecv(hfields_s)
 
       implicit none
+      
+      real(kind=db), allocatable, dimension(:) :: hfields_s
 
       integer :: l,ll,myoffset,tag,ierr,mm
 #ifndef MPI
       return
 #endif
       do l=1,nlinksmpi
-         if(lsend_dir(l))call packaging_bvec_buffmpi(l)
+         if(lsend_dir(l))call packaging_hfields_buffmpi(l,hfields_s)
       enddo
       !$acc wait
 #ifdef MPI
@@ -3327,11 +2849,13 @@ contains
 #endif
 
 
-   end subroutine exchange_bvec_sendrecv
+   end subroutine exchange_hfields_sendrecv
 
-   subroutine exchange_bvec_wait
+   subroutine exchange_hfields_wait(hfields_s)
 
       implicit none
+      
+      real(kind=db), allocatable, dimension(:) :: hfields_s
 
       integer :: l,ll,myoffset,tag,ierr
       integer, dimension(:), allocatable :: myierr
@@ -3349,24 +2873,27 @@ contains
       call mpi_waitall(nb_reqs,b_reqs,mystatus,ierr)
       !$acc wait
 
-      if(any(myierr.ne.0))call doerror(6,'ERROR in exchange_bvec_wait')
+      if(any(myierr.ne.0))call doerror(6,'ERROR in exchange_hfields_wait')
 #endif
       do l=1,nlinksmpi
-         if(lrecv_dir(l))call depackaging_bvec_buffmpi(l)
+         if(lrecv_dir(l))call depackaging_hfields_buffmpi(l,hfields_s)
       enddo
 
-   end subroutine exchange_bvec_wait
+   end subroutine exchange_hfields_wait
 
-   subroutine packaging_bvec_buffmpi(lmio)
+   subroutine packaging_hfields_buffmpi(lmio,hfields_s)
 
       implicit none
 
       integer, intent(in) :: lmio
+      real(kind=db), allocatable, dimension(:) :: hfields_s
+
       integer :: myoffset
 
       integer :: i,j,k,l,ll=0,m1,m2,m3
       integer :: imin,imax,jmin,jmax,kmin,kmax
       integer :: idx=0
+      integer :: ii,jj,kk,xblock,yblock,zblock,myblock
 
       myoffset=b_nbuffmpi_send(lmio)
       m1=b_send_extr(2,lmio)-b_send_extr(1,lmio)+1
@@ -3379,23 +2906,77 @@ contains
       kmin=b_send_extr(5,lmio)
       kmax=b_send_extr(6,lmio)
 #ifdef ACCNOKERNELS
-      !$acc parallel loop independent collapse(3) present(b_send_buffmpi,b_send_extr,selphi) private(ll,idx)
+      !$acc parallel loop independent collapse(3) present(b_send_buffmpi,b_send_extr,hfields_s) &
+      !$acc& private(ll,idx,ii,jj,kk,xblock,yblock,zblock,myblock)
 #else
-      !$acc kernels present(b_send_buffmpi,b_send_extr,selphi)
-      !$acc loop independent collapse(3)  private(i,j,k,ll,idx)
+      !$acc kernels present(b_send_buffmpi,b_send_extr,hfields_s)
+      !$acc loop independent collapse(3)  private(i,j,k,ll,idx,ii,jj,kk,xblock,yblock,zblock,myblock)
 #endif
       do k=kmin,kmax
          do j=jmin,jmax
             do i=imin,imax
+               
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+               yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+               zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
                !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
                !poi mandero solo i pezzi contigui che mi servono per la data direzione
 
-               !scorro sul numero di campi da prendere il massimo previsto è num_b_datampi
+               !scorro sul numero di campi da prendere il massimo previsto è num_hfields_datampi
 
                ll=1
                idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
                   k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               b_send_buffmpi(idx)=selphi(i,j,k,flop)
+               b_send_buffmpi(idx)=hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               
+               ll=2
+               idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
+                  k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               b_send_buffmpi(idx)=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               
+               ll=3
+               idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
+                  k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               b_send_buffmpi(idx)=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               
+               ll=4
+               idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
+                  k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               b_send_buffmpi(idx)=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               
+               ll=5
+               idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
+                  k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               b_send_buffmpi(idx)=hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               
+               ll=6
+               idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
+                  k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               b_send_buffmpi(idx)=hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               
+               ll=7
+               idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
+                  k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               b_send_buffmpi(idx)=hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               
+               ll=8
+               idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
+                  k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               b_send_buffmpi(idx)=hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               
+               ll=9
+               idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
+                  k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               b_send_buffmpi(idx)=hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               
+               ll=10
+               idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
+                  k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               b_send_buffmpi(idx)=hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 
             enddo
          enddo
@@ -3407,18 +2988,21 @@ contains
 #endif
 
 
-   end subroutine packaging_bvec_buffmpi
+   end subroutine packaging_hfields_buffmpi
 
-   subroutine depackaging_bvec_buffmpi(lmio)
+   subroutine depackaging_hfields_buffmpi(lmio,hfields_s)
 
       implicit none
 
       integer, intent(in) :: lmio
+      real(kind=db), allocatable, dimension(:) :: hfields_s
+      
       integer :: myoffset
 
       integer :: i,j,k,l,ll=0,m1,m2,m3
       integer :: imin,imax,jmin,jmax,kmin,kmax
       integer :: idx=0
+      integer :: ii,jj,kk,xblock,yblock,zblock,myblock
 
       myoffset=b_nbuffmpi_recv(lmio)
       m1=b_recv_extr(2,lmio)-b_recv_extr(1,lmio)+1
@@ -3431,23 +3015,77 @@ contains
       kmin=b_recv_extr(5,lmio)
       kmax=b_recv_extr(6,lmio)
 #ifdef ACCNOKERNELS
-      !$acc parallel loop independent collapse(3) present(b_recv_buffmpi,b_recv_extr,selphi) private(ll,idx)
+      !$acc parallel loop independent collapse(3) present(b_recv_buffmpi,b_recv_extr,hfields_s) &
+      !$acc& private(ll,idx,ii,jj,kk,xblock,yblock,zblock,myblock)
 #else
-      !$acc kernels present(b_recv_buffmpi,b_recv_extr,selphi)
-      !$acc loop independent collapse(3)  private(i,j,k,ll,idx)
+      !$acc kernels present(b_recv_buffmpi,b_recv_extr,hfields_s)
+      !$acc loop independent collapse(3) private(i,j,k,ll,idx,ii,jj,kk,xblock,yblock,zblock,myblock)
 #endif
       do k=kmin,kmax
          do j=jmin,jmax
             do i=imin,imax
+               
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+               yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+               zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
                !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
                !poi mandero solo i pezzi contigui che mi servono per la data direzione
 
-               !scorro sul numero di campi da prendere il massimo previsto è num_b_datampi
+               !scorro sul numero di campi da prendere il massimo previsto è num_hfields_datampi
 
                ll=1
                idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
                   k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               selphi(i,j,k,flop)=b_recv_buffmpi(idx)
+               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=b_recv_buffmpi(idx)
+               
+               ll=2
+               idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
+                  k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=b_recv_buffmpi(idx)
+               
+               ll=3
+               idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
+                  k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=b_recv_buffmpi(idx)
+               
+               ll=4
+               idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
+                  k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=b_recv_buffmpi(idx)
+               
+               ll=5
+               idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
+                  k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=b_recv_buffmpi(idx)
+               
+               ll=6
+               idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
+                  k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=b_recv_buffmpi(idx)
+               
+               ll=7
+               idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
+                  k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=b_recv_buffmpi(idx)
+               
+               ll=8
+               idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
+                  k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=b_recv_buffmpi(idx)
+               
+               ll=9
+               idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
+                  k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=b_recv_buffmpi(idx)
+               
+               ll=10
+               idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
+                  k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=b_recv_buffmpi(idx)
 
             enddo
          enddo
@@ -3459,7 +3097,7 @@ contains
 #endif
 
 
-   end subroutine depackaging_bvec_buffmpi   
+   end subroutine depackaging_hfields_buffmpi   
    
 !!!!!!!!!!!!!!!!!!!!!!!!!!!ISFLUID!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    subroutine exchange_isf_intpbc
