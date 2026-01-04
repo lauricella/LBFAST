@@ -2078,7 +2078,7 @@ contains
       
       integer :: color,ierr
 #if defined(MPI)        
-      io_comm2d(1:nplanes) = MPI_COMM_NULL
+      io_comm2d(l) = MPI_COMM_NULL
       !qui seleziono solo i processi buoni, quelli che devono scrivere
       if (ldowrite)then
         color = 1  ! Gruppo che partecipa all'IO

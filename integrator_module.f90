@@ -42,7 +42,8 @@ module integrator_module
     moments_lb,fused_lb
 #if defined(_OPENACC)        
    use lb_cuda_kernels, only : moments_LB_cuda,fused_lb_cuda,test_LB_cuda, &
-    compute_norm_interface_cuda,thinfilm_scan_mark_cuda,repulsive_flux_normal_cuda
+    compute_norm_interface_cuda,thinfilm_scan_mark_cuda,repulsive_flux_normal_cuda, &
+    compute_div_thetan,update_phifields
 #endif
    use profiling_m,   only : timer_init,itime_start, &
       startPreprocessingTime,print_timing_partial, &
@@ -148,16 +149,16 @@ contains
       !***********************************read restart************************
 #ifdef TWOCOMPONENT
       if(lrestart)then
-         call read_restart_2c(iframe,iframe2D,hfields_flop,phifields_flop)
+         call read_restart_2c(iframe,iframe2D,hfields_flip,phifields_flip)
       endif
 #else
       if(lrestart)then
-         call read_restart_1c(iframe,iframe2D,hfields_flop)
+         call read_restart_1c(iframe,iframe2D,hfields_flip)
       endif
 #endif      
 
       if(lprint)then
-	     call copy_print(iframe,hfields_flop,phifields_flop)
+	     call copy_print(iframe,hfields_flip,phifields_flip)
          if(lvtk)then
             call driver_print_vtk_sync(iframe)
          endif
@@ -182,48 +183,6 @@ contains
       endif
       !***********************************moments initialization************************
 
-      !***********************************scambio moments************************
-#ifdef TWOCOMPONENT
-	  if(ldiagnostic)call start_timing2("LB","ex_phifields_sendrecv")         
-	  call exchange_phifields_sendrecv(phifields_flop)
-	  if(ldiagnostic)call end_timing2("LB","ex_phifields_sendrecv")
-
-	  if(ldiagnostic)call start_timing2("LB","ex_phifields_intpbc")
-	  call exchange_phifields_intpbc(phifields_flop)
-	  if(ldiagnostic)call end_timing2("LB","ex_phifields_intpbc")
-	  
-	  if(ldiagnostic)call start_timing2("LB","ex_phifields_wait")
-	  call exchange_phifields_wait(phifields_flop)
-	  if(ldiagnostic)call end_timing2("LB","ex_phifields_wait")
-      !***********************************ora che ho phi in cornice calcolo normx normy normz************************
-      if(ldiagnostic)call start_timing2("LB","compute_norm")
-      call compute_norm_interface_cuda(phifields_flop)
-      if(ldiagnostic)call end_timing2("LB","compute_norm")
-      !***********************************scambio normx normy normz************************
-      if(ldiagnostic)call start_timing2("LB","ex_auxfields_sendrecv")
-      call exchange_auxfields_sendrecv
-	  if(ldiagnostic)call end_timing2("LB","ex_auxfields_sendrecv")
-	  if(ldiagnostic)call start_timing2("LB","ex_auxfields_intpbc")
-      call exchange_auxfields_intpbc
-	  if(ldiagnostic)call end_timing2("LB","ex_auxfields_intpbc")
-	  
-      if(ldiagnostic)call start_timing2("LB","ex_auxfields_wait")
-	  call exchange_auxfields_wait
-      if(ldiagnostic)call end_timing2("LB","ex_auxfields_wait")
-#endif	
-      !***********************************compute moments***********************
-	  if(ldiagnostic)call start_timing2("LB","moments")
-#ifdef REPULSIVE_FLUX
-      call thinfilm_scan_mark_cuda(phifields_flop)
-	  call repulsive_flux_normal_cuda(phifields_flop)
-#endif      
-#if defined(_OPENACC)
-      call moments_LB_cuda
-#else
-      call moments_LB
-#endif
-      if(ldiagnostic)call end_timing2("LB","moments")
-
       call get_memory_gpu(mymemory,totmemory)
       call print_memory_registration_gpu(6,'DEVICE memory occupied at the start', &
          'total DEVICE memory',mymemory,totmemory)
@@ -233,7 +192,7 @@ contains
       time_init=current_time()
       time_actual_old=time_init
       call cpu_time(ts1)
-#if 1
+#if 0
       !call test_LB_cuda
       goto 110
 #endif      
@@ -247,63 +206,7 @@ contains
          !$acc wait
          !$acc update device(step,flip,flop)
          !$acc wait
-        
-         if(lprint)then 
-           if(mod(step,stamp).eq.0 .or. mod(step,stamp2D).eq.0 .or. mod(step,stamp_term).eq.0)then
-             if(ldiagnostic)call start_timing2("IO","print")
-	         call copy_print(iframe,hfields_flop,phifields_flop)
-             !write(6,*)'vorrei stampare'
-             if(mod(step,stamp).eq.0)then
-               iframe=iframe+1
-               if(lvtk)then
-                 call driver_print_vtk_sync(iframe)
-               endif
-               if(lraw)then
-                 call driver_print_raw_sync(iframe)
-               endif
-             endif
-             !***********************************Print on files 2D************************
-             if(mod(step,stamp2D).eq.0 .and. lraw)then
-               iframe2D=iframe2D+1
-               call driver_print_raw_sync2D(iframe2D,nplanes,ndir,npoint)
-             endif
 
-             if(mod(step,stamp_term).eq.0)then
-               time_actual=current_time()
-               gi=18;gj=18;gk=2
-               subchords(1)=(gi-1)/nx
-               subchords(2)=(gj-1)/ny
-               subchords(3)=(gk-1)/nz
-               if(all(subchords==coords))then
-                 i=gi/stepskip-skip_myoffset(1)
-                 j=gj/stepskip-skip_myoffset(2)
-                 k=gk/stepskip-skip_myoffset(3)
-                 write(6,'(a,4i6,f10.2,a,i2,9g16.8)')'stamp step : ',step, &
-                  (gi/stepskip)*stepskip,(gj/stepskip)*stepskip,(gk/stepskip)*stepskip, &
-                  (time_actual-time_actual_old)/real(stamp_term,kind=db)*real(nsteps-step,kind=db), &
-                  '; probe values : ',isfluid(i,j,k),rhoprint(i,j,k),velprint(1:3,i,j,k), &
-#if defined(INTERNAL_OBSTACLES)                       
-                   corr,dphi,global_phi_sum_ini,global_phi_sum_new-global_phi_change_new,global_phi_sum_new !real(global_count_new)
-#else
-                   0.0e0                       
-#endif                       
-                 call flush(6)
-               endif
-               time_actual_old=time_actual
-             endif
-             if(ldiagnostic)call end_timing2("IO","print")
-           endif
-         endif
-         
-         !***********************************collision + no slip + forcing: fused implementation*********
-		 if(ldiagnostic)call start_timing2("LB","fused")
-
-#if defined(_OPENACC)      
-         call fused_LB_cuda
-#else
-         call fused_LB
-#endif
-         if(ldiagnostic)call end_timing2("LB","fused")
 #ifdef TWOCOMPONENT	 
 !****************scambio phi: boundary condition periodiche su phi************************
 		 if(ldiagnostic)call start_timing2("LB","ex_phifields_sendrecv")
@@ -350,52 +253,21 @@ contains
          if(ldiagnostic)call end_timing2("LB","bcs_TSLB") 
          !***********************************moments************************
          if(ldiagnostic)call start_timing2("LB","moments")
+#ifdef TWOCOMPONENT
+         call compute_div_thetan(phifields_flip)
 #ifdef REPULSIVE_FLUX
-		  call thinfilm_scan_mark_cuda(phifields_flip)
-		  call repulsive_flux_normal_cuda(phifields_flip)
+		 call thinfilm_scan_mark_cuda(phifields_flip)
+		 call repulsive_flux_normal_cuda(phifields_flip)
 #endif
-#if defined(_OPENACC) 
-         call moments_LB_cuda
-#else
-         call moments_LB
 #endif
+         call moments_LB_cuda(hfields_flip,phifields_flip)
          if(ldiagnostic)call end_timing2("LB","moments")
          
-         if(time_limit>ZERO)then
-           if(mod(step,every_time_check).eq.0)then
-             !$acc wait
-             if(ldiagnostic)call start_timing2("IO","time_limit")
-             time_actual = (current_time()) - time_init
-             ltime_actual=(time_actual>time_limit)
-             call or_world_l(ltime_actual)
-             if(ltime_actual)then
-               if(myrank==0)then
-                 write(6,'(a,f16.2,a,i16,a,f16.2,a)')'Time limit ',time_limit, &
-                  ' sec reached at step ',step,' after ',time_actual,' sec'
-                 call flush(6)
-               endif
-               lwriterestart=.true.
-               if(ldiagnostic)call end_timing2("IO","time_limit")
-               goto 110
-             endif
-             if(ldiagnostic)call end_timing2("IO","time_limit")
-           endif
-         endif
-	 
-!***********************************************************************
-!***********************************FLOP********************************
-!***********************************************************************
-         step=step+1
-         flip=mod(step,2)+1     
-         flop = 3 - flip
-         !$acc wait
-         !$acc update device(step,flip,flop)
-         !$acc wait
         
          if(lprint)then 
            if(mod(step,stamp).eq.0 .or. mod(step,stamp2D).eq.0 .or. mod(step,stamp_term).eq.0)then
              if(ldiagnostic)call start_timing2("IO","print")
-             call copy_print(iframe,hfields_flip,phifields_flip)
+	         call copy_print(iframe,hfields_flip,phifields_flip)
              !write(6,*)'vorrei stampare'
              if(mod(step,stamp).eq.0)then
                iframe=iframe+1
@@ -429,7 +301,7 @@ contains
 #if defined(INTERNAL_OBSTACLES)                       
                    corr,dphi,global_phi_sum_ini,global_phi_sum_new-global_phi_change_new,global_phi_sum_new !real(global_count_new)
 #else
-                   0.0e0                       
+                   0.0e0_db                       
 #endif                       
                  call flush(6)
                endif
@@ -440,15 +312,43 @@ contains
          endif
          
          !***********************************collision + no slip + forcing: fused implementation*********
-		 if(ldiagnostic)call start_timing2("LB","fused")
-
-#if defined(_OPENACC)      
-         call fused_LB_cuda
-#else
-         call fused_LB
-#endif
+		 if(ldiagnostic)call start_timing2("LB","fused")   
+         call fused_LB_cuda(hfields_flip,hfields_flop,phifields_flip)
+         call update_phifields(hfields_flip,phifields_flip,phifields_flop)
          if(ldiagnostic)call end_timing2("LB","fused")
-#ifdef TWOCOMPONENT	 
+         
+         if(time_limit>ZERO)then
+           if(mod(step,every_time_check).eq.0)then
+             !$acc wait
+             if(ldiagnostic)call start_timing2("IO","time_limit")
+             time_actual = (current_time()) - time_init
+             ltime_actual=(time_actual>time_limit)
+             call or_world_l(ltime_actual)
+             if(ltime_actual)then
+               if(myrank==0)then
+                 write(6,'(a,f16.2,a,i16,a,f16.2,a)')'Time limit ',time_limit, &
+                  ' sec reached at step ',step,' after ',time_actual,' sec'
+                 call flush(6)
+               endif
+               lwriterestart=.true.
+               if(ldiagnostic)call end_timing2("IO","time_limit")
+               goto 110
+             endif
+             if(ldiagnostic)call end_timing2("IO","time_limit")
+           endif
+         endif
+	 
+!***********************************************************************
+!***********************************FLOP********************************
+!***********************************************************************
+         step=step+1
+         flip=mod(step,2)+1     
+         flop = 3 - flip
+         !$acc wait
+         !$acc update device(step,flip,flop)
+         !$acc wait
+         
+         #ifdef TWOCOMPONENT	 
 !****************scambio phi: boundary condition periodiche su phi************************
 		 if(ldiagnostic)call start_timing2("LB","ex_phifields_sendrecv")
 		 call exchange_phifields_sendrecv(phifields_flop)
@@ -494,17 +394,68 @@ contains
          if(ldiagnostic)call end_timing2("LB","bcs_TSLB") 
          !***********************************moments************************
          if(ldiagnostic)call start_timing2("LB","moments")
-         
+#ifdef TWOCOMPONENT
+         call compute_div_thetan(phifields_flop)
 #ifdef REPULSIVE_FLUX
-		  call thinfilm_scan_mark_cuda(phifields_flop)
-		  call repulsive_flux_normal_cuda(phifields_flop)
+		 call thinfilm_scan_mark_cuda(phifields_flop)
+		 call repulsive_flux_normal_cuda(phifields_flop)
 #endif
-#if defined(_OPENACC) 
-         call moments_LB_cuda
+#endif
+         call moments_LB_cuda(hfields_flop,phifields_flop)
+         if(ldiagnostic)call end_timing2("LB","moments")	 
+        
+         if(lprint)then 
+           if(mod(step,stamp).eq.0 .or. mod(step,stamp2D).eq.0 .or. mod(step,stamp_term).eq.0)then
+             if(ldiagnostic)call start_timing2("IO","print")
+             call copy_print(iframe,hfields_flop,phifields_flop)
+             !write(6,*)'vorrei stampare'
+             if(mod(step,stamp).eq.0)then
+               iframe=iframe+1
+               if(lvtk)then
+                 call driver_print_vtk_sync(iframe)
+               endif
+               if(lraw)then
+                 call driver_print_raw_sync(iframe)
+               endif
+             endif
+             !***********************************Print on files 2D************************
+             if(mod(step,stamp2D).eq.0 .and. lraw)then
+               iframe2D=iframe2D+1
+               call driver_print_raw_sync2D(iframe2D,nplanes,ndir,npoint)
+             endif
+
+             if(mod(step,stamp_term).eq.0)then
+               time_actual=current_time()
+               gi=18;gj=18;gk=2
+               subchords(1)=(gi-1)/nx
+               subchords(2)=(gj-1)/ny
+               subchords(3)=(gk-1)/nz
+               if(all(subchords==coords))then
+                 i=gi/stepskip-skip_myoffset(1)
+                 j=gj/stepskip-skip_myoffset(2)
+                 k=gk/stepskip-skip_myoffset(3)
+                 write(6,'(a,4i6,f10.2,a,i2,9g16.8)')'stamp step : ',step, &
+                  (gi/stepskip)*stepskip,(gj/stepskip)*stepskip,(gk/stepskip)*stepskip, &
+                  (time_actual-time_actual_old)/real(stamp_term,kind=db)*real(nsteps-step,kind=db), &
+                  '; probe values : ',isfluid(i,j,k),rhoprint(i,j,k),velprint(1:3,i,j,k), &
+#if defined(INTERNAL_OBSTACLES)                       
+                   corr,dphi,global_phi_sum_ini,global_phi_sum_new-global_phi_change_new,global_phi_sum_new !real(global_count_new)
 #else
-         call moments_LB
-#endif
-         if(ldiagnostic)call end_timing2("LB","moments")
+                   0.0e0                       
+#endif                       
+                 call flush(6)
+               endif
+               time_actual_old=time_actual
+             endif
+             if(ldiagnostic)call end_timing2("IO","print")
+           endif
+         endif
+         
+         !***********************************collision + no slip + forcing: fused implementation*********
+		 if(ldiagnostic)call start_timing2("LB","fused")   
+         call fused_LB_cuda(hfields_flop,hfields_flip,phifields_flop)
+         call update_phifields(hfields_flop,phifields_flop,phifields_flip)
+         if(ldiagnostic)call end_timing2("LB","fused")
          
          if(time_limit>ZERO)then
            if(mod(step,every_time_check).eq.0)then
@@ -525,7 +476,7 @@ contains
              endif
              if(ldiagnostic)call end_timing2("IO","time_limit")
            endif
-         endif	 
+         endif
 	 
       enddo
 110   continue      

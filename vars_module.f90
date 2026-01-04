@@ -34,7 +34,7 @@
 #endif
 
 #ifdef CSF
-#warning "CSF: continuum surface force activated"
+#error "ERROR: CSF not implemented"
 #endif
 
 #ifdef JAQMIN
@@ -211,6 +211,7 @@ module vars
       p=(/p0,p1,p1,p1,p1,p1,p1,p2,p2,p2,p2,p2,p2,p2,p2,p2,p2,p2,p2,p3,p3,p3,p3,p3,p3,p3,p3/)
 
    real(kind=db), parameter :: cssq=real(1.d0/3.d0,kind=db)
+   real(kind=db), parameter :: invcssq=real(3.d0,kind=db)
    real(kind=db), parameter :: p1dcssq=p1/cssq
    real(kind=db), parameter :: p2dcssq=p2/cssq
    real(kind=db), parameter :: p3dcssq=p3/cssq
@@ -243,16 +244,15 @@ module vars
 #ifdef TWOCOMPONENT
    integer, parameter :: nauxfields=7    ! 3 norm unit vec ! 1 modgrad ! 3 arr_ 
 #ifdef REPULSIVE_FLUX
-   integer, parameter :: nlocauxfields=10 ! 3 force components !1 lap_phi ! 3 pair_i ! 3 Jx vector 
+   integer, parameter :: nlocauxfields=11 ! 3 force components !1 lap_phi !1 div_thetan ! 3 pair_i ! 3 Jx vector 
 #else
-   integer, parameter :: nlocauxfields=4 ! 3 force components !1 lap_phi
+   integer, parameter :: nlocauxfields=5 ! 3 force components !1 lap_phi !1 div_thetan
 #endif
    
 #else   
    integer, parameter :: nauxfields=0    ! 
    integer, parameter :: nlocauxfields=3 ! 3 force components 
 #endif   
-   
    
    integer, save :: ntothfields
    integer, save :: ntotphifields
