@@ -4,7 +4,7 @@ module mpi_template
    use vars, only: db,isf,i,j,k,nx,ny,nz,lx,ly,lz,rho,f,isfluid,l,ll,opp,acc_device_radeon,&
       ex,ey,ez,nlinks,filenamevtk,namevarvtk,sevt1,sevt2,dir_out,write_fmtnumb2, &
       write_fmtnumb,headervtk,nheadervtk,vtkoffset,ndatavtk,footervtk,printdb, &
-      rhoprint,velprint,pressprint,space_fmtnumb,mxln,sevt3,lap_phi,ndir, &
+      rhoprint,velprint,pressprint,space_fmtnumb,mxln,sevt3,arr_3d,ndir, &
       nxskip,nyskip,nzskip,lxskip,lyskip,lzskip,stepskip,nplanes,skip_npoint,npoint, &
 #ifdef _OPENACC
       devType, &
@@ -3696,11 +3696,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
 
       
       do k=1,nz
@@ -3713,11 +3713,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
            
       
       do k=1,nz
@@ -3730,11 +3730,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
       
       do k=1,nz
@@ -3747,11 +3747,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
 
       
       do k=1,nz
@@ -3764,11 +3764,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
       
       do k=1,nz
@@ -3781,11 +3781,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
       
       do k=1,nz
@@ -3798,11 +3798,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
        
       do k=1,nz
@@ -3815,11 +3815,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
 
       
       do k=1,nz
@@ -3832,11 +3832,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
        
       do k=1,nz
@@ -3849,11 +3849,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
       call MPI_Type_free(imemtype,   e_io)
       call MPI_Type_free(filetypesub,e_io)
@@ -3973,7 +3973,7 @@ contains
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -3984,13 +3984,13 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
       
 
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4001,13 +4001,13 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
        
       
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4018,13 +4018,13 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
       
       
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4035,13 +4035,13 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
       
 
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4052,13 +4052,13 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
       
       
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4069,13 +4069,13 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
       
       
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4086,13 +4086,13 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
       
       
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4103,13 +4103,13 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
       
       
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4120,13 +4120,13 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
       
       
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4137,7 +4137,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -4276,11 +4276,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
 
       
       do k=1,nz
@@ -4293,11 +4293,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
       
       do k=1,nz
@@ -4310,11 +4310,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
       
       do k=1,nz
@@ -4327,11 +4327,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
 
       
       do k=1,nz
@@ -4344,11 +4344,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
       
       do k=1,nz
@@ -4361,11 +4361,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
       
       do k=1,nz
@@ -4378,11 +4378,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
       
       do k=1,nz
@@ -4395,11 +4395,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
       
       do k=1,nz
@@ -4412,11 +4412,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
       
       do k=1,nz
@@ -4429,11 +4429,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
       
       do k=1,nz
@@ -4446,11 +4446,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+               arr_3d(i,j,k)=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
              enddo
          enddo
       enddo
-      call MPI_FILE_WRITE_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
       call MPI_Type_free(imemtype,   e_io)
       call MPI_Type_free(filetypesub,e_io)
@@ -4576,7 +4576,7 @@ contains
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4587,13 +4587,13 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
       
 
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4604,13 +4604,13 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
       
       
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4621,13 +4621,13 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
       
        
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4638,13 +4638,13 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
       
 
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4655,13 +4655,13 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
        
       
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4672,13 +4672,13 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
       
       
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4689,13 +4689,13 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
       
       
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4706,13 +4706,13 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
       
       
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4723,13 +4723,13 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
       
       
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4740,13 +4740,13 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
       
 
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -4757,7 +4757,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
-               phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=lap_phi(i,j,k) 
+               phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=arr_3d(i,j,k) 
              enddo
          enddo
       enddo    
@@ -4881,8 +4881,8 @@ contains
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
-      isfluid(1:nx,1:ny,1:nz)= int(lap_phi(1:nx,1:ny,1:nz),kind=isf) 
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      isfluid(1:nx,1:ny,1:nz)= int(arr_3d(1:nx,1:ny,1:nz),kind=isf) 
       
       call MPI_Type_free(imemtype, e_io)
       call MPI_Type_free(filetypesub, e_io)
@@ -4982,7 +4982,7 @@ contains
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
       call MPI_Type_free(imemtype, e_io)
       call MPI_Type_free(filetypesub, e_io)
@@ -5008,7 +5008,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -5053,7 +5053,7 @@ contains
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
       call MPI_Type_free(imemtype, e_io)
       call MPI_Type_free(filetypesub, e_io)
@@ -5079,7 +5079,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -5124,7 +5124,7 @@ contains
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
       call MPI_Type_free(imemtype, e_io)
       call MPI_Type_free(filetypesub, e_io)
@@ -5150,7 +5150,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -5195,7 +5195,7 @@ contains
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
       call MPI_Type_free(imemtype, e_io)
       call MPI_Type_free(filetypesub, e_io)
@@ -5221,7 +5221,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -5267,7 +5267,7 @@ contains
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
-      call MPI_FILE_READ_ALL(fdens,lap_phi,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      call MPI_FILE_READ_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
       
       call MPI_Type_free(imemtype, e_io)
       call MPI_Type_free(filetypesub, e_io)
@@ -5293,7 +5293,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
-               phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=lap_phi(i,j,k) 
+               phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=arr_3d(i,j,k) 
              enddo
          enddo
       enddo    

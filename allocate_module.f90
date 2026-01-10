@@ -13,7 +13,7 @@ contains
       integer :: mydim
       
       !i used this also in single component to write and read the restart file
-      allocate(lap_phi(1:nx,1:ny,1:nz))
+      allocate(arr_3d(1:nx,1:ny,1:nz))
       
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       ntothfields=TILE_DIMx*TILE_DIMy*TILE_DIMz*nhfields*nblocks

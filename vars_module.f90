@@ -225,7 +225,7 @@ module vars
    
    integer :: flip,flop
 
-   real(kind=db), allocatable, dimension(:,:,:) :: lap_phi
+   real(kind=db), allocatable, dimension(:,:,:) :: arr_3d
 
    !real(kind=db), allocatable, dimension(:,:,:,:) :: f       !pops
    real(kind=db), allocatable, dimension(:) :: hfields_flip,hfields_flop  !allocate hydro fields flip and flop

@@ -822,8 +822,8 @@ contains
       open(unit=345,file=trim(sevt1), &
          status='old',action='read',access='stream',form='unformatted')
 
-      read(345)lap_phi
-      isfluid(1:nx,1:ny,1:nz)= int(lap_phi(1:nx,1:ny,1:nz),kind=isf) 
+      read(345)arr_3d
+      isfluid(1:nx,1:ny,1:nz)= int(arr_3d(1:nx,1:ny,1:nz),kind=isf) 
 
       close(345)
 
@@ -848,7 +848,7 @@ contains
       open(unit=345,file=trim(sevt1), &
          status='old',action='read',access='stream',form='unformatted')
 
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -860,7 +860,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -877,7 +877,7 @@ contains
       open(unit=345,file=trim(sevt1), &
          status='old',action='read',access='stream',form='unformatted')
 
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -889,7 +889,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -906,7 +906,7 @@ contains
       open(unit=345,file=trim(sevt1), &
          status='old',action='read',access='stream',form='unformatted')
 
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -918,7 +918,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -935,7 +935,7 @@ contains
       open(unit=345,file=trim(sevt1), &
          status='old',action='read',access='stream',form='unformatted')
 
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -947,7 +947,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -965,7 +965,7 @@ contains
       open(unit=345,file=trim(sevt1), &
          status='old',action='read',access='stream',form='unformatted')
 
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -977,7 +977,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
-               phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=lap_phi(i,j,k) 
+               phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=arr_3d(i,j,k) 
              enddo
          enddo
       enddo 
@@ -1051,11 +1051,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      write(345)lap_phi
+      write(345)arr_3d
 
       
       do k=1,nz
@@ -1068,11 +1068,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      write(345)lap_phi
+      write(345)arr_3d
       
       
       do k=1,nz
@@ -1085,11 +1085,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo  
-      write(345)lap_phi
+      write(345)arr_3d
       
       
       
@@ -1103,11 +1103,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      write(345)lap_phi
+      write(345)arr_3d
 
       
       do k=1,nz
@@ -1120,11 +1120,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      write(345)lap_phi
+      write(345)arr_3d
       
       
       do k=1,nz
@@ -1137,11 +1137,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      write(345)lap_phi
+      write(345)arr_3d
       
       
       do k=1,nz
@@ -1154,11 +1154,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      write(345)lap_phi
+      write(345)arr_3d
       
       
       do k=1,nz
@@ -1171,11 +1171,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      write(345)lap_phi
+      write(345)arr_3d
       
       
       do k=1,nz
@@ -1188,11 +1188,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      write(345)lap_phi
+      write(345)arr_3d
       
       
       do k=1,nz
@@ -1205,11 +1205,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo  
-      write(345)lap_phi
+      write(345)arr_3d
       
       write(345)iframe,iframe2D
 
@@ -1236,7 +1236,7 @@ contains
       open(unit=345,file=trim(sevt1), &
          status='old',action='read',access='stream',form='unformatted')
 
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1248,12 +1248,12 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo       
 
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1265,12 +1265,12 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
             
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1282,12 +1282,12 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
       
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1299,12 +1299,12 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo       
 
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1316,12 +1316,12 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
             
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1333,12 +1333,12 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
       
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1350,12 +1350,12 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
       
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1367,12 +1367,12 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
       
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1384,12 +1384,12 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
       
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1401,7 +1401,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -1476,11 +1476,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      write(345)lap_phi
+      write(345)arr_3d
 
       
       do k=1,nz
@@ -1493,11 +1493,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      write(345)lap_phi
+      write(345)arr_3d
       
       
       do k=1,nz
@@ -1510,11 +1510,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      write(345)lap_phi
+      write(345)arr_3d
       
       
       do k=1,nz
@@ -1527,11 +1527,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      write(345)lap_phi
+      write(345)arr_3d
 
       
       do k=1,nz
@@ -1544,11 +1544,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      write(345)lap_phi
+      write(345)arr_3d
       
       
       do k=1,nz
@@ -1561,11 +1561,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      write(345)lap_phi
+      write(345)arr_3d
       
       
       do k=1,nz
@@ -1578,11 +1578,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      write(345)lap_phi
+      write(345)arr_3d
       
       
       do k=1,nz
@@ -1595,11 +1595,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      write(345)lap_phi
+      write(345)arr_3d
       
       
       do k=1,nz
@@ -1612,11 +1612,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      write(345)lap_phi
+      write(345)arr_3d
       
        
       do k=1,nz
@@ -1629,11 +1629,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               lap_phi(i,j,k)=hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
              enddo
          enddo
       enddo 
-      write(345)lap_phi
+      write(345)arr_3d
 
       
       do k=1,nz
@@ -1646,11 +1646,11 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
-               lap_phi(i,j,k)=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+               arr_3d(i,j,k)=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
              enddo
          enddo
       enddo         
-      write(345)lap_phi
+      write(345)arr_3d
       
       write(345)iframe,iframe2D
 
@@ -1679,7 +1679,7 @@ contains
       open(unit=345,file=trim(sevt1), &
          status='old',action='read',access='stream',form='unformatted')
 
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1691,12 +1691,12 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
                 
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1708,12 +1708,12 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo       
       
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1725,12 +1725,12 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
       
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1742,12 +1742,12 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
 
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1759,12 +1759,12 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
             
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1776,12 +1776,12 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
       
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1793,12 +1793,12 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
       
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1810,12 +1810,12 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
       
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1827,12 +1827,12 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
       
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1844,12 +1844,12 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=lap_phi(i,j,k)   
+               hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
 
-      read(345)lap_phi
+      read(345)arr_3d
       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1861,7 +1861,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
-               phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=lap_phi(i,j,k) 
+               phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=arr_3d(i,j,k) 
              enddo
          enddo
       enddo       
