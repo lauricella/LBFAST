@@ -9,7 +9,7 @@
 
 #define SMAGORINSKI
 
-#define noINTERNAL_OBSTACLES
+#define INTERNAL_OBSTACLES
 
 
 

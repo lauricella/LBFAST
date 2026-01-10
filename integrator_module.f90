@@ -31,15 +31,7 @@ module integrator_module
     write_restart_1c,write_restart_2c,driver_print_raw_sync2d, &
     driver_print_raw_isfluid,copy_print
    use vars
-   use bcs3D, only : bcs_mesoscopic_all
-   use lb_kernels, only :  &
-#ifdef TWOCOMPONENT  
-    compute_norm_interface,compute_laplacian_phi, &
-#endif
-#ifdef REPULSIVE_FLUX
-    thinfilm_scan_mark,repulsive_flux_tangential,repulsive_flux_normal, &
-#endif
-    moments_lb,fused_lb
+   use bcs3D, only : bcs_mesoscopic_hfields,bcs_mesoscopic_phifields
 #if defined(_OPENACC)        
    use lb_cuda_kernels, only : moments_LB_cuda,fused_lb_cuda,test_LB_cuda, &
     compute_norm_interface_cuda,thinfilm_scan_mark_cuda,repulsive_flux_normal_cuda, &
@@ -169,7 +161,50 @@ contains
          endif
       endif
        
-
+#ifdef TWOCOMPONENT	 
+!****************scambio phi: boundary condition periodiche su phi************************
+      if(ldiagnostic)call start_timing2("LB","ex_phifields_sendrecv")
+	  call exchange_phifields_sendrecv(phifields_flip)
+	  if(ldiagnostic)call end_timing2("LB","ex_phifields_sendrecv")
+		 
+      if(ldiagnostic)call start_timing2("LB","ex_phifields_intpbc")
+	  call exchange_phifields_intpbc(phifields_flip)
+	  if(ldiagnostic)call end_timing2("LB","ex_phifields_intpbc")
+		 
+      if(ldiagnostic)call start_timing2("LB","ex_phifields_wait")
+	  call exchange_phifields_wait(phifields_flip)
+	  if(ldiagnostic)call end_timing2("LB","ex_phifields_wait")
+      !***********************************ora che ho phi in cornice calcolo normx normy normz************************
+      if(ldiagnostic)call start_timing2("LB","compute_norm")
+      call compute_norm_interface_cuda(phifields_flip)
+      if(ldiagnostic)call end_timing2("LB","compute_norm")
+      !***********************************scambio normx normy normz************************
+      if(ldiagnostic)call start_timing2("LB","ex_auxfields_sendrecv")
+	  call exchange_auxfields_sendrecv
+	  if(ldiagnostic)call end_timing2("LB","ex_auxfields_sendrecv")
+	  if(ldiagnostic)call start_timing2("LB","ex_auxfields_intpbc")
+	  call exchange_auxfields_intpbc
+	  if(ldiagnostic)call end_timing2("LB","ex_auxfields_intpbc")
+	  if(ldiagnostic)call start_timing2("LB","ex_auxfields_wait")
+	  call exchange_auxfields_wait
+	  if(ldiagnostic)call end_timing2("LB","ex_auxfields_wait")
+         
+#endif
+ 
+	  !***********************************pbcs boundary conditions ********************************!
+      if(ldiagnostic)call start_timing2("LB","ex_hfields_sendrecv")
+	  call exchange_hfields_sendrecv(hfields_flip)
+	  if(ldiagnostic)call end_timing2("LB","ex_hfields_sendrecv")
+	  if(ldiagnostic)call start_timing2("LB","ex_hfields_intpbc")
+	  call exchange_hfields_intpbc(hfields_flip)
+	  if(ldiagnostic)call end_timing2("LB","ex_hfields_intpbc")
+	  if(ldiagnostic)call start_timing2("LB","ex_hfields_wait")
+	  call exchange_hfields_wait(hfields_flip)
+	  if(ldiagnostic)call end_timing2("LB","ex_hfields_wait")
+      !************ thread-safe boundary condition setup
+      if(ldiagnostic)call start_timing2("LB","bcs_phi")
+      call bcs_mesoscopic_phifields(hfields_flop,phifields_flop)
+      if(ldiagnostic)call end_timing2("LB","bcs_phi") 
 
       ! start diagnostic if requested
       if(ldiagnostic)then
@@ -248,9 +283,9 @@ contains
 		 call exchange_hfields_wait(hfields_flip)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_wait")
          !************ thread-safe boundary condition setup
-         if(ldiagnostic)call start_timing2("LB","bcs_TSLB")
-         call bcs_mesoscopic_all  
-         if(ldiagnostic)call end_timing2("LB","bcs_TSLB") 
+         if(ldiagnostic)call start_timing2("LB","bcs_phi")
+         call bcs_mesoscopic_phifields(hfields_flip,phifields_flip)
+         if(ldiagnostic)call end_timing2("LB","bcs_phi") 
          !***********************************moments************************
          if(ldiagnostic)call start_timing2("LB","moments")
 #ifdef TWOCOMPONENT
@@ -316,6 +351,11 @@ contains
          call fused_LB_cuda(hfields_flip,hfields_flop,phifields_flip)
          call update_phifields(hfields_flip,phifields_flip,phifields_flop)
          if(ldiagnostic)call end_timing2("LB","fused")
+         
+         !************ thread-safe boundary condition setup
+         if(ldiagnostic)call start_timing2("LB","bcs_hfields")
+         call bcs_mesoscopic_hfields(hfields_flip,hfields_flop,phifields_flip)
+         if(ldiagnostic)call end_timing2("LB","bcs_hfields") 
          
          if(time_limit>ZERO)then
            if(mod(step,every_time_check).eq.0)then
@@ -389,9 +429,9 @@ contains
 		 call exchange_hfields_wait(hfields_flop)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_wait")
          !************ thread-safe boundary condition setup
-         if(ldiagnostic)call start_timing2("LB","bcs_TSLB")
-         call bcs_mesoscopic_all  
-         if(ldiagnostic)call end_timing2("LB","bcs_TSLB") 
+         if(ldiagnostic)call start_timing2("LB","bcs_phi")
+         call bcs_mesoscopic_phifields(hfields_flop,phifields_flop)
+         if(ldiagnostic)call end_timing2("LB","bcs_phi") 
          !***********************************moments************************
          if(ldiagnostic)call start_timing2("LB","moments")
 #ifdef TWOCOMPONENT
@@ -456,6 +496,11 @@ contains
          call fused_LB_cuda(hfields_flop,hfields_flip,phifields_flop)
          call update_phifields(hfields_flop,phifields_flop,phifields_flip)
          if(ldiagnostic)call end_timing2("LB","fused")
+         
+         !************ thread-safe boundary condition setup
+         if(ldiagnostic)call start_timing2("LB","bcs_hfields")
+         call bcs_mesoscopic_hfields(hfields_flop,hfields_flip,phifields_flop)
+         if(ldiagnostic)call end_timing2("LB","bcs_hfields") 
          
          if(time_limit>ZERO)then
            if(mod(step,every_time_check).eq.0)then

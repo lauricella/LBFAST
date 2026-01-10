@@ -4,6 +4,8 @@ module bcs3D
    use vars
    use mpi_template , only: coords,pbc_x,pbc_y,pbc_z,myoffset,myrank, &
     sum_world_float,sum_world_int
+   use lb_cuda_kernels, only: PHI_int_boundary_cuda,LB_int_boundary_cuda, &
+    phi_sum_count_cuda,apply_lagrangian_phi_cuda
 !   !$if _OPENACC
 !   use openacc
 !   !$endif
@@ -11,801 +13,1601 @@ module bcs3D
 
 contains
    !***************************************************
-   subroutine bcs_mesoscopic_all
+   subroutine bcs_mesoscopic_hfields(hfields_in,hfields_out,phifields_s)
 
-      implicit none
+     implicit none
+     real(kind=db), allocatable, dimension(:) :: hfields_in,hfields_out,phifields_s
 
-      integer :: subchords(3)
-      integer :: ii,jj,kk,l,lopp
-	  real(kind=db) :: feq, fneq1,utmp,vtmp,wtmp,rhophi_loc
+
+     integer :: subchords(3)
+     integer :: ii,jj,kk,l,lopp,iii,jjj,kkk
+ 	 real(kind=db) :: feq, fneq1,presstmp,utmp,vtmp,wtmp,rhophi_loc,fpost
 #ifdef TWOCOMPONENT	  
-	  real(kind=db) :: phitemp
+ 	 real(kind=db) :: phitemp,phi_loc
 #endif
 #if defined(PHASE_CHANGE) || defined(INTERNAL_OBSTACLES)
-	  real(kind=db) :: visc_loc,omega_loc,tau_loc
+ 	 real(kind=db) :: visc_loc,omega_loc,tau_loc
 #endif
 #if defined(INTERNAL_OBSTACLES)
-	  real(kind=db) :: F_discr,wet_R,rhotemp,phiavg, wet_thresh_low, wet_thresh_high,grad_thresh,phi_adj,weight,correc
-	  real(kind=db) :: phi_fluid,gradfix,gradfiy,grad_parallel,theta_rad,cot_theta,phi_ghost,dphi_dz,gradfiz
-	  integer :: conter
-	  logical :: found
+	 real(kind=db) :: F_discr,wet_R,rhotemp,phiavg, wet_thresh_low, wet_thresh_high,grad_thresh,phi_adj,weight,correc
+	 real(kind=db) :: phi_fluid,gradfix,gradfiy,grad_parallel,theta_rad,cot_theta,phi_ghost,dphi_dz,gradfiz
+	 integer :: conter
+	 logical :: found
 #endif
-
+     integer :: xblock,yblock,zblock,myblock
+     real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
+     real(kind=db) :: opress,ou,ov,ow,opxx,opyy,opzz,opxy,opxz,opyz
 
 
 
 #if defined(INTERNAL_OBSTACLES)
 
-#ifdef ACCNOKERNELS
-		!$acc parallel loop collapse(3) present(pxx,pyy,pzz,pxy,pxz,pyz,rho,u,v,w,fux,fvy,fwz &
-#ifdef TWOCOMPONENT
-		!$acc& ,selphi &
-#endif
-#ifdef DENSRATIO
-		!$acc& ,rhophi &
-#endif
-		!$acc& ) private(i,j,k,l,F_discr,fneq1,feq,omega_loc,udotc,uu,gi,gj,gk &
-#ifdef TWOCOMPONENT
-		!$acc& ,tau_loc,rhophi_loc,visc_loc &
-#endif
-		!$acc& )
-#else
-		!$acc kernels present(pxx,pyy,pzz,pxy,pxz,pyz,rho,u,v,w,fux,fvy,fwz &
-#ifdef TWOCOMPONENT
-		!$acc& ,selphi &
-#endif
-#ifdef DENSRATIO
-		!$acc& ,rhophi &
-#endif
-		!$acc& )
-		!$acc loop collapse(3) private(i,j,k,l,F_discr,fneq1,feq,omega_loc,udotc,uu,gi,gj,gk &
-#ifdef TWOCOMPONENT
-		!$acc& ,tau_loc,rhophi_loc,visc_loc &
-#endif
-		!$acc& )
-#endif
-		do k=1,nz
-			do j=1,ny
-				do i=1,nx
-
-					    if(isfluid(i,j,k).ne.-1) cycle
-
-						utmp=0.0_db!u(i,j,k)
-						vtmp=0.0_db!v(i,j,k)	
-						wtmp=0.0_db
-						
-#ifdef DENSRATIO
-						rhophi_loc = rhophi(i,j,k)
-#else
-				        rhophi_loc = ONE 
-#endif
-
-#ifdef TWOCOMPONENT
-
-						visc_loc=(rho_r*visc1*selphi(i,j,k,flip)+(ONE-selphi(i,j,k,flip))*visc2*rho_b)/rhophi_loc  
-
-						
-						tau_loc=(visc_loc/cssq + HALF) !è una tau
-						
-						omega_loc=ONE/tau_loc !è una omega
-						
-#else
-						omega_loc=omega
-#endif				        
-				        
-						!$acc loop seq
-						do l=1,nlinks
-						  lopp=opp(l)
-						  ii=i+ex(lopp)
-						  jj=j+ey(lopp)
-						  kk=k+ez(lopp)
-						  if(isfluid(ii,jj,kk).ne.0) cycle 
-						  !w(i,j,k)=w(i,j,k+ez(l))
-						  uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)/cssq
-						  udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))/cssq
-						  feq=p(l)*(rho(i+ex(l),j+ey(l),k+ez(l)) + udotc+ HALF*udotc*udotc - uu)
-						  fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx(i,j,k) &
-						   + (dey(l)*dey(l)-cssq)*pyy(i,j,k) + (dez(l)*dez(l)-cssq)*pzz(i,j,k) &
-					       + TWO*(dex(l)*dey(l))*pxy(i,j,k) + TWO*(dex(l)*dez(l))*pxz(i,j,k) &
-						   + TWO*(dey(l)*dez(l))*pyz(i,j,k))
-				          ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*fux(i,j,k) &
-				           ! + ((dey(l) - vtmp) + udotc * dey(l))*fvy(i,j,k) &
-				           ! + ((dez(l) - wtmp) + udotc * dez(l))*fwz(i,j,k))/cssq
-						  f(i,j,k,l)=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)
-						  
-						enddo
-
-				enddo
-			enddo
-		enddo
-#ifdef ACCNOKERNELS
-      !$acc end parallel loop
-#else
-      !$acc end kernels
-#endif
-
+     call LB_int_boundary_cuda(hfields_in,hfields_out,phifields_s)
+        
 !*****************************************
 
-	   if(pbc_x.eq.0)then
+	 if(pbc_x.eq.0)then
+	   gi=2
+       subchords(1)=(gi-1)/nx
+	   if(subchords(1)==coords(1))then
 #ifdef ACCNOKERNELS
-		!$acc parallel loop collapse(2) independent present(selphi &
-		!$acc& ) private(i,j,k,l,gi,gj,gk)
+		 !$acc parallel loop collapse(2) independent present(selphi &
+		 !$acc& ) private(i,j,k,l,gi,gj,gk,ii,jj,kk,xblock,yblock,zblock,myblock)
 #else
-		!$acc kernels present(selphi &
-		!$acc& )
-		!$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
+		 !$acc kernels present(selphi &
+		 !$acc& )
+		 !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk,ii,jj,kk &
+		 !$acc& ,xblock,yblock,zblock,myblock)
 #endif	    
-	      do k=1,nz
-			do j=1,ny
-			  gj=ny*coords(2)+j
-			  gk=nz*coords(3)+k
-			  if(gj>1 .and. gj<ly .and. gk>1 .and. gk<lz)then
-	          i=1
-	          gi=nx*coords(1)+i
-	          if(gi.eq.1)then
-#ifdef DENSRATIO
-			    rhophi_loc = rhophi(i+1,j,k)
+	     do k=1,nz
+		   do j=1,ny
+		 	 gj=ny*coords(2)+j
+			 gk=nz*coords(3)+k
+			 if(gj>1 .and. gj<ly .and. gk>1 .and. gk<lz)then
+	           i=2
+	           gi=nx*coords(1)+i
+	           
+	           if(isfluid(i,j,k) .ne. -1)cycle
+	           
+	             xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+                 yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+                 zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+                 myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+                 ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+                 jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+                 kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+				 
+				 press=hfields_in(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 u=hfields_in(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
+				 v=hfields_in(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 w=hfields_in(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxx=hfields_in(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pyy=hfields_in(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pzz=hfields_in(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxy=hfields_in(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxz=hfields_in(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pyz=hfields_in(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 
+				 opress=hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 ou=hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 ov=hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 ow=hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opxx=hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opyy=hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opzz=hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opxy=hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opxz=hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opyz=hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 
+				 presstmp=press
+				 utmp=0.0_db !
+				 vtmp=0.0_db !
+				 wtmp=0.0_db !
+				 
+				 #ifdef EXPLICITEQ 
+	             uu=HALF*(u*u+v*v+w*w)*invcssq
+	  
+	             do l=1,nlinks
+		           udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
+		           feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
+		 
+		           pxx=pxx - feq*dex(l)*dex(l)
+		           pyy=pyy - feq*dey(l)*dey(l)
+		           pzz=pzz - feq*dez(l)*dez(l)
+		           pxy=pxy - feq*dex(l)*dey(l)
+		           pxz=pxz - feq*dex(l)*dez(l)
+		           pyz=pyz - feq*dey(l)*dez(l)
+	             enddo
 #else
-		        rhophi_loc = ONE 
+	             pxx=pxx - cssq*press - u*u 
+	             pyy=pyy - cssq*press - v*v 
+	             pzz=pzz - cssq*press - w*w 
+	             pxy=pxy - u*v
+	             pxz=pxz - u*w
+	             pyz=pyz - v*w
+#endif
+
+                 phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+	           
+#ifdef DENSRATIO
+			     rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
+#else
+		         rhophi_loc = ONE 
 #endif
 
 #ifdef TWOCOMPONENT
 
-			    visc_loc=(rho_r*visc1*selphi(i+1,j,k,flip)+(ONE-selphi(i+1,j,k,flip))*visc2*rho_b)/rhophi_loc  
+			     visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 
 						
-			    tau_loc=(visc_loc/cssq + HALF) !è una tau
+			     tau_loc=(visc_loc/cssq + HALF) !è una tau
 						
-			    omega_loc=ONE/tau_loc !è una omega
+			     omega_loc=ONE/tau_loc !è una omega
 						
 #else
-			    omega_loc=omega
-#endif					
-				utmp=0.0_db!u(i+1,j,k)
-				vtmp=0.0_db!v(i,j,k)	
-				wtmp=0.0_db
-				!$acc loop seq
-				do l=1,nlinks
-				  ! lopp=opp(l)
-				   ii=i+ex(l)
-				   jj=j+ey(l)
-				   kk=k+ez(l)
-				  
-				  if(isfluid(ii,jj,kk).ne.-1) cycle 
-				  rhotemp=rho(ii,jj,kk)
-				  !w(i,j,k)=w(i,j,k+ez(l))
-				  uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)/cssq
-				  udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))/cssq
-				  feq=p(l)*(rhotemp + udotc+ HALF*udotc*udotc - uu)
-				  fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx(ii,jj,kk) &
-				   + (dey(l)*dey(l)-cssq)*pyy(ii,jj,kk) + (dez(l)*dez(l)-cssq)*pzz(ii,jj,kk) &
-				   + TWO*(dex(l)*dey(l))*pxy(ii,jj,kk) + TWO*(dex(l)*dez(l))*pxz(ii,jj,kk) &
-				   + TWO*(dey(l)*dez(l))*pyz(ii,jj,kk))
-				  ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*fux(i,j,k) &
-				   ! + ((dey(l) - vtmp) + udotc * dey(l))*fvy(i,j,k) &
-				   ! + ((dez(l) - wtmp) + udotc * dez(l))*fwz(i,j,k))/cssq
-				  f(ii,jj,kk,l)=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)
-				  
-				enddo
-			  endif
-			  i=nx
-	          gi=nx*coords(1)+i
-	          if(gi.eq.lx)then
-#ifdef DENSRATIO
-			    rhophi_loc = rhophi(i-1,j,k)
+			     omega_loc=omega
+#endif		
+				 uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)/cssq
+				 !$acc loop seq
+				 do l=1,nlinks
+		           lopp=opp(l)
+		           iii=i+ex(lopp)
+		           jjj=j+ey(lopp)
+		           kkk=k+ez(lopp)
+		           if(isfluid(iii,jjj,kkk).ne.0) cycle 
+		           feq=p(l)*(press)
+		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		            + TWO*(dey(l)*dez(l))*pyz)
+                   !F_discr = p(l)*(dex(l)*forcex &
+                   ! + dey(l)*forcey &
+                   ! + dez(l)*forcez)/cssq
+		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           opress=opress - fpost
+		           ou=ou - fpost*dex(l)
+		           ov=ov - fpost*dey(l)
+		           ow=ow - fpost*dez(l)
+		           opxx=opxx - fpost*dex(l)*dex(l)
+                   opyy=opyy - fpost*dey(l)*dey(l)
+                   opzz=opzz - fpost*dez(l)*dez(l)
+                   opxy=opxy - fpost*dex(l)*dey(l)
+                   opxz=opxz - fpost*dex(l)*dez(l)
+                   opyz=opyz - fpost*dey(l)*dez(l)	
+		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))/cssq
+		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
+		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		            + TWO*(dey(l)*dez(l))*pyz)
+                   ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*forcex &
+                   ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
+                   ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/cssq
+		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           opress=opress + fpost
+		           ou=ou + fpost*dex(l)
+	       	       ov=ov + fpost*dey(l)
+		           ow=ow + fpost*dez(l)
+		           opxx=opxx + fpost*dex(l)*dex(l)
+                   opyy=opyy + fpost*dey(l)*dey(l)
+                   opzz=opzz + fpost*dez(l)*dez(l)
+                   opxy=opxy + fpost*dex(l)*dey(l)
+                   opxz=opxz + fpost*dex(l)*dez(l)
+                   opyz=opyz + fpost*dey(l)*dez(l)
+                 enddo
+                 
+                 hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
+	             hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
+	             hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
+	             hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
+	             hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
+	             hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
+	             hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
+	             hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
+	             hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
+	             hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
+                 
+			 endif
+	       enddo
+	     enddo
+#ifdef ACCNOKERNELS
+         !$acc end parallel loop
 #else
-		        rhophi_loc = ONE 
-#endif
+         !$acc end kernels
+#endif   
+       endif
 
-#ifdef TWOCOMPONENT
-
-			    visc_loc=(rho_r*visc1*selphi(i-1,j,k,flip)+(ONE-selphi(i-1,j,k,flip))*visc2*rho_b)/rhophi_loc  
-
-						
-			    tau_loc=(visc_loc/cssq + HALF) !è una tau
-						
-			    omega_loc=ONE/tau_loc !è una omega
-						
+	   gi=lx-1
+       subchords(1)=(gi-1)/nx
+	   if(subchords(1)==coords(1))then
+#ifdef ACCNOKERNELS
+		 !$acc parallel loop collapse(2) independent present(selphi &
+		 !$acc& ) private(i,j,k,l,gi,gj,gk)
 #else
-			    omega_loc=omega
+		 !$acc kernels present(selphi &
+		 !$acc& )
+		 !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	
-				utmp=0.0_db!u(i-1,j,k)
-				vtmp=0.0_db!v(i,j,k)	
-				wtmp=0.0_db
-				!$acc loop seq
-				do l=1,nlinks
-				  ! lopp=opp(l)
-				   ii=i+ex(l)
-				   jj=j+ey(l)
-				   kk=k+ez(l)
-				  
-				  if(isfluid(ii,jj,kk).ne.-1) cycle 
-				  rhotemp=rho(ii,jj,kk)
-				  !w(i,j,k)=w(i,j,k+ez(l))
-				  uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)/cssq
-				  udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))/cssq
-				  feq=p(l)*(rhotemp + udotc+ HALF*udotc*udotc - uu)
-				  fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx(ii,jj,kk) &
-				   + (dey(l)*dey(l)-cssq)*pyy(ii,jj,kk) + (dez(l)*dez(l)-cssq)*pzz(ii,jj,kk) &
-				   + TWO*(dex(l)*dey(l))*pxy(ii,jj,kk) + TWO*(dex(l)*dez(l))*pxz(ii,jj,kk) &
-				   + TWO*(dey(l)*dez(l))*pyz(ii,jj,kk))
-				  ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*fux(i,j,k) &
-				   ! + ((dey(l) - vtmp) + udotc * dey(l))*fvy(i,j,k) &
-				   ! + ((dez(l) - wtmp) + udotc * dez(l))*fwz(i,j,k))/cssq
-				  f(ii,jj,kk,l)=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)
-				  
-				enddo
-			  endif
-			  endif
-	        enddo
-	      enddo
-#ifdef ACCNOKERNELS
-      !$acc end parallel loop
+         do k=1,nz
+		   do j=1,ny
+		 	 gj=ny*coords(2)+j
+			 gk=nz*coords(3)+k
+			 if(gj>1 .and. gj<ly .and. gk>1 .and. gk<lz)then
+	           i=nx-1
+               gi=nx*coords(1)+i
+	           if(isfluid(i,j,k) .ne. -1)cycle
+	           
+	             xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+                 yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+                 zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+                 myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+                 ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+                 jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+                 kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+				 
+				 press=hfields_in(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 u=hfields_in(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
+				 v=hfields_in(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 w=hfields_in(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxx=hfields_in(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pyy=hfields_in(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pzz=hfields_in(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxy=hfields_in(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxz=hfields_in(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pyz=hfields_in(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 
+				 opress=hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 ou=hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 ov=hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 ow=hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opxx=hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opyy=hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opzz=hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opxy=hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opxz=hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opyz=hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 
+				 presstmp=press
+				 utmp=0.0_db !
+				 vtmp=0.0_db !
+				 wtmp=0.0_db !
+				 
+				 #ifdef EXPLICITEQ 
+	             uu=HALF*(u*u+v*v+w*w)*invcssq
+	  
+	             do l=1,nlinks
+		           udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
+		           feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
+		 
+		           pxx=pxx - feq*dex(l)*dex(l)
+		           pyy=pyy - feq*dey(l)*dey(l)
+		           pzz=pzz - feq*dez(l)*dez(l)
+		           pxy=pxy - feq*dex(l)*dey(l)
+		           pxz=pxz - feq*dex(l)*dez(l)
+		           pyz=pyz - feq*dey(l)*dez(l)
+	             enddo
 #else
-      !$acc end kernels
+	             pxx=pxx - cssq*press - u*u 
+	             pyy=pyy - cssq*press - v*v 
+	             pzz=pzz - cssq*press - w*w 
+	             pxy=pxy - u*v
+	             pxz=pxz - u*w
+	             pyz=pyz - v*w
 #endif
-	    endif	
-	    
-	    if(pbc_y.eq.0)then
-#ifdef ACCNOKERNELS
-		!$acc parallel loop collapse(2) independent present(selphi)
+
+                 phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+	           
+#ifdef DENSRATIO
+			     rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
 #else
-		!$acc kernels present(selphi &
-		!$acc& )
-		!$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
+		         rhophi_loc = ONE 
+#endif
+
+#ifdef TWOCOMPONENT
+
+			     visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
+
+						
+			     tau_loc=(visc_loc/cssq + HALF) !è una tau
+						
+			     omega_loc=ONE/tau_loc !è una omega
+						
+#else
+			     omega_loc=omega
+#endif		
+                 uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)/cssq
+				 !$acc loop seq
+				 do l=1,nlinks
+		           lopp=opp(l)
+		           iii=i+ex(lopp)
+		           jjj=j+ey(lopp)
+		           kkk=k+ez(lopp)
+		           if(isfluid(iii,jjj,kkk).ne.0) cycle 
+		           feq=p(l)*(press)
+		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		            + TWO*(dey(l)*dez(l))*pyz)
+                   !F_discr = p(l)*(dex(l)*forcex &
+                   ! + dey(l)*forcey &
+                   ! + dez(l)*forcez)/cssq
+		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           opress=opress - fpost
+		           ou=ou - fpost*dex(l)
+		           ov=ov - fpost*dey(l)
+		           ow=ow - fpost*dez(l)
+		           opxx=opxx - fpost*dex(l)*dex(l)
+                   opyy=opyy - fpost*dey(l)*dey(l)
+                   opzz=opzz - fpost*dez(l)*dez(l)
+                   opxy=opxy - fpost*dex(l)*dey(l)
+                   opxz=opxz - fpost*dex(l)*dez(l)
+                   opyz=opyz - fpost*dey(l)*dez(l)	
+		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))/cssq
+		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
+		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		            + TWO*(dey(l)*dez(l))*pyz)
+                   ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*forcex &
+                   ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
+                   ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/cssq
+		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           opress=opress + fpost
+		           ou=ou + fpost*dex(l)
+	       	       ov=ov + fpost*dey(l)
+		           ow=ow + fpost*dez(l)
+		           opxx=opxx + fpost*dex(l)*dex(l)
+                   opyy=opyy + fpost*dey(l)*dey(l)
+                   opzz=opzz + fpost*dez(l)*dez(l)
+                   opxy=opxy + fpost*dex(l)*dey(l)
+                   opxz=opxz + fpost*dex(l)*dez(l)
+                   opyz=opyz + fpost*dey(l)*dez(l)
+                 enddo
+                 
+                 hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
+	             hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
+	             hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
+	             hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
+	             hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
+	             hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
+	             hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
+	             hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
+	             hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
+	             hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
+                 
+			 endif
+	       enddo
+	     enddo
+#ifdef ACCNOKERNELS
+         !$acc end parallel loop
+#else
+         !$acc end kernels
+#endif
+       endif
+	 endif	
+	   
+	 if(pbc_y.eq.0)then
+	   gj=2
+       subchords(2)=(gj-1)/ny
+	   if(subchords(2)==coords(2))then
+#ifdef ACCNOKERNELS
+	     !$acc parallel loop collapse(2) independent present(selphi)
+#else
+	     !$acc kernels present(selphi &
+	     !$acc& )
+	     !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	    
-	      do k=1,nz
-		    do i=1,nx
-			  gi=nx*coords(1)+i
-			  gk=nz*coords(3)+k
-			  if(gi>1 .and. gi<lx .and. gk>1 .and. gk<lz)then
-	          j=1
-	          gj=ny*coords(2)+j
-	          if(gj.eq.1)then
-#ifdef DENSRATIO
-			    rhophi_loc = rhophi(i,j+1,k)
+	     do k=1,nz
+		   do i=1,nx
+			 gi=nx*coords(1)+i
+			 gk=nz*coords(3)+k
+			 if(gi>1 .and. gi<lx .and. gk>1 .and. gk<lz)then
+	           j=2
+               gj=ny*coords(2)+j
+               if(isfluid(i,j,k) .ne. -1)cycle
+	           
+	             xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+                 yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+                 zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+                 myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+                 ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+                 jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+                 kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+				 
+				 press=hfields_in(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 u=hfields_in(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
+				 v=hfields_in(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 w=hfields_in(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxx=hfields_in(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pyy=hfields_in(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pzz=hfields_in(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxy=hfields_in(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxz=hfields_in(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pyz=hfields_in(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 
+				 opress=hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 ou=hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 ov=hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 ow=hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opxx=hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opyy=hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opzz=hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opxy=hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opxz=hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opyz=hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 
+				 presstmp=press
+				 utmp=0.0_db !
+				 vtmp=0.0_db !
+				 wtmp=0.0_db !
+				 
+				 #ifdef EXPLICITEQ 
+	             uu=HALF*(u*u+v*v+w*w)*invcssq
+	  
+	             do l=1,nlinks
+		           udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
+		           feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
+		 
+		           pxx=pxx - feq*dex(l)*dex(l)
+		           pyy=pyy - feq*dey(l)*dey(l)
+		           pzz=pzz - feq*dez(l)*dez(l)
+		           pxy=pxy - feq*dex(l)*dey(l)
+		           pxz=pxz - feq*dex(l)*dez(l)
+		           pyz=pyz - feq*dey(l)*dez(l)
+	             enddo
 #else
-		        rhophi_loc = ONE 
+	             pxx=pxx - cssq*press - u*u 
+	             pyy=pyy - cssq*press - v*v 
+	             pzz=pzz - cssq*press - w*w 
+	             pxy=pxy - u*v
+	             pxz=pxz - u*w
+	             pyz=pyz - v*w
+#endif
+
+                 phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+	           
+#ifdef DENSRATIO
+			     rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
+#else
+		         rhophi_loc = ONE 
 #endif
 
 #ifdef TWOCOMPONENT
 
-			    visc_loc=(rho_r*visc1*selphi(i,j+1,k,flip)+(ONE-selphi(i,j+1,k,flip))*visc2*rho_b)/rhophi_loc  
+			     visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 
 						
-			    tau_loc=(visc_loc/cssq + HALF) !è una tau
+			     tau_loc=(visc_loc/cssq + HALF) !è una tau
 						
-			    omega_loc=ONE/tau_loc !è una omega
+			     omega_loc=ONE/tau_loc !è una omega
 						
 #else
-			    omega_loc=omega
-#endif	
-				utmp=0.0_db
-				vtmp=0.0_db!v(i,j+1,k)	
-				wtmp=0.0_db
-				!$acc loop seq
-				do l=1,nlinks
-				  ! lopp=opp(l)
-				   ii=i+ex(l)
-				   jj=j+ey(l)
-				   kk=k+ez(l)
-				  
-				  if(isfluid(ii,jj,kk).ne.-1) cycle 
-				  rhotemp=rho(ii,jj,kk)
-				  !w(i,j,k)=w(i,j,k+ez(l))
-				  uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)/cssq
-				  udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))/cssq
-				  feq=p(l)*(rhotemp + udotc+ HALF*udotc*udotc - uu)
-				  fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx(ii,jj,kk) &
-				   + (dey(l)*dey(l)-cssq)*pyy(ii,jj,kk) + (dez(l)*dez(l)-cssq)*pzz(ii,jj,kk) &
-				   + TWO*(dex(l)*dey(l))*pxy(ii,jj,kk) + TWO*(dex(l)*dez(l))*pxz(ii,jj,kk) &
-				   + TWO*(dey(l)*dez(l))*pyz(ii,jj,kk))
-				  ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*fux(i,j,k) &
-				   ! + ((dey(l) - vtmp) + udotc * dey(l))*fvy(i,j,k) &
-				   ! + ((dez(l) - wtmp) + udotc * dez(l))*fwz(i,j,k))/cssq
-				  f(ii,jj,kk,l)=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)
-				  
-				enddo
-			  endif
-			  j=ny
-	          gj=ny*coords(2)+j
-	          if(gj.eq.ly)then
-#ifdef DENSRATIO
-			    rhophi_loc = rhophi(i,j-1,k)
-#else
-		        rhophi_loc = ONE 
-#endif
-
-#ifdef TWOCOMPONENT
-
-			    visc_loc=(rho_r*visc1*selphi(i,j-1,k,flip)+(ONE-selphi(i,j-1,k,flip))*visc2*rho_b)/rhophi_loc  
-
-						
-			    tau_loc=(visc_loc/cssq + HALF) !è una tau
-						
-			    omega_loc=ONE/tau_loc !è una omega
-						
-#else
-			    omega_loc=omega
-#endif
-				utmp=0.0_db
-				vtmp=0.0_db!v(i,j-1,k)	
-				wtmp=0.0_db 
-				!$acc loop seq
-				do l=1,nlinks
-				  ! lopp=opp(l)
-				   ii=i+ex(l)
-				   jj=j+ey(l)
-				   kk=k+ez(l)
-				  
-				  if(isfluid(ii,jj,kk).ne.-1) cycle 
-				  rhotemp=rho(ii,jj,kk)
-				  !w(i,j,k)=w(i,j,k+ez(l))
-				  uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)/cssq
-				  udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))/cssq
-				  feq=p(l)*(rhotemp + udotc+ HALF*udotc*udotc - uu)
-				  fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx(ii,jj,kk) &
-				   + (dey(l)*dey(l)-cssq)*pyy(ii,jj,kk) + (dez(l)*dez(l)-cssq)*pzz(ii,jj,kk) &
-				   + TWO*(dex(l)*dey(l))*pxy(ii,jj,kk) + TWO*(dex(l)*dez(l))*pxz(ii,jj,kk) &
-				   + TWO*(dey(l)*dez(l))*pyz(ii,jj,kk))
-				  ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*fux(i,j,k) &
-				   ! + ((dey(l) - vtmp) + udotc * dey(l))*fvy(i,j,k) &
-				   ! + ((dez(l) - wtmp) + udotc * dez(l))*fwz(i,j,k))/cssq
-				  f(ii,jj,kk,l)=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)
-				  
-				enddo
-			  endif
-			  endif
-	        enddo
-	      enddo
+			     omega_loc=omega
+#endif		
+                 uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)/cssq
+				 !$acc loop seq
+				 do l=1,nlinks
+		           lopp=opp(l)
+		           iii=i+ex(lopp)
+		           jjj=j+ey(lopp)
+		           kkk=k+ez(lopp)
+		           if(isfluid(iii,jjj,kkk).ne.0) cycle 
+		           feq=p(l)*(press)
+		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		            + TWO*(dey(l)*dez(l))*pyz)
+                   !F_discr = p(l)*(dex(l)*forcex &
+                   ! + dey(l)*forcey &
+                   ! + dez(l)*forcez)/cssq
+		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           opress=opress - fpost
+		           ou=ou - fpost*dex(l)
+		           ov=ov - fpost*dey(l)
+		           ow=ow - fpost*dez(l)
+		           opxx=opxx - fpost*dex(l)*dex(l)
+                   opyy=opyy - fpost*dey(l)*dey(l)
+                   opzz=opzz - fpost*dez(l)*dez(l)
+                   opxy=opxy - fpost*dex(l)*dey(l)
+                   opxz=opxz - fpost*dex(l)*dez(l)
+                   opyz=opyz - fpost*dey(l)*dez(l)	
+		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))/cssq
+		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
+		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		            + TWO*(dey(l)*dez(l))*pyz)
+                   ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*forcex &
+                   ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
+                   ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/cssq
+		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           opress=opress + fpost
+		           ou=ou + fpost*dex(l)
+	       	       ov=ov + fpost*dey(l)
+		           ow=ow + fpost*dez(l)
+		           opxx=opxx + fpost*dex(l)*dex(l)
+                   opyy=opyy + fpost*dey(l)*dey(l)
+                   opzz=opzz + fpost*dez(l)*dez(l)
+                   opxy=opxy + fpost*dex(l)*dey(l)
+                   opxz=opxz + fpost*dex(l)*dez(l)
+                   opyz=opyz + fpost*dey(l)*dez(l)
+                 enddo
+                 
+                 hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
+	             hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
+	             hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
+	             hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
+	             hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
+	             hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
+	             hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
+	             hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
+	             hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
+	             hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
+                 
+			 endif
+	       enddo
+	     enddo
 #ifdef ACCNOKERNELS
-      !$acc end parallel loop
+         !$acc end parallel loop
 #else
-      !$acc end kernels
+         !$acc end kernels
 #endif
-	    endif	    
-
-	    if(pbc_z.eq.0)then
+       endif
+       
+	   gj=ly-1
+       subchords(2)=(gj-1)/ny
+	   if(subchords(2)==coords(2))then
 #ifdef ACCNOKERNELS
-		!$acc parallel loop collapse(2) independent present(selphi &
-		!$acc& ) private(i,j,k,l,gi,gj,gk)
+	     !$acc parallel loop collapse(2) independent present(selphi)
 #else
-		!$acc kernels present(selphi &
-		!$acc& )
-		!$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
+	     !$acc kernels present(selphi &
+	     !$acc& )
+	     !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	    
-	      do j=1,ny
-		    do i=1,nx
-			  gi=nx*coords(1)+i
-			  gj=ny*coords(2)+j
-			  if(gi>1 .and. gi<lx .and. gj>1 .and. gj<ly)then
-	          k=1
-	          gk=nz*coords(3)+k
-	          if(gk.eq.1)then
-#ifdef DENSRATIO
-			    rhophi_loc = rhophi(i,j,k+1)
+	     do k=1,nz
+		   do i=1,nx
+			 gi=nx*coords(1)+i
+			 gk=nz*coords(3)+k
+			 if(gi>1 .and. gi<lx .and. gk>1 .and. gk<lz)then  
+			   j=ny-1
+			   gj=ny*coords(2)+j
+               if(isfluid(i,j,k) .ne. -1)cycle
+	           
+	             xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+                 yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+                 zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+                 myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+                 ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+                 jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+                 kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+				 
+				 press=hfields_in(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 u=hfields_in(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
+				 v=hfields_in(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 w=hfields_in(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxx=hfields_in(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pyy=hfields_in(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pzz=hfields_in(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxy=hfields_in(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxz=hfields_in(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pyz=hfields_in(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 
+				 opress=hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 ou=hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 ov=hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 ow=hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opxx=hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opyy=hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opzz=hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opxy=hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opxz=hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opyz=hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 
+				 presstmp=press
+				 utmp=0.0_db !
+				 vtmp=0.0_db !
+				 wtmp=0.0_db !
+				 
+				 #ifdef EXPLICITEQ 
+	             uu=HALF*(u*u+v*v+w*w)*invcssq
+	  
+	             do l=1,nlinks
+		           udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
+		           feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
+		 
+		           pxx=pxx - feq*dex(l)*dex(l)
+		           pyy=pyy - feq*dey(l)*dey(l)
+		           pzz=pzz - feq*dez(l)*dez(l)
+		           pxy=pxy - feq*dex(l)*dey(l)
+		           pxz=pxz - feq*dex(l)*dez(l)
+		           pyz=pyz - feq*dey(l)*dez(l)
+	             enddo
 #else
-		        rhophi_loc = ONE 
+	             pxx=pxx - cssq*press - u*u 
+	             pyy=pyy - cssq*press - v*v 
+	             pzz=pzz - cssq*press - w*w 
+	             pxy=pxy - u*v
+	             pxz=pxz - u*w
+	             pyz=pyz - v*w
+#endif
+
+                 phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+	           
+#ifdef DENSRATIO
+			     rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
+#else
+		         rhophi_loc = ONE 
 #endif
 
 #ifdef TWOCOMPONENT
 
-			    visc_loc=(rho_r*visc1*selphi(i,j,k+1,flip)+(ONE-selphi(i,j,k+1,flip))*visc2*rho_b)/rhophi_loc  
+			     visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 
 						
-			    tau_loc=(visc_loc/cssq + HALF) !è una tau
+			     tau_loc=(visc_loc/cssq + HALF) !è una tau
 						
-			    omega_loc=ONE/tau_loc !è una omega
-						
-#else
-			    omega_loc=omega
-#endif
-				utmp=0.0_db
-				vtmp=ZERO	
-				wtmp=ZERO!w(i,j,k+1)
-				!$acc loop seq
-				do l=1,nlinks
-				  ! lopp=opp(l)
-				   ii=i+ex(l)
-				   jj=j+ey(l)
-				   kk=k+ez(l)
-				  
-				  if(isfluid(ii,jj,kk).ne.-1) cycle 
-#ifdef IMPOSED_PRESSURE_GRADIENT
-				  rhotemp=rhoIN
-#else
-				  rhotemp=rho(ii,jj,kk)
-#endif
-				  !w(i,j,k)=w(i,j,k+ez(l))
-				  uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)/cssq
-				  udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))/cssq
-				  feq=p(l)*(rhotemp + udotc+ HALF*udotc*udotc - uu)
-				  fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx(ii,jj,kk) &
-				   + (dey(l)*dey(l)-cssq)*pyy(ii,jj,kk) + (dez(l)*dez(l)-cssq)*pzz(ii,jj,kk) &
-				   + TWO*(dex(l)*dey(l))*pxy(ii,jj,kk) + TWO*(dex(l)*dez(l))*pxz(ii,jj,kk) &
-				   + TWO*(dey(l)*dez(l))*pyz(ii,jj,kk))
-				  ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*fux(i,j,k) &
-				   ! + ((dey(l) - vtmp) + udotc * dey(l))*fvy(i,j,k) &
-				   ! + ((dez(l) - wtmp) + udotc * dez(l))*fwz(i,j,k))/cssq
-				  f(ii,jj,kk,l)=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)
-				  
-				enddo
-			  endif
-			  k=nz
-	          gk=nz*coords(3)+k
-	          if(gk.eq.lz)then
-#ifdef DENSRATIO
-			    rhophi_loc = rhophi(i,j,k-1)
-#else
-		        rhophi_loc = ONE 
-#endif
-
-#ifdef TWOCOMPONENT
-
-			    visc_loc=(rho_r*visc1*selphi(i,j,k-1,flip)+(ONE-selphi(i,j,k-1,flip))*visc2*rho_b)/rhophi_loc  
-
-						
-			    tau_loc=(visc_loc/cssq + HALF) !è una tau
-						
-			    omega_loc=ONE/tau_loc !è una omega
+			     omega_loc=ONE/tau_loc !è una omega
 						
 #else
-			    omega_loc=omega
-#endif
-				utmp=0.0_db
-				vtmp=ZERO	
-				wtmp=ZERO!w(i,j,k-1)
-				!$acc loop seq
-				do l=1,nlinks
-				  ! lopp=opp(l)
-				   ii=i+ex(l)
-				   jj=j+ey(l)
-				   kk=k+ez(l)
-				  
-				  if(isfluid(ii,jj,kk).ne.-1) cycle 
-#ifdef IMPOSED_PRESSURE_GRADIENT
-				  rhotemp=rhoOUT
-#else
-				  rhotemp=rho(ii,jj,kk)
-#endif
-				  !w(i,j,k)=w(i,j,k+ez(l))
-				  uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)/cssq
-				  udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))/cssq
-				  feq=p(l)*(rhotemp + udotc+ HALF*udotc*udotc - uu)
-				  fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx(ii,jj,kk) &
-				   + (dey(l)*dey(l)-cssq)*pyy(ii,jj,kk) + (dez(l)*dez(l)-cssq)*pzz(ii,jj,kk) &
-				   + TWO*(dex(l)*dey(l))*pxy(ii,jj,kk) + TWO*(dex(l)*dez(l))*pxz(ii,jj,kk) &
-				   + TWO*(dey(l)*dez(l))*pyz(ii,jj,kk))
-				  ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*fux(i,j,k) &
-				   ! + ((dey(l) - vtmp) + udotc * dey(l))*fvy(i,j,k) &
-				   ! + ((dez(l) - wtmp) + udotc * dez(l))*fwz(i,j,k))/cssq
-				  f(ii,jj,kk,l)=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)
-				  
-				enddo
-			  endif
-			  endif
-	        enddo
-	      enddo
+			     omega_loc=omega
+#endif		
+                 uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)/cssq
+				 !$acc loop seq
+				 do l=1,nlinks
+		           lopp=opp(l)
+		           iii=i+ex(lopp)
+		           jjj=j+ey(lopp)
+		           kkk=k+ez(lopp)
+		           if(isfluid(iii,jjj,kkk).ne.0) cycle 
+		           feq=p(l)*(press)
+		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		            + TWO*(dey(l)*dez(l))*pyz)
+                   !F_discr = p(l)*(dex(l)*forcex &
+                   ! + dey(l)*forcey &
+                   ! + dez(l)*forcez)/cssq
+		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           opress=opress - fpost
+		           ou=ou - fpost*dex(l)
+		           ov=ov - fpost*dey(l)
+		           ow=ow - fpost*dez(l)
+		           opxx=opxx - fpost*dex(l)*dex(l)
+                   opyy=opyy - fpost*dey(l)*dey(l)
+                   opzz=opzz - fpost*dez(l)*dez(l)
+                   opxy=opxy - fpost*dex(l)*dey(l)
+                   opxz=opxz - fpost*dex(l)*dez(l)
+                   opyz=opyz - fpost*dey(l)*dez(l)	
+		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))/cssq
+		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
+		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		            + TWO*(dey(l)*dez(l))*pyz)
+                   ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*forcex &
+                   ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
+                   ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/cssq
+		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           opress=opress + fpost
+		           ou=ou + fpost*dex(l)
+	       	       ov=ov + fpost*dey(l)
+		           ow=ow + fpost*dez(l)
+		           opxx=opxx + fpost*dex(l)*dex(l)
+                   opyy=opyy + fpost*dey(l)*dey(l)
+                   opzz=opzz + fpost*dez(l)*dez(l)
+                   opxy=opxy + fpost*dex(l)*dey(l)
+                   opxz=opxz + fpost*dex(l)*dez(l)
+                   opyz=opyz + fpost*dey(l)*dez(l)
+                 enddo
+                 
+                 hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
+	             hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
+	             hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
+	             hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
+	             hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
+	             hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
+	             hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
+	             hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
+	             hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
+	             hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
+                 
+			 endif
+	       enddo
+	     enddo
 #ifdef ACCNOKERNELS
-      !$acc end parallel loop
+         !$acc end parallel loop
 #else
-      !$acc end kernels
+         !$acc end kernels
 #endif
-	    endif	
+	   endif
+	 endif
 
-!*******************************************
+	 if(pbc_z.eq.0)then
+	   gk=2
+       subchords(3)=(gk-1)/nz
+	   if(subchords(3)==coords(3))then
+#ifdef ACCNOKERNELS
+	     !$acc parallel loop collapse(2) independent present(selphi &
+	     !$acc& ) private(i,j,k,l,gi,gj,gk)
+#else
+	     !$acc kernels present(selphi &
+	     !$acc& )
+	     !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
+#endif	    
+	     do j=1,ny
+		   do i=1,nx
+			 gi=nx*coords(1)+i
+			 gj=ny*coords(2)+j
+			 if(gi>1 .and. gi<lx .and. gj>1 .and. gj<ly)then
+	           k=2
+               gk=nz*coords(3)+k
+               if(isfluid(i,j,k) .ne. -1)cycle
+	           
+	             xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+                 yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+                 zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+                 myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+                 ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+                 jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+                 kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+				 
+				 press=hfields_in(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 u=hfields_in(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
+				 v=hfields_in(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 w=hfields_in(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxx=hfields_in(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pyy=hfields_in(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pzz=hfields_in(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxy=hfields_in(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxz=hfields_in(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pyz=hfields_in(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 
+				 opress=hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 ou=hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 ov=hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 ow=hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opxx=hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opyy=hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opzz=hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opxy=hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opxz=hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opyz=hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 
+				 presstmp=press
+				 utmp=0.0_db !
+				 vtmp=0.0_db !
+				 wtmp=0.0_db !
+				 
+				 #ifdef EXPLICITEQ 
+	             uu=HALF*(u*u+v*v+w*w)*invcssq
+	  
+	             do l=1,nlinks
+		           udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
+		           feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
+		 
+		           pxx=pxx - feq*dex(l)*dex(l)
+		           pyy=pyy - feq*dey(l)*dey(l)
+		           pzz=pzz - feq*dez(l)*dez(l)
+		           pxy=pxy - feq*dex(l)*dey(l)
+		           pxz=pxz - feq*dex(l)*dez(l)
+		           pyz=pyz - feq*dey(l)*dez(l)
+	             enddo
+#else
+	             pxx=pxx - cssq*press - u*u 
+	             pyy=pyy - cssq*press - v*v 
+	             pzz=pzz - cssq*press - w*w 
+	             pxy=pxy - u*v
+	             pxz=pxz - u*w
+	             pyz=pyz - v*w
+#endif
+
+                 phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+	           
+#ifdef DENSRATIO
+			     rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
+#else
+		         rhophi_loc = ONE 
+#endif
+
+#ifdef TWOCOMPONENT
+
+			     visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
+
+						
+			     tau_loc=(visc_loc/cssq + HALF) !è una tau
+						
+			     omega_loc=ONE/tau_loc !è una omega
+						
+#else
+			     omega_loc=omega
+#endif		
+                 uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)/cssq
+				 !$acc loop seq
+				 do l=1,nlinks
+		           lopp=opp(l)
+		           iii=i+ex(lopp)
+		           jjj=j+ey(lopp)
+		           kkk=k+ez(lopp)
+		           if(isfluid(iii,jjj,kkk).ne.0) cycle 
+		           feq=p(l)*(press)
+		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		            + TWO*(dey(l)*dez(l))*pyz)
+                   !F_discr = p(l)*(dex(l)*forcex &
+                   ! + dey(l)*forcey &
+                   ! + dez(l)*forcez)/cssq
+		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           opress=opress - fpost
+		           ou=ou - fpost*dex(l)
+		           ov=ov - fpost*dey(l)
+		           ow=ow - fpost*dez(l)
+		           opxx=opxx - fpost*dex(l)*dex(l)
+                   opyy=opyy - fpost*dey(l)*dey(l)
+                   opzz=opzz - fpost*dez(l)*dez(l)
+                   opxy=opxy - fpost*dex(l)*dey(l)
+                   opxz=opxz - fpost*dex(l)*dez(l)
+                   opyz=opyz - fpost*dey(l)*dez(l)	
+		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))/cssq
+		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
+		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		            + TWO*(dey(l)*dez(l))*pyz)
+                   ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*forcex &
+                   ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
+                   ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/cssq
+		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           opress=opress + fpost
+		           ou=ou + fpost*dex(l)
+	       	       ov=ov + fpost*dey(l)
+		           ow=ow + fpost*dez(l)
+		           opxx=opxx + fpost*dex(l)*dex(l)
+                   opyy=opyy + fpost*dey(l)*dey(l)
+                   opzz=opzz + fpost*dez(l)*dez(l)
+                   opxy=opxy + fpost*dex(l)*dey(l)
+                   opxz=opxz + fpost*dex(l)*dez(l)
+                   opyz=opyz + fpost*dey(l)*dez(l)
+                 enddo
+                 
+                 hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
+	             hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
+	             hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
+	             hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
+	             hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
+	             hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
+	             hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
+	             hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
+	             hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
+	             hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
+                 
+			 endif
+	       enddo
+	     enddo
+#ifdef ACCNOKERNELS
+         !$acc end parallel loop
+#else
+         !$acc end kernels
+#endif
+	   endif
+	   
+	   gk=lz-1
+       subchords(3)=(gk-1)/nz
+	   if(subchords(3)==coords(3))then			   
+#ifdef ACCNOKERNELS
+	     !$acc parallel loop collapse(2) independent present(selphi &
+	     !$acc& ) private(i,j,k,l,gi,gj,gk)
+#else
+	     !$acc kernels present(selphi &
+	     !$acc& )
+	     !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
+#endif	    
+	     do j=1,ny
+		   do i=1,nx
+			 gi=nx*coords(1)+i
+			 gj=ny*coords(2)+j
+			 if(gi>1 .and. gi<lx .and. gj>1 .and. gj<ly)then  
+			   k=nz-1
+               gk=nz*coords(3)+k
+               if(isfluid(i,j,k) .ne. -1)cycle
+	           
+	             xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+                 yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+                 zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+                 myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+                 ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+                 jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+                 kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+				 
+				 press=hfields_in(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 u=hfields_in(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
+				 v=hfields_in(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 w=hfields_in(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxx=hfields_in(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pyy=hfields_in(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pzz=hfields_in(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxy=hfields_in(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxz=hfields_in(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pyz=hfields_in(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 
+				 opress=hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 ou=hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 ov=hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 ow=hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opxx=hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opyy=hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opzz=hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opxy=hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opxz=hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 opyz=hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 
+				 presstmp=press
+				 utmp=0.0_db !
+				 vtmp=0.0_db !
+				 wtmp=0.0_db !
+				 
+				 #ifdef EXPLICITEQ 
+	             uu=HALF*(u*u+v*v+w*w)*invcssq
+	  
+	             do l=1,nlinks
+		           udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
+		           feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
+		 
+		           pxx=pxx - feq*dex(l)*dex(l)
+		           pyy=pyy - feq*dey(l)*dey(l)
+		           pzz=pzz - feq*dez(l)*dez(l)
+		           pxy=pxy - feq*dex(l)*dey(l)
+		           pxz=pxz - feq*dex(l)*dez(l)
+		           pyz=pyz - feq*dey(l)*dez(l)
+	             enddo
+#else
+	             pxx=pxx - cssq*press - u*u 
+	             pyy=pyy - cssq*press - v*v 
+	             pzz=pzz - cssq*press - w*w 
+	             pxy=pxy - u*v
+	             pxz=pxz - u*w
+	             pyz=pyz - v*w
+#endif
+
+                 phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+	           
+#ifdef DENSRATIO
+			     rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
+#else
+		         rhophi_loc = ONE 
+#endif
+
+#ifdef TWOCOMPONENT
+
+			     visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
+
+						
+			     tau_loc=(visc_loc/cssq + HALF) !è una tau
+						
+			     omega_loc=ONE/tau_loc !è una omega
+						
+#else
+			     omega_loc=omega
+#endif		
+
+                 uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)/cssq
+				 !$acc loop seq
+				 do l=1,nlinks
+		           lopp=opp(l)
+		           iii=i+ex(lopp)
+		           jjj=j+ey(lopp)
+		           kkk=k+ez(lopp)
+		           if(isfluid(iii,jjj,kkk).ne.0) cycle 
+		           feq=p(l)*(press)
+		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		            + TWO*(dey(l)*dez(l))*pyz)
+                   !F_discr = p(l)*(dex(l)*forcex &
+                   ! + dey(l)*forcey &
+                   ! + dez(l)*forcez)/cssq
+		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           opress=opress - fpost
+		           ou=ou - fpost*dex(l)
+		           ov=ov - fpost*dey(l)
+		           ow=ow - fpost*dez(l)
+		           opxx=opxx - fpost*dex(l)*dex(l)
+                   opyy=opyy - fpost*dey(l)*dey(l)
+                   opzz=opzz - fpost*dez(l)*dez(l)
+                   opxy=opxy - fpost*dex(l)*dey(l)
+                   opxz=opxz - fpost*dex(l)*dez(l)
+                   opyz=opyz - fpost*dey(l)*dez(l)	
+		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))/cssq
+		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
+		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		            + TWO*(dey(l)*dez(l))*pyz)
+                   ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*forcex &
+                   ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
+                   ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/cssq
+		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           opress=opress + fpost
+		           ou=ou + fpost*dex(l)
+	       	       ov=ov + fpost*dey(l)
+		           ow=ow + fpost*dez(l)
+		           opxx=opxx + fpost*dex(l)*dex(l)
+                   opyy=opyy + fpost*dey(l)*dey(l)
+                   opzz=opzz + fpost*dez(l)*dez(l)
+                   opxy=opxy + fpost*dex(l)*dey(l)
+                   opxz=opxz + fpost*dex(l)*dez(l)
+                   opyz=opyz + fpost*dey(l)*dez(l)
+                 enddo
+                 
+                 hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
+	             hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
+	             hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
+	             hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
+	             hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
+	             hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
+	             hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
+	             hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
+	             hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
+	             hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
+             
+			 endif
+	       enddo
+	     enddo
+#ifdef ACCNOKERNELS
+         !$acc end parallel loop
+#else
+         !$acc end kernels
+#endif
+	   endif
+	 endif
+#endif
+
+
+   endsubroutine bcs_mesoscopic_hfields
+
+   subroutine bcs_mesoscopic_phifields(hfields_s,phifields_s)
+
+     implicit none
+     real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
+
+     integer :: subchords(3)
+     integer :: ii,jj,kk,l,lopp
+	 real(kind=db) :: feq, fneq1,utmp,vtmp,wtmp,rhophi_loc,phi_loc
+#ifdef TWOCOMPONENT	  
+	 real(kind=db) :: phitemp
+#endif
+#if defined(PHASE_CHANGE) || defined(INTERNAL_OBSTACLES)
+	 real(kind=db) :: visc_loc,omega_loc,tau_loc
+#endif
+#if defined(INTERNAL_OBSTACLES)
+	 real(kind=db) :: F_discr,wet_R,rhotemp,phiavg, wet_thresh_low, wet_thresh_high,grad_thresh,phi_adj,weight,correc
+	 real(kind=db) :: phi_fluid,gradfix,gradfiy,grad_parallel,theta_rad,cot_theta,phi_ghost,dphi_dz,gradfiz
+	 integer :: conter
+	 logical :: found
+#endif
+     integer :: xblock,yblock,zblock,myblock
+     integer :: oxblock,oyblock,ozblock,omyblock
+     real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
+     real(kind=db) :: opress,ou,ov,ow,opxx,opyy,opzz,opxy,opxz,opyz
+     integer :: oi,oj,ok
+     integer :: iii,jjj,kkk
+     integer :: oii,ojj,okk
+
+
+#if defined(INTERNAL_OBSTACLES)
+
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  phase field bcs3D
 #ifdef TWOCOMPONENT
 
-#ifdef ACCNOKERNELS
-		!$acc parallel loop collapse(3) independent present(selphi &
-		!$acc& ) private(i,j,k,l,gi,gj,gk &
-		!$acc& ,phitemp,conter,phi_fluid,gradfix,gradfiy,grad_parallel,theta_rad,cot_theta,phi_ghost,dphi_dz&
-		!$acc& ,gradfiz)
-#else
-		!$acc kernels present(selphi &
-		!$acc& )
-		!$acc loop collapse(3) independent private(i,j,k,l,gi,gj,gk &
-		!$acc& ,phitemp,conter,phi_fluid,gradfix,gradfiy,grad_parallel,theta_rad,cot_theta,phi_ghost,dphi_dz &
-		!$acc& ,gradfiz)
-#endif
-		do k = 1, nz
-		  do j = 1, ny
-			do i = 1, nx
-			  if (isfluid(i,j,k) .ne. 0) cycle ! Only solid nodes
-
-			  found = .false.
-			  do l = 1, 6
-				ii = i + ex(l)
-				jj = j + ey(l)
-				kk = k + ez(l)
-
-				if (isfluid(ii,jj,kk) .ne. -1) cycle  ! only fluid neighbor
-
-				! Found fluid neighbor: enforce contact angle via ghost node extrapolation
-				phi_fluid = selphi(ii,jj,kk,flop)
-
-				! Estimate gradient parallel to wall
-				gradfix=normx(ii,jj,kk)*modgrad(ii,jj,kk)
-				gradfiy=normy(ii,jj,kk)*modgrad(ii,jj,kk)
-				gradfiz=normz(ii,jj,kk)*modgrad(ii,jj,kk)
-				if(l.eq.1 .or. l.eq.2)then
-					grad_parallel = sqrt(gradfiy**2 + gradfiz**2)
-				elseif(l.eq.3 .or. l.eq.4)then
-					grad_parallel = sqrt(gradfix**2 + gradfiz**2)
-				elseif(l.eq.5 .or. l.eq.6)then
-					grad_parallel = sqrt(gradfix**2 + gradfiy**2)
-				endif
-				
-				! Contact angle correction
-				theta_rad = (180.0_db-wettab_r) * pi_greek / 180.0_db
-				cot_theta = 1.0_db / tan(theta_rad)
-
-				dphi_dz = - grad_parallel * cot_theta 
-
-				  
-
-				phi_ghost = phi_fluid + dphi_dz  ! extrapolate from fluid node
-
-				! Clamp to [0,1]
-				selphi(i,j,k,flop) = max(0.0_db, min(1.0_db, phi_ghost))
-
-				found = .true.
-				exit
-			  end do
-
-			  if (.not. found) cycle  ! no fluid neighbor → skip
-			end do
-		  end do
-		end do	
-#ifdef ACCNOKERNELS
-      !$acc end parallel loop
-#else
-      !$acc end kernels
-#endif
+     call PHI_int_boundary_cuda(hfields_s,phifields_s)
 					
-	   if(pbc_x.eq.0)then
+	 if(pbc_x.eq.0)then
+	   gi=1
+       subchords(1)=(gi-1)/nx
+	   if(subchords(1)==coords(1))then
 #ifdef ACCNOKERNELS
-		!$acc parallel loop collapse(2) independent present(selphi &
-		!$acc& ) private(i,j,k,l,gi,gj,gk)
+		 !$acc parallel loop collapse(2) independent present(selphi &
+		 !$acc& ) private(i,j,k,l,gi,gj,gk)
 #else
-		!$acc kernels present(selphi &
-		!$acc& )
-		!$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
+		 !$acc kernels present(selphi &
+		 !$acc& )
+		 !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	    
-	      do k=1,nz
-			do j=1,ny
-			  gj=ny*coords(2)+j
-			  gk=nz*coords(3)+k
-			  if(gj>1 .and. gj<ly .and. gk>1 .and. gk<lz)then
-	          i=1
-	          gi=nx*coords(1)+i
-	          if(gi.eq.1)then
-				selphi(i,j,k,flop)=selphi(i+1,j,k,flop)
-			  endif
-			  i=nx
-	          gi=nx*coords(1)+i
-	          if(gi.eq.lx)then
-				selphi(i,j,k,flop)=selphi(i-1,j,k,flop)
-			  endif
-			  endif
-	        enddo
-	      enddo
+	     do k=1,nz
+		   do j=1,ny
+			 gj=ny*coords(2)+j
+			 gk=nz*coords(3)+k
+			 if(gj>1 .and. gj<ly .and. gk>1 .and. gk<lz)then
+	           i=1
+	           
+	           oi=i+1
+               oj=j
+               ok=k
+	           
+	           xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+               yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+               zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+                  
+               oxblock=(oi+2*TILE_DIMx-1)/TILE_DIMx   
+               oyblock=(oj+2*TILE_DIMy-1)/TILE_DIMy     
+               ozblock=(ok+2*TILE_DIMz-1)/TILE_DIMz 
+               omyblock=(oxblock-1)+(oyblock-1)*nxblock+(ozblock-1)*nxyblock+1
+               oii=oi-oxblock*TILE_DIMx+2*TILE_DIMx
+               ojj=oj-oyblock*TILE_DIMy+2*TILE_DIMy
+               okk=ok-ozblock*TILE_DIMz+2*TILE_DIMz
+	           
+	           phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))= &
+	            phifields_s(idx5(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+			 endif
+	       enddo
+	     enddo
 #ifdef ACCNOKERNELS
-      !$acc end parallel loop
+         !$acc end parallel loop
 #else
-      !$acc end kernels
+         !$acc end kernels
 #endif
-	    endif	
-	    
-	    if(pbc_y.eq.0)then
+	   endif
+			  
+			  
+	   gi=lx
+       subchords(1)=(gi-1)/nx
+	   if(subchords(1)==coords(1))then
 #ifdef ACCNOKERNELS
-		!$acc parallel loop collapse(2) independent present(selphi)
+		 !$acc parallel loop collapse(2) independent present(selphi &
+		 !$acc& ) private(i,j,k,l,gi,gj,gk)
 #else
-		!$acc kernels present(selphi &
-		!$acc& )
-		!$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
+		 !$acc kernels present(selphi &
+		 !$acc& )
+		 !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	    
-	      do k=1,nz
-		    do i=1,nx
-			  gi=nx*coords(1)+i
-			  gk=nz*coords(3)+k
-			  if(gi>1 .and. gi<lx .and. gk>1 .and. gk<lz)then
-	          j=1
-	          gj=ny*coords(2)+j
-	          if(gj.eq.1)then
-				selphi(i,j,k,flop)=selphi(i,j+1,k,flop)
-			  endif
-			  j=ny
-	          gj=ny*coords(2)+j
-	          if(gj.eq.ly)then
-				selphi(i,j,k,flop)=selphi(i,j-1,k,flop) 
-			  endif
-			  endif
-	        enddo
-	      enddo
-#ifdef ACCNOKERNELS
-      !$acc end parallel loop
-#else
-      !$acc end kernels
-#endif
-	    endif	    
+	     do k=1,nz
+		   do j=1,ny
+			 gj=ny*coords(2)+j
+			 gk=nz*coords(3)+k
+			 if(gj>1 .and. gj<ly .and. gk>1 .and. gk<lz)then
+			   i=nx
 
-	    if(pbc_z.eq.0)then
+	           oi=i-1
+               oj=j
+               ok=k
+	           
+	           xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+               yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+               zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+                  
+               oxblock=(oi+2*TILE_DIMx-1)/TILE_DIMx   
+               oyblock=(oj+2*TILE_DIMy-1)/TILE_DIMy     
+               ozblock=(ok+2*TILE_DIMz-1)/TILE_DIMz 
+               omyblock=(oxblock-1)+(oyblock-1)*nxblock+(ozblock-1)*nxyblock+1
+               oii=oi-oxblock*TILE_DIMx+2*TILE_DIMx
+               ojj=oj-oyblock*TILE_DIMy+2*TILE_DIMy
+               okk=ok-ozblock*TILE_DIMz+2*TILE_DIMz
+	           
+	           phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))= &
+	            phifields_s(idx5(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+
+			 endif
+	       enddo
+	     enddo
 #ifdef ACCNOKERNELS
-		!$acc parallel loop collapse(2) independent present(selphi &
-		!$acc& ) private(i,j,k,l,gi,gj,gk)
+         !$acc end parallel loop
 #else
-		!$acc kernels present(selphi &
-		!$acc& )
-		!$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
-#endif	    
-	      do j=1,ny
-		    do i=1,nx
-			  gi=nx*coords(1)+i
-			  gj=ny*coords(2)+j
-			  if(gi>1 .and. gi<lx .and. gj>1 .and. gj<ly)then
-	          k=1
-	          gk=nz*coords(3)+k
-	          if(gk.eq.1)then
-				selphi(i,j,k,flop)=selphi(i,j,k+1,flop)
-			  endif
-			  k=nz
-	          gk=nz*coords(3)+k
-	          if(gk.eq.lz)then
-				selphi(i,j,k,flop)=selphi(i,j,k-1,flop)
-			  endif
-			  endif
-	        enddo
-	      enddo
-#ifdef ACCNOKERNELS
-      !$acc end parallel loop
-#else
-      !$acc end kernels
+         !$acc end kernels
 #endif
-	    endif	
+	   endif
+	 endif	
+	    
+	 if(pbc_y.eq.0)then
+	   gj=1
+       subchords(2)=(gj-1)/ny
+	   if(subchords(2)==coords(2))then
+#ifdef ACCNOKERNELS
+		 !$acc parallel loop collapse(2) independent present(selphi)
+#else
+		 !$acc kernels present(selphi &
+		 !$acc& )
+		 !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
+#endif	    
+	     do k=1,nz
+		   do i=1,nx
+		     gi=nx*coords(1)+i
+			 gk=nz*coords(3)+k
+			 if(gi>1 .and. gi<lx .and. gk>1 .and. gk<lz)then
+	           j=1
+
+	           oi=i
+               oj=j+1
+               ok=k
+	           
+	           xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+               yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+               zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+                  
+               oxblock=(oi+2*TILE_DIMx-1)/TILE_DIMx   
+               oyblock=(oj+2*TILE_DIMy-1)/TILE_DIMy     
+               ozblock=(ok+2*TILE_DIMz-1)/TILE_DIMz 
+               omyblock=(oxblock-1)+(oyblock-1)*nxblock+(ozblock-1)*nxyblock+1
+               oii=oi-oxblock*TILE_DIMx+2*TILE_DIMx
+               ojj=oj-oyblock*TILE_DIMy+2*TILE_DIMy
+               okk=ok-ozblock*TILE_DIMz+2*TILE_DIMz
+	           
+	           phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))= &
+	            phifields_s(idx5(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+
+			 endif
+	       enddo
+	     enddo
+#ifdef ACCNOKERNELS
+         !$acc end parallel loop
+#else
+         !$acc end kernels
+#endif			   
+	   endif
+	    
+	   gj=ly
+       subchords(2)=(gj-1)/ny
+	   if(subchords(2)==coords(2))then
+#ifdef ACCNOKERNELS
+		 !$acc parallel loop collapse(2) independent present(selphi)
+#else
+		 !$acc kernels present(selphi &
+		 !$acc& )
+		 !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
+#endif	  
+	     do k=1,nz
+		   do i=1,nx
+		     gi=nx*coords(1)+i
+			 gk=nz*coords(3)+k
+			 if(gi>1 .and. gi<lx .and. gk>1 .and. gk<lz)then  
+			   j=ny
+
+	           oi=i
+               oj=j-1
+               ok=k
+	           
+	           xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+               yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+               zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+                  
+               oxblock=(oi+2*TILE_DIMx-1)/TILE_DIMx   
+               oyblock=(oj+2*TILE_DIMy-1)/TILE_DIMy     
+               ozblock=(ok+2*TILE_DIMz-1)/TILE_DIMz 
+               omyblock=(oxblock-1)+(oyblock-1)*nxblock+(ozblock-1)*nxyblock+1
+               oii=oi-oxblock*TILE_DIMx+2*TILE_DIMx
+               ojj=oj-oyblock*TILE_DIMy+2*TILE_DIMy
+               okk=ok-ozblock*TILE_DIMz+2*TILE_DIMz
+	           
+	           phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))= &
+	            phifields_s(idx5(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+
+			 endif
+	       enddo
+	     enddo
+#ifdef ACCNOKERNELS
+         !$acc end parallel loop
+#else
+         !$acc end kernels
+#endif
+	   endif
+	 endif	    
+
+	 if(pbc_z.eq.0)then
+	   gk=1
+       subchords(3)=(gk-1)/nz
+	   if(subchords(3)==coords(3))then
+#ifdef ACCNOKERNELS
+		 !$acc parallel loop collapse(2) independent present(selphi &
+		 !$acc& ) private(i,j,k,l,gi,gj,gk)
+#else
+		 !$acc kernels present(selphi &
+		 !$acc& )
+		 !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
+#endif	    
+	     do j=1,ny
+		   do i=1,nx
+			 gi=nx*coords(1)+i
+			 gj=ny*coords(2)+j
+			 if(gi>1 .and. gi<lx .and. gj>1 .and. gj<ly)then
+	           k=1
+
+	           oi=i
+               oj=j
+               ok=k+1
+	           
+	           xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+               yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+               zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+                  
+               oxblock=(oi+2*TILE_DIMx-1)/TILE_DIMx   
+               oyblock=(oj+2*TILE_DIMy-1)/TILE_DIMy     
+               ozblock=(ok+2*TILE_DIMz-1)/TILE_DIMz 
+               omyblock=(oxblock-1)+(oyblock-1)*nxblock+(ozblock-1)*nxyblock+1
+               oii=oi-oxblock*TILE_DIMx+2*TILE_DIMx
+               ojj=oj-oyblock*TILE_DIMy+2*TILE_DIMy
+               okk=ok-ozblock*TILE_DIMz+2*TILE_DIMz
+	           
+	           phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))= &
+	            phifields_s(idx5(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+
+			 endif
+	       enddo
+	     enddo
+#ifdef ACCNOKERNELS
+         !$acc end parallel loop
+#else
+         !$acc end kernels
+#endif
+	   endif
+			   
+	   gk=lz
+       subchords(3)=(gk-1)/nz
+	   if(subchords(3)==coords(3))then
+#ifdef ACCNOKERNELS
+		 !$acc parallel loop collapse(2) independent present(selphi &
+		 !$acc& ) private(i,j,k,l,gi,gj,gk)
+#else
+		 !$acc kernels present(selphi &
+		 !$acc& )
+		 !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
+#endif	    
+	     do j=1,ny
+		   do i=1,nx
+			 gi=nx*coords(1)+i
+			 gj=ny*coords(2)+j
+			 if(gi>1 .and. gi<lx .and. gj>1 .and. gj<ly)then
+			   k=nz
+
+	           oi=i
+               oj=j
+               ok=k-1
+	           
+	           xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+               yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+               zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+                  
+               oxblock=(oi+2*TILE_DIMx-1)/TILE_DIMx   
+               oyblock=(oj+2*TILE_DIMy-1)/TILE_DIMy     
+               ozblock=(ok+2*TILE_DIMz-1)/TILE_DIMz 
+               omyblock=(oxblock-1)+(oyblock-1)*nxblock+(ozblock-1)*nxyblock+1
+               oii=oi-oxblock*TILE_DIMx+2*TILE_DIMx
+               ojj=oj-oyblock*TILE_DIMy+2*TILE_DIMy
+               okk=ok-ozblock*TILE_DIMz+2*TILE_DIMz
+	           
+	           phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))= &
+	            phifields_s(idx5(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+
+			 endif
+	       enddo
+	     enddo
+#ifdef ACCNOKERNELS
+         !$acc end parallel loop
+#else
+         !$acc end kernels
+#endif
+	   endif
+	 endif	
 	    			
 
 !******************lagrange multiplier
+#define BCPHIFLUX
 #ifdef BCPHIFLUX
 
-	    if(pbc_x.eq.0)then
-#ifdef ACCNOKERNELS
-		!$acc parallel loop collapse(2) reduction(+:global_phi_change) present(selphi &
-		!$acc& ) private(i,j,k,l,gi,gj,gk &
-		!$acc& ,phitemp,conter)
-#else
-		!$acc kernels present(selphi &
-		!$acc& )
-		!$acc loop collapse(2) reduction(+:global_phi_change) private(i,j,k,l,gi,gj,gk &
-		!$acc& ,phitemp,conter)
-#endif	    
-	      do k=1,nz
-			do j=1,ny
-			  gj=ny*coords(2)+j
-			  gk=nz*coords(3)+k
-	          i=2
-	          gi=nx*coords(1)+i
-	          if(gi.eq.2)then
-				if(abs(isfluid(i,j,k)).eq.1)global_phi_change = global_phi_change + u(i,j,k)*selphi(i,j,k,flop)
-			  endif
-			  i=nx-1
-	          gi=nx*coords(1)+i
-	          if(gi.eq.lx-1)then
-				if(abs(isfluid(i,j,k)).eq.1)global_phi_change = global_phi_change - u(i,j,k)*selphi(i,j,k,flop)
-			  endif
-	        enddo
-	      enddo
-#ifdef ACCNOKERNELS
-      !$acc end parallel loop
-#else
-      !$acc end kernels
-#endif
-	    endif	
+	 if(pbc_x.eq.0)then
+	   gi=2
+       subchords(1)=(gi-1)/nx
+	   if(subchords(1)==coords(1))then
+		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(selphi &
+		 !$acc& ) private(i,j,k,l,gi,gj,gk &
+		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,u)  
+	     do k=1,nz
+		   do j=1,ny
+			 gj=ny*coords(2)+j
+			 gk=nz*coords(3)+k
+	         i=2
+	         gi=nx*coords(1)+i
+	         if(isfluid(i,j,k) .ne. -1)cycle
+	         xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+             yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+             zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+             myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+             ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+             jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+             kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+	         phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+	         u=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	         
+			 global_phi_change = global_phi_change + u*phi_loc
+	       enddo
+	     enddo
+         !$acc end parallel loop
+	   endif
+	   gi=lx-1
+       subchords(1)=(gi-1)/nx
+	   if(subchords(1)==coords(1))then
+		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(selphi &
+		 !$acc& ) private(i,j,k,l,gi,gj,gk &
+		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,u)   
+	     do k=1,nz
+		   do j=1,ny
+			 gj=ny*coords(2)+j
+			 gk=nz*coords(3)+k
+			 i=nx-1
+			 gi=nx*coords(1)+i
+			 if(isfluid(i,j,k) .ne. -1)cycle
+			 xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+             yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+             zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+             myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+             ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+             jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+             kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+	         phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+	         u=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+			 
+			 global_phi_change = global_phi_change - u*phi_loc
+	       enddo
+	     enddo
+         !$acc end parallel loop
+	   endif
+	 endif	
 	    
-	    if(pbc_y.eq.0)then
-#ifdef ACCNOKERNELS
-		!$acc parallel loop collapse(2) reduction(+:global_phi_change) present(selphi &
-		!$acc& ) private(i,j,k,l,gi,gj,gk &
-		!$acc& ,phitemp,conter)
-#else
-		!$acc kernels present(selphi &
-		!$acc& )
-		!$acc loop collapse(2) reduction(+:global_phi_change) private(i,j,k,l,gi,gj,gk &
-		!$acc& ,phitemp,conter)
-#endif	    
-	      do k=1,nz
-		    do i=1,nx
-			  gi=nx*coords(1)+i
-			  gk=nz*coords(3)+k
-	          j=2
-	          gj=ny*coords(2)+j
-	          if(gj.eq.2)then
-				if(abs(isfluid(i,j,k)).eq.1)global_phi_change = global_phi_change + v(i,j,k)*selphi(i,j,k,flop)
-			  endif
-			  j=ny-1
-	          gj=ny*coords(2)+j
-	          if(gj.eq.ly-1)then
-				if(abs(isfluid(i,j,k)).eq.1)global_phi_change = global_phi_change - v(i,j,k)*selphi(i,j,k,flop)
-			  endif
-	        enddo
-	      enddo
-#ifdef ACCNOKERNELS
+	 if(pbc_y.eq.0)then
+	   gj=2
+       subchords(2)=(gj-1)/ny
+	   if(subchords(2)==coords(2))then
+		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(selphi &
+		 !$acc& ) private(i,j,k,l,gi,gj,gk &
+		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,v)    
+	     do k=1,nz
+		   do i=1,nx
+			 gi=nx*coords(1)+i
+			 gk=nz*coords(3)+k
+	         j=2
+	         gj=ny*coords(2)+j
+	         if(isfluid(i,j,k) .ne. -1)cycle
+	         xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+             yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+             zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+             myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+             ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+             jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+             kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+	         phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+	         v=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	         
+			 global_phi_change = global_phi_change + v*phi_loc
+	       enddo
+	     enddo
+         !$acc end parallel loop
+	   endif
+			 
+	   gj=ly-1
+       subchords(2)=(gj-1)/ny
+	   if(subchords(2)==coords(2))then
+		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(selphi &
+		 !$acc& ) private(i,j,k,l,gi,gj,gk &
+		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,v)	    
+	     do k=1,nz
+		   do i=1,nx
+			 gi=nx*coords(1)+i
+			 gk=nz*coords(3)+k			 
+			 j=ny-1
+	         gj=ny*coords(2)+j
+	         if(isfluid(i,j,k) .ne. -1)cycle
+	         xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+             yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+             zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+             myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+             ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+             jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+             kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+	         phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+	         v=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	         
+			 global_phi_change = global_phi_change - v*phi_loc
+	       enddo
+	     enddo
       !$acc end parallel loop
-#else
-      !$acc end kernels
-#endif
-	    endif	    
+	   endif
+	 endif
 
-	    if(pbc_z.eq.0)then
-#ifdef ACCNOKERNELS
-		!$acc parallel loop collapse(2) reduction(+:global_phi_change) present(selphi &
-		!$acc& ) private(i,j,k,l,gi,gj,gk &
-		!$acc& ,phitemp,conter)
-#else
-		!$acc kernels present(selphi &
-		!$acc& )
-		!$acc loop collapse(2) reduction(+:global_phi_change) private(i,j,k,l,gi,gj,gk &
-		!$acc& ,phitemp,conter)
-#endif	    
-	      do j=1,ny
-		    do i=1,nx
-			  gi=nx*coords(1)+i
-			  gj=ny*coords(2)+j
-	          k=2
-	          gk=nz*coords(3)+k
-	          if(gk.eq.2)then
-				if(abs(isfluid(i,j,k)).eq.1)global_phi_change = global_phi_change + w(i,j,k)*selphi(i,j,k,flop)
-			  endif
-			  k=nz-1
-	          gk=nz*coords(3)+k
-	          if(gk.eq.lz-1)then
-				if(abs(isfluid(i,j,k)).eq.1)global_phi_change = global_phi_change - w(i,j,k)*selphi(i,j,k,flop)
-			  endif
-	        enddo
-	      enddo
-#ifdef ACCNOKERNELS
+	 if(pbc_z.eq.0)then
+	   gk=2
+       subchords(3)=(gk-1)/nz
+	   if(subchords(3)==coords(3))then
+		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(selphi &
+		 !$acc& ) private(i,j,k,l,gi,gj,gk &
+		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,w)  
+	     do j=1,ny
+		   do i=1,nx
+			 gi=nx*coords(1)+i
+			 gj=ny*coords(2)+j
+	         k=2
+	         gk=nz*coords(3)+k
+	         if(isfluid(i,j,k) .ne. -1)cycle
+	         xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+             yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+             zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+             myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+             ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+             jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+             kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+	         phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+	         w=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	         
+			 global_phi_change = global_phi_change + w*phi_loc
+	       enddo
+	     enddo
       !$acc end parallel loop
-#else
-      !$acc end kernels
-#endif
+
+	   endif
+	   
+	   gk=lz-1
+       subchords(3)=(gk-1)/nz
+	   if(subchords(3)==coords(3))then
+
+		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(selphi &
+		 !$acc& ) private(i,j,k,l,gi,gj,gk &
+		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,wtmp)
+  
+	     do j=1,ny
+		   do i=1,nx
+			 gi=nx*coords(1)+i
+			 gj=ny*coords(2)+j
+			 k=nz-1
+	         gk=nz*coords(3)+k
+	         if(isfluid(i,j,k) .ne. -1)cycle
+	         xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+             yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+             zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+             myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+             ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+             jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+             kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+	         phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+	         wtmp=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	         
+			 global_phi_change = global_phi_change - wtmp*phi_loc
+	       enddo
+	     enddo
+      !$acc end parallel loop
+
 	    endif	
-      !$acc wait
-	  !$acc update host(global_phi_change)
-	  !$acc wait
-	  call sum_world_float(global_phi_change)
+	 endif
+	 
+     !$acc wait
+	 !$acc update host(global_phi_change)
+	 !$acc wait
+	 call sum_world_float(global_phi_change)
 #endif
-
-
-#ifdef ACCNOKERNELS
-		!$acc parallel loop collapse(3) reduction(+:global_phi_sum) reduction(+:global_count) present(selphi &
-		!$acc& ) private(i,j,k,l,gi,gj,gk &
-		!$acc& )
-#else
-		!$acc kernels present(selphi &
-		!$acc& )
-		!$acc loop collapse(3) reduction(+:global_phi_sum) reduction(+:global_count) private(i,j,k,l,gi,gj,gk &
-		!$acc& )
-#endif
-		do k=1,nz
-			do j=1,ny
-				do i=1,nx
-						
-					if(abs(isfluid(i,j,k)).ne.1) cycle
-
-					global_phi_sum = global_phi_sum + selphi(i,j,k,flop)
-					if(selphi(i,j,k,flop)>0.5_db .and. selphi(i,j,k,flop)<0.9_db)then
-						global_count = global_count + 1
-					endif
-
-				enddo
-			enddo
-		enddo
-#ifdef ACCNOKERNELS
-      !$acc end parallel loop
-#else
-      !$acc end kernels
-#endif
+        
+        call phi_sum_count_cuda(hfields_s,phifields_s)
+        
 		!$acc wait
 		!$acc update host(global_phi_sum,global_count)
 		!$acc wait
@@ -824,40 +1626,14 @@ contains
 	    global_count=0
 		!$acc wait
 		!$acc update device(corr,global_phi_sum,global_count)
-#ifdef ACCNOKERNELS
-		!$acc parallel loop collapse(3) present(selphi &
-		!$acc& ) private(i,j,k,l,gi,gj,gk &
-		!$acc& )
-#else
-		!$acc kernels present(selphi &
-		!$acc& )
-		!$acc loop collapse(3) private(i,j,k,l,gi,gj,gk &
-		!$acc& )
-#endif
-		do k=1,nz
-			do j=1,ny
-				do i=1,nx
-						
-					if(abs(isfluid(i,j,k)).ne.1) cycle
-					if(selphi(i,j,k,flop)>0.5_db .and. selphi(i,j,k,flop)<0.9_db)then
-						selphi(i,j,k,flop)=selphi(i,j,k,flop) + corr
-					endif
-					! if(selphi(i,j,k,flop)>1.0_db)then
-						! selphi(i,j,k,flop)=1.0_db
-					! endif
-				enddo
-			enddo
-		enddo
-#ifdef ACCNOKERNELS
-      !$acc end parallel loop
-#else
-      !$acc end kernels
-#endif
+		
+		call apply_lagrangian_phi_cuda(hfields_s,phifields_s)
+
+
 #endif
 #endif
 
 
-   endsubroutine
-
-
+   endsubroutine bcs_mesoscopic_phifields
+   
 endmodule

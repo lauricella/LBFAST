@@ -113,11 +113,11 @@ nvfortran-mpi-dble:
 
 
 seq:get_mem.o get_ram.o vars_module.o \
-	mpi_module.o profiling_m.o lb_cuda_kernels_module.o lb_kernels_module.o boundary_cds_module.o \
+	mpi_module.o profiling_m.o lb_cuda_kernels_module.o boundary_cds_module.o \
 	init_conditions_module.o statistics.o print_module.o allocate_module.o integrator_module.o \
 	LLBcuda.o
 	$(FC) $(LDFLAGS) $(EX) get_mem.o get_ram.o vars_module.o mpi_module.o \
-	profiling_m.o lb_cuda_kernels_module.o lb_kernels_module.o boundary_cds_module.o \
+	profiling_m.o lb_cuda_kernels_module.o boundary_cds_module.o \
 	init_conditions_module.o statistics.o print_module.o allocate_module.o integrator_module.o \
 	LLBcuda.o
 #	mv $(EXP) $(EXEP)
@@ -136,9 +136,6 @@ mpi_module.o:mpi_module.f90
 
 profiling_m.o: profiling_m.f90
 	$(FC) $(FFLAGS) -c profiling_m.f90
-
-lb_kernels_module.o:lb_kernels_module.f90
-	$(FC) $(FFLAGS) -c lb_kernels_module.f90
 
 lb_cuda_kernels_module.o:lb_cuda_kernels_module.f90
 	$(FC) $(FFLAGS) $(FCUDAFLAGS) -c lb_cuda_kernels_module.f90
