@@ -222,18 +222,12 @@ module vars
 
 
    integer(kind=isf), allocatable,dimension(:,:,:)   :: isfluid
-   real(kind=db), allocatable, dimension(:,:,:) :: rho,u,v,w,pxx,pxy,pxz,pyy,pyz,pzz
-   real(kind=db), allocatable, dimension(:,:,:) :: normx,normy,normz
-   real(kind=db), allocatable, dimension(:,:,:) :: fux,fvy,fwz
-
+   
    integer :: flip,flop
-   real(kind=db), allocatable, dimension(:,:,:,:) :: selphi
 
-   real(kind=db), allocatable, dimension(:,:,:) :: arr_x, arr_y, arr_z, lap_phi,modgrad
-#ifdef TWOCOMPONENT
-   real(kind=db), allocatable, dimension(:,:,:) :: rhophi !ffx,ffy,ffz
-#endif
-   real(kind=db), allocatable, dimension(:,:,:,:) :: f       !pops
+   real(kind=db), allocatable, dimension(:,:,:) :: lap_phi
+
+   !real(kind=db), allocatable, dimension(:,:,:,:) :: f       !pops
    real(kind=db), allocatable, dimension(:) :: hfields_flip,hfields_flop  !allocate hydro fields flip and flop
    real(kind=db), allocatable, dimension(:) :: phifields_flip,phifields_flop  !allocate phi fields flip and flop
    real(kind=db), allocatable, dimension(:) :: auxfields !allocate aux fields
@@ -272,8 +266,6 @@ module vars
 
 #ifdef REPULSIVE_FLUX
 	integer(kind=isf), allocatable,dimension(:,:,:) :: rep_mask
-	integer,allocatable,dimension(:,:,:) :: pair_i,pair_j,pair_k
-	real(kind=db),allocatable,dimension(:,:,:) :: Jx,Jy,Jz
 	real(kind=db) :: q_th,win,cosOppT,pwr,A_rep	
 #endif
 

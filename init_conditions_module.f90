@@ -29,7 +29,7 @@ contains
 #endif
     
     integer :: xblock,yblock,zblock,myblock,ii,jj,kk
-    real(kind=db) :: tempphi,tempphi2,loc_u,loc_v,loc_w,loc_rho
+    real(kind=db) :: tempphi,tempphi2,loc_u,loc_v,loc_w,loc_press
 
        
       !*************************************initial conditions ************************
@@ -61,22 +61,11 @@ contains
                  hfields_flip(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
                                
                  
-				 u(i,j,k)=ZERO
-				 v(i,j,k)=ZERO
-				 w(i,j,k)=ZERO
-				 rho(i,j,k)=ZERO  !tot dens
-#ifdef DENSRATIO
-				 rhophi(i,j,k)=ZERO  !tot dens
-				 !locauxfields(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
-#endif
+
 #ifdef TWOCOMPONENT
-				 selphi(i,j,k,flip)=ZERO
 				 
 				 phifields_flip(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=ZERO
 				 
-				 normx(i,j,k)=ZERO
-				 normy(i,j,k)=ZERO
-				 normz(i,j,k)=ZERO
 				 auxfields(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
 				 auxfields(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
 				 auxfields(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
@@ -100,7 +89,7 @@ contains
                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
                  
-                 loc_rho=ZERO
+                 loc_press=ZERO
                  loc_u=ZERO
                  loc_v=ZERO
                  loc_w=ZERO  
@@ -122,34 +111,29 @@ contains
 				 
 				 tempphi=max(sel1, sel2)
 				 
-				 selphi(i,j,k,flip) = tempphi
 				 
 				 phifields_flip(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=tempphi
                  
 #ifdef DENSRATIO
                  rhophi_loc=rho_r*tempphi+(ONE-tempphi)*rho_b
-                 rhophi(i,j,k) = rhophi_loc
 #else
                  rhophi_loc = 1.0_db
 #endif	
                 
                 tempphi2 = tempphi*(sigma*2.0_db)/radius/(rhophi_loc/3.0_db)
-				loc_rho = loc_rho + tempphi2
+				loc_press = loc_press + tempphi2
 				 
 			    ! crisp velocity: uniform inside each core (phi~1 region)
 				!if (sel1 > 0.1_db) then 
 				loc_u = 0.02*sel1-0.02*sel2
 				
-				rho(i,j,k) = loc_rho   
-				u(i,j,k) = loc_u
-                w(i,j,k)=loc_w
-                hfields_flip(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= loc_rho
+                hfields_flip(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= loc_press
                 hfields_flip(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u
                 hfields_flip(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v 
                 hfields_flip(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_w 
-                hfields_flip(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_u+cssq*loc_rho
-                hfields_flip(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v*loc_v+cssq*loc_rho
-                hfields_flip(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_w*loc_w+cssq*loc_rho
+                hfields_flip(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_u+cssq*loc_press
+                hfields_flip(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v*loc_v+cssq*loc_press
+                hfields_flip(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_w*loc_w+cssq*loc_press
                 hfields_flip(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_v
                 hfields_flip(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_w
                 hfields_flip(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v*loc_w            
@@ -218,22 +202,10 @@ contains
                  hfields_flip(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
                                
                  
-				 u(i,j,k)=ZERO
-				 v(i,j,k)=ZERO
-				 w(i,j,k)=ZERO
-				 rho(i,j,k)=ZERO  !tot dens
-#ifdef DENSRATIO
-				 rhophi(i,j,k)=ZERO  !tot dens
-				 !locauxfields(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
-#endif
 #ifdef TWOCOMPONENT
-				 selphi(i,j,k,flip)=ZERO
 				 
 				 phifields_flip(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=ZERO
 				 
-				 normx(i,j,k)=ZERO
-				 normy(i,j,k)=ZERO
-				 normz(i,j,k)=ZERO
 				 auxfields(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
 				 auxfields(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
 				 auxfields(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=ZERO
@@ -259,7 +231,7 @@ contains
                 jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                 kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
                  
-                 loc_rho=ZERO
+                 loc_press=ZERO
                  loc_u=ZERO
                  loc_v=ZERO
                  loc_w=ZERO  
@@ -269,41 +241,35 @@ contains
 #ifdef TWOCOMPONENT
                    !dist=sqrt((float(gi)-lx/TWO)**TWO + (float(gj)-ly/TWO)**TWO+(float(gk)-(lz/TWO)+1.5*radius)**TWO)
                    dist=sqrt((float(gi)-lx/TWO)**TWO + (float(gj)-ly/TWO)**TWO+(float(gk)-(lz/TWO))**TWO)
-!                   selphi(i,j,k,flip)=ONE*(fcut(dist,radius-width*0.75_db,radius+width*0.75_db))! +fcut(dist2,radius-width*0.5,radius+width*0.5))
                    
                    tempphi=ONE*fcut_tanh(dist,radius,width)
                    
-                   selphi(i,j,k,flip) = tempphi
                    phifields_flip(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=tempphi
 #ifdef DENSRATIO
                    rhophi_loc=rho_r*tempphi+(ONE-tempphi)*rho_b
-                   rhophi(i,j,k) = rhophi_loc
 #else
                    rhophi_loc = 1.0_db
 #endif				  
 
                    tempphi2 = tempphi*(sigma*2.0_db)/radius/(rhophi_loc/3.0_db)
-				   loc_rho = loc_rho + tempphi2
+				   loc_press = loc_press + tempphi2
 				   loc_w=ZERO!fcut(dist,radius-width*0.5,radius+width*0.5)*uwall !   - fcut(dist2,radius-width*0.5,radius+width*0.5)*HALF*uwall
  !                 if(gi==lx/2 .and. gj==ly/2 .and. gk==lz/2)phi(i,j,k)=ONE		 
 #else				  
-                  !rho(i,j,k) = 1.0_db
  
                   if(gi==lx/8 .and. gj==ly/8 .and. gk==lz/4)then
-                    loc_rho = loc_rho + 0.05_db
+                    loc_press = loc_press + 0.05_db
                   endif
                   loc_w=ZERO!fcut(dist,radius-width*0.5,radius+width*0.5)*uwall !   - fcut(dist2,radius-width*0.5,radius+width*0.5)*HALF*uwall
 
 #endif               
-                 rho(i,j,k) = loc_rho    
-                 w(i,j,k)=loc_w
-                 hfields_flip(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= loc_rho
+                 hfields_flip(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= loc_press
                  hfields_flip(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u
                  hfields_flip(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v 
                  hfields_flip(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_w 
-                 hfields_flip(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_u+cssq*loc_rho
-                 hfields_flip(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v*loc_v+cssq*loc_rho
-                 hfields_flip(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_w*loc_w+cssq*loc_rho
+                 hfields_flip(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_u+cssq*loc_press
+                 hfields_flip(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v*loc_v+cssq*loc_press
+                 hfields_flip(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_w*loc_w+cssq*loc_press
                  hfields_flip(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_v
                  hfields_flip(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_w
                  hfields_flip(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v*loc_w            
@@ -354,28 +320,6 @@ contains
       ! enddo
 ! #endif
 
-
-
-!!!!common to every LB
-      do k=1,nz
-         gk=nz*coords(3)+k
-         do j=1,ny
-            gj=ny*coords(2)+j
-            do i=1,nx
-               gi=nx*coords(1)+i
-               if(abs(isfluid(i,j,k)).eq.1)then
-				  uu=HALF*(u(i,j,k)*u(i,j,k)+v(i,j,k)*v(i,j,k)+w(i,j,k)*w(i,j,k))/cssq
-				  do l=0,nlinks
-					udotc=(u(i,j,k)*dex(l) + v(i,j,k)*dey(l)+ w(i,j,k)*dez(l))/cssq
-					f(i,j,k,l)=p(l)*(rho(i,j,k) + udotc+HALF*udotc*udotc - uu)
-				  enddo
-               endif
-            enddo
-         enddo
-      enddo
-      
-     
-     selphi(:,:,:,flop)=selphi(:,:,:,flip)
 
      hfields_flop=hfields_flip
      phifields_flop=phifields_flip

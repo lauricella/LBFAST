@@ -9,14 +9,8 @@ module mpi_template
 #ifdef _OPENACC
       devType, &
 #endif
-      selphi,flip,flop,rho_r,rho_b, &
-#if defined(TWOCOMPONENT)
-      modgrad,rhophi, & 
-#if defined(REPULSIVE_FLUX)
-	  Jx,Jy,Jz, &
-#endif
-#endif
-      normx,normy,normz,arr_x, arr_y, arr_z, u,v,w,pxx,pxy,pxz,pyy,pyz,pzz,physic_type, &
+      flip,flop,rho_r,rho_b, &
+      physic_type, &
       idx5,nhfields,nphifields,auxfields,nauxfields, &
       TILE_DIMx,TILE_DIMy,TILE_DIMz,TILE_DIM,nxblock,nyblock,nzblock,nxyblock,nblocks
 #ifdef _OPENACC
@@ -5004,7 +4998,6 @@ contains
       fdens = MPI_FILE_NULL
       call mpi_barrier(MPI_COMM_WORLD,e_io)
       
-      rho(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -5075,8 +5068,7 @@ contains
       endif     
       fdens = MPI_FILE_NULL
       call mpi_barrier(MPI_COMM_WORLD,e_io)
-      
-      u(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)      
+          
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -5148,7 +5140,6 @@ contains
       fdens = MPI_FILE_NULL
       call mpi_barrier(MPI_COMM_WORLD,e_io)
       
-      v(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -5220,7 +5211,6 @@ contains
       fdens = MPI_FILE_NULL
       call mpi_barrier(MPI_COMM_WORLD,e_io)
       
-      w(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -5293,7 +5283,6 @@ contains
       fdens = MPI_FILE_NULL
       call mpi_barrier(MPI_COMM_WORLD,e_io)
 
-      selphi(1:nx,1:ny,1:nz,flip) = lap_phi(1:nx,1:ny,1:nz)  
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -5308,11 +5297,7 @@ contains
              enddo
          enddo
       enddo    
-       
-      selphi(:,:,:,flop)=selphi(:,:,:,flip)  
-#ifdef DENSRATIO
-      rhophi(:,:,:)=rho_r*selphi(:,:,:,flip)+(1.0_db-selphi(:,:,:,flip))*rho_b   
-#endif        
+            
 #endif
 #endif
       return

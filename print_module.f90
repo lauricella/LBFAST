@@ -652,11 +652,11 @@ contains
 #if defined(DENSRATIO) && defined(TWOCOMPONENT)
 #ifdef WRITEPRESS
          !$acc parallel loop independent collapse(3) present(rhoprint,velprint,pressprint, &
-         !$acc& rhophi,u,v,w,hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
+         !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
          !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock,rhophi_loc)
 #else
-         !$acc parallel loop independent collapse(3) present(rhoprint,velprint,rhophi, &
-         !$acc& u,v,w,hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
+         !$acc parallel loop independent collapse(3) present(rhoprint,velprint, &
+         !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
          !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock,rhophi_loc)
 #endif
 #endif
@@ -664,40 +664,40 @@ contains
 #if defined(TWOCOMPONENT) && !defined(DENSRATIO)
 #ifdef WRITEPRESS
 		 !$acc parallel loop independent collapse(3) present(rhoprint,velprint,pressprint, &
-		 !$acc& selphi,rho,u,v,w,hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
+		 !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
 		 !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock,rhophi_loc)
 #else
-         !$acc parallel loop independent collapse(3) present(rhoprint,velprint,selphi, &
-         !$acc& u,v,w,hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
+         !$acc parallel loop independent collapse(3) present(rhoprint,velprint, &
+         !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
          !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock,rhophi_loc)
 #endif 
 #endif                 
 #ifndef TWOCOMPONENT 
          !$acc parallel loop independent collapse(3) present(rhoprint,velprint, &
-         !$acc& rho,u,v,w,hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
+         !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
          !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock,rhophi_loc)
 #endif         
 #else
 #if defined(DENSRATIO) && defined(TWOCOMPONENT)
 #ifdef WRITEPRESS
-         !$acc kernels present(rhoprint,velprint,pressprint,rhophi,u,v,w, &
+         !$acc kernels present(rhoprint,velprint,pressprint, &
          !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz,rhophi_loc)
 #else
-         !$acc kernels present(rhoprint,velprint,rhophi,u,v,w, &
+         !$acc kernels present(rhoprint,velprint, &
          !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz,rhophi_loc)
 #endif
 #endif
 #if defined(TWOCOMPONENT) && !defined(DENSRATIO)
 #ifdef WRITEPRESS
-		 !$acc kernels present(rhoprint,velprint,pressprint,rho,selphi,u,v,w, &
+		 !$acc kernels present(rhoprint,velprint,pressprint, &
 		 !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz,rhophi_loc)
 #else
-         !$acc kernels present(rhoprint,velprint,selphi,u,v,w, &
+         !$acc kernels present(rhoprint,velprint, &
          !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz,rhophi_loc)
 #endif
 #endif
 #ifndef TWOCOMPONENT
-         !$acc kernels present(rhoprint,velprint,rho,u,v,w,hfields_s, &
+         !$acc kernels present(rhoprint,velprint,hfields_s, &
          !$acc& phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz)
 #endif
          !$acc loop independent collapse(3)  private(i,j,k,ii,jj,kk,iii,jjj,kkk, &
@@ -720,26 +720,21 @@ contains
                   kkk=kk-zblock*TILE_DIMz+2*TILE_DIMz                            
                   
 #if defined(DENSRATIO) && defined(TWOCOMPONENT)
-                  !rhoprint(i,j,k)=real(rhophi(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
                   rhophi_loc=phifields_s(idx5(iii,jjj,kkk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
                   rhophi_loc=rho_r*rhophi_loc+(ONE-rhophi_loc)*rho_b
                   rhoprint(i,j,k)=real(rhophi_loc,kind=printdb)
-#ifdef WRITEPRESS 
-                  !pressprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)                  
+#ifdef WRITEPRESS                 
                   pressprint(i,j,k)=real(hfields_s(idx5(iii,jjj,kkk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)),kind=printdb)
 #endif
 #endif
 
 #if defined(TWOCOMPONENT) && !defined(DENSRATIO)
-                  !rhoprint(i,j,k)=real(selphi(i*stepskip,j*stepskip,k*stepskip,flip),kind=printdb)
                   rhoprint(i,j,k)=real(phifields_s(idx5(iii,jjj,kkk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields)),kind=printdb)
-#ifdef WRITEPRESS   
-                  !pressprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)               
+#ifdef WRITEPRESS               
                   pressprint(i,j,k)=real(hfields_s(idx5(iii,jjj,kkk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)),kind=printdb)				  
 #endif
 #endif
 #ifndef TWOCOMPONENT
-				  !rhoprint(i,j,k)=real(rho(i*stepskip,j*stepskip,k*stepskip),kind=printdb)
 				  rhoprint(i,j,k)=real(hfields_s(idx5(iii,jjj,kkk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)),kind=printdb)
 #endif
 				  velprint(1,i,j,k)=real(hfields_s(idx5(iii,jjj,kkk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)),kind=printdb)
@@ -806,25 +801,7 @@ contains
         hfields_flip=hfields_flop
         phifields_flip=phifields_flop
       endif
-      
-!!!!common to every LB
-      do k=1,nz
-         gk=nz*coords(3)+k
-         do j=1,ny
-            gj=ny*coords(2)+j
-            do i=1,nx
-               gi=nx*coords(1)+i
-               if(abs(isfluid(i,j,k)).eq.1)then
-				  uu=HALF*(u(i,j,k)*u(i,j,k)+v(i,j,k)*v(i,j,k)+w(i,j,k)*w(i,j,k))/cssq
-				  do l=0,nlinks
-					udotc=(u(i,j,k)*dex(l) + v(i,j,k)*dey(l)+ w(i,j,k)*dez(l))/cssq
-					feq=p(l)*(rho(i,j,k) + udotc+0.5_db*udotc*udotc - uu)
-                    f(i,j,k,l)=feq
-				  enddo
-               endif
-            enddo
-         enddo
-      enddo      
+        
 
    end subroutine driver_read_init_raw
    
@@ -872,7 +849,7 @@ contains
          status='old',action='read',access='stream',form='unformatted')
 
       read(345)lap_phi
-      rho(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -901,7 +878,7 @@ contains
          status='old',action='read',access='stream',form='unformatted')
 
       read(345)lap_phi
-      u(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -930,7 +907,7 @@ contains
          status='old',action='read',access='stream',form='unformatted')
 
       read(345)lap_phi
-      v(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -959,7 +936,7 @@ contains
          status='old',action='read',access='stream',form='unformatted')
 
       read(345)lap_phi
-      w(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -989,7 +966,7 @@ contains
          status='old',action='read',access='stream',form='unformatted')
 
       read(345)lap_phi
-      selphi(1:nx,1:ny,1:nz,flip)= lap_phi(1:nx,1:ny,1:nz)
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1006,11 +983,7 @@ contains
       enddo 
 
       close(345)
-      
-      selphi(:,:,:,flop)=selphi(:,:,:,flip)
-#ifdef DENSRATIO
-      rhophi(:,:,:)=rho_r*selphi(:,:,:,flip)+(1.0_db-selphi(:,:,:,flip))*rho_b   
-#endif         
+             
 #endif         
 
    end subroutine read_init_serial
@@ -1067,7 +1040,7 @@ contains
       open(unit=345,file=trim(sevt1), &
          status='replace',action='write',access='stream',form='unformatted')
 
-      lap_phi(1:nx,1:ny,1:nz)= rho(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1084,7 +1057,7 @@ contains
       enddo 
       write(345)lap_phi
 
-      lap_phi(1:nx,1:ny,1:nz)= u(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1101,7 +1074,7 @@ contains
       enddo 
       write(345)lap_phi
       
-      lap_phi(1:nx,1:ny,1:nz)= v(1:nx,1:ny,1:nz)
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1119,7 +1092,7 @@ contains
       write(345)lap_phi
       
       
-      lap_phi(1:nx,1:ny,1:nz)= w(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1136,7 +1109,7 @@ contains
       enddo 
       write(345)lap_phi
 
-      lap_phi(1:nx,1:ny,1:nz)= pxx(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1153,7 +1126,7 @@ contains
       enddo 
       write(345)lap_phi
       
-      lap_phi(1:nx,1:ny,1:nz)= pxy(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1170,7 +1143,7 @@ contains
       enddo 
       write(345)lap_phi
       
-      lap_phi(1:nx,1:ny,1:nz)= pxz(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1187,7 +1160,7 @@ contains
       enddo 
       write(345)lap_phi
       
-      lap_phi(1:nx,1:ny,1:nz)= pyy(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1204,7 +1177,7 @@ contains
       enddo 
       write(345)lap_phi
       
-      lap_phi(1:nx,1:ny,1:nz)= pyz(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1221,7 +1194,7 @@ contains
       enddo 
       write(345)lap_phi
       
-      lap_phi(1:nx,1:ny,1:nz)= pzz(1:nx,1:ny,1:nz)
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1264,7 +1237,7 @@ contains
          status='old',action='read',access='stream',form='unformatted')
 
       read(345)lap_phi
-      rho(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1281,7 +1254,7 @@ contains
       enddo       
 
       read(345)lap_phi
-      u(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1298,7 +1271,7 @@ contains
       enddo 
             
       read(345)lap_phi
-      v(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1315,7 +1288,7 @@ contains
       enddo 
       
       read(345)lap_phi
-      w(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1332,7 +1305,7 @@ contains
       enddo       
 
       read(345)lap_phi
-      pxx(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1349,7 +1322,7 @@ contains
       enddo 
             
       read(345)lap_phi
-      pxy(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1366,7 +1339,7 @@ contains
       enddo 
       
       read(345)lap_phi
-      pxz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1383,7 +1356,7 @@ contains
       enddo 
       
       read(345)lap_phi
-      pyy(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1400,7 +1373,7 @@ contains
       enddo 
       
       read(345)lap_phi
-      pyz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1417,7 +1390,7 @@ contains
       enddo 
       
       read(345)lap_phi
-      pzz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1492,7 +1465,7 @@ contains
       open(unit=345,file=trim(sevt1), &
          status='replace',action='write',access='stream',form='unformatted')
 
-      lap_phi(1:nx,1:ny,1:nz)= rho(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1509,7 +1482,7 @@ contains
       enddo 
       write(345)lap_phi
 
-      lap_phi(1:nx,1:ny,1:nz)= u(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1526,7 +1499,7 @@ contains
       enddo 
       write(345)lap_phi
       
-      lap_phi(1:nx,1:ny,1:nz)= v(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1543,7 +1516,7 @@ contains
       enddo 
       write(345)lap_phi
       
-      lap_phi(1:nx,1:ny,1:nz)= w(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1560,7 +1533,7 @@ contains
       enddo 
       write(345)lap_phi
 
-      lap_phi(1:nx,1:ny,1:nz)= pxx(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1577,7 +1550,7 @@ contains
       enddo 
       write(345)lap_phi
       
-      lap_phi(1:nx,1:ny,1:nz)= pxy(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1594,7 +1567,7 @@ contains
       enddo 
       write(345)lap_phi
       
-      lap_phi(1:nx,1:ny,1:nz)= pxz(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1611,7 +1584,7 @@ contains
       enddo 
       write(345)lap_phi
       
-      lap_phi(1:nx,1:ny,1:nz)= pyy(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1628,7 +1601,7 @@ contains
       enddo 
       write(345)lap_phi
       
-      lap_phi(1:nx,1:ny,1:nz)= pyz(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1645,7 +1618,7 @@ contains
       enddo 
       write(345)lap_phi
       
-      lap_phi(1:nx,1:ny,1:nz)= pzz(1:nx,1:ny,1:nz) 
+       
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1662,7 +1635,7 @@ contains
       enddo 
       write(345)lap_phi
 
-      lap_phi(1:nx,1:ny,1:nz)= selphi(1:nx,1:ny,1:nz,flop)
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1707,7 +1680,7 @@ contains
          status='old',action='read',access='stream',form='unformatted')
 
       read(345)lap_phi
-      rho(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz)
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1724,7 +1697,7 @@ contains
       enddo 
                 
       read(345)lap_phi
-      u(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1741,7 +1714,7 @@ contains
       enddo       
       
       read(345)lap_phi
-      v(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1758,7 +1731,7 @@ contains
       enddo 
       
       read(345)lap_phi
-      w(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1775,7 +1748,7 @@ contains
       enddo 
 
       read(345)lap_phi
-      pxx(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1792,7 +1765,7 @@ contains
       enddo 
             
       read(345)lap_phi
-      pxy(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1809,7 +1782,7 @@ contains
       enddo 
       
       read(345)lap_phi
-      pxz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1826,7 +1799,7 @@ contains
       enddo 
       
       read(345)lap_phi
-      pyy(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1843,7 +1816,7 @@ contains
       enddo 
       
       read(345)lap_phi
-      pyz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1860,7 +1833,7 @@ contains
       enddo 
       
       read(345)lap_phi
-      pzz(1:nx,1:ny,1:nz)= lap_phi(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -1877,7 +1850,7 @@ contains
       enddo 
 
       read(345)lap_phi
-      selphi(1:nx,1:ny,1:nz,flop)= lap_phi(1:nx,1:ny,1:nz) 
+      
       do k=1,nz
   	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
          do j=1,ny
@@ -2780,180 +2753,6 @@ contains
 #endif
 
    end subroutine print_parraw_sync2D
-
-   subroutine print_raw_slice_sync(iframe)
-
-      implicit none
-
-      integer, intent(in) :: iframe
-      !rho
-      sevt1 = trim(dir_out) // 'out'//'_'//'rhoxy'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=745,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(745) rho(:,:,nz/2)
-      close(745)
-      sevt1 = trim(dir_out) // 'out'//'_'//'rhoxz'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=746,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(746) rho(:,ny/2,:)
-      close(746)
-      sevt1 = trim(dir_out) // 'out'//'_'//'rhoyz'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=747,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(747) rho(nx/2,:,:)
-      close(747)
-
-      !u
-      sevt1 = trim(dir_out) // 'out'//'_'//'uxy'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=845,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(845) u(:,:,nz/2)
-      close(845)
-      sevt1 = trim(dir_out) // 'out'//'_'//'uxz'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=846,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(846) u(:,ny/2,:)
-      close(846)
-      sevt1 = trim(dir_out) // 'out'//'_'//'uyz'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=847,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(847) u(nx/2,:,:)
-      close(847)
-
-      !v
-      sevt1 = trim(dir_out) // 'out'//'_'//'vxy'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=848,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(848) v(:,:,nz/2)
-      close(848)
-      sevt1 = trim(dir_out) // 'out'//'_'//'vyz'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=849,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(849) v(nx/2,:,:)
-      close(849)
-      sevt1 = trim(dir_out) // 'out'//'_'//'vxz'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=850,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(850) v(:,ny/2,:)
-      close(850)
-
-      !w
-      sevt1 = trim(dir_out) // 'out'//'_'//'wxz'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=851,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(851) w(:,ny/2,:)
-      close(851)
-      sevt1 = trim(dir_out) // 'out'//'_'//'wyz'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=852,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(852) w(nx/2,:,:)
-      close(852)
-      sevt1 = trim(dir_out) // 'out'//'_'//'wxy'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=853,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(853) w(:,:,nz/2)
-      close(853)
-
-   end subroutine print_raw_slice_sync
-
-   subroutine print_raw_slice_2c_sync(iframe)
-
-      implicit none
-
-      integer, intent(in) :: iframe
-      !phi
-      sevt1 = trim(dir_out) // 'out'//'_'//'phixy'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=745,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(745) selphi(:,:,nz/2,flip)
-      close(745)
-      sevt1 = trim(dir_out) // 'out'//'_'//'phixz'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=746,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(746) selphi(:,ny/2,:,flip)
-      close(746)
-      sevt1 = trim(dir_out) // 'out'//'_'//'phiyz'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=747,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(747) selphi(nx/2,:,:,flip)
-      close(747)
-
-      !u
-      sevt1 = trim(dir_out) // 'out'//'_'//'uxy'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=845,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(845) u(:,:,nz/2)
-      close(845)
-      sevt1 = trim(dir_out) // 'out'//'_'//'uxz'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=846,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(846) u(:,ny/2,:)
-      close(846)
-      sevt1 = trim(dir_out) // 'out'//'_'//'uyz'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=847,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(847) u(nx/2,:,:)
-      close(847)
-
-      !v
-      sevt1 = trim(dir_out) // 'out'//'_'//'vxy'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=848,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(848) v(:,:,nz/2)
-      close(848)
-      sevt1 = trim(dir_out) // 'out'//'_'//'vyz'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=849,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(849) v(nx/2,:,:)
-      close(849)
-      sevt1 = trim(dir_out) // 'out'//'_'//'vxz'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=850,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(850) v(:,ny/2,:)
-      close(850)
-
-      !w
-      sevt1 = trim(dir_out) // 'out'//'_'//'wxz'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=851,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(851) w(:,ny/2,:)
-      close(851)
-      sevt1 = trim(dir_out) // 'out'//'_'//'wyz'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=852,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(852) w(nx/2,:,:)
-      close(852)
-      sevt1 = trim(dir_out) // 'out'//'_'//'wxy'// &
-         '_'//trim(write_fmtnumb(iframe)) // '.raw'
-      open(unit=853,file=trim(sevt1), &
-         status='replace',action='write',access='stream',form='unformatted')
-      write(853) w(:,:,nz/2)
-      close(853)
-
-   end subroutine print_raw_slice_2c_sync
 
    subroutine driver_print_vtk_sync(iframe)
 

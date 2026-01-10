@@ -51,10 +51,10 @@ contains
        subchords(1)=(gi-1)/nx
 	   if(subchords(1)==coords(1))then
 #ifdef ACCNOKERNELS
-		 !$acc parallel loop collapse(2) independent present(selphi &
+		 !$acc parallel loop collapse(2) independent present(phifields_s &
 		 !$acc& ) private(i,j,k,l,gi,gj,gk,ii,jj,kk,xblock,yblock,zblock,myblock)
 #else
-		 !$acc kernels present(selphi &
+		 !$acc kernels present(phifields_s &
 		 !$acc& )
 		 !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk,ii,jj,kk &
 		 !$acc& ,xblock,yblock,zblock,myblock)
@@ -221,10 +221,10 @@ contains
        subchords(1)=(gi-1)/nx
 	   if(subchords(1)==coords(1))then
 #ifdef ACCNOKERNELS
-		 !$acc parallel loop collapse(2) independent present(selphi &
+		 !$acc parallel loop collapse(2) independent present(phifields_s &
 		 !$acc& ) private(i,j,k,l,gi,gj,gk)
 #else
-		 !$acc kernels present(selphi &
+		 !$acc kernels present(phifields_s &
 		 !$acc& )
 		 !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	
@@ -391,9 +391,9 @@ contains
        subchords(2)=(gj-1)/ny
 	   if(subchords(2)==coords(2))then
 #ifdef ACCNOKERNELS
-	     !$acc parallel loop collapse(2) independent present(selphi)
+	     !$acc parallel loop collapse(2) independent present(phifields_s)
 #else
-	     !$acc kernels present(selphi &
+	     !$acc kernels present(phifields_s &
 	     !$acc& )
 	     !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	    
@@ -558,9 +558,9 @@ contains
        subchords(2)=(gj-1)/ny
 	   if(subchords(2)==coords(2))then
 #ifdef ACCNOKERNELS
-	     !$acc parallel loop collapse(2) independent present(selphi)
+	     !$acc parallel loop collapse(2) independent present(phifields_s)
 #else
-	     !$acc kernels present(selphi &
+	     !$acc kernels present(phifields_s &
 	     !$acc& )
 	     !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	    
@@ -727,10 +727,10 @@ contains
        subchords(3)=(gk-1)/nz
 	   if(subchords(3)==coords(3))then
 #ifdef ACCNOKERNELS
-	     !$acc parallel loop collapse(2) independent present(selphi &
+	     !$acc parallel loop collapse(2) independent present(phifields_s &
 	     !$acc& ) private(i,j,k,l,gi,gj,gk)
 #else
-	     !$acc kernels present(selphi &
+	     !$acc kernels present(phifields_s &
 	     !$acc& )
 	     !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	    
@@ -895,10 +895,10 @@ contains
        subchords(3)=(gk-1)/nz
 	   if(subchords(3)==coords(3))then			   
 #ifdef ACCNOKERNELS
-	     !$acc parallel loop collapse(2) independent present(selphi &
+	     !$acc parallel loop collapse(2) independent present(phifields_s &
 	     !$acc& ) private(i,j,k,l,gi,gj,gk)
 #else
-	     !$acc kernels present(selphi &
+	     !$acc kernels present(phifields_s &
 	     !$acc& )
 	     !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	    
@@ -1107,10 +1107,10 @@ contains
        subchords(1)=(gi-1)/nx
 	   if(subchords(1)==coords(1))then
 #ifdef ACCNOKERNELS
-		 !$acc parallel loop collapse(2) independent present(selphi &
+		 !$acc parallel loop collapse(2) independent present(phifields_s &
 		 !$acc& ) private(i,j,k,l,gi,gj,gk)
 #else
-		 !$acc kernels present(selphi &
+		 !$acc kernels present(phifields_s &
 		 !$acc& )
 		 !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	    
@@ -1158,10 +1158,10 @@ contains
        subchords(1)=(gi-1)/nx
 	   if(subchords(1)==coords(1))then
 #ifdef ACCNOKERNELS
-		 !$acc parallel loop collapse(2) independent present(selphi &
+		 !$acc parallel loop collapse(2) independent present(phifields_s &
 		 !$acc& ) private(i,j,k,l,gi,gj,gk)
 #else
-		 !$acc kernels present(selphi &
+		 !$acc kernels present(phifields_s &
 		 !$acc& )
 		 !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	    
@@ -1211,9 +1211,9 @@ contains
        subchords(2)=(gj-1)/ny
 	   if(subchords(2)==coords(2))then
 #ifdef ACCNOKERNELS
-		 !$acc parallel loop collapse(2) independent present(selphi)
+		 !$acc parallel loop collapse(2) independent present(phifields_s)
 #else
-		 !$acc kernels present(selphi &
+		 !$acc kernels present(phifields_s &
 		 !$acc& )
 		 !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	    
@@ -1261,9 +1261,9 @@ contains
        subchords(2)=(gj-1)/ny
 	   if(subchords(2)==coords(2))then
 #ifdef ACCNOKERNELS
-		 !$acc parallel loop collapse(2) independent present(selphi)
+		 !$acc parallel loop collapse(2) independent present(phifields_s)
 #else
-		 !$acc kernels present(selphi &
+		 !$acc kernels present(phifields_s &
 		 !$acc& )
 		 !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	  
@@ -1313,10 +1313,10 @@ contains
        subchords(3)=(gk-1)/nz
 	   if(subchords(3)==coords(3))then
 #ifdef ACCNOKERNELS
-		 !$acc parallel loop collapse(2) independent present(selphi &
+		 !$acc parallel loop collapse(2) independent present(phifields_s &
 		 !$acc& ) private(i,j,k,l,gi,gj,gk)
 #else
-		 !$acc kernels present(selphi &
+		 !$acc kernels present(phifields_s &
 		 !$acc& )
 		 !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	    
@@ -1364,10 +1364,10 @@ contains
        subchords(3)=(gk-1)/nz
 	   if(subchords(3)==coords(3))then
 #ifdef ACCNOKERNELS
-		 !$acc parallel loop collapse(2) independent present(selphi &
+		 !$acc parallel loop collapse(2) independent present(phifields_s &
 		 !$acc& ) private(i,j,k,l,gi,gj,gk)
 #else
-		 !$acc kernels present(selphi &
+		 !$acc kernels present(phifields_s &
 		 !$acc& )
 		 !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	    
@@ -1421,8 +1421,8 @@ contains
 	   gi=2
        subchords(1)=(gi-1)/nx
 	   if(subchords(1)==coords(1))then
-		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(selphi &
-		 !$acc& ) private(i,j,k,l,gi,gj,gk &
+		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(phifields_s &
+		 !$acc& ,hfields_s) private(i,j,k,l,gi,gj,gk &
 		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,u)  
 	     do k=1,nz
 		   do j=1,ny
@@ -1449,8 +1449,8 @@ contains
 	   gi=lx-1
        subchords(1)=(gi-1)/nx
 	   if(subchords(1)==coords(1))then
-		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(selphi &
-		 !$acc& ) private(i,j,k,l,gi,gj,gk &
+		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(phifields_s &
+		 !$acc& ,hfields_s) private(i,j,k,l,gi,gj,gk &
 		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,u)   
 	     do k=1,nz
 		   do j=1,ny
@@ -1480,8 +1480,8 @@ contains
 	   gj=2
        subchords(2)=(gj-1)/ny
 	   if(subchords(2)==coords(2))then
-		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(selphi &
-		 !$acc& ) private(i,j,k,l,gi,gj,gk &
+		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(phifields_s &
+		 !$acc& ,hfields_s) private(i,j,k,l,gi,gj,gk &
 		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,v)    
 	     do k=1,nz
 		   do i=1,nx
@@ -1509,8 +1509,8 @@ contains
 	   gj=ly-1
        subchords(2)=(gj-1)/ny
 	   if(subchords(2)==coords(2))then
-		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(selphi &
-		 !$acc& ) private(i,j,k,l,gi,gj,gk &
+		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(phifields_s &
+		 !$acc& ,hfields_s) private(i,j,k,l,gi,gj,gk &
 		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,v)	    
 	     do k=1,nz
 		   do i=1,nx
@@ -1540,8 +1540,8 @@ contains
 	   gk=2
        subchords(3)=(gk-1)/nz
 	   if(subchords(3)==coords(3))then
-		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(selphi &
-		 !$acc& ) private(i,j,k,l,gi,gj,gk &
+		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(phifields_s &
+		 !$acc& ,hfields_s) private(i,j,k,l,gi,gj,gk &
 		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,w)  
 	     do j=1,ny
 		   do i=1,nx
@@ -1571,8 +1571,8 @@ contains
        subchords(3)=(gk-1)/nz
 	   if(subchords(3)==coords(3))then
 
-		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(selphi &
-		 !$acc& ) private(i,j,k,l,gi,gj,gk &
+		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(phifields_s &
+		 !$acc& ,hfields_s) private(i,j,k,l,gi,gj,gk &
 		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,wtmp)
   
 	     do j=1,ny

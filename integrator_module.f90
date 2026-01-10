@@ -66,21 +66,18 @@ contains
       flip=mod(step,2)+1     
       flop = 3 - flip
       
-      !$acc data copy(step,lx,ly,lz,nx,ny,nz,coords,myoffset,f,isfluid,myrank, &
-      !$acc& pxx,pyy,pzz,pxy,pxz,pyz,rho,u,v,w,rhoprint,velprint,radius, &
+      !$acc data copy(step,lx,ly,lz,nx,ny,nz,coords,myoffset,isfluid,myrank, &
+      !$acc& rhoprint,velprint,radius, &
 	  !$acc& tau1,visc1,rho_r,rho_b,invrho_r,invrho_b,omega,lap_phi, &
       !$acc& intpbc_dir,num_links_pops,links_pops,f_datampi,uwall,udotc,uu, &
-      !$acc& f_send_extr,f_recv_extr,fux,fvy,fwz, &
+      !$acc& f_send_extr,f_recv_extr, &
       !$acc& ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields, &
       !$acc& hfields_flip,hfields_flop,auxfields,locauxfields, &
       !$acc& TILE_DIMx,TILE_DIMy,TILE_DIMz,nblocks,nxblock,nxyblock, &
 #ifdef TWOCOMPONENT
       !$acc& phifields_flip,phifields_flop, &
       !$acc& sharp_c,beta,tau2,visc2, kapp, sigma,width,tau_diff,corr,global_phi_sum_ini,global_count,global_phi_sum,&
-	  !$acc& arr_x, arr_y, arr_z,normx,normy,normz,modgrad,selphi,global_phi_change, &
-#ifdef DENSRATIO
-	  !$acc& rhophi, &
-#endif
+	  !$acc& global_phi_change, &
 #ifdef MONOD
 	  !$acc&  mu_max,Ks, &
 #endif
@@ -88,7 +85,7 @@ contains
       !$acc& rhoIN,rhoOUT, &
 #endif
 #ifdef REPULSIVE_FLUX
-	 !$acc& Jx,Jy,Jz,pair_i,pair_j,pair_k,rep_mask,q_th,cosOppT,pwr,A_rep,win, &
+	 !$acc& rep_mask,q_th,cosOppT,pwr,A_rep,win, &
 #endif
 #endif
       !$acc& flip,flop,stepskip,nxskip,nyskip,nzskip, &

@@ -124,13 +124,13 @@ contains
    !$acc wait
    istat = cudaDeviceSynchronize
        
-   !$acc host_data use_device(myrank,nx,ny,nz,coords,selphi)
-   !call test_LB_kernel_shared_x<<<dimGridx, dimBlockshared>>>(myrank,nx,ny,nz,coords,selphi)
-   !call test_LB_kernel_shared_y<<<dimGridy, dimBlockshared>>>(myrank,nx,ny,nz,coords,selphi)
-   !call test_LB_kernel_shared_z<<<dimGridz, dimBlockshared>>>(myrank,nx,ny,nz,coords,selphi)
-   call  test_LB_kernel_shared_internal<<<dimGridInt, dimBlockshared>>>(myrank,nx,ny,nz,coords,selphi)
-   !call test_LB_kernel_shared<<<dimGrid, dimBlockshared>>>(myrank,nx,ny,nz,coords,selphi)
-   !call test_LB_kernel_halo<<<dimGridhalo,dimBlockhalo>>>(myrank,nx,ny,nz,coords,selphi)
+   !$acc host_data use_device(myrank,nx,ny,nz,coords)
+   !call test_LB_kernel_shared_x<<<dimGridx, dimBlockshared>>>(myrank,nx,ny,nz,coords)
+   !call test_LB_kernel_shared_y<<<dimGridy, dimBlockshared>>>(myrank,nx,ny,nz,coords)
+   !call test_LB_kernel_shared_z<<<dimGridz, dimBlockshared>>>(myrank,nx,ny,nz,coords)
+   call  test_LB_kernel_shared_internal<<<dimGridInt, dimBlockshared>>>(myrank,nx,ny,nz,coords)
+   !call test_LB_kernel_shared<<<dimGrid, dimBlockshared>>>(myrank,nx,ny,nz,coords)
+   !call test_LB_kernel_halo<<<dimGridhalo,dimBlockhalo>>>(myrank,nx,ny,nz,coords)
    !$acc end host_data
    
    end subroutine test_LB_cuda
@@ -156,12 +156,11 @@ contains
   
  end function idx5d
 
- attributes(global) subroutine test_LB_kernel(myrank,nx,ny,nz,coords,selphi)
+ attributes(global) subroutine test_LB_kernel(myrank,nx,ny,nz,coords)
       implicit none
       
       integer :: myrank,nx,ny,nz
       integer, dimension(3) :: coords
-      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,2) :: selphi
       
       integer :: i,j,k,gi,gj,gk,myblock
 
@@ -186,12 +185,11 @@ contains
       
  end subroutine test_LB_kernel
  
- attributes(global) subroutine test_LB_kernel_shared(myrank,nx,ny,nz,coords,selphi)
+ attributes(global) subroutine test_LB_kernel_shared(myrank,nx,ny,nz,coords)
       implicit none
       
       integer :: myrank,nx,ny,nz
       integer, dimension(3) :: coords
-      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,2) :: selphi
       
       integer :: i,j,k,gi,gj,gk,myblock
       integer :: li,lj,lk
@@ -226,12 +224,11 @@ contains
       
  end subroutine test_LB_kernel_shared 
  
- attributes(global) subroutine test_LB_kernel_shared_internal(myrank,nx,ny,nz,coords,selphi)
+ attributes(global) subroutine test_LB_kernel_shared_internal(myrank,nx,ny,nz,coords)
       implicit none
       
       integer :: myrank,nx,ny,nz
       integer, dimension(3) :: coords
-      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,2) :: selphi
       
       integer :: i,j,k,gi,gj,gk,myblock
       integer :: li,lj,lk
@@ -267,12 +264,11 @@ contains
       
  end subroutine test_LB_kernel_shared_internal 
  
- attributes(global) subroutine test_LB_kernel_shared_z(myrank,nx,ny,nz,coords,selphi)
+ attributes(global) subroutine test_LB_kernel_shared_z(myrank,nx,ny,nz,coords)
       implicit none
       
       integer :: myrank,nx,ny,nz
       integer, dimension(3) :: coords
-      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,2) :: selphi
       
       integer :: i,j,k,gi,gj,gk,myblock
       integer :: li,lj,lk
@@ -319,12 +315,11 @@ contains
       
  end subroutine test_LB_kernel_shared_z 
  
- attributes(global) subroutine test_LB_kernel_shared_y(myrank,nx,ny,nz,coords,selphi)
+ attributes(global) subroutine test_LB_kernel_shared_y(myrank,nx,ny,nz,coords)
       implicit none
       
       integer :: myrank,nx,ny,nz
       integer, dimension(3) :: coords
-      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,2) :: selphi
       
       integer :: i,j,k,gi,gj,gk,myblock
       integer :: li,lj,lk
@@ -371,12 +366,11 @@ contains
       
  end subroutine test_LB_kernel_shared_y
  
- attributes(global) subroutine test_LB_kernel_shared_x(myrank,nx,ny,nz,coords,selphi)
+ attributes(global) subroutine test_LB_kernel_shared_x(myrank,nx,ny,nz,coords)
       implicit none
       
       integer :: myrank,nx,ny,nz
       integer, dimension(3) :: coords
-      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,2) :: selphi
       
       integer :: i,j,k,gi,gj,gk,myblock
       integer :: li,lj,lk
@@ -426,12 +420,11 @@ contains
       
  end subroutine test_LB_kernel_shared_x 
  
- attributes(global) subroutine test_LB_kernel_halo(myrank,nx,ny,nz,coords,selphi)
+ attributes(global) subroutine test_LB_kernel_halo(myrank,nx,ny,nz,coords)
       implicit none
       
       integer :: myrank,nx,ny,nz
       integer, dimension(3) :: coords
-      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,2) :: selphi
       
       integer :: i,j,k,gi,gj,gk,myblock
       integer :: xblock,yblock,zblock
@@ -473,10 +466,10 @@ contains
       !$acc wait
       istat = cudaDeviceSynchronize
 
-!$acc host_data use_device(flop,nx,ny,nz,coords,isfluid,selphi &
-       !$acc& ,rhophi,rho_r,rho_b,ntotphifields,ntotlocauxfields,phifields_s,locauxfields)
+!$acc host_data use_device(flop,nx,ny,nz,coords,isfluid &
+       !$acc& ,rho_r,rho_b,ntotphifields,ntotlocauxfields,phifields_s,locauxfields)
        call compute_densityratio_kernel<<<dimGrid, dimBlock>>>(flop,nx,ny,nz,coords,isfluid, &
-        selphi,rhophi,rho_r,rho_b,ntotphifields,ntotlocauxfields,phifields_s,locauxfields)
+        rho_r,rho_b,ntotphifields,ntotlocauxfields,phifields_s,locauxfields)
 !$acc end host_data
       istat = cudaDeviceSynchronize
       istat = cudaGetLastError()
@@ -491,14 +484,12 @@ contains
    endsubroutine compute_densityratio_cuda
  
  attributes(global) subroutine compute_densityratio_kernel(flop,nx,ny,nz,coords,isfluid, &
-  selphi,rhophi,rho_r,rho_b,ntotphifields,ntotlocauxfields,phifields_s,locauxfields_s)
+  rho_r,rho_b,ntotphifields,ntotlocauxfields,phifields_s,locauxfields_s)
       implicit none
       
       integer :: flop,nx,ny,nz
       integer, dimension(3) :: coords
       integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
-      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,2) :: selphi
-      real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1) :: rhophi
       real(kind=db) :: rho_r,rho_b
       integer :: ntotphifields,ntotlocauxfields
       real(kind=db), dimension(ntotphifields) :: phifields_s
@@ -523,8 +514,6 @@ contains
       jj=threadIdx%y
       kk=threadIdx%z
       
-      rhophi(i,j,k)=rho_r*selphi(i,j,k,flop)+(1.0_db-selphi(i,j,k,flop))*rho_b
-      
       phitemp=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
       
       !locauxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))=rho_r*phitemp+(ONE-phitemp)*rho_b
@@ -542,10 +531,10 @@ contains
       !$acc wait
       istat = cudaDeviceSynchronize
 
-!$acc host_data use_device(flop,nx,ny,nz,coords,isfluid,selphi &
-       !$acc& ,rhophi,rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+!$acc host_data use_device(flop,nx,ny,nz,coords,isfluid &
+       !$acc& ,rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
        call compute_norm_interface_kernel<<<dimGrid, dimBlockshared>>>(flop,nx,ny,nz,coords,isfluid, &
-        selphi,rhophi,rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+        rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
 !$acc end host_data
       istat = cudaDeviceSynchronize
       istat = cudaGetLastError()
@@ -562,14 +551,12 @@ contains
  endsubroutine compute_norm_interface_cuda
  
  attributes(global) subroutine compute_norm_interface_kernel(flop,nx,ny,nz,coords,isfluid, &
-  selphi,rhophi,rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields_s,locauxfields_s)
+  rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields_s,locauxfields_s)
 
       implicit none
       integer :: flop,nx,ny,nz
       integer, dimension(3) :: coords
       integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
-      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,2) :: selphi
-      real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1) :: rhophi
       real(kind=db) :: rho_r,rho_b
       integer :: ntotphifields,ntotauxfields,ntotlocauxfields
       real(kind=db), dimension(ntotphifields) :: phifields_s
@@ -695,10 +682,10 @@ contains
       !$acc wait
       istat = cudaDeviceSynchronize
 
-!$acc host_data use_device(flop,nx,ny,nz,coords,isfluid,selphi &
-       !$acc& ,rhophi,rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+!$acc host_data use_device(flop,nx,ny,nz,coords,isfluid &
+       !$acc& ,rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
        call compute_div_thetan_kernel<<<dimGrid, dimBlockshared>>>(flop,nx,ny,nz,coords,isfluid, &
-        selphi,rhophi,rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+        rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
 !$acc end host_data
       istat = cudaDeviceSynchronize
       istat = cudaGetLastError()
@@ -715,14 +702,12 @@ contains
    endsubroutine compute_div_thetan 
    
     attributes(global) subroutine compute_div_thetan_kernel(flop,nx,ny,nz,coords,isfluid, &
-  selphi,rhophi,rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields_s,locauxfields_s)
+     rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields_s,locauxfields_s)
 
       implicit none
       integer :: flop,nx,ny,nz
       integer, dimension(3) :: coords
       integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
-      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,2) :: selphi
-      real(kind=db), dimension(0:nx+1,0:ny+1,0:nz+1) :: rhophi
       real(kind=db) :: rho_r,rho_b
       integer :: ntotphifields,ntotauxfields,ntotlocauxfields
       real(kind=db), dimension(ntotphifields) :: phifields_s
