@@ -1212,7 +1212,7 @@ contains
       
 
       real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
-      real(kind=db) :: mytemp,forcex,forcey,forcez,rhophi_loc,press_loc
+      real(kind=db) :: mytemp,forcex,forcey,forcez,rhophi_loc,press_loc,u_loc,v_loc,w_loc
 #ifdef EXPLICITEQ
       integer :: l
       real(kind=db) :: udotc,uu,F_discr,feq
@@ -1329,17 +1329,17 @@ contains
 				  locauxfields_s(gj)=forcey
 				  locauxfields_s(gk)=forcez
 				  
-				  gradfix=hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields)) !velocity
-                  gradfiy=hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  gradfiz=hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+				  u_loc=hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields)) !velocity
+                  v_loc=hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  w_loc=hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
 				  
 #if defined(ELASTIC_FORCE)
                   forcex=forcex + &
-                   rhophi_loc*(gradfix - u_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+   
+                   rhophi_loc*(u_loc - u_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+   
 				  forcey=forcey + &
-				   rhophi_loc*(gradfiy - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
+				   rhophi_loc*(v_loc - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
 				  forcez=forcez + &
-				   rhophi_loc*(gradfiz - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc + rhophi_loc*fz !+  	
+				   rhophi_loc*(w_loc - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc + rhophi_loc*fz !+  	
 #endif
 #ifdef DENSRATIO 
 			  
@@ -1353,10 +1353,10 @@ contains
                   !*1
                   ! 2nd order
 #ifdef EXPLICITEQ                  
-				  uu=HALF*(gradfix*gradfix+gradfiy*gradfiy+gradfiz*gradfiz)*invcssq
+				  uu=HALF*(u_loc*u_loc+v_loc*v_loc+w_loc*w_loc)*invcssq
 				  
                   do l=1,nlinks
-                     udotc=(gradfix*dex(l) + gradfiy*dey(l)+ gradfiz*dez(l))*invcssq
+                     udotc=(u_loc*dex(l) + v_loc*dey(l)+ w_loc*dez(l))*invcssq
 					 feq=p(l)*(press_loc + (udotc+0.5_db*udotc*udotc - uu))
                      !
                      pxx=pxx - feq*dex(l)*dex(l)
@@ -1367,12 +1367,12 @@ contains
                      pyz=pyz - feq*dey(l)*dez(l)
                   enddo
 #else
-                  pxx=pxx - cssq*press_loc - gradfix*gradfix
-                  pyy=pyy - cssq*press_loc - gradfiy*gradfiy
-                  pzz=pzz - cssq*press_loc - gradfiz*gradfiz
-                  pxy=pxy - gradfix*gradfiy
-                  pxz=pxz - gradfix*gradfiz
-                  pyz=pyz - gradfiy*gradfiz
+                  pxx=pxx - cssq*press_loc - u_loc*u_loc
+                  pyy=pyy - cssq*press_loc - v_loc*v_loc
+                  pzz=pzz - cssq*press_loc - w_loc*w_loc
+                  pxy=pxy - u_loc*v_loc
+                  pxz=pxz - u_loc*w_loc
+                  pyz=pyz - v_loc*w_loc
 
 #endif
 				  visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
@@ -1391,45 +1391,45 @@ contains
 					 
 #if defined(INTERFACE_INCOMP) && defined(DENSRATIO)
 				  mytemp= -sharp_c*locauxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))
-				  gradfix = gradfix + 0.5_db*forcex/(rhophi_loc)
-                  gradfiy = gradfiy + 0.5_db*forcey/(rhophi_loc)
-                  gradfiz = gradfiz + 0.5_db*forcez/(rhophi_loc)
+				  u_loc = u_loc + 0.5_db*forcex/(rhophi_loc)
+                  v_loc = v_loc + 0.5_db*forcey/(rhophi_loc)
+                  w_loc = w_loc + 0.5_db*forcez/(rhophi_loc)
 				  
-				  gradfix = gradfix/ &
+				  u_loc = u_loc/ &
 				   (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc )
 				  
-				  gradfiy = gradfiy/ &
+				  v_loc = v_loc/ &
 				   (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc ) 
 				  
-				  gradfiz = gradfiz/ &
+				  w_loc = w_loc/ &
 				   (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc ) 
   
 #else
-                  gradfix = gradfix + 0.5_db*forcex/rhophi_loc
-                  gradfiy = gradfiy + 0.5_db*forcey/rhophi_loc
-                  gradfiz = gradfiz + 0.5_db*forcez/rhophi_loc
+                  u_loc = u_loc + 0.5_db*forcex/rhophi_loc
+                  v_loc = v_loc + 0.5_db*forcey/rhophi_loc
+                  w_loc = w_loc + 0.5_db*forcez/rhophi_loc
 #endif
 
-                  hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=gradfix   !put the new velocity in hfields_s
-                  hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=gradfiy
-                  hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=gradfiz
+                  hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=u_loc   !put the new velocity in hfields_s
+                  hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=v_loc
+                  hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=w_loc
 
 #if defined(INTERFACE_INCOMP) && defined(DENSRATIO)
 					 locauxfields_s(gi)= locauxfields_s(gi) - &
-					  (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*gradfix
+					  (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*u_loc
 					 locauxfields_s(gj)= locauxfields_s(gj) - &
-					  (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*gradfiy
+					  (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*v_loc
 					 locauxfields_s(gk)= locauxfields_s(gk) - &
-					  (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*gradfiz
+					  (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*w_loc
 					 
 					 forcex=forcex - &
-					  (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*gradfix
+					  (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*u_loc
 					 
 					 forcey=forcey - &
-					  (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*gradfiy
+					  (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*v_loc
 					 
 					 forcez=forcez - &
-					  (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*gradfiz
+					  (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*w_loc
 #endif 
 
 
@@ -1441,14 +1441,14 @@ contains
                   pxz=hfields_s(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
                   pyz=hfields_s(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
 #ifdef EXPLICITEQ 
-				  uu=HALF*(gradfix*gradfix+gradfiy*gradfiy+gradfiz*gradfiz)*invcssq
+				  uu=HALF*(u_loc*u_loc+v_loc*v_loc+w_loc*w_loc)*invcssq
 				  
                   do l=1,nlinks
-                     udotc=(gradfix*dex(l) + gradfiy*dey(l)+ gradfiz*dez(l))*invcssq
+                     udotc=(u_loc*dex(l) + v_loc*dey(l)+ w_loc*dez(l))*invcssq
 					 feq=p(l)*(press_loc + (udotc+0.5_db*udotc*udotc - uu))
 					 F_discr= &
-					  p(l)*( (dex(l)-gradfix)*(forcex)+(dey(l)-gradfiy)*(forcey)+(dez(l)-gradfiz)*(forcez) + &
-					  (1.0_db/(cssq))*( (gradfix*dex(l)+gradfiy*dey(l)+gradfiz*dez(l))*&
+					  p(l)*( (dex(l)-u_loc)*(forcex)+(dey(l)-v_loc)*(forcey)+(dez(l)-w_loc)*(forcez) + &
+					  (1.0_db/(cssq))*( (u_loc*dex(l)+v_loc*dey(l)+w_loc*dez(l))*&
 					  ( (forcex)*dex(l) + (forcey)*dey(l) + (forcez)*dez(l) ) ) )/(cssq*rhophi_loc) 
 					 
                      udotc = 0.5_db*F_discr 
@@ -1461,12 +1461,12 @@ contains
                      pyz=pyz + udotc*dey(l)*dez(l)
                   enddo
 #else
-                  pxx=pxx + forcex*gradfix/rhophi_loc
-                  pyy=pyy + forcey*gradfiy/rhophi_loc
-                  pzz=pzz + forcez*gradfiz/rhophi_loc
-                  pxy=pxy + HALF*(forcey*gradfix+forcex*gradfiy)/rhophi_loc
-                  pxz=pxz + HALF*(forcez*gradfix+forcex*gradfiz)/rhophi_loc
-                  pyz=pyz + HALF*(forcez*gradfiy+forcey*gradfiz)/rhophi_loc
+                  pxx=pxx + forcex*u_loc/rhophi_loc
+                  pyy=pyy + forcey*v_loc/rhophi_loc
+                  pzz=pzz + forcez*w_loc/rhophi_loc
+                  pxy=pxy + HALF*(forcey*u_loc+forcex*v_loc)/rhophi_loc
+                  pxz=pxz + HALF*(forcez*u_loc+forcex*w_loc)/rhophi_loc
+                  pyz=pyz + HALF*(forcez*v_loc+forcey*w_loc)/rhophi_loc
 
 #endif
                   hfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=pxx
@@ -1478,18 +1478,18 @@ contains
                   
 #if defined(ELASTIC_FORCE)
 				  u_ref(i,j,k) = u_ref(i,j,k) + &
-				   lambda_rel*(gradfix - u_ref(i,j,k))
+				   lambda_rel*(u_loc - u_ref(i,j,k))
 				  v_ref(i,j,k) = v_ref(i,j,k) + &
-				   lambda_rel*(gradfiy - v_ref(i,j,k))
+				   lambda_rel*(v_loc - v_ref(i,j,k))
 				  w_ref(i,j,k) = w_ref(i,j,k) + &
-				   lambda_rel*(gradfiz - w_ref(i,j,k))
+				   lambda_rel*(w_loc - w_ref(i,j,k))
 				  
                   locauxfields_s(gi)= locauxfields_s(gi) + &
-                   rhophi_loc*(gradfix - u_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
+                   rhophi_loc*(u_loc - u_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
 				  locauxfields_s(gj)= locauxfields_s(gj) +&
-				    rhophi_loc*(gradfiy - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
+				    rhophi_loc*(v_loc - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
 				  locauxfields_s(gk)= locauxfields_s(gk) + &
-				   rhophi_loc*(gradfiz - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc+rhophi_loc*fz  
+				   rhophi_loc*(w_loc - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc+rhophi_loc*fz  
 #endif                  
 #if defined(DENSRATIO)			  
 				  locauxfields_s(gi)= locauxfields_s(gi) - &
@@ -1522,12 +1522,12 @@ contains
        !$acc& ,wettab_r,wettab_b &
 #endif  
 #ifdef TWOCOMPONENT 
-       !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+       !$acc& ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
 #ifdef MONOD
 	   !$acc& ,mu_max,Ks &
 #endif
 #endif   
-       !$acc& ,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields &
+       !$acc& ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields &
        !$acc& ,hfields_in,hfields_out,phifields_s,auxfields,locauxfields)
       call fused_LB_kernel<<<dimGrid,dimBlockshared>>>(flip,flop,nx,ny,nz,coords,isfluid &    
 #ifdef MULTIHIT
@@ -2963,17 +2963,21 @@ contains
       istat = cudaDeviceSynchronize
 
 !$acc host_data use_device(flop,nx,ny,nz,coords,isfluid &
+#ifdef TWOCOMPONENT    
        !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
 #ifdef MONOD
 	   !$acc& ,mu_max,Ks &
 #endif
+#endif
        !$acc& ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields &
 	   !$acc& ,hfields_s,phifields_in,phifields_out,auxfields,locauxfields)
        call update_phifields_kernel<<<dimGrid, dimBlock>>>(flop,nx,ny,nz,coords,isfluid &
+#ifdef TWOCOMPONENT           
        ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
 #ifdef MONOD
 	   ,mu_max,Ks &
-#endif      
+#endif   
+#endif   
        ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields &
 	   ,hfields_s,phifields_in,phifields_out,auxfields,locauxfields)
 !$acc end host_data
@@ -2992,10 +2996,12 @@ contains
    endsubroutine update_phifields 
    
    attributes(global) subroutine update_phifields_kernel(flop,nx,ny,nz,coords,isfluid &
+#ifdef TWOCOMPONENT    
     ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
 #ifdef MONOD	
     ,mu_max,Ks &
 #endif
+#endif 
     ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields, &
        hfields_s,phifields_in,phifields_out,auxfields_s,locauxfields_s)
 
@@ -3094,12 +3100,12 @@ contains
        !$acc& ,wettab_r,wettab_b &
 #endif  
 #ifdef TWOCOMPONENT 
-       !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+       !$acc& ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
 #ifdef MONOD
 	   !$acc& ,mu_max,Ks &
 #endif
 #endif   
-       !$acc& ,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields &
+       !$acc& ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields &
        !$acc& ,hfields_in,hfields_out,phifields_s,auxfields,locauxfields)
       call LB_int_boundary_kernel<<<dimGrid,dimBlock>>>(flip,flop,nx,ny,nz,coords,isfluid &    
 #ifdef MULTIHIT

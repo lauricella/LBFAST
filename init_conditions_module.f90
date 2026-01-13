@@ -111,7 +111,7 @@ contains
 				 
 				 tempphi=max(sel1, sel2)
 				 
-				 
+#ifdef TWOCOMPONENT				 
 				 phifields_flip(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=tempphi
                  
 #ifdef DENSRATIO
@@ -119,7 +119,7 @@ contains
 #else
                  rhophi_loc = 1.0_db
 #endif	
-                
+#endif                
                 tempphi2 = tempphi*(sigma*2.0_db)/radius/(rhophi_loc/3.0_db)
 				loc_press = loc_press + tempphi2
 				 
@@ -257,7 +257,7 @@ contains
  !                 if(gi==lx/2 .and. gj==ly/2 .and. gk==lz/2)phi(i,j,k)=ONE		 
 #else				  
  
-                  if(gi==lx/8 .and. gj==ly/8 .and. gk==lz/4)then
+                  if(gi==lx/2 .and. gj==ly/2 .and. gk==lz/2)then
                     loc_press = loc_press + 0.05_db
                   endif
                   loc_w=ZERO!fcut(dist,radius-width*0.5,radius+width*0.5)*uwall !   - fcut(dist2,radius-width*0.5,radius+width*0.5)*HALF*uwall

@@ -1,15 +1,15 @@
-#define TWOCOMPONENT
-#define DENSRATIO
+#define noTWOCOMPONENT
+#define noDENSRATIO
 #define DOBENCHMARK
 #define DOXDMF
 #define noWRITEPRESS
-#define JAQMIN
-#define INTERFACE_INCOMP
-#define REPULSIVE_FLUX
+#define noJAQMIN
+#define noINTERFACE_INCOMP
+#define noREPULSIVE_FLUX
 
-#define SMAGORINSKI
+#define noSMAGORINSKI
 
-#define INTERNAL_OBSTACLES
+#define noINTERNAL_OBSTACLES
 
 
 

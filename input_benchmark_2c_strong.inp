@@ -1,8 +1,8 @@
 &simulation
-   nsteps=1000
-   stamp=100
+   nsteps=10
+   stamp=1
    stamp2D=1000
-   stamp_term=20
+   stamp_term=1
    stepskip=1
    lreadisfluid=.false.   !metti true se leggi isfluid
    lreadinit=.false.  !metti true se leggi rho phi e u v w
@@ -25,21 +25,21 @@
    TILE_DIM=16
 &end
 &fluid
-   uwall=-0.0e0
+   !uwall=-0.0e0
    fx=0.0e0
    fy=0.0e0
    fz=0.0e0
-   tau_diff=0.12e0
-   radius=16.0e0
-   width=8.0e0
-   sigma=0.01e0
+   !tau_diff=0.12e0
+   !radius=16.0e0
+   !width=8.0e0
+   !sigma=0.01e0
    !wettab_r=0.85e0
    !wettab_b=1.0e0
    visc1= 0.16666666666e0 !0.025e0
    !tau1= 1.0
-   visc2= 0.025e0
-   rho_r=5.0e0
-   rho_b=0.5e0
+   !visc2= 0.025e0
+   !rho_r=5.0e0
+   !rho_b=0.5e0
    !npoint = 32!, 32, 32
    !ndir = 1!, 2, 3
 &end
