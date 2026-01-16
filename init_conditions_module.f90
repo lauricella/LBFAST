@@ -60,7 +60,16 @@ contains
                  hfields_flip(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
                  hfields_flip(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
                                
-                 
+                 test3d_flip(i,j,k,1)=ZERO
+                 test3d_flip(i,j,k,2)=ZERO
+                 test3d_flip(i,j,k,3)=ZERO
+                 test3d_flip(i,j,k,4)=ZERO
+                 test3d_flip(i,j,k,5)=ZERO
+                 test3d_flip(i,j,k,6)=ZERO
+                 test3d_flip(i,j,k,7)=ZERO
+                 test3d_flip(i,j,k,8)=ZERO
+                 test3d_flip(i,j,k,9)=ZERO
+                 test3d_flip(i,j,k,10)=ZERO
 
 #ifdef TWOCOMPONENT
 				 
@@ -136,7 +145,20 @@ contains
                 hfields_flip(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_w*loc_w+cssq*loc_press
                 hfields_flip(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_v
                 hfields_flip(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_w
-                hfields_flip(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v*loc_w            
+                hfields_flip(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v*loc_w    
+                
+                test3d_flip(i,j,k,1)=loc_press
+                test3d_flip(i,j,k,2)=loc_u
+                test3d_flip(i,j,k,3)=loc_v
+                test3d_flip(i,j,k,4)=loc_w
+                test3d_flip(i,j,k,5)=loc_u*loc_u+cssq*loc_press
+                test3d_flip(i,j,k,6)=loc_v*loc_v+cssq*loc_press
+                test3d_flip(i,j,k,7)=loc_w*loc_w+cssq*loc_press
+                test3d_flip(i,j,k,8)=loc_u*loc_v
+                test3d_flip(i,j,k,9)=loc_u*loc_w
+                test3d_flip(i,j,k,10)=loc_v*loc_w
+
+                        
 				!else if (sel2 > 0.1_db) then
 				 ! u(i,j,k) = -0.01*sel2
 				!else
@@ -200,6 +222,17 @@ contains
                  hfields_flip(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
                  hfields_flip(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
                  hfields_flip(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
+                 
+                 test3d_flip(i,j,k,1)=ZERO
+                 test3d_flip(i,j,k,2)=ZERO
+                 test3d_flip(i,j,k,3)=ZERO
+                 test3d_flip(i,j,k,4)=ZERO
+                 test3d_flip(i,j,k,5)=ZERO
+                 test3d_flip(i,j,k,6)=ZERO
+                 test3d_flip(i,j,k,7)=ZERO
+                 test3d_flip(i,j,k,8)=ZERO
+                 test3d_flip(i,j,k,9)=ZERO
+                 test3d_flip(i,j,k,10)=ZERO
                                
                  
 #ifdef TWOCOMPONENT
@@ -257,7 +290,8 @@ contains
  !                 if(gi==lx/2 .and. gj==ly/2 .and. gk==lz/2)phi(i,j,k)=ONE		 
 #else				  
  
-                  if(gi==lx/2 .and. gj==ly/2 .and. gk==lz/2)then
+                  !if(gi==lx/2 .and. gj==ly/2 .and. gk==lz/2)then
+                  if(gi.le.lx/2+2 .and. gi.ge.lx/2-2 .and. gj.le.ly/2+2 .and. gj.ge.ly/2-2 .and. gk.le.lz/2+2 .and. gk.ge.lz/2-2)then
                     loc_press = loc_press + 0.05_db
                   endif
                   loc_w=ZERO!fcut(dist,radius-width*0.5,radius+width*0.5)*uwall !   - fcut(dist2,radius-width*0.5,radius+width*0.5)*HALF*uwall
@@ -272,7 +306,20 @@ contains
                  hfields_flip(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_w*loc_w+cssq*loc_press
                  hfields_flip(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_v
                  hfields_flip(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_w
-                 hfields_flip(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v*loc_w            
+                 hfields_flip(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v*loc_w       
+                 
+                test3d_flip(i,j,k,1)=loc_press
+                test3d_flip(i,j,k,2)=loc_u
+                test3d_flip(i,j,k,3)=loc_v
+                test3d_flip(i,j,k,4)=loc_w
+                test3d_flip(i,j,k,5)=loc_u*loc_u+cssq*loc_press
+                test3d_flip(i,j,k,6)=loc_v*loc_v+cssq*loc_press
+                test3d_flip(i,j,k,7)=loc_w*loc_w+cssq*loc_press
+                test3d_flip(i,j,k,8)=loc_u*loc_v
+                test3d_flip(i,j,k,9)=loc_u*loc_w
+                test3d_flip(i,j,k,10)=loc_v*loc_w
+
+                      
                 endif
              enddo
           enddo
@@ -324,6 +371,7 @@ contains
      hfields_flop=hfields_flip
      phifields_flop=phifields_flip
      
+     test3d_flop=test3d_flip
 
    endsubroutine
 

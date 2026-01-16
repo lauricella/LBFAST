@@ -635,13 +635,19 @@ contains
    end subroutine printDeviceProperties
 #endif
 
-   subroutine copy_print(iframe,hfields_s,phifields_s)
+   subroutine copy_print(test3d_s,iframe,hfields_s &
+#ifdef TWOCOMPONENT
+    ,phifields_s &
+#endif    
+    )
 
       implicit none
-
+      real(kind=db), allocatable, dimension(:,:,:,:) :: test3d_s
       integer, intent(in) :: iframe
-      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
-      
+      real(kind=db), allocatable, dimension(:) :: hfields_s
+#ifdef TWOCOMPONENT
+      real(kind=db), allocatable, dimension(:) :: phifields_s
+#endif    
       integer :: ii,jj,kk
       integer :: iii,jjj,kkk
       integer :: xblock,yblock,zblock,myblock
@@ -671,13 +677,15 @@ contains
          !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
          !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock,rhophi_loc)
 #endif 
-#endif                 
+#endif    
+             
 #ifndef TWOCOMPONENT 
          !$acc parallel loop independent collapse(3) present(rhoprint,velprint, &
-         !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
+         !$acc& hfields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz) &
          !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock,rhophi_loc)
 #endif         
 #else
+
 #if defined(DENSRATIO) && defined(TWOCOMPONENT)
 #ifdef WRITEPRESS
          !$acc kernels present(rhoprint,velprint,pressprint, &
@@ -687,6 +695,7 @@ contains
          !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz,rhophi_loc)
 #endif
 #endif
+
 #if defined(TWOCOMPONENT) && !defined(DENSRATIO)
 #ifdef WRITEPRESS
 		 !$acc kernels present(rhoprint,velprint,pressprint, &
@@ -696,9 +705,10 @@ contains
          !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz,rhophi_loc)
 #endif
 #endif
+
 #ifndef TWOCOMPONENT
          !$acc kernels present(rhoprint,velprint,hfields_s, &
-         !$acc& phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz)
+         !$acc& TILE_DIMx,TILE_DIMy,TILE_DIMz)
 #endif
          !$acc loop independent collapse(3)  private(i,j,k,ii,jj,kk,iii,jjj,kkk, &
          !$acc& xblock,yblock,zblock,myblock,rhophi_loc)
@@ -735,11 +745,15 @@ contains
 #endif
 #endif
 #ifndef TWOCOMPONENT
-				  rhoprint(i,j,k)=real(hfields_s(idx5(iii,jjj,kkk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)),kind=printdb)
+				  !rhoprint(i,j,k)=real(hfields_s(idx5(iii,jjj,kkk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)),kind=printdb)
+				  rhoprint(i,j,k)=real(test3d_s(ii,jj,kk,1),kind=printdb)
 #endif
-				  velprint(1,i,j,k)=real(hfields_s(idx5(iii,jjj,kkk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)),kind=printdb)
-				  velprint(2,i,j,k)=real(hfields_s(idx5(iii,jjj,kkk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)),kind=printdb)
-				  velprint(3,i,j,k)=real(hfields_s(idx5(iii,jjj,kkk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)),kind=printdb)
+				  !velprint(1,i,j,k)=real(hfields_s(idx5(iii,jjj,kkk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)),kind=printdb)
+				  !velprint(2,i,j,k)=real(hfields_s(idx5(iii,jjj,kkk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)),kind=printdb)
+				  !velprint(3,i,j,k)=real(hfields_s(idx5(iii,jjj,kkk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)),kind=printdb)
+				  velprint(1,i,j,k)=real(test3d_s(ii,jj,kk,2),kind=printdb)
+				  velprint(2,i,j,k)=real(test3d_s(ii,jj,kk,3),kind=printdb)
+				  velprint(3,i,j,k)=real(test3d_s(ii,jj,kk,4),kind=printdb)
                enddo
             enddo
          enddo

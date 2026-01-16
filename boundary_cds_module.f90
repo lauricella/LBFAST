@@ -13,11 +13,17 @@ module bcs3D
 
 contains
    !***************************************************
-   subroutine bcs_mesoscopic_hfields(hfields_in,hfields_out,phifields_s)
+   subroutine bcs_mesoscopic_hfields(hfields_in,hfields_out &
+#ifdef TWOCOMPONENT	    
+   ,phifields_s &
+#endif
+   )
 
      implicit none
-     real(kind=db), allocatable, dimension(:) :: hfields_in,hfields_out,phifields_s
-
+     real(kind=db), allocatable, dimension(:) :: hfields_in,hfields_out
+#ifdef TWOCOMPONENT	       
+     real(kind=db), allocatable, dimension(:) :: phifields_s
+#endif
 
      integer :: subchords(3)
      integer :: ii,jj,kk,l,lopp,iii,jjj,kkk
@@ -42,7 +48,11 @@ contains
 
 #if defined(INTERNAL_OBSTACLES)
 
-     call LB_int_boundary_cuda(hfields_in,hfields_out,phifields_s)
+     call LB_int_boundary_cuda(hfields_in,hfields_out &
+#ifdef TWOCOMPONENT	       
+     ,phifields_s &
+#endif     
+     )
         
 !*****************************************
 
@@ -51,10 +61,16 @@ contains
        subchords(1)=(gi-1)/nx
 	   if(subchords(1)==coords(1))then
 #ifdef ACCNOKERNELS
-		 !$acc parallel loop collapse(2) independent present(phifields_s &
+		 !$acc parallel loop collapse(2) independent present(hfields_in,hfields_out &
+#ifdef TWOCOMPONENT	
+         !$acc& ,phifields_s &
+#endif		 
 		 !$acc& ) private(i,j,k,l,gi,gj,gk,ii,jj,kk,xblock,yblock,zblock,myblock)
 #else
-		 !$acc kernels present(phifields_s &
+		 !$acc kernels present(hfields_in,hfields_out &
+#ifdef TWOCOMPONENT	
+         !$acc& ,phifields_s &
+#endif			 
 		 !$acc& )
 		 !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk,ii,jj,kk &
 		 !$acc& ,xblock,yblock,zblock,myblock)
@@ -126,9 +142,9 @@ contains
 	             pxz=pxz - u*w
 	             pyz=pyz - v*w
 #endif
-
+#ifdef TWOCOMPONENT	  
                  phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
-	           
+#endif	           
 #ifdef DENSRATIO
 			     rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
 #else
@@ -221,10 +237,16 @@ contains
        subchords(1)=(gi-1)/nx
 	   if(subchords(1)==coords(1))then
 #ifdef ACCNOKERNELS
-		 !$acc parallel loop collapse(2) independent present(phifields_s &
+		 !$acc parallel loop collapse(2) independent present(hfields_in,hfields_out &
+#ifdef TWOCOMPONENT	
+         !$acc& ,phifields_s &
+#endif			 
 		 !$acc& ) private(i,j,k,l,gi,gj,gk)
 #else
-		 !$acc kernels present(phifields_s &
+		 !$acc kernels present(hfields_in,hfields_out &
+#ifdef TWOCOMPONENT	
+         !$acc& ,phifields_s &
+#endif			 
 		 !$acc& )
 		 !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	
@@ -294,9 +316,9 @@ contains
 	             pxz=pxz - u*w
 	             pyz=pyz - v*w
 #endif
-
+#ifdef TWOCOMPONENT	 
                  phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
-	           
+#endif	           
 #ifdef DENSRATIO
 			     rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
 #else
@@ -391,9 +413,16 @@ contains
        subchords(2)=(gj-1)/ny
 	   if(subchords(2)==coords(2))then
 #ifdef ACCNOKERNELS
-	     !$acc parallel loop collapse(2) independent present(phifields_s)
+	     !$acc parallel loop collapse(2) independent present(hfields_in,hfields_out &
+#ifdef TWOCOMPONENT	
+         !$acc& ,phifields_s &
+#endif		
+	     !$acc& )     
 #else
-	     !$acc kernels present(phifields_s &
+	     !$acc kernels present(hfields_in,hfields_out &
+#ifdef TWOCOMPONENT	
+         !$acc& ,phifields_s &
+#endif		     
 	     !$acc& )
 	     !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	    
@@ -463,9 +492,9 @@ contains
 	             pxz=pxz - u*w
 	             pyz=pyz - v*w
 #endif
-
+#ifdef TWOCOMPONENT	 
                  phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
-	           
+#endif	           
 #ifdef DENSRATIO
 			     rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
 #else
@@ -558,9 +587,16 @@ contains
        subchords(2)=(gj-1)/ny
 	   if(subchords(2)==coords(2))then
 #ifdef ACCNOKERNELS
-	     !$acc parallel loop collapse(2) independent present(phifields_s)
+	     !$acc parallel loop collapse(2) independent present(hfields_in,hfields_out &
+#ifdef TWOCOMPONENT	
+         !$acc& ,phifields_s &
+#endif		     
+         !$acc& )
 #else
-	     !$acc kernels present(phifields_s &
+	     !$acc kernels present(hfields_in,hfields_out &
+#ifdef TWOCOMPONENT	
+         !$acc& ,phifields_s &
+#endif		     
 	     !$acc& )
 	     !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	    
@@ -630,9 +666,9 @@ contains
 	             pxz=pxz - u*w
 	             pyz=pyz - v*w
 #endif
-
+#ifdef TWOCOMPONENT	 
                  phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
-	           
+#endif	           
 #ifdef DENSRATIO
 			     rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
 #else
@@ -727,10 +763,16 @@ contains
        subchords(3)=(gk-1)/nz
 	   if(subchords(3)==coords(3))then
 #ifdef ACCNOKERNELS
-	     !$acc parallel loop collapse(2) independent present(phifields_s &
+	     !$acc parallel loop collapse(2) independent present(hfields_in,hfields_out &
+#ifdef TWOCOMPONENT	
+         !$acc& ,phifields_s &
+#endif		     
 	     !$acc& ) private(i,j,k,l,gi,gj,gk)
 #else
-	     !$acc kernels present(phifields_s &
+	     !$acc kernels present(hfields_in,hfields_out &
+#ifdef TWOCOMPONENT	
+         !$acc& ,phifields_s &
+#endif		     
 	     !$acc& )
 	     !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	    
@@ -800,9 +842,9 @@ contains
 	             pxz=pxz - u*w
 	             pyz=pyz - v*w
 #endif
-
+#ifdef TWOCOMPONENT	 
                  phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
-	           
+#endif	           
 #ifdef DENSRATIO
 			     rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
 #else
@@ -895,10 +937,16 @@ contains
        subchords(3)=(gk-1)/nz
 	   if(subchords(3)==coords(3))then			   
 #ifdef ACCNOKERNELS
-	     !$acc parallel loop collapse(2) independent present(phifields_s &
+	     !$acc parallel loop collapse(2) independent present(hfields_in,hfields_out &
+#ifdef TWOCOMPONENT	
+         !$acc& ,phifields_s &
+#endif		     
 	     !$acc& ) private(i,j,k,l,gi,gj,gk)
 #else
-	     !$acc kernels present(phifields_s &
+	     !$acc kernels present(hfields_in,hfields_out &
+#ifdef TWOCOMPONENT	
+         !$acc& ,phifields_s &
+#endif		     
 	     !$acc& )
 	     !$acc loop collapse(2) independent private(i,j,k,l,gi,gj,gk)
 #endif	    
@@ -968,9 +1016,9 @@ contains
 	             pxz=pxz - u*w
 	             pyz=pyz - v*w
 #endif
-
+#ifdef TWOCOMPONENT	 
                  phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
-	           
+#endif	           
 #ifdef DENSRATIO
 			     rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
 #else

@@ -49,6 +49,10 @@ contains
 #endif
       !allocate(isfluid(0:nx+1,0:ny+1,0:nz+1))
 	  allocate(isfluid(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff))
+	  
+	  allocate(test3d_flip(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,10))
+	  allocate(test3d_flop(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,10))
+	  
       if(lprint)then
          allocate(rhoprint(1:nxskip,1:nyskip,1:nzskip))
          allocate(velprint(1:3,1:nxskip,1:nyskip,1:nzskip))

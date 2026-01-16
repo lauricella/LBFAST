@@ -7,25 +7,13 @@
 module lb_cuda_kernels
 
    use vars
+   use iso_c_binding
    use cudafor
    use mpi_template, only: coords,dostop,doerror,mydev,myrank,nprocs,nbuff,nbuffbvec
+   use lb_cuda_vars
+   use lb_cuda_fused, only: fused_LB_kernel
 
    implicit none
-   
-   integer :: istat
-
-   integer, constant :: TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,TILE_DIM_d
-   integer, constant :: nx_d,ny_d,nz_d
-   integer, constant :: lx_d,ly_d,lz_d
-   integer, constant :: nxblock_d,nyblock_d,nzblock_d
-   integer, constant :: nxyblock_d,nblocks_d
-   type (dim3) :: dimGrid,dimBlock
-   type (dim3) :: dimGridhalo,dimBlockhalo
-   type (dim3) :: dimBlockshared
-   type (dim3) :: dimGridInt
-   type (dim3) :: dimGridx,dimGridy,dimGridz
-   type (dim3) :: dimBlock2
-   
    
 
 contains
@@ -38,6 +26,13 @@ contains
         if(myrank==0)write(6,*) 'status after cudaSetDevice:', cudaGetErrorString(istat)
         call dostop
       endif
+      
+      istat = cudaGetDeviceProperties(prop, mydev)
+	
+      mshared = prop%sharedMemPerBlock
+    
+	  if(myrank==0)call printDeviceProperties(prop,6, mydev)
+        
 
       if(TILE_DIMx==0 .or. TILE_DIMy==0 .or. TILE_DIMz==0 .or. TILE_DIM==0)then
         call doerror(6,'one of TILE_DIM values is zero')
@@ -135,26 +130,62 @@ contains
    
    end subroutine test_LB_cuda
    
-
+    
+   subroutine printDeviceProperties(prop,iu,num)
+      
+          use cudafor
+          type(cudadeviceprop) :: prop
+          integer,intent(in) :: iu,num 
+          real(kind=db), parameter :: convG=1024.0_db*1024.0_db*1024.0_db
+          
+          write(iu,907)"                                                                               "
+          write(iu,907)"*****************************GPU FEATURE MONITOR*******************************"
+          write(iu,907)"                                                                               "
+          
+          write (iu,900) "Device Number: "      ,num
+          write (iu,901) "Device Name: "        ,trim(prop%name)
+          write (iu,903) "Total Global Memory: ",real(prop%totalGlobalMem)/convG," Gbytes"
+          write (iu,902) "sharedMemPerBlock: "  ,prop%sharedMemPerBlock," bytes"
+          write (iu,900) "regsPerBlock: "       ,prop%regsPerBlock
+          write (iu,900) "warpSize: "           ,prop%warpSize
+          write (iu,900) "maxThreadsPerBlock: " ,prop%maxThreadsPerBlock
+          write (iu,904) "maxThreadsDim: "      ,prop%maxThreadsDim
+          write (iu,904) "maxGridSize: "        ,prop%maxGridSize
+          write (iu,903) "ClockRate: "          ,real(prop%clockRate)/1e6," GHz"
+          write (iu,902) "Total Const Memory: " ,prop%totalConstMem," bytes"
+          write (iu,905) "Compute Capability Revision: ",prop%major,prop%minor
+          write (iu,902) "TextureAlignment: "   ,prop%textureAlignment," bytes"
+          write (iu,906) "deviceOverlap: "      ,prop%deviceOverlap
+          write (iu,900) "multiProcessorCount: ",prop%multiProcessorCount
+          write (iu,906) "integrated: "         ,prop%integrated
+          write (iu,906) "canMapHostMemory: "   ,prop%canMapHostMemory
+          write (iu,906) "ECCEnabled: "         ,prop%ECCEnabled
+          write (iu,906) "UnifiedAddressing: "  ,prop%unifiedAddressing
+          write (iu,900) "L2 Cache Size: "      ,prop%l2CacheSize
+          write (iu,900) "maxThreadsPerSMP: "   ,prop%maxThreadsPerMultiProcessor
+          
+          write(iu,907)"                                                                               "
+          write(iu,907)"*******************************************************************************"
+          write(iu,907)"                                                                               "
+          
+          900 format (a,i0)
+          901 format (a,a)
+          902 format (a,i0,a)
+          903 format (a,f16.8,a)
+          904 format (a,2(i0,1x,'x',1x),i0)
+          905 format (a,i0,'.',i0)
+          906 format (a,l0)
+          907 format (a)
+          
+          return
+      
+  end subroutine printDeviceProperties
    
 
 
 
    !****************************************************************************!
- attributes(device) elemental function idx5d(ind1,ind2,ind3,ind4,ind5,m1,m2,m3,m4)
- 
-  implicit none
-  
-  integer, intent(in) :: ind1,ind2,ind3,ind4,ind5,m1,m2,m3,m4
-  
-  integer :: idx5d
-  
-  idx5d=1+(ind1-1)+(ind2-1)*m1+(ind3-1)*(m1*m2)+(ind4-1)*(m1*m2*m3)+ &
-   (ind5-1)*(m1*m2*m3*m4)
-  
-  return
-  
- end function idx5d
+
 
  attributes(global) subroutine test_LB_kernel(myrank,nx,ny,nz,coords)
       implicit none
@@ -1115,17 +1146,24 @@ contains
        
  end subroutine repulsive_flux_normal_kernel
  
- subroutine moments_LB_cuda(hfields_s,phifields_s)
+ subroutine moments_LB_cuda(test3d_s,hfields_s &
+#ifdef TWOCOMPONENT    
+  ,phifields_s &
+#endif 
+ )
 
       implicit none
-      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
-
+      real(kind=db), allocatable, dimension(:,:,:,:) :: test3d_s
+      real(kind=db), allocatable, dimension(:) :: hfields_s
+#ifdef TWOCOMPONENT          
+      real(kind=db), allocatable, dimension(:) :: phifields_s
+#endif 
       
 !      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
       !$acc wait
       istat = cudaDeviceSynchronize
 
-!$acc host_data use_device(flop,nx,ny,nz,coords,isfluid & 
+!$acc host_data use_device(test3d_s,flop,nx,ny,nz,coords,isfluid & 
 #ifdef MULTIHIT
        !$acc& ,ABCx,ABCy,ABCz &
 #endif 
@@ -1133,14 +1171,14 @@ contains
        !$acc& ,wettab_r,wettab_b &
 #endif  
 #ifdef TWOCOMPONENT 
-       !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff &
+       !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff,phifields_s &
 #endif   
 #if defined(ELASTIC_FORCE)
        !$acc& ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
        !$acc& ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields &
-       !$acc& ,hfields_s,phifields_s,auxfields,locauxfields)
-       call moments_LB_kernel<<<dimGrid, dimBlock>>>(flop,nx,ny,nz,coords,isfluid &   
+       !$acc& ,hfields_s,auxfields,locauxfields)
+       call moments_LB_kernel<<<dimGrid, dimBlock>>>(flop,nx,ny,nz,test3d_s,coords,isfluid &   
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
 #endif 
@@ -1148,13 +1186,13 @@ contains
        ,wettab_r,wettab_b &
 #endif  
 #ifdef TWOCOMPONENT 
-       ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff &       
+       ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff,phifields_s &       
 #endif  
 #if defined(ELASTIC_FORCE)
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
 	   ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields &
-	   ,hfields_s,phifields_s,auxfields,locauxfields)
+	   ,hfields_s,auxfields,locauxfields)
 !$acc end host_data
       istat = cudaDeviceSynchronize
       istat = cudaGetLastError()
@@ -1167,7 +1205,7 @@ contains
       
    endsubroutine moments_LB_cuda
  
- attributes(global) subroutine moments_LB_kernel(flop,nx,ny,nz,coords,isfluid &   
+ attributes(global) subroutine moments_LB_kernel(flop,nx,ny,nz,test3d_s,coords,isfluid &   
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
 #endif 
@@ -1175,20 +1213,22 @@ contains
        ,wettab_r,wettab_b &
 #endif  
 #ifdef TWOCOMPONENT 
-       ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff &
+       ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff,phifields_s &
 #endif   
 #if defined(ELASTIC_FORCE)
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
        ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields, &
-       hfields_s,phifields_s,auxfields_s,locauxfields_s)
+       hfields_s,auxfields_s,locauxfields_s)
  
 
       implicit none
       
       integer :: flop,nx,ny,nz
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,10) :: test3d_s
       integer, dimension(3) :: coords
       integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
+      integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields
 #ifdef MULTIHIT
 	  real(kind=db), dimension(1:nx,1:ny,1:nz) :: ABCx,ABCy,ABCz
 #endif
@@ -1196,17 +1236,16 @@ contains
       real(kind=db) :: wettab_r,wettab_b  
 #endif  
 #ifdef TWOCOMPONENT 
-      real(kind=db) :: visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff     
+      real(kind=db) :: visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff    
+      real(kind=db), dimension(ntotphifields) :: phifields_s 
 #endif           
 #if defined(ELASTIC_FORCE)
       real(kind=db) :: lambda_rel,k_elastic
       real(kind=db), dimension(1:nx,1:ny,1:nz) :: u_ref,v_ref,w_ref
 #endif
       real(kind=db) :: fx,fy,fz
-      
-      integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields
+
       real(kind=db), dimension(ntothfields) :: hfields_s
-      real(kind=db), dimension(ntotphifields) :: phifields_s
       real(kind=db), dimension(ntotauxfields) :: auxfields_s
       real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
       
@@ -1256,7 +1295,8 @@ contains
 				 forcey=0.0_db
 				 forcez=0.0_db
 				 
-				 press_loc=hfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+				 !press_loc=hfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+				 press_loc=test3d_s(i,j,k,1)
 #ifdef TWOCOMPONENT					 
 				 phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
 				 lap_phi_loc=locauxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))
@@ -1329,9 +1369,12 @@ contains
 				  locauxfields_s(gj)=forcey
 				  locauxfields_s(gk)=forcez
 				  
-				  u_loc=hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields)) !velocity
-                  v_loc=hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  w_loc=hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+				  !u_loc=hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields)) !velocity
+                  !v_loc=hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  !w_loc=hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  u_loc=test3d_s(i,j,k,2)
+                  v_loc=test3d_s(i,j,k,3)
+                  w_loc=test3d_s(i,j,k,4)
 				  
 #if defined(ELASTIC_FORCE)
                   forcex=forcex + &
@@ -1343,12 +1386,19 @@ contains
 #endif
 #ifdef DENSRATIO 
 			  
-                  pxx=hfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pyy=hfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pzz=hfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pxy=hfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pxz=hfields_s(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pyz=hfields_s(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+!                  pxx=hfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+!                  pyy=hfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+!                  pzz=hfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+!                  pxy=hfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+!                  pxz=hfields_s(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+!                  pyz=hfields_s(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  
+                  pxx=test3d_s(i,j,k,5)
+                  pyy=test3d_s(i,j,k,6)
+                  pzz=test3d_s(i,j,k,7)
+                  pxy=test3d_s(i,j,k,8)
+                  pxz=test3d_s(i,j,k,9)
+                  pyz=test3d_s(i,j,k,10)
                   !1-2
                   !*1
                   ! 2nd order
@@ -1410,10 +1460,14 @@ contains
                   w_loc = w_loc + 0.5_db*forcez/rhophi_loc
 #endif
 
-                  hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=u_loc   !put the new velocity in hfields_s
-                  hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=v_loc
-                  hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=w_loc
-
+!                  hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=u_loc   !put the new velocity in hfields_s
+!                  hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=v_loc
+!                  hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=w_loc
+                  
+                  test3d_s(i,j,k,2)=u_loc
+                  test3d_s(i,j,k,3)=v_loc
+                  test3d_s(i,j,k,4)=w_loc
+                  
 #if defined(INTERFACE_INCOMP) && defined(DENSRATIO)
 					 locauxfields_s(gi)= locauxfields_s(gi) - &
 					  (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*u_loc
@@ -1434,12 +1488,20 @@ contains
 
 
 !regularized 
-				  pxx=hfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pyy=hfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pzz=hfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pxy=hfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pxz=hfields_s(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pyz=hfields_s(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+!				  pxx=hfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+!                  pyy=hfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+!                  pzz=hfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+!                  pxy=hfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+!                  pxz=hfields_s(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+!                  pyz=hfields_s(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  
+                  pxx=test3d_s(i,j,k,5)
+                  pyy=test3d_s(i,j,k,6)
+                  pzz=test3d_s(i,j,k,7)
+                  pxy=test3d_s(i,j,k,8)
+                  pxz=test3d_s(i,j,k,9)
+                  pyz=test3d_s(i,j,k,10)
+                  
 #ifdef EXPLICITEQ 
 				  uu=HALF*(u_loc*u_loc+v_loc*v_loc+w_loc*w_loc)*invcssq
 				  
@@ -1461,6 +1523,7 @@ contains
                      pyz=pyz + udotc*dey(l)*dez(l)
                   enddo
 #else
+                  forcex=ZERO;forcey=ZERO;forcez=ZERO
                   pxx=pxx + forcex*u_loc/rhophi_loc
                   pyy=pyy + forcey*v_loc/rhophi_loc
                   pzz=pzz + forcez*w_loc/rhophi_loc
@@ -1469,12 +1532,19 @@ contains
                   pyz=pyz + HALF*(forcez*v_loc+forcey*w_loc)/rhophi_loc
 
 #endif
-                  hfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=pxx
-                  hfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=pyy
-                  hfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=pzz
-                  hfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=pxy
-                  hfields_s(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=pxz
-                  hfields_s(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=pyz
+!                  hfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=pxx
+!                  hfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=pyy
+!                  hfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=pzz
+!                  hfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=pxy
+!                  hfields_s(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=pxz
+!                  hfields_s(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=pyz
+                  
+                  test3d_s(i,j,k,5)=pxx
+                  test3d_s(i,j,k,6)=pyy
+                  test3d_s(i,j,k,7)=pzz
+                  test3d_s(i,j,k,8)=pxy
+                  test3d_s(i,j,k,9)=pxz
+                  test3d_s(i,j,k,10)=pyz
                   
 #if defined(ELASTIC_FORCE)
 				  u_ref(i,j,k) = u_ref(i,j,k) + &
@@ -1504,17 +1574,27 @@ contains
 
    endsubroutine moments_LB_kernel  
 
-   subroutine fused_LB_cuda(hfields_in,hfields_out,phifields_s)
+   subroutine fused_LB_cuda(test3d_in,test3d_out,hfields_in,hfields_out &
+#ifdef TWOCOMPONENT    
+   ,phifields_s &
+#endif   
+   )
 
       implicit none
-      real(kind=db), allocatable, dimension(:) :: hfields_in,hfields_out,phifields_s
- 
+      real(kind=db), allocatable, dimension(:,:,:,:) :: test3d_in,test3d_out
+      real(kind=db), allocatable, dimension(:) :: hfields_in,hfields_out
+#ifdef TWOCOMPONENT       
+      real(kind=db), allocatable, dimension(:) :: phifields_s
+#endif
+      integer :: mymshared
+      
+      mymshared = 4 * (TILE_DIMx + 2) * (TILE_DIMy + 2) * (TILE_DIMz + 2) * db
       
 !      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
       !$acc wait
       istat = cudaDeviceSynchronize
 
-!$acc host_data use_device(flip,flop,nx,ny,nz,coords,isfluid & 
+!$acc host_data use_device(test3d_in,test3d_out,flip,flop,nx,ny,nz,coords,isfluid & 
 #ifdef MULTIHIT
 	   !$acc& ,ABCx,ABCy,ABCz &
 #endif 
@@ -1522,14 +1602,14 @@ contains
        !$acc& ,wettab_r,wettab_b &
 #endif  
 #ifdef TWOCOMPONENT 
-       !$acc& ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+       !$acc& ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
 #ifdef MONOD
 	   !$acc& ,mu_max,Ks &
 #endif
 #endif   
        !$acc& ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields &
-       !$acc& ,hfields_in,hfields_out,phifields_s,auxfields,locauxfields)
-      call fused_LB_kernel<<<dimGrid,dimBlockshared>>>(flip,flop,nx,ny,nz,coords,isfluid &    
+       !$acc& ,hfields_in,hfields_out,auxfields,locauxfields)
+      call fused_LB_kernel<<<dimGrid,dimBlockshared,mymshared>>>(flip,flop,nx,ny,nz,test3d_in,test3d_out,coords,isfluid &    
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
 #endif 
@@ -1537,1420 +1617,38 @@ contains
        ,wettab_r,wettab_b &
 #endif  
 #ifdef TWOCOMPONENT 
-       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
 #ifdef MONOD
 	   ,mu_max,Ks &
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields &
-	   ,hfields_in,hfields_out,phifields_s,auxfields,locauxfields)
+	   ,hfields_in,hfields_out,auxfields,locauxfields)
 !$acc end host_data
-      istat = cudaDeviceSynchronize
-      istat = cudaGetLastError()
-      if (istat/= cudaSuccess) then
-        if(myrank==0)write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
-        if(myrank==0)write(6,*) cudaGetErrorString(istat)
-        call doerror(6,'ERROR in fused_LB_cuda')
+      
+      istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
+      if (istat /= cudaSuccess) then
+        if(myrank==0) then
+          write(6,*) 'launch error at ', __LINE__, ' file ', __FILE__
+          write(6,*) cudaGetErrorString(istat)
+        endif
+        call doerror(6,'ERROR in fused_LB_cuda (launch)')
       endif
+
+      istat = cudaDeviceSynchronize()
+      if (istat /= cudaSuccess) then
+       if(myrank==0) then
+         write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+         write(6,*) cudaGetErrorString(istat)
+       endif
+       call doerror(6,'ERROR in fused_LB_cuda (sync)')
+      endif
+      
       !$acc wait
 
       
    end subroutine fused_LB_cuda
 
-   attributes(global) subroutine fused_LB_kernel(flip,flop,nx,ny,nz,coords,isfluid &  
-#ifdef MULTIHIT
-       ,ABCx,ABCy,ABCz &
-#endif 
-#ifdef WETTABILITY
-       ,wettab_r,wettab_b &
-#endif  
-#ifdef TWOCOMPONENT 
-       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
-#ifdef MONOD	
-       ,mu_max,Ks &
-#endif
-#endif   
-       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields, &
-       hfields_in,hfields_out,phifields_s,auxfields_s,locauxfields_s)
-
-      implicit none
-      
-      integer :: flip,flop,nx,ny,nz
-      integer, dimension(3) :: coords
-      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
-
-#ifdef MULTIHIT
-	  real(kind=db), dimension(1:nx,1:ny,1:nz) :: ABCx,ABCy,ABCz
-#endif
-#ifdef WETTABILITY  
-      real(kind=db) :: wettab_r,wettab_b  
-#endif  
-#ifdef TWOCOMPONENT 
-      real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
-#ifdef MONOD
-      real(kind=db) :: mu_max,Ks
-#endif
-#endif           
-      real(kind=db) :: visc1,omega,fx,fy,fz
-      integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields
-      real(kind=db), dimension(ntothfields) :: hfields_in,hfields_out
-      real(kind=db), dimension(ntotphifields) :: phifields_s
-      real(kind=db), dimension(ntotauxfields) :: auxfields_s
-      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
-      
-
-      real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
-      real(kind=db) :: opress,ou,ov,ow,opxx,opyy,opzz,opxy,opxz,opyz
-      real(kind=db) :: mytemp,forcex,forcey,forcez,rhophi_loc,press_loc
-      
-      real(kind=db), shared :: f1(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
-      real(kind=db), shared :: f2(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
-      real(kind=db), shared :: f3(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
-      real(kind=db), shared :: f4(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
-  
-      real(kind=db) :: F_discr,fneq1,feq
-#ifdef TWOCOMPONENT
-      real(kind=db) :: wet_loc
-#endif
-      real(kind=db) :: omega_loc,phi_loc,visc_loc
-#ifdef SMAGORINSKI
-	  real(kind=db) :: QQ
-#endif
-
-      integer :: i,j,k,myblock
-      integer :: ii,jj,kk
-      integer :: li,lj,lk
-      integer :: lii,ljj,lkk
-      integer :: xblock,yblock,zblock
-      
-      li = threadIdx%x-1
-      lj = threadIdx%y-1
-      lk = threadIdx%z-1
-      
-      i = (blockIdx%x-1) * TILE_DIMx_d + li
-      j = (blockIdx%y-1) * TILE_DIMy_d + lj
-      k = (blockIdx%z-1) * TILE_DIMz_d + lk
-      
-      !gi=nx*coords(1)+i
-      !gj=ny*coords(2)+j
-      !gk=nz*coords(3)+k
-      
-      xblock=(i+2*TILE_DIMx_d-1)/TILE_DIMx_d
-	  yblock=(j+2*TILE_DIMy_d-1)/TILE_DIMy_d
-	  zblock=(k+2*TILE_DIMz_d-1)/TILE_DIMz_d
-      
-      myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
-      ii=i-xblock*TILE_DIMx_d+2*TILE_DIMx_d
-      jj=j-yblock*TILE_DIMy_d+2*TILE_DIMy_d
-      kk=k-zblock*TILE_DIMz_d+2*TILE_DIMz_d
-
-      i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
-      j = (blockIdx%y-1) * TILE_DIMy_d + threadIdx%y
-      k = (blockIdx%z-1) * TILE_DIMz_d + threadIdx%z
-      
-!      gi=nx*coords(1)+i
-!      gj=ny*coords(2)+j
-!      gk=nz*coords(3)+k
-      
-!      if(gi==8 .and. gj==8 .and. gk==8)then
-!        write(*,*)'eccomi',phi(i,j,k)
-!      endif
-
-               !if (abs(isfluid(i,j,k)) /= 1) return
-       
-     
-	  
-       
-#ifdef DENSRATIO
-                  phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
-                  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
-#else
-                  rhophi_loc = 1.0_db !press_loc
-#endif	
-	  
-				  forcex=locauxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))
-				  forcey=locauxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))
-				  forcez=locauxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))
-
-
-                  press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields)) 
-                  v=hfields_in(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  w=hfields_in(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pxx=hfields_in(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pyy=hfields_in(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pzz=hfields_in(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pxy=hfields_in(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pxz=hfields_in(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pyz=hfields_in(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  
-#ifdef INTERNAL_OBSTACLES
-                  if(isfluid(i,j,k) == 0)then
-                    forcex=ZERO
-                    forcey=ZERO
-                    forcez=ZERO
-                    press=ZERO
-                    u=ZERO
-                    v=ZERO
-                    w=ZERO
-                    pxx=ZERO
-                    pyy=ZERO
-                    pzz=ZERO
-                    pxy=ZERO
-                    pxz=ZERO
-                    pyz=ZERO
-                  endif
-#endif
-                  
-#ifdef EXPLICITEQ 
-				  uu=HALF*(u*u+v*v+w*w)*invcssq
-				  
-                  do lii=1,nlinks
-                     udotc=(u*dex(lii) + v*dey(lii)+ w*dez(lii))*invcssq
-					 feq=p(lii)*(press + (udotc+0.5_db*udotc*udotc - uu))
-                     
-                     pxx=pxx - feq*dex(lii)*dex(lii)
-                     pyy=pyy - feq*dey(lii)*dey(lii)
-                     pzz=pzz - feq*dez(lii)*dez(lii)
-                     pxy=pxy - feq*dex(lii)*dey(lii)
-                     pxz=pxz - feq*dex(lii)*dez(lii)
-                     pyz=pyz - feq*dey(lii)*dez(lii)
-                  enddo
-#else
-                  pxx=pxx - cssq*press - u*u 
-                  pyy=pyy - cssq*press - v*v 
-                  pzz=pzz - cssq*press - w*w 
-                  pxy=pxy - u*v
-                  pxz=pxz - u*w
-                  pyz=pyz - v*w
-#endif
-#ifdef TWOCOMPONENT
-                  !visc_loc it is used to store the local viscosity
-                  visc_loc=(rho_r*visc1*phi_loc+(ONE-phi_loc)*visc2*rho_b)/rhophi_loc
-#else
-#ifdef SMAGORINSKI
-                  visc_loc=visc1
-#endif
-#endif
-
-#ifdef SMAGORINSKI
-                  QQ=pxx*pxx + pyy*pyy + pzz*pzz + &
-                   TWO*(pxy*pxy + pxz*pxz + pyz*pyz)  !QQ i sused to store the double contraction of flux tensor (Frobenius norm) 
-                  !!!smago
-                  omega_loc= 0.5_db + (1.0_db/6.0_db)*(3.0_db*visc_loc + &   !visc_loc it is used to store the local viscosity
-                   sqrt((3.0*visc_loc)**2.0 + 0.053*18.0*sqrt(2.0*QQ)/rhophi_loc)) !it is tau
-                  omega_loc=1.0_db/omega_loc !it is omega
-
-#else
-#ifdef TWOCOMPONENT
-                  omega_loc=(visc_loc/cssq + 0.5_db) !it is tau   !visc_loc it is used to store the local viscosity
-                  omega_loc=1.0_db/omega_loc !it is omega
-#else
-                  omega_loc=omega
-#endif
-#endif
-
-!                  rho(i,j,k) = f(i,j,k,0)+f(i,j,k,1)+f(i,j,k,2)+f(i,j,k,3)+f(i,j,k,4)+f(i,j,k,5) &
-!                     +f(i,j,k,6)+f(i,j,k,7)+f(i,j,k,8)+f(i,j,k,9)+f(i,j,k,10)+f(i,j,k,11) &
-!                     +f(i,j,k,12)+f(i,j,k,13)+f(i,j,k,14)+f(i,j,k,15)+f(i,j,k,16)+f(i,j,k,17) &
-!                     +f(i,j,k,18)+f(i,j,k,19)+f(i,j,k,20)+f(i,j,k,21)+f(i,j,k,22)+f(i,j,k,23)+f(i,j,k,24) &
-!                     +f(i,j,k,25) +f(i,j,k,26)
-                 
-!                 u(i,j,k) = ((f(i,j,k,1)+f(i,j,k,7)+f(i,j,k,9)+f(i,j,k,15)+f(i,j,k,18)+f(i,j,k,19)+f(i,j,k,21)+f(i,j,k,24)+f(i,j,k,25)) &
-!                     -(f(i,j,k,2)+f(i,j,k,8)+f(i,j,k,10)+f(i,j,k,16)+f(i,j,k,17)+f(i,j,k,20)+f(i,j,k,22)+f(i,j,k,23)+f(i,j,k,26)))
-
-!                  v(i,j,k) = ((f(i,j,k,3)+f(i,j,k,7)+f(i,j,k,10)+f(i,j,k,11)+f(i,j,k,13)+f(i,j,k,19)+f(i,j,k,22)+f(i,j,k,24)+f(i,j,k,26)) &
-!                     -(f(i,j,k,4)+f(i,j,k,8)+f(i,j,k,9)+f(i,j,k,12)+f(i,j,k,14)+f(i,j,k,20)+f(i,j,k,21)+f(i,j,k,23)+f(i,j,k,25)))
-
-!                  w(i,j,k) = ((f(i,j,k,5)+f(i,j,k,11)+f(i,j,k,14)+f(i,j,k,15)+f(i,j,k,17)+f(i,j,k,19)+f(i,j,k,21)+f(i,j,k,23)+f(i,j,k,26)) &
-!                     -(f(i,j,k,6)+f(i,j,k,12)+f(i,j,k,13)+f(i,j,k,16)+f(i,j,k,18)+f(i,j,k,20)+f(i,j,k,22)+f(i,j,k,24)+f(i,j,k,25)))
-                 
-!                 !total flux tensor
-!                 pxx(i,j,k)=f(i,j,k,1)+f(i,j,k,2)+f(i,j,k,7)+f(i,j,k,8) &
-!                  +f(i,j,k,9)+f(i,j,k,10)+f(i,j,k,15)+f(i,j,k,16)+f(i,j,k,17)+f(i,j,k,18) &
-!                  +f(i,j,k,19)+f(i,j,k,20)+f(i,j,k,21)+f(i,j,k,22)+f(i,j,k,23)+f(i,j,k,24) &
-!                  +f(i,j,k,25)+f(i,j,k,26)
-!                 pyy(i,j,k)=f(i,j,k,3)+f(i,j,k,4)+f(i,j,k,7)+f(i,j,k,8) &
-!                  +f(i,j,k,9)+f(i,j,k,10)+f(i,j,k,11)+f(i,j,k,12)+f(i,j,k,13)+f(i,j,k,14) &
-!                  +f(i,j,k,19)+f(i,j,k,20)+f(i,j,k,21)+f(i,j,k,22)+f(i,j,k,23)+f(i,j,k,24) &
-!                  +f(i,j,k,25)+f(i,j,k,26)
-!                 pzz(i,j,k)=f(i,j,k,5)+f(i,j,k,6)+f(i,j,k,11)+f(i,j,k,12)+f(i,j,k,13)+f(i,j,k,14) &
-!                  +f(i,j,k,15)+f(i,j,k,16)+f(i,j,k,17)+f(i,j,k,18) &
-!                  +f(i,j,k,19)+f(i,j,k,20)+f(i,j,k,21)+f(i,j,k,22)+f(i,j,k,23)+f(i,j,k,24) &
-!                  +f(i,j,k,25)+f(i,j,k,26)
-!                 pxy(i,j,k)=(f(i,j,k,7)+f(i,j,k,8)+f(i,j,k,19)+f(i,j,k,20)+f(i,j,k,23)+f(i,j,k,24)) &
-!                  -(f(i,j,k,9)+f(i,j,k,10)+f(i,j,k,21)+f(i,j,k,22)+f(i,j,k,25)+f(i,j,k,26))
-!                 pxz(i,j,k)=(f(i,j,k,15)+f(i,j,k,16)+f(i,j,k,19)+f(i,j,k,20)+f(i,j,k,21)+f(i,j,k,22)) &
-!                  -(f(i,j,k,17)+f(i,j,k,18)+f(i,j,k,23)+f(i,j,k,24)+f(i,j,k,25)+f(i,j,k,26))
-!                 pyz(i,j,k)=(f(i,j,k,11)+f(i,j,k,12)+f(i,j,k,19)+f(i,j,k,20)+f(i,j,k,25)+f(i,j,k,26)) &
-!                  -(f(i,j,k,13)+f(i,j,k,14)+f(i,j,k,21)+f(i,j,k,22)+f(i,j,k,23)+f(i,j,k,24))
-                                     
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!0
-#ifdef SECOND_ORDER
-			      feq=(4.0_db*(2.0_db*press - 3.0_db &
-			       *(u**2.0_db + v**2.0_db + w**2.0_db)))/27.0_db
-
-#else
-!0
-			      feq=(8.0_db*press - 3.0_db*(4.0_db*w**2.0_db &
-			       + v**2.0_db*(4.0_db - 6.0_db*w**2.0_db) &
-			       + u**2.0_db*(-2.0_db + 3.0_db*v**2.0_db)*(-2.0_db &
-			       + 3.0_db*w**2.0_db)))/27.0_db
-!0
-#endif 
-
-				  fneq1=(-3.0_db*(pxx + pyy + pzz))/2.0_db
-
-
-				  F_discr=(-8.0_db*(forcex*u + forcey*v &
-				   + forcez*w))/(9.0_db*rhophi_loc)
-                  opress=feq + (1.0_db-omega_loc)*fneq1*p0 + 0.5_db*(F_discr)
-                 
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!1
-                  lii=li+1
-                  ljj=lj
-                  lkk=lk
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(2.0_db*press + 6.0_db*u &
-			       *(1.0_db + u) - 3.0_db*v**2.0_db &
-			       - 3.0_db*w**2.0_db)/27.0_db
-#else
-!1
-			      feq=(4.0_db*press + 3.0_db*(4.0_db*u*(1.0_db &
-			       + u) - 2.0_db*(1.0_db + 3.0_db*u*(1.0_db &
-			       + u))*v**2.0_db + (1.0_db + 3.0_db*u*(1.0_db &
-			       + u))*(-2.0_db + 3.0_db*v**2.0_db)*w**2.0_db))/54.0_db
-!1
-#endif
-				  fneq1=(3.0_db*(2.0_db*pxx - pyy - pzz))/2.0_db
-
-
-				  F_discr=(2.0_db*(forcex + 2.0_db*forcex*u - forcey*v &
-				   - forcez*w))/(9.0_db*rhophi_loc)
-                  f1(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p1 + 0.5_db*(F_discr)
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!2
-                  lii=li-1
-                  ljj=lj
-                  lkk=lk
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(2.0_db*press + 6.0_db*(-1.0_db &
-			       + u)*u - 3.0_db*v**2.0_db &
-			       - 3.0_db*w**2.0_db)/27.0_db
-#else
-!2
-			      feq=(4.0_db*press + 3.0_db*(4.0_db*(-1.0_db &
-			       + u)*u - 2.0_db*(1.0_db + 3.0_db*(-1.0_db &
-			       + u)*u)*v**2.0_db + (1.0_db &
-			       + 3.0_db*(-1.0_db + u)*u)*(-2.0_db &
-			       + 3.0_db*v**2.0_db)*w**2.0_db))/54.0_db
-!2
-#endif
-				  fneq1=(3.0_db*(2.0_db*pxx - pyy - pzz))/2.0_db
-
-
-				  F_discr=(-2.0_db*(forcex - 2.0_db*forcex*u + forcey*v &
-				   + forcez*w))/(9.0_db*rhophi_loc)
-                  f2(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p1 + 0.5_db*(F_discr)
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!3
-                  lii=li
-                  ljj=lj+1
-                  lkk=lk
-                  !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(2.0_db*press - 3.0_db*(u**2.0_db &
-			       - 2.0_db*v*(1.0_db + v) + w**2.0_db))/27.0_db
-#else
-!3
-			      feq=(4.0_db*press + 12.0_db*v*(1.0_db &
-			       + v) - 6.0_db*u**2.0_db*(1.0_db &
-			       + 3.0_db*v*(1.0_db + v)) + 3.0_db*(-2.0_db &
-			       + 3.0_db*u**2.0_db)*(1.0_db + 3.0_db*v*(1.0_db &
-			       + v))*w**2.0_db)/54.0_db
-!3
-#endif
-				  fneq1=(-3.0_db*(pxx - 2.0_db*pyy + pzz))/2.0_db
-
-
-				  F_discr=(2.0_db*(forcey - forcex*u + 2.0_db*forcey*v &
-				   - forcez*w))/(9.0_db*rhophi_loc)
-                  f3(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p1 + 0.5_db*(F_discr)
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!4
-                  lii=li
-                  ljj=lj-1
-                  lkk=lk
-                  !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(2.0_db*press - 3.0_db*(u**2.0_db &
-			      - 2.0_db*(-1.0_db + v)*v + w**2.0_db))/27.0_db
-#else
-!4
-			      feq=(4.0_db*press + 12.0_db*(-1.0_db &
-			       + v)*v - 6.0_db*u**2.0_db*(1.0_db &
-			       + 3.0_db*(-1.0_db + v)*v) + 3.0_db*(-2.0_db &
-			       + 3.0_db*u**2.0_db)*(1.0_db + 3.0_db*(-1.0_db &
-			       + v)*v)*w**2.0_db)/54.0_db
-!4
-#endif
-				  fneq1=(-3.0_db*(pxx - 2.0_db*pyy + pzz))/2.0_db
-
-
-				  F_discr=(-2.0_db*(forcey + forcex*u - 2.0_db*forcey*v &
-				   + forcez*w))/(9.0_db*rhophi_loc)
-                  f4(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p1 + 0.5_db*(F_discr)
-                  
-                  call syncthreads
-#ifdef BOUNCE_BACK
-                  if (isfluid(i,j,k)==0)then
-!!!!!!!!!!!!!!!!!!!!!!!!!!1
-                    lii=li+1
-                    ljj=lj
-                    lkk=lk
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f1(lii,ljj,lkk)=f2(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!2
-                    lii=li-1
-                    ljj=lj
-                    lkk=lk
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f2(lii,ljj,lkk)=f1(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!3
-                    lii=li
-                    ljj=lj+1
-                    lkk=lk
-                    !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f3(lii,ljj,lkk)=f4(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!4
-                    lii=li
-                    ljj=lj-1
-                    lkk=lk
-                    !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f4(lii,ljj,lkk)=f3(li,lj,lk)
-                  endif 
-                  call syncthreads
-#endif                  
-                  opress = opress + (f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk))
-                  ou = f1(li,lj,lk)-f2(li,lj,lk)
-                  ov = f3(li,lj,lk)-f4(li,lj,lk)
-                  opxx = f1(li,lj,lk)+f2(li,lj,lk)
-                  opyy = f3(li,lj,lk)+f4(li,lj,lk)
-                  
-                  call syncthreads
-                  
-!!!!!!!!!!!!!!!!!!!!!!!!!!5
-                  lii=li
-                  ljj=lj
-                  lkk=lk+1
-                  !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(2.0_db*press - 3.0_db*(u**2.0_db &
-			       + v**2.0_db - 2.0_db*w*(1.0_db + w)))/27.0_db
-#else
-!5
-			      feq=(4.0_db*press + 3.0_db*(4.0_db*w*(1.0_db &
-			       + w) - 2.0_db*v**2.0_db*(1.0_db + 3.0_db*w*(1.0_db &
-			       + w)) + u**2.0_db*(-2.0_db + 3.0_db*v**2.0_db)*(1.0_db &
-			       + 3.0_db*w*(1.0_db + w))))/54.0_db
-!5
-#endif
-				  fneq1=(-3.0_db*(pxx + pyy - 2.0_db*pzz))/2.0_db
-
-
-				  F_discr=(2.0_db*(forcez - forcex*u - forcey*v &
-				   + 2.0_db*forcez*w))/(9.0_db*rhophi_loc)
-                  f1(lii,ljj,lkk)= feq + (1.0_db-omega_loc)*fneq1*p1 + 0.5_db*(F_discr)
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!6
-                  lii=li
-                  ljj=lj
-                  lkk=lk-1
-                  !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(2.0_db*press - 3.0_db*(u**2.0_db &
-			       + v**2.0_db - 2.0_db*(-1.0_db + w)*w))/27.0_db
-#else
-!6
-			      feq=(4.0_db*press + 3.0_db*(4.0_db*(-1.0_db &
-			       + w)*w + v**2.0_db*(-2.0_db - 6.0_db*(-1.0_db &
-			       + w)*w) + u**2.0_db*(-2.0_db &
-			       + 3.0_db*v**2.0_db)*(1.0_db + 3.0_db*(-1.0_db &
-			       + w)*w)))/54.0_db
-!6
-#endif
-				  fneq1=(-3.0_db*(pxx + pyy - 2.0_db*pzz))/2.0_db
-
-
-				  F_discr=(-2.0_db*(forcez + forcex*u + forcey*v &
-				   - 2.0_db*forcez*w))/(9.0_db*rhophi_loc)
-                  f2(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p1 + 0.5_db*(F_discr)
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!7
-                  lii=li+1
-                  ljj=lj+1
-                  lkk=lk
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(2.0_db*press + 6.0_db*(u &
-			       + u**2.0_db + v + 3.0_db*u*v &
-			       + v**2.0_db) - 3.0_db*w**2.0_db)/108.0_db
-#else
-!7
-			      feq=(2.0_db*press + 6.0_db*(u &
-			       + v + v**2.0_db + 3.0_db*u*v*(1.0_db &
-			       + v) + u**2.0_db*(1.0_db + 3.0_db*v*(1.0_db &
-			       + v))) - 3.0_db*(1.0_db + 3.0_db*u*(1.0_db &
-			       + u))*(1.0_db + 3.0_db*v*(1.0_db &
-			       + v))*w**2.0_db)/108.0_db
-!7
-#endif
-				  fneq1=3.0_db*(pxx + 3.0_db*pxy + pyy) &
-				   - (3.0_db*pzz)/2.0_db
-
-
-				  F_discr=(forcex + forcey + 2.0_db*forcex*u &
-				   + 3.0_db*forcey*u + 3.0_db*forcex*v &
-				   + 2.0_db*forcey*v - forcez*w)/(18.0_db*rhophi_loc)
-                  f3(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!8
-                  lii=li-1
-                  ljj=lj-1
-                  lkk=lk
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(2.0_db*press + 6.0_db*(u**2.0_db &
-			       + (-1.0_db + v)*v + u*(-1.0_db &
-			       + 3.0_db*v)) - 3.0_db*w**2.0_db)/108.0_db
-#else
-!8
-			      feq=(2.0_db*press + 6.0_db*((-1.0_db &
-			       + v)*v + u*(-1.0_db - 3.0_db*(-1.0_db &
-			       + v)*v) + u**2.0_db*(1.0_db + 3.0_db*(-1.0_db &
-			       + v)*v)) - 3.0_db*(1.0_db + 3.0_db*(-1.0_db &
-			       + u)*u)*(1.0_db + 3.0_db*(-1.0_db &
-			       + v)*v)*w**2.0_db)/108.0_db
-!8
-#endif 
-				  fneq1=3.0_db*(pxx + 3.0_db*pxy + pyy) &
-				   - (3.0_db*pzz)/2.0_db
-
-
-				  F_discr=(forcex + forcey - 2.0_db*forcex*u &
-				   - 3.0_db*forcey*u - 3.0_db*forcex*v &
-				   - 2.0_db*forcey*v + forcez*w)/(-18.0_db*rhophi_loc)
-                  f4(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-                  
-                  call syncthreads
-#ifdef BOUNCE_BACK
-                  if (isfluid(i,j,k)==0)then
-!!!!!!!!!!!!!!!!!!!!!!!!!!5
-                    lii=li
-                    ljj=lj
-                    lkk=lk+1
-                    !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f1(lii,ljj,lkk)=f2(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!6
-                    lii=li
-                    ljj=lj
-                    lkk=lk-1
-                    !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f2(lii,ljj,lkk)=f1(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!7
-                    lii=li+1
-                    ljj=lj+1
-                    lkk=lk
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f3(lii,ljj,lkk)=f4(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!8
-                    lii=li-1
-                    ljj=lj-1
-                    lkk=lk
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f4(lii,ljj,lkk)=f3(li,lj,lk)
-                  endif 
-                  call syncthreads
-#endif                  
-                  opress = opress + (f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk))
-                  ou = ou + f3(li,lj,lk)-f4(li,lj,lk)
-                  ov = ov + f3(li,lj,lk)-f4(li,lj,lk)
-                  ow = f1(li,lj,lk)-f2(li,lj,lk)
-                  opxx = opxx + f3(li,lj,lk)+f4(li,lj,lk)
-                  opyy = opyy + f3(li,lj,lk)+f4(li,lj,lk)
-                  opzz = f1(li,lj,lk)+f2(li,lj,lk)
-                  opxy = f3(li,lj,lk)+f4(li,lj,lk)
-                  
-                  call syncthreads
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!9
-                  lii=li+1
-                  ljj=lj-1
-                  lkk=lk
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(2.0_db*press + 6.0_db*(u &
-			       + u**2.0_db - 3.0_db*u*v + (-1.0_db &
-			       + v)*v) - 3.0_db*w**2.0_db)/108.0_db
-#else
-!9
-			      feq=(2.0_db*press + 6.0_db*(u &
-			       + (-1.0_db + v)*v + 3.0_db*u*(-1.0_db &
-			       + v)*v + u**2.0_db*(1.0_db + 3.0_db*(-1.0_db &
-			       + v)*v)) - 3.0_db*(1.0_db &
-			       + 3.0_db*u*(1.0_db + u))*(1.0_db + 3.0_db*(-1.0_db &
-			       + v)*v)*w**2.0_db)/108.0_db
-!9
-#endif
-				  fneq1=3.0_db*(pxx - 3.0_db*pxy + pyy) &
-				   - (3.0_db*pzz)/2.0_db
-
-
-				  F_discr=(forcey + 3.0_db*forcey*u - 2.0_db*forcey*v &
-				   + forcex*(-1.0_db - 2.0_db*u + 3.0_db*v) &
-				   + forcez*w)/(-18.0_db*rhophi_loc)
-                  f1(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!10
-                  lii=li-1
-                  ljj=lj+1
-                  lkk=lk
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(2.0_db*press + 6.0_db*((-1.0_db &
-			       + u)*u + v - 3.0_db*u*v &
-			       + v**2.0_db) - 3.0_db*w**2.0_db)/108.0_db
-#else
-!10
-			      feq=(2.0_db*press + 6.0_db*((-1.0_db &
-			       + u)*u + v + 3.0_db*(-1.0_db &
-			       + u)*u*v + (1.0_db + 3.0_db*(-1.0_db &
-			       + u)*u)*v**2.0_db) - 3.0_db*(1.0_db &
-			       + 3.0_db*(-1.0_db + u)*u)*(1.0_db + 3.0_db*v*(1.0_db &
-			       + v))*w**2.0_db)/108.0_db
-!10
-#endif
-				  fneq1=3.0_db*(pxx - 3.0_db*pxy + pyy) &
-				   - (3.0_db*pzz)/2.0_db
-
-
-				  F_discr=(forcex - forcey - 2.0_db*forcex*u &
-				   + 3.0_db*forcey*u + 3.0_db*forcex*v &
-				   - 2.0_db*forcey*v + forcez*w)/(-18.0_db*rhophi_loc)
-                  f2(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!11
-                  lii=li
-                  ljj=lj+1
-                  lkk=lk+1
-                  !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(2.0_db*press - 3.0_db*u**2.0_db &
-			       + 6.0_db*(v + v**2.0_db + w &
-			       + 3.0_db*v*w + w**2.0_db))/108.0_db
-#else
-!11
-			      feq=(2.0_db*press - 3.0_db*u**2.0_db*(1.0_db &
-			       + 3.0_db*v*(1.0_db + v))*(1.0_db + 3.0_db*w*(1.0_db &
-			       + w)) + 6.0_db*(v + w + w**2.0_db &
-			       + 3.0_db*v*w*(1.0_db + w) + v**2.0_db*(1.0_db &
-			       + 3.0_db*w*(1.0_db + w))))/108.0_db
-!11
-#endif
-				  fneq1=(-3.0_db*pxx)/2.0_db + 3.0_db*(pyy &
-				   + 3.0_db*pyz + pzz)
-
-
-				  F_discr=(forcey + forcez - forcex*u + 2.0_db*forcey*v &
-				   + 3.0_db*forcez*v + 3.0_db*forcey*w &
-				   + 2.0_db*forcez*w)/(18.0_db*rhophi_loc)
-                  f3(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!12
-                  lii=li
-                  ljj=lj-1
-                  lkk=lk-1
-                  !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(2.0_db*press - 3.0_db*u**2.0_db &
-			       + 6.0_db*(v**2.0_db + (-1.0_db &
-			       + w)*w + v*(-1.0_db + 3.0_db*w)))/108.0_db
-#else
-!12
-			      feq=(2.0_db*press + 3.0_db*(2.0_db*(-1.0_db &
-			       + w)*w + v*(-2.0_db - 6.0_db*(-1.0_db &
-			       + w)*w) - u**2.0_db*(1.0_db + 3.0_db*(-1.0_db &
-			       + v)*v)*(1.0_db + 3.0_db*(-1.0_db + w)*w) &
-			       + v**2.0_db*(2.0_db + 6.0_db*(-1.0_db + w)*w)))/108.0_db
-!12
-#endif
-				  fneq1=(-3.0_db*pxx)/2.0_db + 3.0_db*(pyy &
-				   + 3.0_db*pyz + pzz)
-
-
-				  F_discr=(forcey + forcez + forcex*u - 2.0_db*forcey*v &
-				   - 3.0_db*forcez*v - 3.0_db*forcey*w &
-				   - 2.0_db*forcez*w)/(-18.0_db*rhophi_loc)
-                  f4(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-                  
-                  call syncthreads
-#ifdef BOUNCE_BACK
-                  if (isfluid(i,j,k)==0)then
-!!!!!!!!!!!!!!!!!!!!!!!!!!9
-                    lii=li+1
-                    ljj=lj-1
-                    lkk=lk
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f1(lii,ljj,lkk)=f2(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!10
-                    lii=li-1
-                    ljj=lj+1
-                    lkk=lk
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f2(lii,ljj,lkk)=f1(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!11
-                    lii=li
-                    ljj=lj+1
-                    lkk=lk+1
-                    !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f3(lii,ljj,lkk)=f4(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!12
-                    lii=li
-                    ljj=lj-1
-                    lkk=lk-1
-                    !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f4(lii,ljj,lkk)=f3(li,lj,lk)
-                  endif 
-                  call syncthreads
-#endif    
-                  opress = opress + (f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk))
-                  ou = ou + f1(li,lj,lk)-f2(li,lj,lk)
-                  ov = ov - f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)-f4(li,lj,lk)
-                  ow = ow + f3(li,lj,lk)-f4(li,lj,lk)
-                  opxx = opxx + f1(li,lj,lk)+f2(li,lj,lk)
-                  opyy = opyy + f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk)
-                  opzz = opzz + f3(li,lj,lk)+f4(li,lj,lk)
-                  opxy = opxy - f1(li,lj,lk)-f2(li,lj,lk)
-                  opyz = f3(li,lj,lk)+f4(li,lj,lk)
-                  
-                  call syncthreads
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!13
-                  lii=li
-                  ljj=lj+1
-                  lkk=lk-1
-                  !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(2.0_db*press - 3.0_db*u**2.0_db &
-			       + 6.0_db*(v + v**2.0_db &
-			       - 3.0_db*v*w + (-1.0_db + w)*w))/108.0_db
-#else
-!13
-			      feq=(2.0_db*press - 3.0_db*u**2.0_db*(1.0_db &
-			       + 3.0_db*v*(1.0_db + v))*(1.0_db + 3.0_db*(-1.0_db &
-			       + w)*w) + 6.0_db*(v + (-1.0_db &
-			       + w)*w + 3.0_db*v*(-1.0_db + w)*w &
-			       + v**2.0_db*(1.0_db + 3.0_db*(-1.0_db + w)*w)))/108.0_db
-!13
-#endif
-				  fneq1=(-3.0_db*pxx)/2.0_db + 3.0_db*(pyy &
-				   - 3.0_db*pyz + pzz)
-
-
-				  F_discr=(forcez + forcex*u + 3.0_db*forcez*v &
-				   - 2.0_db*forcez*w + forcey*(-1.0_db - 2.0_db*v &
-				   + 3.0_db*w))/(-18.0_db*rhophi_loc)
-                  f1(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!14
-                  lii=li
-                  ljj=lj-1
-                  lkk=lk+1
-                  !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(2.0_db*press - 3.0_db*u**2.0_db &
-			       + 6.0_db*((-1.0_db + v)*v + w &
-			       - 3.0_db*v*w + w**2.0_db))/108.0_db
-#else
-!14
-			      feq=(2.0_db*press + 6.0_db*((-1.0_db &
-			       + v)*v + w + 3.0_db*(-1.0_db &
-			       + v)*v*w + (1.0_db + 3.0_db*(-1.0_db &
-			       + v)*v)*w**2.0_db) &
-			       - 3.0_db*u**2.0_db*(1.0_db + 3.0_db*(-1.0_db &
-			       + v)*v)*(1.0_db + 3.0_db*w*(1.0_db &
-			       + w)))/108.0_db
-!14
-#endif
-				  fneq1=(-3.0_db*pxx)/2.0_db + 3.0_db*(pyy &
-				   - 3.0_db*pyz + pzz)
-
-
-				  F_discr=(forcey - forcez + forcex*u - 2.0_db*forcey*v &
-				   + 3.0_db*forcez*v + 3.0_db*forcey*w &
-				   - 2.0_db*forcez*w)/(-18.0_db*rhophi_loc)
-                  f2(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!15
-                  lii=li+1
-                  ljj=lj
-                  lkk=lk+1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(2.0_db*press - 3.0_db*v**2.0_db &
-			       + 6.0_db*w + 6.0_db*(u &
-			       + u**2.0_db + 3.0_db*u*w + w**2.0_db))/108.0_db
-#else
-!15
-			      feq=(2.0_db*press + 3.0_db*(2.0_db*w*(1.0_db &
-			       + w) - v**2.0_db*(1.0_db + 3.0_db*w*(1.0_db &
-			       + w)) - u*(-2.0_db + 3.0_db*v**2.0_db)*(1.0_db &
-			       + 3.0_db*w*(1.0_db + w)) - u**2.0_db*(-2.0_db &
-			       + 3.0_db*v**2.0_db)*(1.0_db + 3.0_db*w*(1.0_db &
-			       + w))))/108.0_db
-!15
-#endif
-				  fneq1=3.0_db*pxx + 9.0_db*pxz &
-				   - (3.0_db*pyy)/2.0_db + 3.0_db*pzz
-
-
-				  F_discr=(forcex + forcez + 2.0_db*forcex*u &
-				   + 3.0_db*forcez*u - forcey*v + 3.0_db*forcex*w &
-				   + 2.0_db*forcez*w)/(18.0_db*rhophi_loc)
-                  f3(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!16
-                  lii=li-1
-                  ljj=lj
-                  lkk=lk-1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(2.0_db*press + 3.0_db*(2.0_db*u**2.0_db &
-			       - v**2.0_db + 2.0_db*(-1.0_db + w)*w &
-			       + u*(-2.0_db + 6.0_db*w)))/108.0_db
-#else
-!16
-			      feq=(2.0_db*press + 3.0_db*(2.0_db*(-1.0_db &
-			       + w)*w + v**2.0_db*(-1.0_db - 3.0_db*(-1.0_db &
-			       + w)*w) + u*(-2.0_db + 3.0_db*v**2.0_db)*(1.0_db &
-			       + 3.0_db*(-1.0_db + w)*w) - u**2.0_db*(-2.0_db &
-			       + 3.0_db*v**2.0_db)*(1.0_db + 3.0_db*(-1.0_db &
-			       + w)*w)))/108.0_db
-!16
-#endif
-				  fneq1=3.0_db*pxx + 9.0_db*pxz &
-				   - (3.0_db*pyy)/2.0_db + 3.0_db*pzz
-
-
-				  F_discr=(forcex + forcez - 2.0_db*forcex*u &
-				   - 3.0_db*forcez*u + forcey*v - 3.0_db*forcex*w &
-				   - 2.0_db*forcez*w)/(-18.0_db*rhophi_loc)
-                  f4(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-                  
-                  call syncthreads
-#ifdef BOUNCE_BACK
-                  if (isfluid(i,j,k)==0)then
-!!!!!!!!!!!!!!!!!!!!!!!!!!13
-                    lii=li
-                    ljj=lj+1
-                    lkk=lk-1
-                    !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f1(lii,ljj,lkk)=f2(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!14
-                    lii=li
-                    ljj=lj-1
-                    lkk=lk+1
-                    !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f2(lii,ljj,lkk)=f1(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!15
-                    lii=li+1
-                    ljj=lj
-                    lkk=lk+1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f3(lii,ljj,lkk)=f4(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!16
-                    lii=li-1
-                    ljj=lj
-                    lkk=lk-1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f4(lii,ljj,lkk)=f3(li,lj,lk)
-                  endif 
-                  call syncthreads
-#endif    
-                  opress = opress + (f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk))
-                  ou = ou + f3(li,lj,lk)-f4(li,lj,lk)
-                  ov = ov + f1(li,lj,lk)-f2(li,lj,lk)
-                  ow = ow - f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)-f4(li,lj,lk)
-                  opxx = opxx + f3(li,lj,lk)+f4(li,lj,lk)
-                  opyy = opyy + f1(li,lj,lk) +f2(li,lj,lk)
-                  opzz = opzz + f1(li,lj,lk) +f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk)
-                  opxz = f3(li,lj,lk)+f4(li,lj,lk)
-                  opyz = opyz - f1(li,lj,lk) -f2(li,lj,lk)
-
-                  call syncthreads
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!17
-                  lii=li-1
-                  ljj=lj
-                  lkk=lk+1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(2.0_db*press + 3.0_db*(2.0_db*u**2.0_db &
-			       - v**2.0_db + 2.0_db*w*(1.0_db + w) &
-			       - 2.0_db*u*(1.0_db + 3.0_db*w)))/108.0_db
-#else
-!17
-			      feq=(2.0_db*press + 3.0_db*(2.0_db*w*(1.0_db &
-			       + w) - v**2.0_db*(1.0_db + 3.0_db*w*(1.0_db &
-			       + w)) + u*(-2.0_db + 3.0_db*v**2.0_db)*(1.0_db &
-			       + 3.0_db*w*(1.0_db + w)) - u**2.0_db*(-2.0_db &
-			       + 3.0_db*v**2.0_db)*(1.0_db + 3.0_db*w*(1.0_db &
-			       + w))))/108.0_db
-!17
-#endif
-				  fneq1=3.0_db*pxx - 9.0_db*pxz &
-				   - (3.0_db*pyy)/2.0_db + 3.0_db*pzz
-
-
-				  F_discr=(forcex - forcez - 2.0_db*forcex*u &
-				   + 3.0_db*forcez*u + forcey*v + 3.0_db*forcex*w &
-				   - 2.0_db*forcez*w)/(-18.0_db*rhophi_loc)
-                  f1(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!18
-                  lii=li+1
-                  ljj=lj
-                  lkk=lk-1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(2.0_db*press - 3.0_db*v**2.0_db &
-			       - 6.0_db*w + 6.0_db*(u &
-			       + u**2.0_db - 3.0_db*u*w + w**2.0_db))/108.0_db
-#else
-!18
-			      feq=(2.0_db*press + 3.0_db*(2.0_db*(-1.0_db &
-			       + w)*w + v**2.0_db*(-1.0_db &
-			       - 3.0_db*(-1.0_db + w)*w) - u*(-2.0_db &
-			       + 3.0_db*v**2.0_db)*(1.0_db + 3.0_db*(-1.0_db &
-			       + w)*w) - u**2.0_db*(-2.0_db &
-			       + 3.0_db*v**2.0_db)*(1.0_db + 3.0_db*(-1.0_db &
-			       + w)*w)))/108.0_db
-!18
-#endif
-				  fneq1=3.0_db*pxx - 9.0_db*pxz &
-				   - (3.0_db*pyy)/2.0_db + 3.0_db*pzz
-
-
-				  F_discr=(forcez + 3.0_db*forcez*u + forcey*v &
-				   - 2.0_db*forcez*w + forcex*(-1.0_db - 2.0_db*u &
-				   + 3.0_db*w))/(-18.0_db*rhophi_loc)
-                  f2(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!19
-                  lii=li+1
-                  ljj=lj+1
-                  lkk=lk+1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(press + 3.0_db*(u + u**2.0_db &
-			       + v + 3.0_db*u*v + v**2.0_db &
-			       + w + 3.0_db*(u + v)*w &
-			       + w**2.0_db))/216.0_db
-#else
-!19
-			      feq=(press + 3.0_db*(v + v**2.0_db &
-			       + w + 3.0_db*v*(1.0_db + v)*w + (1.0_db &
-			       + 3.0_db*v*(1.0_db + v))*w**2.0_db + u*(1.0_db &
-			       + 3.0_db*v*(1.0_db + v))*(1.0_db + 3.0_db*w*(1.0_db &
-			       + w)) + u**2.0_db*(1.0_db + 3.0_db*v*(1.0_db &
-			       + v))*(1.0_db + 3.0_db*w*(1.0_db + w))))/216.0_db
-!19
-#endif
-				  fneq1=3.0_db*(pxx + 3.0_db*pxy &
-				   + 3.0_db*pxz + pyy + 3.0_db*pyz + pzz)
-
-
-				  F_discr=(forcez + 3.0_db*forcez*(u + v) &
-				   + 2.0_db*forcez*w + forcey*(1.0_db + 3.0_db*u &
-				   + 2.0_db*v + 3.0_db*w) + forcex*(1.0_db + 2.0_db*u &
-				   + 3.0_db*v + 3.0_db*w))/(72.0_db*rhophi_loc)
-                  f3(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p3 + 0.5_db*(F_discr)
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!20
-                  lii=li-1
-                  ljj=lj-1
-                  lkk=lk-1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(press + 3.0_db*(u**2.0_db + (-1.0_db &
-			       + v)*v + (-1.0_db + 3.0_db*v)*w &
-			       + w**2.0_db + u*(-1.0_db + 3.0_db*v &
-			       + 3.0_db*w)))/216.0_db
-#else
-!20
-			      feq=(press + 3.0_db*((-1.0_db + v)*v &
-			       + (-1.0_db - 3.0_db*(-1.0_db + v)*v)*w &
-			       + (1.0_db + 3.0_db*(-1.0_db + v)*v)*w**2.0_db &
-			       - u*(1.0_db + 3.0_db*(-1.0_db + v)*v)*(1.0_db &
-			       + 3.0_db*(-1.0_db + w)*w) + u**2.0_db*(1.0_db &
-			       + 3.0_db*(-1.0_db + v)*v)*(1.0_db + 3.0_db*(-1.0_db &
-			       + w)*w)))/216.0_db
-!20
-#endif
-				  fneq1=3.0_db*(pxx + 3.0_db*pxy &
-				   + 3.0_db*pxz + pyy + 3.0_db*pyz + pzz)
-
-
-				  F_discr=(forcez*(-1.0_db + 3.0_db*u + 3.0_db*v &
-				   + 2.0_db*w) + forcey*(-1.0_db + 3.0_db*u &
-				   + 2.0_db*v + 3.0_db*w) + forcex*(-1.0_db &
-				   + 2.0_db*u + 3.0_db*v + 3.0_db*w))/(72.0_db*rhophi_loc)
-                  f4(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p3 + 0.5_db*(F_discr)
-                  
-                  call syncthreads
-#ifdef BOUNCE_BACK
-                  if (isfluid(i,j,k)==0)then
-!!!!!!!!!!!!!!!!!!!!!!!!!!17
-                    lii=li-1
-                    ljj=lj
-                    lkk=lk+1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f1(lii,ljj,lkk)=f2(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!18
-                    lii=li+1
-                    ljj=lj
-                    lkk=lk-1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f2(lii,ljj,lkk)=f1(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!19
-                    lii=li+1
-                    ljj=lj+1
-                    lkk=lk+1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f3(lii,ljj,lkk)=f4(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!20
-                    lii=li-1
-                    ljj=lj-1
-                    lkk=lk-1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f4(lii,ljj,lkk)=f3(li,lj,lk)
-                  endif 
-                  call syncthreads
-#endif    
-                  opress = opress + (f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk))
-                  ou = ou - f1(li,lj,lk) +f2(li,lj,lk)+f3(li,lj,lk)-f4(li,lj,lk)
-                  ov = ov + f3(li,lj,lk)-f4(li,lj,lk)
-                  ow = ow + f1(li,lj,lk) -f2(li,lj,lk)+f3(li,lj,lk)-f4(li,lj,lk)
-                  opxx = opxx + f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk)
-                  opyy = opyy + f3(li,lj,lk)+f4(li,lj,lk)
-                  opzz = opzz + f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk)
-                  opxy = opxy + f3(li,lj,lk)+f4(li,lj,lk)
-                  opxz = opxz - f1(li,lj,lk)-f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk)
-                  opyz = opyz + f3(li,lj,lk)+f4(li,lj,lk)
-                  
-                  call syncthreads
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!21
-                  lii=li+1
-                  ljj=lj-1
-                  lkk=lk+1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(press + 3.0_db*(u**2.0_db + (-1.0_db &
-			       + v)*v + w - 3.0_db*v*w &
-			       + w**2.0_db + u*(1.0_db - 3.0_db*v &
-			       + 3.0_db*w)))/216.0_db
-#else
-!21
-			      feq=(press + 3.0_db*((-1.0_db + v)*v &
-			       + w + 3.0_db*(-1.0_db + v)*v*w &
-			       + (1.0_db + 3.0_db*(-1.0_db + v)*v)*w**2.0_db &
-			       + u*(1.0_db + 3.0_db*(-1.0_db + v)*v)*(1.0_db &
-			       + 3.0_db*w*(1.0_db + w)) + u**2.0_db*(1.0_db &
-			       + 3.0_db*(-1.0_db + v)*v)*(1.0_db &
-			       + 3.0_db*w*(1.0_db + w))))/216.0_db
-!21
-#endif 
-				  fneq1=3.0_db*(pxx - 3.0_db*pxy &
-				   + 3.0_db*pxz + pyy - 3.0_db*pyz + pzz)
-
-
-				  F_discr=(forcez*(1.0_db + 3.0_db*u - 3.0_db*v &
-				   + 2.0_db*w) + forcex*(1.0_db + 2.0_db*u &
-				   - 3.0_db*v + 3.0_db*w) - forcey*(1.0_db &
-				   + 3.0_db*u - 2.0_db*v + 3.0_db*w))/(72.0_db*rhophi_loc)
-                  f1(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p3 + 0.5_db*(F_discr)
-
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!22
-                  lii=li-1
-                  ljj=lj+1
-                  lkk=lk-1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(press + 3.0_db*(u**2.0_db + v &
-			       + v**2.0_db - 3.0_db*v*w + (-1.0_db &
-			       + w)*w + u*(-1.0_db - 3.0_db*v &
-			       + 3.0_db*w)))/216.0_db
-#else
-!22
-			      feq=(press + 3.0_db*(v + v**2.0_db &
-			       - w - 3.0_db*v*(1.0_db + v)*w + (1.0_db &
-			       + 3.0_db*v*(1.0_db + v))*w**2.0_db - u*(1.0_db &
-			       + 3.0_db*v*(1.0_db + v))*(1.0_db + 3.0_db*(-1.0_db &
-			       + w)*w) + u**2.0_db*(1.0_db + 3.0_db*v*(1.0_db &
-			       + v))*(1.0_db + 3.0_db*(-1.0_db + w)*w)))/216.0_db
-!22
-#endif
-				  fneq1=3.0_db*(pxx - 3.0_db*pxy &
-				   + 3.0_db*pxz + pyy - 3.0_db*pyz + pzz)
-
-
-				  F_discr=(forcey*(1.0_db - 3.0_db*u + 2.0_db*v &
-				   - 3.0_db*w) + forcez*(-1.0_db + 3.0_db*u &
-				   - 3.0_db*v + 2.0_db*w) + forcex*(-1.0_db &
-				   + 2.0_db*u - 3.0_db*v + 3.0_db*w))/(72.0_db*rhophi_loc)
-                  f2(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p3 + 0.5_db*(F_discr)
-
-
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!23
-                  lii=li-1
-                  ljj=lj-1
-                  lkk=lk+1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(press + 3.0_db*(-u + u**2.0_db &
-			       - v + 3.0_db*u*v + v**2.0_db + w &
-			       - 3.0_db*(u + v)*w + w**2.0_db))/216.0_db
-#else
-!23
-			      feq=(press + 3.0_db*((-1.0_db + v)*v &
-			       + w + 3.0_db*(-1.0_db + v)*v*w + (1.0_db &
-			       + 3.0_db*(-1.0_db + v)*v)*w**2.0_db - u*(1.0_db &
-			       + 3.0_db*(-1.0_db + v)*v)*(1.0_db + 3.0_db*w*(1.0_db &
-			       + w)) + u**2.0_db*(1.0_db + 3.0_db*(-1.0_db + v)*v)*(1.0_db &
-			       + 3.0_db*w*(1.0_db + w))))/216.0_db
-!23
-#endif
-				  fneq1=3.0_db*(pxx + 3.0_db*pxy &
-				   - 3.0_db*pxz + pyy - 3.0_db*pyz + pzz)
-
-
-				  F_discr=(forcez - 3.0_db*forcez*(u + v) + forcey*(-1.0_db &
-				   + 3.0_db*u + 2.0_db*v - 3.0_db*w) &
-				   + forcex*(-1.0_db + 2.0_db*u + 3.0_db*v &
-				   - 3.0_db*w) + 2.0_db*forcez*w)/(72.0_db*rhophi_loc)
-                  f3(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p3 + 0.5_db*(F_discr)
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!24
-                  lii=li+1
-                  ljj=lj+1
-                  lkk=lk-1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(press + 3.0_db*(u + u**2.0_db &
-			       + v + 3.0_db*u*v + v**2.0_db - w &
-			       - 3.0_db*(u + v)*w + w**2.0_db))/216.0_db
-#else
-!24
-			      feq=(press + 3.0_db*(v + v**2.0_db &
-			       - w - 3.0_db*v*(1.0_db + v)*w + (1.0_db &
-			       + 3.0_db*v*(1.0_db + v))*w**2.0_db + u*(1.0_db &
-			       + 3.0_db*v*(1.0_db + v))*(1.0_db + 3.0_db*(-1.0_db &
-			       + w)*w) + u**2.0_db*(1.0_db + 3.0_db*v*(1.0_db &
-			       + v))*(1.0_db + 3.0_db*(-1.0_db + w)*w)))/216.0_db
-!24
-#endif
-				  fneq1=3.0_db*(pxx + 3.0_db*pxy &
-				   - 3.0_db*pxz + pyy - 3.0_db*pyz + pzz)
-
-
-				  F_discr=(-forcez - 3.0_db*forcez*(u + v) + forcey*(1.0_db &
-				   + 3.0_db*u + 2.0_db*v - 3.0_db*w) + forcex*(1.0_db &
-				   + 2.0_db*u + 3.0_db*v - 3.0_db*w) &
-				   + 2.0_db*forcez*w)/(72.0_db*rhophi_loc)
-                  f4(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p3 + 0.5_db*(F_discr)
-                  
-                  call syncthreads
-#ifdef BOUNCE_BACK
-                  if (isfluid(i,j,k)==0)then
-!!!!!!!!!!!!!!!!!!!!!!!!!!21
-                    lii=li+1
-                    ljj=lj-1
-                    lkk=lk+1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f1(lii,ljj,lkk)=f2(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!22
-                    lii=li-1
-                    ljj=lj+1
-                    lkk=lk-1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f2(lii,ljj,lkk)=f1(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!23
-                    lii=li-1
-                    ljj=lj-1
-                    lkk=lk+1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f3(lii,ljj,lkk)=f4(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!24
-                    lii=li+1
-                    ljj=lj+1
-                    lkk=lk-1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f4(lii,ljj,lkk)=f3(li,lj,lk)
-                  endif 
-                  call syncthreads
-#endif    
-                  opress = opress + (f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk))
-                  ou = ou +f1(li,lj,lk)-f2(li,lj,lk)-f3(li,lj,lk)+f4(li,lj,lk)
-                  ov = ov -f1(li,lj,lk)+f2(li,lj,lk)-f3(li,lj,lk)+f4(li,lj,lk)
-                  ow = ow +f1(li,lj,lk)-f2(li,lj,lk)+f3(li,lj,lk)-f4(li,lj,lk)
-                  opxx = opxx + f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk)
-                  opyy = opyy + f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk)
-                  opzz = opzz + f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk)
-                  opxy = opxy - f1(li,lj,lk)-f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk)
-                  opxz = opxz + f1(li,lj,lk)+f2(li,lj,lk)-f3(li,lj,lk)-f4(li,lj,lk)
-                  opyz = opyz - f1(li,lj,lk)-f2(li,lj,lk)-f3(li,lj,lk)-f4(li,lj,lk)
-                  
-                  call syncthreads
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!25
-                  lii=li+1
-                  ljj=lj-1
-                  lkk=lk-1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(press + 3.0_db*(u**2.0_db + (-1.0_db &
-			       + v)*v + u*(1.0_db - 3.0_db*v &
-			       - 3.0_db*w) + (-1.0_db + 3.0_db*v)*w &
-			       + w**2.0_db))/216.0_db
-#else
-!25
-			      feq=(press + 3.0_db*((-1.0_db + v)*v &
-			       + (-1.0_db - 3.0_db*(-1.0_db + v)*v)*w + (1.0_db &
-			       + 3.0_db*(-1.0_db + v)*v)*w**2.0_db + u*(1.0_db &
-			       + 3.0_db*(-1.0_db + v)*v)*(1.0_db + 3.0_db*(-1.0_db &
-			       + w)*w) + u**2.0_db*(1.0_db + 3.0_db*(-1.0_db &
-			       + v)*v)*(1.0_db + 3.0_db*(-1.0_db + w)*w)))/216.0_db
-!25
-#endif
-				  fneq1=3.0_db*(pxx - 3.0_db*pxy - 3.0_db*pxz &
-				   + pyy + 3.0_db*pyz + pzz)
-
-
-				  F_discr=(forcex*(1.0_db + 2.0_db*u - 3.0_db*v &
-				   - 3.0_db*w) + forcez*(-1.0_db - 3.0_db*u &
-				   + 3.0_db*v + 2.0_db*w) + forcey*(-1.0_db &
-				   - 3.0_db*u + 2.0_db*v + 3.0_db*w))/(72.0_db*rhophi_loc)
-                  f1(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p3 + 0.5_db*(F_discr)
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!26
-                  lii=li-1
-                  ljj=lj+1
-                  lkk=lk+1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-#ifdef SECOND_ORDER
-			      feq=(press + 3.0_db*(u**2.0_db + v &
-			       + v**2.0_db + w + 3.0_db*v*w &
-			       + w**2.0_db - u*(1.0_db + 3.0_db*v &
-			       + 3.0_db*w)))/216.0_db
-#else
-!26
-			      feq=(press + 3.0_db*(v + v**2.0_db &
-			       + w + 3.0_db*v*(1.0_db + v)*w + (1.0_db &
-			       + 3.0_db*v*(1.0_db + v))*w**2.0_db - u*(1.0_db &
-			       + 3.0_db*v*(1.0_db + v))*(1.0_db + 3.0_db*w*(1.0_db &
-			       + w)) + u**2.0_db*(1.0_db + 3.0_db*v*(1.0_db &
-			       + v))*(1.0_db + 3.0_db*w*(1.0_db + w))))/216.0_db
-!26
-#endif
-				  fneq1=3.0_db*(pxx - 3.0_db*pxy &
-				   - 3.0_db*pxz + pyy + 3.0_db*pyz + pzz)
-
-
-				  F_discr=(forcex*(-1.0_db + 2.0_db*u - 3.0_db*v &
-				   - 3.0_db*w) + forcez*(1.0_db - 3.0_db*u &
-				   + 3.0_db*v + 2.0_db*w) + forcey*(1.0_db &
-				   - 3.0_db*u + 2.0_db*v + 3.0_db*w))/(72.0_db*rhophi_loc)
-                  f2(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p3 + 0.5_db*(F_discr)
-                  
-                  call syncthreads
-#ifdef BOUNCE_BACK
-                  if (isfluid(i,j,k)==0)then
-!!!!!!!!!!!!!!!!!!!!!!!!!!25
-                    lii=li+1
-                    ljj=lj-1
-                    lkk=lk-1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f1(lii,ljj,lkk)=f2(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!26
-                    lii=li-1
-                    ljj=lj+1
-                    lkk=lk+1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f2(lii,ljj,lkk)=f1(li,lj,lk)
-                  endif 
-                  call syncthreads
-#endif          
-                  opress = opress + (f1(li,lj,lk)+f2(li,lj,lk))
-                  ou = ou + f1(li,lj,lk)-f2(li,lj,lk)
-                  ov = ov - f1(li,lj,lk)+f2(li,lj,lk)
-                  ow = ow - f1(li,lj,lk)+f2(li,lj,lk)
-                  opxx = opxx + f1(li,lj,lk)+f2(li,lj,lk)
-                  opyy = opyy + f1(li,lj,lk)+f2(li,lj,lk)
-                  opzz = opzz + f1(li,lj,lk)+f2(li,lj,lk)
-                  opxy = opxy - f1(li,lj,lk)-f2(li,lj,lk)
-                  opxz = opxz - f1(li,lj,lk)-f2(li,lj,lk) 
-                  opyz = opyz + f1(li,lj,lk)+f2(li,lj,lk)
-                  
-                  !internal-node block is the index of the block of internal nodes without the surrounding halo
-	              lii=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
-                  
-                  !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
-	              if(myblock .ne. lii)return
-	                 
-	              hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opress
-                  hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ou
-                  hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ov
-                  hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ow
-                  hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxx
-                  hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opyy
-                  hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opzz
-                  hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxy
-                  hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxz
-                  hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opyz
-	              
-     return
-
-   endsubroutine fused_LB_kernel   
    
    subroutine update_phifields(hfields_s,phifields_in,phifields_out)
 
@@ -3082,11 +1780,17 @@ contains
       
    endsubroutine update_phifields_kernel
    
-   subroutine LB_int_boundary_cuda(hfields_in,hfields_out,phifields_s)
+   subroutine LB_int_boundary_cuda(hfields_in,hfields_out &
+#ifdef TWOCOMPONENT	       
+     ,phifields_s &
+#endif     
+     )
 
       implicit none
-      real(kind=db), allocatable, dimension(:) :: hfields_in,hfields_out,phifields_s
- 
+      real(kind=db), allocatable, dimension(:) :: hfields_in,hfields_out
+#ifdef TWOCOMPONENT	       
+      real(kind=db), allocatable, dimension(:) :: phifields_s
+#endif     
       
 !      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
       !$acc wait
@@ -3100,13 +1804,13 @@ contains
        !$acc& ,wettab_r,wettab_b &
 #endif  
 #ifdef TWOCOMPONENT 
-       !$acc& ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+       !$acc& ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
 #ifdef MONOD
 	   !$acc& ,mu_max,Ks &
 #endif
 #endif   
        !$acc& ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields &
-       !$acc& ,hfields_in,hfields_out,phifields_s,auxfields,locauxfields)
+       !$acc& ,hfields_in,hfields_out,auxfields,locauxfields)
       call LB_int_boundary_kernel<<<dimGrid,dimBlock>>>(flip,flop,nx,ny,nz,coords,isfluid &    
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
@@ -3115,13 +1819,13 @@ contains
        ,wettab_r,wettab_b &
 #endif  
 #ifdef TWOCOMPONENT 
-       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
 #ifdef MONOD
 	   ,mu_max,Ks &
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields &
-	   ,hfields_in,hfields_out,phifields_s,auxfields,locauxfields)
+	   ,hfields_in,hfields_out,auxfields,locauxfields)
 !$acc end host_data
       istat = cudaDeviceSynchronize
       istat = cudaGetLastError()
@@ -3143,20 +1847,20 @@ contains
        ,wettab_r,wettab_b &
 #endif  
 #ifdef TWOCOMPONENT 
-       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
 #ifdef MONOD	
        ,mu_max,Ks &
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields, &
-       hfields_in,hfields_out,phifields_s,auxfields_s,locauxfields_s)
+       hfields_in,hfields_out,auxfields_s,locauxfields_s)
 
       implicit none
       
       integer :: flip,flop,nx,ny,nz
       integer, dimension(3) :: coords
       integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
-
+      integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields
 #ifdef MULTIHIT
 	  real(kind=db), dimension(1:nx,1:ny,1:nz) :: ABCx,ABCy,ABCz
 #endif
@@ -3165,14 +1869,15 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
+      real(kind=db), dimension(ntotphifields) :: phifields_s
 #ifdef MONOD
       real(kind=db) :: mu_max,Ks
 #endif
 #endif           
       real(kind=db) :: visc1,omega,fx,fy,fz
-      integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields
+      
       real(kind=db), dimension(ntothfields) :: hfields_in,hfields_out
-      real(kind=db), dimension(ntotphifields) :: phifields_s
+
       real(kind=db), dimension(ntotauxfields) :: auxfields_s
       real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
       
@@ -3212,11 +1917,10 @@ contains
       jj=threadIdx%y
       kk=threadIdx%z
        
-     
-	  
-
-#ifdef DENSRATIO
+#ifdef TWOCOMPONENT	       
 	  phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+#endif	
+#ifdef DENSRATIO
 	  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
 #else
 	  rhophi_loc = 1.0_db !press_loc

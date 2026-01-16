@@ -66,7 +66,7 @@ contains
       flip=mod(step,2)+1     
       flop = 3 - flip
       
-      !$acc data copy(step,lx,ly,lz,nx,ny,nz,coords,myoffset,isfluid,myrank, &
+      !$acc data copy(test3d_flip,test3d_flop,step,lx,ly,lz,nx,ny,nz,coords,myoffset,isfluid,myrank, &
       !$acc& rhoprint,velprint,radius, &
 	  !$acc& tau1,visc1,rho_r,rho_b,invrho_r,invrho_b,omega,arr_3d, &
       !$acc& intpbc_dir,num_links_pops,links_pops,f_datampi,uwall,udotc,uu, &
@@ -118,6 +118,7 @@ contains
 #endif
       iframe=0
       iframe2D=0
+      
       if(myrank==0)then
          write(6,'(a,i8,a,i8,3f16.4)')'start simulation'
          call flush(6)
@@ -147,7 +148,12 @@ contains
 #endif      
 
       if(lprint)then
-	     call copy_print(iframe,hfields_flip,phifields_flip)
+	     call copy_print(test3d_flip,iframe,hfields_flip &
+#ifdef TWOCOMPONENT	      
+	      ,phifields_flip &
+#endif
+	      )
+	      
          if(lvtk)then
             call driver_print_vtk_sync(iframe)
          endif
@@ -193,16 +199,17 @@ contains
 	  call exchange_hfields_sendrecv(hfields_flip)
 	  if(ldiagnostic)call end_timing2("LB","ex_hfields_sendrecv")
 	  if(ldiagnostic)call start_timing2("LB","ex_hfields_intpbc")
-	  call exchange_hfields_intpbc(hfields_flip)
+	  call exchange_hfields_intpbc(test3d_flip,hfields_flip)
 	  if(ldiagnostic)call end_timing2("LB","ex_hfields_intpbc")
 	  if(ldiagnostic)call start_timing2("LB","ex_hfields_wait")
 	  call exchange_hfields_wait(hfields_flip)
-	  if(ldiagnostic)call end_timing2("LB","ex_hfields_wait")
+	  if(ldiagnostic)call end_timing2("LB","ex_hfields_wait")	  
       !************ thread-safe boundary condition setup
+#ifdef TWOCOMPONENT  
       if(ldiagnostic)call start_timing2("LB","bcs_phi")
       call bcs_mesoscopic_phifields(hfields_flop,phifields_flop)
       if(ldiagnostic)call end_timing2("LB","bcs_phi") 
-
+#endif
       ! start diagnostic if requested
       if(ldiagnostic)then
          !call print_timing_partial(1,1,itime_start,6)
@@ -268,21 +275,23 @@ contains
 		 if(ldiagnostic)call end_timing2("LB","ex_auxfields_wait")
          
 #endif
- 
+
 		 !***********************************pbcs boundary conditions ********************************!
          if(ldiagnostic)call start_timing2("LB","ex_hfields_sendrecv")
 		 call exchange_hfields_sendrecv(hfields_flip)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_sendrecv")
 		 if(ldiagnostic)call start_timing2("LB","ex_hfields_intpbc")
-		 call exchange_hfields_intpbc(hfields_flip)
+		 call exchange_hfields_intpbc(test3d_flip,hfields_flip)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_intpbc")
 		 if(ldiagnostic)call start_timing2("LB","ex_hfields_wait")
 		 call exchange_hfields_wait(hfields_flip)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_wait")
          !************ thread-safe boundary condition setup
+#ifdef TWOCOMPONENT           
          if(ldiagnostic)call start_timing2("LB","bcs_phi")
          call bcs_mesoscopic_phifields(hfields_flip,phifields_flip)
          if(ldiagnostic)call end_timing2("LB","bcs_phi") 
+#endif
          !***********************************moments************************
          if(ldiagnostic)call start_timing2("LB","moments")
 #ifdef TWOCOMPONENT
@@ -292,14 +301,22 @@ contains
 		 call repulsive_flux_normal_cuda(phifields_flip)
 #endif
 #endif
-         call moments_LB_cuda(hfields_flip,phifields_flip)
+         call moments_LB_cuda(test3d_flip,hfields_flip &
+#ifdef TWOCOMPONENT         
+          ,phifields_flip &
+#endif
+          )
          if(ldiagnostic)call end_timing2("LB","moments")
          
         
          if(lprint)then 
            if(mod(step,stamp).eq.0 .or. mod(step,stamp2D).eq.0 .or. mod(step,stamp_term).eq.0)then
              if(ldiagnostic)call start_timing2("IO","print")
-	         call copy_print(iframe,hfields_flip,phifields_flip)
+	         call copy_print(test3d_flip,iframe,hfields_flip &
+#ifdef TWOCOMPONENT	      
+	          ,phifields_flip &
+#endif
+	         )
              !write(6,*)'vorrei stampare'
              if(mod(step,stamp).eq.0)then
                iframe=iframe+1
@@ -345,15 +362,26 @@ contains
          
          !***********************************collision + no slip + forcing: fused implementation*********
 		 if(ldiagnostic)call start_timing2("LB","fused")   
-         call fused_LB_cuda(hfields_flip,hfields_flop,phifields_flip)
+         call fused_LB_cuda(test3d_flip,test3d_flop,hfields_flip,hfields_flop &
+#ifdef TWOCOMPONENT	   
+          ,phifields_flip &
+#endif
+         )
+#ifdef TWOCOMPONENT	            
          call update_phifields(hfields_flip,phifields_flip,phifields_flop)
+#endif
          if(ldiagnostic)call end_timing2("LB","fused")
          
          !************ thread-safe boundary condition setup
+#ifdef INTERNAL_OBSTACLES    
          if(ldiagnostic)call start_timing2("LB","bcs_hfields")
-         call bcs_mesoscopic_hfields(hfields_flip,hfields_flop,phifields_flip)
+         call bcs_mesoscopic_hfields(hfields_flip,hfields_flop &
+#ifdef TWOCOMPONENT	          
+          ,phifields_flip &
+#endif
+         )
          if(ldiagnostic)call end_timing2("LB","bcs_hfields") 
-         
+#endif         
          if(time_limit>ZERO)then
            if(mod(step,every_time_check).eq.0)then
              !$acc wait
@@ -420,15 +448,17 @@ contains
 		 call exchange_hfields_sendrecv(hfields_flop)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_sendrecv")
 		 if(ldiagnostic)call start_timing2("LB","ex_hfields_intpbc")
-		 call exchange_hfields_intpbc(hfields_flop)
+		 call exchange_hfields_intpbc(test3d_flop,hfields_flop)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_intpbc")
 		 if(ldiagnostic)call start_timing2("LB","ex_hfields_wait")
 		 call exchange_hfields_wait(hfields_flop)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_wait")
          !************ thread-safe boundary condition setup
+#ifdef TWOCOMPONENT         
          if(ldiagnostic)call start_timing2("LB","bcs_phi")
          call bcs_mesoscopic_phifields(hfields_flop,phifields_flop)
          if(ldiagnostic)call end_timing2("LB","bcs_phi") 
+#endif
          !***********************************moments************************
          if(ldiagnostic)call start_timing2("LB","moments")
 #ifdef TWOCOMPONENT
@@ -438,13 +468,21 @@ contains
 		 call repulsive_flux_normal_cuda(phifields_flop)
 #endif
 #endif
-         call moments_LB_cuda(hfields_flop,phifields_flop)
+         call moments_LB_cuda(test3d_flop,hfields_flop &
+#ifdef TWOCOMPONENT         
+          ,phifields_flop &
+#endif
+          )
          if(ldiagnostic)call end_timing2("LB","moments")	 
         
          if(lprint)then 
            if(mod(step,stamp).eq.0 .or. mod(step,stamp2D).eq.0 .or. mod(step,stamp_term).eq.0)then
              if(ldiagnostic)call start_timing2("IO","print")
-             call copy_print(iframe,hfields_flop,phifields_flop)
+	         call copy_print(test3d_flop,iframe,hfields_flop &
+#ifdef TWOCOMPONENT	      
+	          ,phifields_flop &
+#endif
+	         )
              !write(6,*)'vorrei stampare'
              if(mod(step,stamp).eq.0)then
                iframe=iframe+1
@@ -490,15 +528,26 @@ contains
          
          !***********************************collision + no slip + forcing: fused implementation*********
 		 if(ldiagnostic)call start_timing2("LB","fused")   
-         call fused_LB_cuda(hfields_flop,hfields_flip,phifields_flop)
+         call fused_LB_cuda(test3d_flop,test3d_flip,hfields_flop,hfields_flip &
+#ifdef TWOCOMPONENT	            
+         ,phifields_flop &
+#endif
+         )
+#ifdef TWOCOMPONENT	   
          call update_phifields(hfields_flop,phifields_flop,phifields_flip)
+#endif
          if(ldiagnostic)call end_timing2("LB","fused")
          
          !************ thread-safe boundary condition setup
+#ifdef INTERNAL_OBSTACLES          
          if(ldiagnostic)call start_timing2("LB","bcs_hfields")
-         call bcs_mesoscopic_hfields(hfields_flop,hfields_flip,phifields_flop)
+         call bcs_mesoscopic_hfields(hfields_flop,hfields_flip &
+#ifdef TWOCOMPONENT	          
+          ,phifields_flop &
+#endif
+         )
          if(ldiagnostic)call end_timing2("LB","bcs_hfields") 
-         
+#endif         
          if(time_limit>ZERO)then
            if(mod(step,every_time_check).eq.0)then
              !$acc wait

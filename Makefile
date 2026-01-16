@@ -6,6 +6,7 @@ BINROOT = $(CURDIR)
 FC=undefined
 CC=undefined
 FCUDAFLAGS=undefined
+FCUDAFLAGSRID=undefined
 FFLAGS=undefined
 LDFLAGS=undefined
 TYPE=undefined
@@ -14,6 +15,9 @@ EXP=main.x
 EXE = $(BINROOT)/$(EX)
 EXEP = $(BINROOT)/$(EXP)
 SHELL=/bin/sh
+
+# default (change calling: make GPUCC=80)
+GPUCC ?= 80
 
 def:	all
 
@@ -54,9 +58,10 @@ nvfortran:
 	$(MAKE) CC=nvcc \
 	FC=nvfortran \
 	CFLAGS="-O3 -I $(CURDIR) " \
-	FCUDAFLAGS="-cuda -gpu=ccall,ptxinfo" \
-	FFLAGS="-O3 -cpp -acc -gpu=ccall,lineinfo -Minfo=accel -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
-	LDFLAGS="-O3 -acc -cuda -gpu=ccall,lineinfo -Minfo=accel -DPRC=4 -I $(CURDIR) -o" \
+	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo -Minfo=accel -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
+	FCUDAFLAGSRID="-O1 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo -Minfo=accel -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
+	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
+	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=4 -I $(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EXP) BINROOT=$(BINROOT) seq
 	
@@ -64,9 +69,9 @@ nvfortran-debug:
 	$(MAKE) CC=nvcc \
 	FC=nvfortran \
 	CFLAGS="-O3 -g -I $(CURDIR) " \
-	FCUDAFLAGS="-cuda -gpu=ccall,debug,keep,ptxinfo,lineinfo" \
-	FFLAGS="-O1 -g -cpp -acc -gpu=ccall,debug,keep,ptxinfo,lineinfo -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
-	LDFLAGS="-O3 -acc -gpu=ccall,lineinfo -Minfo=accel -DPRC=4 -I $(CURDIR) -o" \
+	FCUDAFLAGS="-cuda -gpu=cc$(GPUCC),debug,keep,ptxinfo,lineinfo" \
+	FFLAGS="-O1 -g -cpp -acc -gpu=cc$(GPUCC),debug,keep,ptxinfo,lineinfo -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
+	LDFLAGS="-O3 -acc -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=4 -I $(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EX) BINROOT=$(BINROOT) seq
 
@@ -74,9 +79,9 @@ nvfortran-mpi:
 	$(MAKE) CC=mpicc \
 	FC=mpif90 \
 	CFLAGS="-O3 -I $(CURDIR) " \
-	FCUDAFLAGS="-cuda -gpu=ccall,ptxinfo" \
-	FFLAGS="-O3 -cpp -acc -gpu=ccall,lineinfo -Minfo=accel -DPRC=4 -DLATTICE=D3Q27 -DMPI -D_KERNELCUDA -I $(CURDIR) " \
-	LDFLAGS="-O3 -acc -cuda -gpu=ccall,lineinfo -Minfo=accel -DPRC=4 -DMPI -I $(CURDIR) -o" \
+	FCUDAFLAGS="-cuda -gpu=cc$(GPUCC),ptxinfo" \
+	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=4 -DLATTICE=D3Q27 -DMPI -D_KERNELCUDA -I $(CURDIR) " \
+	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=4 -DMPI -I $(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EXP) BINROOT=$(BINROOT) seq
 
@@ -84,9 +89,9 @@ nvfortran-mpi-debug:
 	$(MAKE) CC=mpicc \
 	FC=mpif90 \
 	CFLAGS="-O1 -g -I $(CURDIR) " \
-	FCUDAFLAGS="-cuda -gpu=ccall,debug,keep,ptxinfo" \
-	FFLAGS="-O1 -g -cpp -acc -gpu=ccall,debug,keep,ptxinfo -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -DMPI -I $(CURDIR) " \
-	LDFLAGS="-O1 -acc -cuda -gpu=ccall -Minfo=accel -DPRC=4 -DMPI -I $(CURDIR) -o" \
+	FCUDAFLAGS="-cuda -gpu=cc$(GPUCC),debug,keep,ptxinfo" \
+	FFLAGS="-O1 -g -cpp -acc -gpu=cc$(GPUCC),debug,keep,ptxinfo -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -DMPI -I $(CURDIR) " \
+	LDFLAGS="-O1 -acc -cuda -gpu=cc$(GPUCC) -Minfo=accel -DPRC=4 -DMPI -I $(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EXP) BINROOT=$(BINROOT) seq
 
@@ -94,9 +99,9 @@ nvfortran-dble:
 	$(MAKE) CC=nvcc \
 	FC=nvfortran \
 	CFLAGS="-O3 -I $(CURDIR) " \
-	FCUDAFLAGS="-cuda -gpu=ccall,ptxinfo" \
-	FFLAGS="-O3 -cpp -acc -gpu=ccall,lineinfo -Minfo=accel -DPRC=8 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
-	LDFLAGS="-O3 -acc -cuda -gpu=ccall,lineinfo -Minfo=accel -DPRC=8 -I $(CURDIR) -o" \
+	FCUDAFLAGS="-cuda -gpu=cc$(GPUCC),ptxinfo" \
+	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=8 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
+	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=8 -I $(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EXP) BINROOT=$(BINROOT) seq
 
@@ -104,20 +109,20 @@ nvfortran-mpi-dble:
 	$(MAKE) CC=mpicc \
 	FC=mpif90 \
 	CFLAGS="-O3 -I $(CURDIR) " \
-	FCUDAFLAGS="-cuda -gpu=ccall,ptxinfo" \
-	FFLAGS="-O3 -cpp -acc -gpu=ccall,lineinfo -Minfo=accel -DPRC=8 -DLATTICE=D3Q27 -DMPI -D_KERNELCUDA -I $(CURDIR) " \
-	LDFLAGS="-O3 -acc -cuda -gpu=ccall,lineinfo -Minfo=accel -DPRC=8 -DMPI -I $(CURDIR) -o" \
+	FCUDAFLAGS="-cuda -gpu=cc$(GPUCC),ptxinfo" \
+	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=8 -DLATTICE=D3Q27 -DMPI -D_KERNELCUDA -I $(CURDIR) " \
+	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=8 -DMPI -I $(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EXP) BINROOT=$(BINROOT) seq
 
 
 
 seq:get_mem.o get_ram.o vars_module.o \
-	mpi_module.o profiling_m.o lb_cuda_kernels_module.o boundary_cds_module.o \
+	mpi_module.o profiling_m.o lb_cuda_vars_module.o lb_cuda_fused_module.o lb_cuda_kernels_module.o boundary_cds_module.o \
 	init_conditions_module.o statistics.o print_module.o allocate_module.o integrator_module.o \
 	LLBcuda.o
 	$(FC) $(LDFLAGS) $(EX) get_mem.o get_ram.o vars_module.o mpi_module.o \
-	profiling_m.o lb_cuda_kernels_module.o boundary_cds_module.o \
+	profiling_m.o lb_cuda_vars_module.o lb_cuda_fused_module.o lb_cuda_kernels_module.o boundary_cds_module.o \
 	init_conditions_module.o statistics.o print_module.o allocate_module.o integrator_module.o \
 	LLBcuda.o
 #	mv $(EXP) $(EXEP)
@@ -137,8 +142,14 @@ mpi_module.o:mpi_module.f90
 profiling_m.o: profiling_m.f90
 	$(FC) $(FFLAGS) -c profiling_m.f90
 
+lb_cuda_vars_module.o:lb_cuda_vars_module.f90
+	$(FC) $(FCUDAFLAGS) -c lb_cuda_vars_module.f90
+
+lb_cuda_fused_module.o:lb_cuda_fused_module.f90
+	$(FC) $(FCUDAFLAGSRID) -c lb_cuda_fused_module.f90
+
 lb_cuda_kernels_module.o:lb_cuda_kernels_module.f90
-	$(FC) $(FFLAGS) $(FCUDAFLAGS) -c lb_cuda_kernels_module.f90
+	$(FC) $(FCUDAFLAGS) -c lb_cuda_kernels_module.f90
 
 boundary_cds_module.o:boundary_cds_module.f90
 	$(FC) $(FFLAGS) -c boundary_cds_module.f90

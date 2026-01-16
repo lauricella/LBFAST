@@ -2706,10 +2706,10 @@ contains
    
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!BVEC!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-   subroutine exchange_hfields_intpbc(hfields_s)
+   subroutine exchange_hfields_intpbc(test3d_s,hfields_s)
 
       implicit none
-      
+      real(kind=db), allocatable, dimension(:,:,:,:) :: test3d_s
       real(kind=db), allocatable, dimension(:) :: hfields_s
       integer :: imin,imax,jmin,jmax,kmin,kmax
       integer :: lmio,oi,oj,ok
@@ -2761,6 +2761,18 @@ contains
                   ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                   jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                   kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+                  
+                  
+                  test3d_s(i,j,k,1)=test3d_s(oi,oj,ok,1)
+                  test3d_s(i,j,k,2)=test3d_s(oi,oj,ok,2)
+                  test3d_s(i,j,k,3)=test3d_s(oi,oj,ok,3)
+                  test3d_s(i,j,k,4)=test3d_s(oi,oj,ok,4)
+                  test3d_s(i,j,k,5)=test3d_s(oi,oj,ok,5)
+                  test3d_s(i,j,k,6)=test3d_s(oi,oj,ok,6)
+                  test3d_s(i,j,k,7)=test3d_s(oi,oj,ok,7)
+                  test3d_s(i,j,k,8)=test3d_s(oi,oj,ok,8)
+                  test3d_s(i,j,k,9)=test3d_s(oi,oj,ok,9)
+                  test3d_s(i,j,k,10)=test3d_s(oi,oj,ok,10)
                   
                   hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
                    hfields_s(idx5(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
@@ -6886,19 +6898,26 @@ contains
 
    end function GET_RANK_POINT
 
-   subroutine dostop(mystring)
+   subroutine dostop(mystring,mystring2,inumber)
 
       implicit none
 
       integer :: ierr
 
       character(len=*), optional :: mystring
-
-      if(present(mystring))then
-         if(myrank==0)then
+      character(len=*), optional :: mystring2
+      integer, optional :: inumber
+      
+      if(myrank==0)then
+        if(present(mystring))then
+          if(present(inumber))then
+            write(6,'(4a,i0)')trim(mystring),' - ',trim(mystring2),':',inumber
+            call flush(6)
+          else
             write(6,'(a)')mystring
             call flush(6)
-         endif
+          endif
+        endif
       endif
 
 #ifdef MPI

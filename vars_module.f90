@@ -233,6 +233,8 @@ module vars
    real(kind=db), allocatable, dimension(:) :: auxfields !allocate aux fields
    real(kind=db), allocatable, dimension(:) :: locauxfields !allocate aux fields
    
+   real(kind=db), allocatable, dimension(:,:,:,:) :: test3d_flip,test3d_flop  
+   
    integer, parameter :: nhfields=10
    integer, parameter :: nphifields=1
 #ifdef TWOCOMPONENT

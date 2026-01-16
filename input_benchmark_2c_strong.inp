@@ -19,9 +19,9 @@
    pbc_y=1
    pbc_z=1
    nplanes=0
-   TILE_DIMx=4
-   TILE_DIMy=4
-   TILE_DIMz=4
+   TILE_DIMx=2
+   TILE_DIMy=2
+   TILE_DIMz=2
    TILE_DIM=16
 &end
 &fluid
