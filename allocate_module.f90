@@ -21,14 +21,18 @@ contains
       allocate(hfields_flop(ntothfields))
       
       ntotphifields=TILE_DIMx*TILE_DIMy*TILE_DIMz*nphifields*nblocks
+#ifdef TWOCOMPONENT       
       allocate(phifields_flip(ntotphifields))
       allocate(phifields_flop(ntotphifields))
-      
+#endif      
       ntotauxfields=TILE_DIMx*TILE_DIMy*TILE_DIMz*nauxfields*nblocks
       allocate(auxfields(ntotauxfields))
       
       ntotlocauxfields=TILE_DIMx*TILE_DIMy*TILE_DIMz*nlocauxfields*nblocks
       allocate(locauxfields(ntotlocauxfields))
+      
+      ntotforces=TILE_DIMx*TILE_DIMy*TILE_DIMz*nforces*nblocks
+      allocate(forces(ntotforces))
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!      
       
       
@@ -50,17 +54,15 @@ contains
       !allocate(isfluid(0:nx+1,0:ny+1,0:nz+1))
 	  allocate(isfluid(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff))
 	  
-	  allocate(test3d_flip(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,10))
-	  allocate(test3d_flop(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,10))
 	  
       if(lprint)then
          allocate(rhoprint(1:nxskip,1:nyskip,1:nzskip))
          allocate(velprint(1:3,1:nxskip,1:nyskip,1:nzskip))
-         rhoprint(1:nxskip,1:nyskip,1:nzskip)=0.0
-         velprint(1:3,1:nxskip,1:nyskip,1:nzskip)=0.0
+         rhoprint(1:nxskip,1:nyskip,1:nzskip)=ZERO
+         velprint(1:3,1:nxskip,1:nyskip,1:nzskip)=ZERO
 #if defined(TWOCOMPONENT) && defined(WRITEPRESS)
          allocate(pressprint(1:nxskip,1:nyskip,1:nzskip))
-         pressprint(1:nxskip,1:nyskip,1:nzskip)=0.0
+         pressprint(1:nxskip,1:nyskip,1:nzskip)=ZERO
 #endif
       endif
       

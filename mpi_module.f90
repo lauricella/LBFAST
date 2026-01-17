@@ -11,7 +11,7 @@ module mpi_template
 #endif
       flip,flop,rho_r,rho_b, &
       physic_type, &
-      idx5,nhfields,nphifields,auxfields,nauxfields, &
+      idx5,nhfields,nphifields,auxfields,nauxfields,forces,nforces, &
       TILE_DIMx,TILE_DIMy,TILE_DIMz,TILE_DIM,nxblock,nyblock,nzblock,nxyblock,nblocks
 #ifdef _OPENACC
    use openacc
@@ -94,14 +94,15 @@ module mpi_template
    integer, allocatable, save, dimension(:,:) :: f_send_extr,f_recv_extr
    integer, allocatable, save, dimension(:,:) :: fvec_send_extr,fvec_recv_extr
    integer, allocatable, save, dimension(:,:) :: b_send_extr,b_recv_extr
+   integer, allocatable, save, dimension(:,:) :: c_send_extr,c_recv_extr
 
    integer, save, dimension(nlinksmpi) :: f_num_extr,fvec_num_extr, &
-      b_num_extr,i_num_extr
+      b_num_extr,c_num_extr,i_num_extr
    integer, save :: f_numtot_extr,fvec_numtot_extr, &
-      b_numtot_extr,i_numtot_extr
+      b_numtot_extr,c_numtot_extr,i_numtot_extr
    integer, allocatable, save, dimension(:) :: num_links_pops
 
-   integer, dimension(13) :: f_datampi,fvec_datampi,b_datampi,i_datampi
+   integer, dimension(13) :: f_datampi,fvec_datampi,b_datampi,c_datampi,i_datampi
    
    integer, parameter :: num_hfields_datampi=10 
 #ifdef TWOCOMPONENT
@@ -110,6 +111,8 @@ module mpi_template
    integer, parameter :: num_auxfields_datampi=0
 #endif
    integer, parameter :: num_phifields_datampi=1
+   
+   integer, parameter :: num_forces_datampi=3 
 
    real(kind=db), allocatable, save, dimension(:) :: f_send_buffmpi,f_recv_buffmpi
    integer, dimension(nlinksmpi), save :: f_nbuffmpi_send,f_nbuffmpi_recv
@@ -119,6 +122,9 @@ module mpi_template
 
    real(kind=db), allocatable, save, dimension(:) :: b_send_buffmpi,b_recv_buffmpi
    integer, dimension(nlinksmpi), save :: b_nbuffmpi_send,b_nbuffmpi_recv
+   
+   real(kind=db), allocatable, save, dimension(:) :: c_send_buffmpi,c_recv_buffmpi
+   integer, dimension(nlinksmpi), save :: c_nbuffmpi_send,c_nbuffmpi_recv
 
    integer(kind=isf), allocatable, save, dimension(:) :: i_send_buffmpi,i_recv_buffmpi
    integer, dimension(nlinksmpi), save :: i_nbuffmpi_send,i_nbuffmpi_recv
@@ -128,6 +134,7 @@ module mpi_template
    integer, dimension(nlinksmpi), save :: f_mpitag
    integer, dimension(nlinksmpi), save :: fvec_mpitag
    integer, dimension(nlinksmpi), save :: b_mpitag
+   integer, dimension(nlinksmpi), save :: c_mpitag
    integer, dimension(nlinksmpi), save :: i_mpitag
 
    integer, dimension(nlinksmpi*2), save :: reqs
@@ -135,6 +142,7 @@ module mpi_template
    integer, dimension(nlinksmpi*2), save :: f_reqs
    integer, dimension(nlinksmpi*2), save :: fvec_reqs
    integer, dimension(nlinksmpi*2), save :: b_reqs
+   integer, dimension(nlinksmpi*2), save :: c_reqs
    integer, dimension(nlinksmpi*2), save :: i_reqs 
 
 
@@ -143,6 +151,7 @@ module mpi_template
    integer, save :: nf_reqs
    integer, save :: nfvec_reqs
    integer, save :: nb_reqs
+   integer, save :: nc_reqs
    integer, save :: ni_reqs
 
 #ifdef REPULSIVE_FLUX
@@ -460,6 +469,7 @@ contains
          mpitag(l) = 400 + l
          f_mpitag(l) = 500 + l
          b_mpitag(l) = 600 + l
+         c_mpitag(l) = 300 + l
          i_mpitag(l) = 700 + l
          fvec_mpitag(l) = 900 + l
          temp_coord(1) = coords(1) + exmpi(l)
@@ -909,6 +919,8 @@ contains
       allocate(fvec_recv_extr(6,nlinksmpi))
       allocate(b_send_extr(6,nlinksmpi))
       allocate(b_recv_extr(6,nlinksmpi))
+      allocate(c_send_extr(6,nlinksmpi))
+      allocate(c_recv_extr(6,nlinksmpi))
 
       !faces
       do l=1,6
@@ -1833,9 +1845,9 @@ contains
          endif
       enddo
 
-      !gli estremi di fvec sono gli stessi di f
-      !fvec_send_extr(1:6,1:nlinksmpi)=f_send_extr(1:6,1:nlinksmpi)
-      !fvec_recv_extr(1:6,1:nlinksmpi)=f_recv_extr(1:6,1:nlinksmpi)
+      !gli estremi di c sono gli stessi di b
+      c_send_extr(1:6,1:nlinksmpi)=b_send_extr(1:6,1:nlinksmpi)
+      c_recv_extr(1:6,1:nlinksmpi)=b_recv_extr(1:6,1:nlinksmpi)
       
 	  !gli estremi di bvec sono diversi da fvec perche seguono nbuffbvec
 
@@ -1853,40 +1865,44 @@ contains
          b_num_extr(l)=(b_recv_extr(2,l)-b_recv_extr(1,l)+1)* &
             (b_recv_extr(4,l)-b_recv_extr(3,l)+1)* &
             (b_recv_extr(6,l)-b_recv_extr(5,l)+1)*num_hfields_datampi
+         c_num_extr(l)=(c_recv_extr(2,l)-c_recv_extr(1,l)+1)* &
+            (c_recv_extr(4,l)-c_recv_extr(3,l)+1)* &
+            (c_recv_extr(6,l)-c_recv_extr(5,l)+1)*num_forces_datampi
       enddo
 
 
 
 #ifdef VERBOSE
       !stampo per debug
-      if(myrank==0)write(6,'(a)')'####################### f_send_extr  f_recv_extr #######################'
-      do l=1,nlinksmpi
-         if(myrank==0)write(6,'(a,i3,a,3i3,a,6i4,a,6i4,a,i4)')'dir l ',l,' disp ',&
-            exmpi(l),eympi(l),ezmpi(l),' extremes d',f_send_extr(1:6,l),&
-            ' s ',f_recv_extr(1:6,l),' num ',f_num_extr(l)
-         call flush(6)
-#ifdef MPI
-         call MPI_Barrier(MPI_COMM_WORLD,ierr)
-#endif
-      enddo
-#ifdef MPI
-      call MPI_Barrier(MPI_COMM_WORLD,ierr)
-#endif
-      if(myrank==0)write(6,'(a)')'####################### fvec_send_extr  fvec_recv_extr #######################'
-      do l=1,nlinksmpi
-         if(myrank==0)write(6,'(a,i3,a,3i3,a,6i4,a,6i4,a,i4)')'dir l ',l,' disp ',&
-            exmpi(l),eympi(l),ezmpi(l),' extremes d',f_send_extr(1:6,l),&
-            ' s ',f_recv_extr(1:6,l),' num ',fvec_num_extr(l)
-         call flush(6)
-#ifdef MPI
-         call MPI_Barrier(MPI_COMM_WORLD,ierr)
-#endif
-      enddo
-#ifdef MPI
-      call MPI_Barrier(MPI_COMM_WORLD,ierr)
-#endif
       if(lbuff)then
-         if(myrank==0)write(6,'(a)')'####################### b_send_extr  b_recv_extr #######################'
+        if(myrank==0)write(6,'(a)')'####################### f_send_extr  f_recv_extr #######################'
+        do l=1,nlinksmpi
+           if(myrank==0)write(6,'(a,i3,a,3i3,a,6i4,a,6i4,a,i4)')'dir l ',l,' disp ',&
+              exmpi(l),eympi(l),ezmpi(l),' extremes d',f_send_extr(1:6,l),&
+              ' s ',f_recv_extr(1:6,l),' num ',f_num_extr(l)
+           call flush(6)
+#ifdef MPI
+           call MPI_Barrier(MPI_COMM_WORLD,ierr)
+#endif
+        enddo
+#ifdef MPI
+        call MPI_Barrier(MPI_COMM_WORLD,ierr)
+#endif
+        if(myrank==0)write(6,'(a)')'####################### fvec_send_extr  fvec_recv_extr #######################'
+        do l=1,nlinksmpi
+           if(myrank==0)write(6,'(a,i3,a,3i3,a,6i4,a,6i4,a,i4)')'dir l ',l,' disp ',&
+              exmpi(l),eympi(l),ezmpi(l),' extremes d',f_send_extr(1:6,l),&
+              ' s ',f_recv_extr(1:6,l),' num ',fvec_num_extr(l)
+           call flush(6)
+#ifdef MPI
+           call MPI_Barrier(MPI_COMM_WORLD,ierr)
+#endif
+        enddo
+#ifdef MPI
+        call MPI_Barrier(MPI_COMM_WORLD,ierr)
+#endif
+      endif
+      if(myrank==0)write(6,'(a)')'####################### b_send_extr  b_recv_extr #######################'
          do l=1,nlinksmpi
             if(myrank==0)write(6,'(a,i3,a,3i3,a,6i4,a,6i4,a,i4)')'dir l ',l,' disp ',&
                exmpi(l),eympi(l),ezmpi(l),' extremes d',b_send_extr(1:6,l),&
@@ -1896,7 +1912,22 @@ contains
             call MPI_Barrier(MPI_COMM_WORLD,ierr)
 #endif
          enddo
-      endif
+      
+#ifdef MPI
+      call MPI_Barrier(MPI_COMM_WORLD,ierr)
+#endif
+
+      if(myrank==0)write(6,'(a)')'####################### c_send_extr  c_recv_extr #######################'
+         do l=1,nlinksmpi
+            if(myrank==0)write(6,'(a,i3,a,3i3,a,6i4,a,6i4,a,i4)')'dir l ',l,' disp ',&
+               exmpi(l),eympi(l),ezmpi(l),' extremes d',c_send_extr(1:6,l),&
+               ' s ',c_recv_extr(1:6,l),' num ',c_num_extr(l)
+            call flush(6)
+#ifdef MPI
+            call MPI_Barrier(MPI_COMM_WORLD,ierr)
+#endif
+         enddo
+      
 #ifdef MPI
       call MPI_Barrier(MPI_COMM_WORLD,ierr)
 #endif
@@ -1908,15 +1939,45 @@ contains
 #ifdef MPI
 
       !dir
-      do l=1,nlinksmpi,2
-         ll=(l+1)/2
-         call MPI_type_contiguous(f_num_extr(l), MYMPIREAL, f_datampi(ll), ierr)
-         call MPI_type_commit(f_datampi(ll),ierr)
+      if(lbuff)then
+        do l=1,nlinksmpi,2
+          ll=(l+1)/2
+          call MPI_type_contiguous(f_num_extr(l), MYMPIREAL, f_datampi(ll), ierr)
+          call MPI_type_commit(f_datampi(ll),ierr)
 #ifdef VERBOSE
-         if(myrank.eq.0) then
+          if(myrank.eq.0) then
             write(6,'(a,2i4,a,f16.8)') 'CREATE BUFFER: f_datampi',ll*2-1,ll*2,' (KB)-->', &
                real(f_num_extr(l),kind=db) *4 / 1024
             call flush(6)
+          endif
+#endif
+        enddo
+
+      !dir
+        do l=1,nlinksmpi,2
+          ll=(l+1)/2
+          call MPI_type_contiguous(fvec_num_extr(l), MYMPIREAL, fvec_datampi(ll), ierr)
+          call MPI_type_commit(fvec_datampi(ll),ierr)
+#ifdef VERBOSE
+          if(myrank.eq.0) then
+            write(6,'(a,2i4,a,f16.8)') 'CREATE BUFFER: fvec_datampi',ll*2-1,ll*2,' (KB)-->', &
+               real(fvec_num_extr(l),kind=db) *4 / 1024
+            call flush(6)
+          endif
+#endif
+        enddo
+      endif
+      
+      !dir
+      do l=1,nlinksmpi,2
+         ll=(l+1)/2
+         call MPI_type_contiguous(b_num_extr(l), MYMPIREAL, b_datampi(ll), ierr)
+         call MPI_type_commit(b_datampi(ll),ierr)
+#ifdef VERBOSE
+         if(myrank.eq.0) then
+            write(6,'(a,2i4,a,f16.8)') 'CREATE BUFFER: b_datampi',ll*2-1,ll*2,' (KB)-->', &
+               real(b_num_extr(l),kind=db) *4 / 1024
+            call flush(6)
          endif
 #endif
       enddo
@@ -1924,32 +1985,16 @@ contains
       !dir
       do l=1,nlinksmpi,2
          ll=(l+1)/2
-         call MPI_type_contiguous(fvec_num_extr(l), MYMPIREAL, fvec_datampi(ll), ierr)
-         call MPI_type_commit(fvec_datampi(ll),ierr)
+         call MPI_type_contiguous(c_num_extr(l), MYMPIREAL, c_datampi(ll), ierr)
+         call MPI_type_commit(c_datampi(ll),ierr)
 #ifdef VERBOSE
          if(myrank.eq.0) then
-            write(6,'(a,2i4,a,f16.8)') 'CREATE BUFFER: fvec_datampi',ll*2-1,ll*2,' (KB)-->', &
-               real(fvec_num_extr(l),kind=db) *4 / 1024
+            write(6,'(a,2i4,a,f16.8)') 'CREATE BUFFER: c_datampi',ll*2-1,ll*2,' (KB)-->', &
+               real(c_num_extr(l),kind=db) *4 / 1024
             call flush(6)
          endif
 #endif
-      enddo
-
-      !dir
-      if(lbuff)then
-         do l=1,nlinksmpi,2
-            ll=(l+1)/2
-            call MPI_type_contiguous(b_num_extr(l), MYMPIREAL, b_datampi(ll), ierr)
-            call MPI_type_commit(b_datampi(ll),ierr)
-#ifdef VERBOSE
-            if(myrank.eq.0) then
-               write(6,'(a,2i4,a,f16.8)') 'CREATE BUFFER: b_datampi',ll*2-1,ll*2,' (KB)-->', &
-                  real(b_num_extr(l),kind=db) *4 / 1024
-               call flush(6)
-            endif
-#endif
-         enddo
-      endif
+      enddo   
 
       !dir
       do l=1,nlinksmpi,2
@@ -1977,6 +2022,7 @@ contains
       
 
       !alloco per f
+    if(lbuff)then
       f_numtot_extr=sum(f_num_extr)
       ll=0
       do l=1,nlinksmpi
@@ -2011,27 +2057,45 @@ contains
       enddo
       allocate(fvec_recv_buffmpi(ll))
       fvec_recv_buffmpi=real(0.d0,kind=db)
-
+    endif
+      
       !alloco per b
-      if(lbuff)then
-         b_numtot_extr=sum(b_num_extr)
-         ll=0
-         do l=1,nlinksmpi
-            b_nbuffmpi_send(l)=ll+1
-            if(lsend_dir(l))ll=ll+b_num_extr(l)
-         enddo
-         allocate(b_send_buffmpi(ll))
-         b_send_buffmpi=real(0.d0,kind=db)
+      b_numtot_extr=sum(b_num_extr)
+      ll=0
+      do l=1,nlinksmpi
+         b_nbuffmpi_send(l)=ll+1
+         if(lsend_dir(l))ll=ll+b_num_extr(l)
+      enddo
+      allocate(b_send_buffmpi(ll))
+      b_send_buffmpi=real(0.d0,kind=db)
 
-         ll=0
-         do l=1,nlinksmpi
-            b_nbuffmpi_recv(l)=ll+1
-            if(lrecv_dir(l))ll=ll+b_num_extr(l)
-         enddo
-         allocate(b_recv_buffmpi(ll))
-         b_recv_buffmpi=real(0.d0,kind=db)
-      endif
+      ll=0
+      do l=1,nlinksmpi
+         b_nbuffmpi_recv(l)=ll+1
+         if(lrecv_dir(l))ll=ll+b_num_extr(l)
+      enddo
+      allocate(b_recv_buffmpi(ll))
+      b_recv_buffmpi=real(0.d0,kind=db)
+     
+      !alloco per c
+      c_numtot_extr=sum(c_num_extr)
+      ll=0
+      do l=1,nlinksmpi
+         c_nbuffmpi_send(l)=ll+1
+         if(lsend_dir(l))ll=ll+c_num_extr(l)
+      enddo
+      allocate(c_send_buffmpi(ll))
+      c_send_buffmpi=real(0.d0,kind=db)
 
+      ll=0
+      do l=1,nlinksmpi
+         c_nbuffmpi_recv(l)=ll+1
+         if(lrecv_dir(l))ll=ll+c_num_extr(l)
+      enddo
+      allocate(c_recv_buffmpi(ll))
+      c_recv_buffmpi=real(0.d0,kind=db)
+
+      !alloco per i
       i_numtot_extr=sum(i_num_extr)
       ll=0
       do l=1,nlinksmpi
@@ -2704,12 +2768,12 @@ contains
 
    end subroutine depackaging_auxfields_buffmpi
    
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!BVEC!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!hfields!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-   subroutine exchange_hfields_intpbc(test3d_s,hfields_s)
+   subroutine exchange_hfields_intpbc(hfields_s)
 
       implicit none
-      real(kind=db), allocatable, dimension(:,:,:,:) :: test3d_s
+      
       real(kind=db), allocatable, dimension(:) :: hfields_s
       integer :: imin,imax,jmin,jmax,kmin,kmax
       integer :: lmio,oi,oj,ok
@@ -2763,16 +2827,6 @@ contains
                   kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
                   
                   
-                  test3d_s(i,j,k,1)=test3d_s(oi,oj,ok,1)
-                  test3d_s(i,j,k,2)=test3d_s(oi,oj,ok,2)
-                  test3d_s(i,j,k,3)=test3d_s(oi,oj,ok,3)
-                  test3d_s(i,j,k,4)=test3d_s(oi,oj,ok,4)
-                  test3d_s(i,j,k,5)=test3d_s(oi,oj,ok,5)
-                  test3d_s(i,j,k,6)=test3d_s(oi,oj,ok,6)
-                  test3d_s(i,j,k,7)=test3d_s(oi,oj,ok,7)
-                  test3d_s(i,j,k,8)=test3d_s(oi,oj,ok,8)
-                  test3d_s(i,j,k,9)=test3d_s(oi,oj,ok,9)
-                  test3d_s(i,j,k,10)=test3d_s(oi,oj,ok,10)
                   
                   hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
                    hfields_s(idx5(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
@@ -3104,6 +3158,297 @@ contains
 
 
    end subroutine depackaging_hfields_buffmpi   
+   
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!forces!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+   subroutine exchange_forces_intpbc()
+
+      implicit none
+      
+      integer :: imin,imax,jmin,jmax,kmin,kmax
+      integer :: lmio,oi,oj,ok
+      integer :: ii,jj,kk,xblock,yblock,zblock,myblock
+      integer :: oii,ojj,okk
+      integer :: oxblock,oyblock,ozblock,omyblock
+      
+!!!!!c_send_extr   !!!!!!!!!!!!c_recv_extr
+      do lmio=1,nlinksmpi
+         if(.not. lintpbc_dir(lmio))cycle
+         imin=c_recv_extr(1,lmio)
+         imax=c_recv_extr(2,lmio)
+         jmin=c_recv_extr(3,lmio)
+         jmax=c_recv_extr(4,lmio)
+         kmin=c_recv_extr(5,lmio)
+         kmax=c_recv_extr(6,lmio)
+#ifdef ACCNOKERNELS
+         !$acc parallel loop independent collapse(3) present(intpbc_dir,forces) &
+         !$acc& private(ii,jj,kk,oi,oj,ok,oii,ojj,okk,oxblock,oyblock,ozblock, &
+         !$acc& omyblock,xblock,yblock,zblock,myblock)
+#else
+         !$acc kernels present(intpbc_dir,forces)
+         !$acc loop independent collapse(3) &
+         !$acc& private(i,j,k,ii,jj,kk,oi,oj,ok,oii,ojj,okk,oxblock,oyblock,ozblock, &
+         !$acc& omyblock,xblock,yblock,zblock,myblock)
+#endif
+         do k=kmin,kmax
+           do j=jmin,jmax
+              do i=imin,imax
+                  oi=i
+                  oj=j
+                  ok=k
+                  if(intpbc_dir(1,lmio))oi=mod(oi+nx-1,nx)+1
+                  if(intpbc_dir(2,lmio))oj=mod(oj+ny-1,ny)+1
+                  if(intpbc_dir(3,lmio))ok=mod(ok+nz-1,nz)+1
+                  
+                  oxblock=(oi+2*TILE_DIMx-1)/TILE_DIMx   
+                  oyblock=(oj+2*TILE_DIMy-1)/TILE_DIMy     
+                  ozblock=(ok+2*TILE_DIMz-1)/TILE_DIMz 
+                  omyblock=(oxblock-1)+(oyblock-1)*nxblock+(ozblock-1)*nxyblock+1
+                  oii=oi-oxblock*TILE_DIMx+2*TILE_DIMx
+                  ojj=oj-oyblock*TILE_DIMy+2*TILE_DIMy
+                  okk=ok-ozblock*TILE_DIMz+2*TILE_DIMz
+                  
+                  xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+                  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+                  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+                  myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+                  ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
+                  
+                  forces(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))= &
+                   forces(idx5(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+                  
+                  forces(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))= &
+                   forces(idx5(oii,ojj,okk,2,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+                  
+                  forces(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))= &
+                   forces(idx5(oii,ojj,okk,3,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+                  
+               enddo
+            enddo
+         enddo
+#ifdef ACCNOKERNELS
+        !$acc end parallel loop
+#else
+        !$acc end kernels
+#endif
+      enddo
+
+   end subroutine exchange_forces_intpbc
+
+   subroutine exchange_forces_sendrecv()
+
+      implicit none
+
+      integer :: l,ll,myoffset,tag,ierr,mm
+#ifndef MPI
+      return
+#endif
+      do l=1,nlinksmpi
+         if(lsend_dir(l))call packaging_forces_buffmpi(l)
+      enddo
+      !$acc wait
+#ifdef MPI
+      mm=0
+      do l=1,nlinksmpi
+         ll=(l+1)/2
+         if(lsend_dir(l))then
+            mm=mm+1
+            myoffset=c_nbuffmpi_send(l)
+            !$acc host_data use_device(c_send_buffmpi)
+            call mpi_isend(c_send_buffmpi(myoffset),1,c_datampi(ll),send_dir(l), &
+               c_mpitag(l),lbecomm,c_reqs(mm),ierr)
+            !$acc end host_data
+         endif
+         if(lrecv_dir(l))then
+            mm=mm+1
+            myoffset=c_nbuffmpi_recv(l)
+            !$acc host_data use_device(c_recv_buffmpi)
+            call mpi_irecv(c_recv_buffmpi(myoffset),1,c_datampi(ll),recv_dir(l), &
+               c_mpitag(l),lbecomm,c_reqs(mm),ierr)
+            !$acc end host_data
+         endif
+      enddo
+      nc_reqs=mm
+#endif
+
+
+   end subroutine exchange_forces_sendrecv
+
+   subroutine exchange_forces_wait()
+
+      implicit none
+
+      integer :: l,ll,myoffset,tag,ierr
+      integer, dimension(:), allocatable :: myierr
+      integer, dimension(:,:), allocatable :: mystatus
+#ifndef MPI
+      return
+#endif
+#ifdef MPI
+
+      allocate(myierr(nc_reqs))
+      myierr=0
+
+      allocate(mystatus(MPI_STATUS_SIZE,nc_reqs))
+      !$acc wait
+      call mpi_waitall(nc_reqs,c_reqs,mystatus,ierr)
+      !$acc wait
+
+      if(any(myierr.ne.0))call doerror(6,'ERROR in exchange_forces_wait')
+#endif
+      do l=1,nlinksmpi
+         if(lrecv_dir(l))call depackaging_forces_buffmpi(l)
+      enddo
+
+   end subroutine exchange_forces_wait
+
+   subroutine packaging_forces_buffmpi(lmio)
+
+      implicit none
+
+      integer, intent(in) :: lmio
+
+      integer :: myoffset
+
+      integer :: i,j,k,l,ll=0,m1,m2,m3
+      integer :: imin,imax,jmin,jmax,kmin,kmax
+      integer :: idx=0
+      integer :: ii,jj,kk,xblock,yblock,zblock,myblock
+
+      myoffset=c_nbuffmpi_send(lmio)
+      m1=c_send_extr(2,lmio)-c_send_extr(1,lmio)+1
+      m2=c_send_extr(4,lmio)-c_send_extr(3,lmio)+1
+      m3=c_send_extr(6,lmio)-c_send_extr(5,lmio)+1
+      imin=c_send_extr(1,lmio)
+      imax=c_send_extr(2,lmio)
+      jmin=c_send_extr(3,lmio)
+      jmax=c_send_extr(4,lmio)
+      kmin=c_send_extr(5,lmio)
+      kmax=c_send_extr(6,lmio)
+#ifdef ACCNOKERNELS
+      !$acc parallel loop independent collapse(3) present(c_send_buffmpi,c_send_extr,forces) &
+      !$acc& private(ll,idx,ii,jj,kk,xblock,yblock,zblock,myblock)
+#else
+      !$acc kernels present(c_send_buffmpi,c_send_extr,forces)
+      !$acc loop independent collapse(3)  private(i,j,k,ll,idx,ii,jj,kk,xblock,yblock,zblock,myblock)
+#endif
+      do k=kmin,kmax
+         do j=jmin,jmax
+            do i=imin,imax
+               
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+               yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+               zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
+               !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
+               !poi mandero solo i pezzi contigui che mi servono per la data direzione
+
+               !scorro sul numero di campi da prendere il massimo previsto è num_forces_datampi
+
+               ll=1
+               idx=myoffset+(i-c_send_extr(1,lmio))+(j-c_send_extr(3,lmio))*m1+(&
+                  k-c_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               c_send_buffmpi(idx)=forces(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+               
+               ll=2
+               idx=myoffset+(i-c_send_extr(1,lmio))+(j-c_send_extr(3,lmio))*m1+(&
+                  k-c_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               c_send_buffmpi(idx)=forces(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+               
+               ll=3
+               idx=myoffset+(i-c_send_extr(1,lmio))+(j-c_send_extr(3,lmio))*m1+(&
+                  k-c_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               c_send_buffmpi(idx)=forces(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+
+            enddo
+         enddo
+      enddo
+#ifdef ACCNOKERNELS
+      !$acc end parallel loop
+#else
+      !$acc end kernels
+#endif
+
+
+   end subroutine packaging_forces_buffmpi
+
+   subroutine depackaging_forces_buffmpi(lmio)
+
+      implicit none
+
+      integer, intent(in) :: lmio
+      
+      integer :: myoffset
+
+      integer :: i,j,k,l,ll=0,m1,m2,m3
+      integer :: imin,imax,jmin,jmax,kmin,kmax
+      integer :: idx=0
+      integer :: ii,jj,kk,xblock,yblock,zblock,myblock
+
+      myoffset=c_nbuffmpi_recv(lmio)
+      m1=c_recv_extr(2,lmio)-c_recv_extr(1,lmio)+1
+      m2=c_recv_extr(4,lmio)-c_recv_extr(3,lmio)+1
+      m3=c_recv_extr(6,lmio)-c_recv_extr(5,lmio)+1
+      imin=c_recv_extr(1,lmio)
+      imax=c_recv_extr(2,lmio)
+      jmin=c_recv_extr(3,lmio)
+      jmax=c_recv_extr(4,lmio)
+      kmin=c_recv_extr(5,lmio)
+      kmax=c_recv_extr(6,lmio)
+#ifdef ACCNOKERNELS
+      !$acc parallel loop independent collapse(3) present(c_recv_buffmpi,c_recv_extr,forces) &
+      !$acc& private(ll,idx,ii,jj,kk,xblock,yblock,zblock,myblock)
+#else
+      !$acc kernels present(c_recv_buffmpi,c_recv_extr,forces)
+      !$acc loop independent collapse(3) private(i,j,k,ll,idx,ii,jj,kk,xblock,yblock,zblock,myblock)
+#endif
+      do k=kmin,kmax
+         do j=jmin,jmax
+            do i=imin,imax
+               
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx   
+               yblock=(j+2*TILE_DIMy-1)/TILE_DIMy     
+               zblock=(k+2*TILE_DIMz-1)/TILE_DIMz  
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
+               !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
+               !poi mandero solo i pezzi contigui che mi servono per la data direzione
+
+               !scorro sul numero di campi da prendere il massimo previsto è num_forces_datampi
+
+               ll=1
+               idx=myoffset+(i-c_recv_extr(1,lmio))+(j-c_recv_extr(3,lmio))*m1+(&
+                  k-c_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               forces(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))=c_recv_buffmpi(idx)
+               
+               ll=2
+               idx=myoffset+(i-c_recv_extr(1,lmio))+(j-c_recv_extr(3,lmio))*m1+(&
+                  k-c_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               forces(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))=c_recv_buffmpi(idx)
+               
+               ll=3
+               idx=myoffset+(i-c_recv_extr(1,lmio))+(j-c_recv_extr(3,lmio))*m1+(&
+                  k-c_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
+               forces(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))=c_recv_buffmpi(idx)
+
+            enddo
+         enddo
+      enddo
+#ifdef ACCNOKERNELS
+      !$acc end parallel loop
+#else
+      !$acc end kernels
+#endif
+
+
+   end subroutine depackaging_forces_buffmpi   
    
 !!!!!!!!!!!!!!!!!!!!!!!!!!!ISFLUID!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    subroutine exchange_isf_intpbc

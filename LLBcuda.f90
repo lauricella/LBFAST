@@ -24,10 +24,11 @@ program threadsafeLB
    
    logical :: lexist
    integer, parameter :: inputio=24
+   real(kind=db) :: dist
    
    namelist /simulation/ nsteps,stamp,stamp2D,stepskip,lreadisfluid, &
-    lreadinit,lx,ly,lz,lprint,lvtk,lraw,lrestart,pbc_x,pbc_y,pbc_z,lasync, &
-    TILE_DIMx,TILE_DIMy,TILE_DIMz,TILE_DIM, &   
+    lreadinit,lx,ly,lz,lprint,lvtk,lraw,lrestart,pbc_x,pbc_y,pbc_z,openbc,lasync, &
+    TILE_DIMx,TILE_DIMy,TILE_DIMz,TILE_DIM,iprobe,jprobe,kprobe, &   
     nplanes,stamp_term,time_limit,every_time_check,lwriterestart,lweakscaling
     
    namelist /fluid/ fx,fy,fz,visc1, &
@@ -270,13 +271,19 @@ program threadsafeLB
 	               if(gk==1)isfluid(i,j,k)=0
 	               if(gk==lz)isfluid(i,j,k)=0
 	             endif
+#define noKARMANN
+#ifdef KARMANN
+	             !dist=sqrt((float(gi)-lx/TWO)**TWO + (float(gj)-ly/TWO)**TWO+(float(gk)-(lz/TWO))**TWO)
+	             dist=sqrt((float(gi)-lx/FOUR)**TWO + (float(gj)-ly/TWO)**TWO)
+	             if(int(dist)<=8)isfluid(i,j,k)=0
+#endif
 	         enddo
 	      enddo
 	   enddo
 #endif   
    
 #ifdef DOBENCHMARK 
-   isfluid=1
+   !isfluid=1
 #endif
 
    !setup domain decomposition among MPI process
@@ -359,6 +366,8 @@ program threadsafeLB
       write(6,'(a,i8)') 'ly',ly
       write(6,'(a,i8)') 'lz',lz
       write(6,'(a,3i4)') 'pbc',pbc_x,pbc_y,pbc_z
+      write(6,'(a,i4)') 'openbc',openbc
+      write(6,'(a,3i4)') 'probe',iprobe,jprobe,kprobe
       write(6,'(a,l8)') 'lprint',lprint
       write(6,'(a,l8)') 'lvtk',lvtk
       write(6,'(a,l8)') 'lraw',lraw

@@ -145,6 +145,7 @@ module vars
 
    integer :: i,j,k,ll,l
    integer :: gi,gj,gk
+   integer :: iprobe=0,jprobe=0,kprobe=0
    integer :: nx,ny,nz,step,step_flip,stamp,stamp2D,nsteps,ngpus
    integer :: stamp_term=huge(1)
    integer :: nxskip,nyskip,nzskip,lxskip,lyskip,lzskip
@@ -152,6 +153,7 @@ module vars
    integer :: lx,ly,lz
    integer :: iframe,iframe2D
    integer :: physic_type
+   integer :: openbc=0
    
    logical, save :: lprint,lvtk,lasync,lraw,lrestart
    logical, save :: lreadisfluid=.false.
@@ -230,27 +232,29 @@ module vars
    !real(kind=db), allocatable, dimension(:,:,:,:) :: f       !pops
    real(kind=db), allocatable, dimension(:) :: hfields_flip,hfields_flop  !allocate hydro fields flip and flop
    real(kind=db), allocatable, dimension(:) :: phifields_flip,phifields_flop  !allocate phi fields flip and flop
+   real(kind=db), allocatable, dimension(:) :: forces
    real(kind=db), allocatable, dimension(:) :: auxfields !allocate aux fields
    real(kind=db), allocatable, dimension(:) :: locauxfields !allocate aux fields
    
-   real(kind=db), allocatable, dimension(:,:,:,:) :: test3d_flip,test3d_flop  
    
    integer, parameter :: nhfields=10
+   integer, parameter :: nforces=3
    integer, parameter :: nphifields=1
 #ifdef TWOCOMPONENT
    integer, parameter :: nauxfields=7    ! 3 norm unit vec ! 1 modgrad ! 3 arr_ 
 #ifdef REPULSIVE_FLUX
-   integer, parameter :: nlocauxfields=11 ! 3 force components !1 lap_phi !1 div_thetan ! 3 pair_i ! 3 Jx vector 
+   integer, parameter :: nlocauxfields=8 !1 lap_phi !1 div_thetan ! 3 pair_i ! 3 Jx vector 
 #else
-   integer, parameter :: nlocauxfields=5 ! 3 force components !1 lap_phi !1 div_thetan
+   integer, parameter :: nlocauxfields=2 !1 lap_phi !1 div_thetan
 #endif
    
 #else   
    integer, parameter :: nauxfields=0    ! 
-   integer, parameter :: nlocauxfields=3 ! 3 force components 
+   integer, parameter :: nlocauxfields=0 !
 #endif   
    
    integer, save :: ntothfields
+   integer, save :: ntotforces
    integer, save :: ntotphifields
    integer, save :: ntotauxfields
    integer, save :: ntotlocauxfields

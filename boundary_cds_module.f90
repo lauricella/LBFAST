@@ -53,7 +53,7 @@ contains
      ,phifields_s &
 #endif     
      )
-        
+     if(openbc==0)return
 !*****************************************
 
 	 if(pbc_x.eq.0)then
@@ -994,7 +994,7 @@ contains
 				 vtmp=0.0_db !
 				 wtmp=0.0_db !
 				 
-				 #ifdef EXPLICITEQ 
+#ifdef EXPLICITEQ 
 	             uu=HALF*(u*u+v*v+w*w)*invcssq
 	  
 	             do l=1,nlinks
@@ -1149,7 +1149,9 @@ contains
 #ifdef TWOCOMPONENT
 
      call PHI_int_boundary_cuda(hfields_s,phifields_s)
-					
+	 
+	 if(openbc==1)then
+	 
 	 if(pbc_x.eq.0)then
 	   gi=1
        subchords(1)=(gi-1)/nx
@@ -1652,6 +1654,7 @@ contains
 	 !$acc update host(global_phi_change)
 	 !$acc wait
 	 call sum_world_float(global_phi_change)
+	 endif
 #endif
         
         call phi_sum_count_cuda(hfields_s,phifields_s)

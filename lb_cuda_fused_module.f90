@@ -3,7 +3,6 @@
 #error "To use this module the macros _OPENACC should be defined."
 #endif
 
-#define noEXTRAIF
 module lb_cuda_fused
 
    use vars
@@ -18,7 +17,7 @@ module lb_cuda_fused
 contains
 
 
-   attributes(global) subroutine fused_LB_kernel(flip,flop,nx,ny,nz,test3d_in,test3d_out,coords,isfluid &  
+   attributes(global) subroutine fused_LB_kernel(step,flip,flop,nx,ny,nz,coords,isfluid &  
 #ifdef MULTIHIT
        ,ABCx,ABCy,ABCz &
 #endif 
@@ -31,16 +30,16 @@ contains
        ,mu_max,Ks &
 #endif
 #endif   
-       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields, &
-       hfields_in,hfields_out,auxfields_s,locauxfields_s)
+       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
+       hfields_in,hfields_out,auxfields_s,locauxfields_s,forces_s)
 
       implicit none
       
-      integer :: flip,flop,nx,ny,nz
-      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff,10) :: test3d_in,test3d_out
+      integer :: step,flip,flop,nx,ny,nz
+      
       integer, dimension(3) :: coords
       integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
-      integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields
+      integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
 #ifdef MULTIHIT
 	  real(kind=db), dimension(1:nx,1:ny,1:nz) :: ABCx,ABCy,ABCz
 #endif
@@ -60,7 +59,7 @@ contains
       
       real(kind=db), dimension(ntotauxfields) :: auxfields_s
       real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
-      
+      real(kind=db), dimension(ntotforces) :: forces_s
 
       real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
       real(kind=db) :: opress,ou,ov,ow,opxx,opyy,opzz,opxy,opxz,opyz
@@ -115,8 +114,9 @@ contains
 !      gi=nx*coords(1)+i
 !      gj=ny*coords(2)+j
 !      gk=nz*coords(3)+k
-      intblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
       
+      intblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
+
 
                !if (abs(isfluid(i,j,k)) /= 1) return
        
@@ -131,31 +131,21 @@ contains
                   rhophi_loc = 1.0_db !press_loc
 #endif	
 
-				  forcex=locauxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))
-				  forcey=locauxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))
-				  forcez=locauxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))
-forcex=ZERO;forcey=ZERO;forcez=ZERO
-!                  press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-!                  u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields)) 
-!                  v=hfields_in(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-!                  w=hfields_in(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-!                  pxx=hfields_in(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-!                  pyy=hfields_in(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-!                  pzz=hfields_in(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-!                  pxy=hfields_in(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-!                  pxz=hfields_in(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-!                  pyz=hfields_in(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+				  forcex=forces_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
+				  forcey=forces_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
+				  forcez=forces_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
                   
-                  press=test3d_in(i,j,k,1)
-                  u=test3d_in(i,j,k,2)
-                  v=test3d_in(i,j,k,3)
-                  w=test3d_in(i,j,k,4)
-                  pxx=test3d_in(i,j,k,5)
-                  pyy=test3d_in(i,j,k,6)
-                  pzz=test3d_in(i,j,k,7)
-                  pxy=test3d_in(i,j,k,8)
-                  pxz=test3d_in(i,j,k,9)
-                  pyz=test3d_in(i,j,k,10)
+                  press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields)) 
+                  v=hfields_in(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  w=hfields_in(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  pxx=hfields_in(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  pyy=hfields_in(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  pzz=hfields_in(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  pxy=hfields_in(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  pxz=hfields_in(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  pyz=hfields_in(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  
                   
 #ifdef INTERNAL_OBSTACLES
                   if(isfluid(i,j,k) == 0)then
@@ -290,15 +280,6 @@ forcex=ZERO;forcey=ZERO;forcez=ZERO
 				   + forcez*w))/(9.0_db*rhophi_loc)
                   opress=feq + (1.0_db-omega_loc)*fneq1*p0 + 0.5_db*(F_discr)
 
-#ifdef EXTRAIF
-      if(gi==nx/2 .and. gj==ny/2 .and. gk==nz/2+3 .and. intblock==myblock)then
-        write(*,*)'eccomi',press
-      endif  
-            
-      if(gi==nx/2 .and. gj==ny/2 .and. gk==nz/2+3 .and. intblock==myblock)then
-        write(*,*)'eccomi0',opress
-      endif   
-#endif
 !!!!!!!!!!!!!!!!!!!!!!!!!!1
                   lii=li+1
                   ljj=lj
@@ -408,53 +389,13 @@ forcex=ZERO;forcey=ZERO;forcez=ZERO
                   f4(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p1 + 0.5_db*(F_discr)
                   
                   call syncthreads
-#ifdef BOUNCE_BACK
-                  if (isfluid(i,j,k)==0)then
-!!!!!!!!!!!!!!!!!!!!!!!!!!1
-                    lii=li+1
-                    ljj=lj
-                    lkk=lk
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f1(lii,ljj,lkk)=f2(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!2
-                    lii=li-1
-                    ljj=lj
-                    lkk=lk
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f2(lii,ljj,lkk)=f1(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!3
-                    lii=li
-                    ljj=lj+1
-                    lkk=lk
-                    !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f3(lii,ljj,lkk)=f4(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!4
-                    lii=li
-                    ljj=lj-1
-                    lkk=lk
-                    !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f4(lii,ljj,lkk)=f3(li,lj,lk)
-                  endif 
-                  call syncthreads
-#endif                  
+                            
                   opress = opress + (f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk))
                   ou = f1(li,lj,lk)-f2(li,lj,lk)
                   ov = f3(li,lj,lk)-f4(li,lj,lk)
                   opxx = f1(li,lj,lk)+f2(li,lj,lk)
                   opyy = f3(li,lj,lk)+f4(li,lj,lk)
-#ifdef EXTRAIF                  
-      if(gi==nx/2 .and. gj==ny/2 .and. gk==nz/2+3 .and. intblock==myblock)then
-        write(*,*)'eccomi1',opress
-      endif                                         
-#endif              
+                        
                   call syncthreads
                 
 !!!!!!!!!!!!!!!!!!!!!!!!!!5
@@ -571,45 +512,8 @@ forcex=ZERO;forcey=ZERO;forcez=ZERO
 				   - 2.0_db*forcey*v + forcez*w)/(-18.0_db*rhophi_loc)
                   f4(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
  
-                  call syncthreads  
-                  
-#ifdef BOUNCE_BACK
-                  if (isfluid(i,j,k)==0)then
-!!!!!!!!!!!!!!!!!!!!!!!!!!5
-                    lii=li
-                    ljj=lj
-                    lkk=lk+1
-                    !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f1(lii,ljj,lkk)=f2(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!6
-                    lii=li
-                    ljj=lj
-                    lkk=lk-1
-                    !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f2(lii,ljj,lkk)=f1(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!7
-                    lii=li+1
-                    ljj=lj+1
-                    lkk=lk
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f3(lii,ljj,lkk)=f4(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!8
-                    lii=li-1
-                    ljj=lj-1
-                    lkk=lk
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f4(lii,ljj,lkk)=f3(li,lj,lk)
-                  endif 
                   call syncthreads
-#endif                  
+                       
                   opress = opress + (f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk))
                   ou = ou + f3(li,lj,lk)-f4(li,lj,lk)
                   ov = ov + f3(li,lj,lk)-f4(li,lj,lk)
@@ -618,11 +522,11 @@ forcex=ZERO;forcey=ZERO;forcez=ZERO
                   opyy = opyy + f3(li,lj,lk)+f4(li,lj,lk)
                   opzz = f1(li,lj,lk)+f2(li,lj,lk)
                   opxy = f3(li,lj,lk)+f4(li,lj,lk)
-#ifdef EXTRAIF
-      if(gi==nx/2 .and. gj==ny/2 .and. gk==nz/2+3 .and. intblock==myblock)then
-        write(*,*)'eccomi2',opress
-      endif   
-#endif
+!                   if(gi==1 .and. gj==2 .and. gk==16 .and. myblock==intblock)then
+!                    write(*,*)'5',f1(li,lj,lk),step
+!                    write(*,*)'6',f2(li,lj,lk),step
+!                  endif
+
                   call syncthreads
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!9
@@ -747,43 +651,7 @@ forcex=ZERO;forcey=ZERO;forcez=ZERO
                   f4(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
                  
                   call syncthreads
-#ifdef BOUNCE_BACK
-                  if (isfluid(i,j,k)==0)then
-!!!!!!!!!!!!!!!!!!!!!!!!!!9
-                    lii=li+1
-                    ljj=lj-1
-                    lkk=lk
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f1(lii,ljj,lkk)=f2(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!10
-                    lii=li-1
-                    ljj=lj+1
-                    lkk=lk
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f2(lii,ljj,lkk)=f1(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!11
-                    lii=li
-                    ljj=lj+1
-                    lkk=lk+1
-                    !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f3(lii,ljj,lkk)=f4(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!12
-                    lii=li
-                    ljj=lj-1
-                    lkk=lk-1
-                    !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f4(lii,ljj,lkk)=f3(li,lj,lk)
-                  endif 
-                  call syncthreads
-#endif    
+                  
                   opress = opress + (f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk))
                   ou = ou + f1(li,lj,lk)-f2(li,lj,lk)
                   ov = ov - f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)-f4(li,lj,lk)
@@ -793,11 +661,10 @@ forcex=ZERO;forcey=ZERO;forcez=ZERO
                   opzz = opzz + f3(li,lj,lk)+f4(li,lj,lk)
                   opxy = opxy - f1(li,lj,lk)-f2(li,lj,lk)
                   opyz = f3(li,lj,lk)+f4(li,lj,lk)
-#ifdef EXTRAIF
-      if(gi==nx/2 .and. gj==ny/2 .and. gk==nz/2+3 .and. intblock==myblock)then
-        write(*,*)'eccomi3',opress
-      endif   
-#endif                 
+!                  if(gi==1 .and. gj==2 .and. gk==16 .and. myblock==intblock)then
+!                    write(*,*)'11',f3(li,lj,lk),step
+!                    write(*,*)'12',f4(li,lj,lk),step
+!                  endif
                   call syncthreads
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!13
@@ -891,7 +758,9 @@ forcex=ZERO;forcey=ZERO;forcez=ZERO
 				   + 3.0_db*forcez*u - forcey*v + 3.0_db*forcex*w &
 				   + 2.0_db*forcez*w)/(18.0_db*rhophi_loc)
                   f3(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-
+!                  if(gi==0 .and. gj==2 .and. gk==15 .and. intblock==236)then
+!                    write(*,*)'15 check',step,forcez
+!                  endif
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!16
                   lii=li-1
@@ -924,43 +793,7 @@ forcex=ZERO;forcey=ZERO;forcez=ZERO
                   f4(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
         
                   call syncthreads
-#ifdef BOUNCE_BACK
-                  if (isfluid(i,j,k)==0)then
-!!!!!!!!!!!!!!!!!!!!!!!!!!13
-                    lii=li
-                    ljj=lj+1
-                    lkk=lk-1
-                    !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f1(lii,ljj,lkk)=f2(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!14
-                    lii=li
-                    ljj=lj-1
-                    lkk=lk+1
-                    !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f2(lii,ljj,lkk)=f1(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!15
-                    lii=li+1
-                    ljj=lj
-                    lkk=lk+1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f3(lii,ljj,lkk)=f4(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!16
-                    lii=li-1
-                    ljj=lj
-                    lkk=lk-1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f4(lii,ljj,lkk)=f3(li,lj,lk)
-                  endif 
-                  call syncthreads
-#endif    
+                  
                   opress = opress + (f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk))
                   ou = ou + f3(li,lj,lk)-f4(li,lj,lk)
                   ov = ov + f1(li,lj,lk)-f2(li,lj,lk)
@@ -970,11 +803,12 @@ forcex=ZERO;forcey=ZERO;forcez=ZERO
                   opzz = opzz + f1(li,lj,lk) +f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk)
                   opxz = f3(li,lj,lk)+f4(li,lj,lk)
                   opyz = opyz - f1(li,lj,lk) -f2(li,lj,lk)
-#ifdef EXTRAIF
-      if(gi==nx/2 .and. gj==ny/2 .and. gk==nz/2+3 .and. intblock==myblock)then
-        write(*,*)'eccomi4',opress
-      endif   
-#endif
+!                  if(gi==1 .and. gj==2 .and. gk==16 .and. myblock==intblock)then
+!                    write(*,*)'13',f1(li,lj,lk),step
+!                    write(*,*)'14',f2(li,lj,lk),step
+!                    write(*,*)'15',f3(li,lj,lk),step
+!                    write(*,*)'16',f4(li,lj,lk),step
+!                  endif
                   call syncthreads
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!17
@@ -1107,43 +941,7 @@ forcex=ZERO;forcey=ZERO;forcez=ZERO
                   f4(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p3 + 0.5_db*(F_discr)
      
                   call syncthreads
-#ifdef BOUNCE_BACK
-                  if (isfluid(i,j,k)==0)then
-!!!!!!!!!!!!!!!!!!!!!!!!!!17
-                    lii=li-1
-                    ljj=lj
-                    lkk=lk+1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f1(lii,ljj,lkk)=f2(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!18
-                    lii=li+1
-                    ljj=lj
-                    lkk=lk-1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f2(lii,ljj,lkk)=f1(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!19
-                    lii=li+1
-                    ljj=lj+1
-                    lkk=lk+1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f3(lii,ljj,lkk)=f4(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!20
-                    lii=li-1
-                    ljj=lj-1
-                    lkk=lk-1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f4(lii,ljj,lkk)=f3(li,lj,lk)
-                  endif 
-                  call syncthreads
-#endif    
+                  
                   opress = opress + (f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk))
                   ou = ou - f1(li,lj,lk) +f2(li,lj,lk)+f3(li,lj,lk)-f4(li,lj,lk)
                   ov = ov + f3(li,lj,lk)-f4(li,lj,lk)
@@ -1154,11 +952,12 @@ forcex=ZERO;forcey=ZERO;forcez=ZERO
                   opxy = opxy + f3(li,lj,lk)+f4(li,lj,lk)
                   opxz = opxz - f1(li,lj,lk)-f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk)
                   opyz = opyz + f3(li,lj,lk)+f4(li,lj,lk)
-#ifdef EXTRAIF
-      if(gi==nx/2 .and. gj==ny/2 .and. gk==nz/2+3 .and. intblock==myblock)then
-        write(*,*)'eccomi5',opress
-      endif                   
-#endif  
+!                  if(gi==1 .and. gj==2 .and. gk==16 .and. myblock==intblock)then
+!                    write(*,*)'17',f1(li,lj,lk),step
+!                    write(*,*)'18',f2(li,lj,lk),step
+!                    write(*,*)'19',f3(li,lj,lk),step
+!                    write(*,*)'20',f4(li,lj,lk),step
+!                  endif
                   call syncthreads
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!21
@@ -1295,43 +1094,7 @@ forcex=ZERO;forcey=ZERO;forcez=ZERO
                   f4(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p3 + 0.5_db*(F_discr)
            
                   call syncthreads
-#ifdef BOUNCE_BACK
-                  if (isfluid(i,j,k)==0)then
-!!!!!!!!!!!!!!!!!!!!!!!!!!21
-                    lii=li+1
-                    ljj=lj-1
-                    lkk=lk+1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f1(lii,ljj,lkk)=f2(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!22
-                    lii=li-1
-                    ljj=lj+1
-                    lkk=lk-1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f2(lii,ljj,lkk)=f1(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!23
-                    lii=li-1
-                    ljj=lj-1
-                    lkk=lk+1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f3(lii,ljj,lkk)=f4(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!24
-                    lii=li+1
-                    ljj=lj+1
-                    lkk=lk-1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f4(lii,ljj,lkk)=f3(li,lj,lk)
-                  endif 
-                  call syncthreads
-#endif    
+                  
                   opress = opress + (f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk))
                   ou = ou +f1(li,lj,lk)-f2(li,lj,lk)-f3(li,lj,lk)+f4(li,lj,lk)
                   ov = ov -f1(li,lj,lk)+f2(li,lj,lk)-f3(li,lj,lk)+f4(li,lj,lk)
@@ -1342,11 +1105,12 @@ forcex=ZERO;forcey=ZERO;forcez=ZERO
                   opxy = opxy - f1(li,lj,lk)-f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk)
                   opxz = opxz + f1(li,lj,lk)+f2(li,lj,lk)-f3(li,lj,lk)-f4(li,lj,lk)
                   opyz = opyz - f1(li,lj,lk)-f2(li,lj,lk)-f3(li,lj,lk)-f4(li,lj,lk)
-#ifdef EXTRAIF 
-      if(gi==nx/2 .and. gj==ny/2 .and. gk==nz/2+3 .and. intblock==myblock)then
-        write(*,*)'eccomi6',opress
-      endif    
-#endif                 
+!                  if(gi==1 .and. gj==2 .and. gk==16 .and. myblock==intblock)then
+!                    write(*,*)'21',f1(li,lj,lk),step
+!                    write(*,*)'22',f2(li,lj,lk),step
+!                    write(*,*)'23',f3(li,lj,lk),step
+!                    write(*,*)'24',f4(li,lj,lk),step
+!                  endif
                   call syncthreads
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!25
@@ -1415,27 +1179,7 @@ forcex=ZERO;forcey=ZERO;forcez=ZERO
                   f2(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p3 + 0.5_db*(F_discr)
                   
                   call syncthreads
-#ifdef BOUNCE_BACK
-                  if (isfluid(i,j,k)==0)then
-!!!!!!!!!!!!!!!!!!!!!!!!!!25
-                    lii=li+1
-                    ljj=lj-1
-                    lkk=lk-1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f1(lii,ljj,lkk)=f2(li,lj,lk)
-!!!!!!!!!!!!!!!!!!!!!!!!!!26
-                    lii=li-1
-                    ljj=lj+1
-                    lkk=lk+1
-                    lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                    ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                    lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
-                    f2(lii,ljj,lkk)=f1(li,lj,lk)
-                  endif 
-                  call syncthreads    
-#endif          
+                           
                   opress = opress + (f1(li,lj,lk)+f2(li,lj,lk))
                   ou = ou + f1(li,lj,lk)-f2(li,lj,lk)
                   ov = ov - f1(li,lj,lk)+f2(li,lj,lk)
@@ -1446,44 +1190,30 @@ forcex=ZERO;forcey=ZERO;forcez=ZERO
                   opxy = opxy - f1(li,lj,lk)-f2(li,lj,lk)
                   opxz = opxz - f1(li,lj,lk)-f2(li,lj,lk) 
                   opyz = opyz + f1(li,lj,lk)+f2(li,lj,lk)
-#ifdef EXTRAIF 
-      if(gi==nx/2 .and. gj==ny/2 .and. gk==nz/2+3 .and. intblock==myblock)then
-        write(*,*)'eccomi7',opress
-      endif   
-#endif                  
+!                  if(gi==1 .and. gj==2 .and. gk==16 .and. myblock==intblock)then
+!                    write(*,*)'25',f1(li,lj,lk),step
+!                    write(*,*)'26',f2(li,lj,lk),step
+!                  endif
                   !internal-node block is the index of the block of internal nodes without the surrounding halo
 	              intblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
                   
                   !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
 	              if(myblock .ne. intblock)return
 	                 
-!	              hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opress
-!                  hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ou
-!                  hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ov
-!                  hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ow
-!                  hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxx
-!                  hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opyy
-!                  hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opzz
-!                  hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxy
-!                  hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxz
-!                  hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opyz
+	              hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opress
+                  hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ou
+                  hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ov
+                  hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ow
+                  hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxx
+                  hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opyy
+                  hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opzz
+                  hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxy
+                  hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxz
+                  hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opyz
                   
- 
-                  test3d_out(i,j,k,1)=opress
-                  test3d_out(i,j,k,2)=ou
-                  test3d_out(i,j,k,3)=ov
-                  test3d_out(i,j,k,4)=ow
-                  test3d_out(i,j,k,5)=opxx
-                  test3d_out(i,j,k,6)=opyy
-                  test3d_out(i,j,k,7)=opzz
-                  test3d_out(i,j,k,8)=opxy
-                  test3d_out(i,j,k,9)=opxz
-                  test3d_out(i,j,k,10)=opyz
-#ifdef EXTRAIF                  
-      if(gi==nx/2 .and. gj==ny/2 .and. gk==nz/2+3 .and. intblock==myblock)then
-        write(*,*)'eccomi8',opress,test3d_out(i,j,k,1)
-      endif  
-#endif	              
+
+                  
+             
      return
 
    endsubroutine fused_LB_kernel   

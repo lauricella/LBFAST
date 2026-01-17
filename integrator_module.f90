@@ -5,16 +5,17 @@ module integrator_module
    use openacc
 #endif
    use mpi_template, only : nbuff,coords,myoffset,myrank,nprocs,intpbc_dir, &
-           num_links_pops,links_pops,f_datampi,fvec_datampi,b_datampi,i_datampi, &
+           num_links_pops,links_pops,f_datampi,fvec_datampi,b_datampi,c_datampi,i_datampi, &
            f_send_extr,f_recv_extr,fvec_send_extr,fvec_recv_extr, &
-           b_send_extr,b_recv_extr, &
+           b_send_extr,b_recv_extr,c_send_extr,c_recv_extr, &
            f_send_buffmpi,f_recv_buffmpi,f_nbuffmpi_send,f_nbuffmpi_recv,lbuff, &
            fvec_send_buffmpi,fvec_recv_buffmpi,fvec_nbuffmpi_send,fvec_nbuffmpi_recv, &
            b_send_buffmpi,b_recv_buffmpi,b_nbuffmpi_send,b_nbuffmpi_recv, &
+           c_send_buffmpi,c_recv_buffmpi,c_nbuffmpi_send,c_nbuffmpi_recv, &
            exchange_phifields_sendrecv,exchange_phifields_intpbc,exchange_phifields_wait, &
            exchange_auxfields_sendrecv,exchange_auxfields_intpbc,exchange_auxfields_wait, &
            exchange_hfields_sendrecv,exchange_hfields_intpbc,exchange_hfields_wait, &
-           exchange_bvec_intpbc,exchange_bvec_wait,exchange_bvec_sendrecv, &
+           exchange_forces_sendrecv,exchange_forces_intpbc,exchange_forces_wait, &
 #ifdef CRAY 
            int_buffpbc,nbuffpbc_int, &
 #endif
@@ -66,13 +67,13 @@ contains
       flip=mod(step,2)+1     
       flop = 3 - flip
       
-      !$acc data copy(test3d_flip,test3d_flop,step,lx,ly,lz,nx,ny,nz,coords,myoffset,isfluid,myrank, &
+      !$acc data copy(step,lx,ly,lz,nx,ny,nz,coords,myoffset,isfluid,myrank, &
       !$acc& rhoprint,velprint,radius, &
 	  !$acc& tau1,visc1,rho_r,rho_b,invrho_r,invrho_b,omega,arr_3d, &
       !$acc& intpbc_dir,num_links_pops,links_pops,f_datampi,uwall,udotc,uu, &
       !$acc& f_send_extr,f_recv_extr, &
-      !$acc& ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields, &
-      !$acc& hfields_flip,hfields_flop,auxfields,locauxfields, &
+      !$acc& ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
+      !$acc& hfields_flip,hfields_flop,auxfields,locauxfields,forces, &
       !$acc& TILE_DIMx,TILE_DIMy,TILE_DIMz,nblocks,nxblock,nxyblock, &
 #ifdef TWOCOMPONENT
       !$acc& phifields_flip,phifields_flop, &
@@ -98,18 +99,17 @@ contains
 #ifdef ELASTIC_FORCE
 	  !$acc& u_ref,v_ref,w_ref, &
 #endif
-#if defined REPULSIVE_FLUX
       !$acc& b_send_extr,b_recv_extr, &
-#endif
+      !$acc& c_send_extr,c_recv_extr, &
+      !$acc& f_send_extr,f_recv_extr, &
 #ifdef CRAY 
       !$acc& int_buffpbc,nbuffpbc_int, &
 #endif
       !$acc& fvec_send_extr,fvec_recv_extr,fx,fy,fz) &
       !$acc& create(f_send_buffmpi, &
       !$acc& f_recv_buffmpi,fvec_send_buffmpi &
-#if defined REPULSIVE_FLUX
       !$acc& ,b_send_buffmpi,b_recv_buffmpi &
-#endif
+      !$acc& ,c_send_buffmpi,c_recv_buffmpi &
       !$acc& ,fvec_recv_buffmpi)
       ! quali sono i buff effettivamente da tenere? servono tutti!
       !$acc wait
@@ -148,7 +148,7 @@ contains
 #endif      
 
       if(lprint)then
-	     call copy_print(test3d_flip,iframe,hfields_flip &
+	     call copy_print(iframe,hfields_flip &
 #ifdef TWOCOMPONENT	      
 	      ,phifields_flip &
 #endif
@@ -199,7 +199,7 @@ contains
 	  call exchange_hfields_sendrecv(hfields_flip)
 	  if(ldiagnostic)call end_timing2("LB","ex_hfields_sendrecv")
 	  if(ldiagnostic)call start_timing2("LB","ex_hfields_intpbc")
-	  call exchange_hfields_intpbc(test3d_flip,hfields_flip)
+	  call exchange_hfields_intpbc(hfields_flip)
 	  if(ldiagnostic)call end_timing2("LB","ex_hfields_intpbc")
 	  if(ldiagnostic)call start_timing2("LB","ex_hfields_wait")
 	  call exchange_hfields_wait(hfields_flip)
@@ -231,7 +231,9 @@ contains
       time_init=current_time()
       time_actual_old=time_init
       call cpu_time(ts1)
+      
 #if 0
+      call dostop('ciao',__FILE__,__LINE__)
       !call test_LB_cuda
       goto 110
 #endif      
@@ -276,16 +278,6 @@ contains
          
 #endif
 
-		 !***********************************pbcs boundary conditions ********************************!
-         if(ldiagnostic)call start_timing2("LB","ex_hfields_sendrecv")
-		 call exchange_hfields_sendrecv(hfields_flip)
-		 if(ldiagnostic)call end_timing2("LB","ex_hfields_sendrecv")
-		 if(ldiagnostic)call start_timing2("LB","ex_hfields_intpbc")
-		 call exchange_hfields_intpbc(test3d_flip,hfields_flip)
-		 if(ldiagnostic)call end_timing2("LB","ex_hfields_intpbc")
-		 if(ldiagnostic)call start_timing2("LB","ex_hfields_wait")
-		 call exchange_hfields_wait(hfields_flip)
-		 if(ldiagnostic)call end_timing2("LB","ex_hfields_wait")
          !************ thread-safe boundary condition setup
 #ifdef TWOCOMPONENT           
          if(ldiagnostic)call start_timing2("LB","bcs_phi")
@@ -301,18 +293,37 @@ contains
 		 call repulsive_flux_normal_cuda(phifields_flip)
 #endif
 #endif
-         call moments_LB_cuda(test3d_flip,hfields_flip &
+         call moments_LB_cuda(hfields_flip &
 #ifdef TWOCOMPONENT         
           ,phifields_flip &
 #endif
           )
          if(ldiagnostic)call end_timing2("LB","moments")
-         
+		 !***********************************pbcs boundary conditions ********************************!
+         if(ldiagnostic)call start_timing2("LB","ex_hfields_sendrecv")
+		 call exchange_hfields_sendrecv(hfields_flip)
+		 if(ldiagnostic)call end_timing2("LB","ex_hfields_sendrecv")
+		 if(ldiagnostic)call start_timing2("LB","ex_hfields_intpbc")
+		 call exchange_hfields_intpbc(hfields_flip)
+		 if(ldiagnostic)call end_timing2("LB","ex_hfields_intpbc")
+		 if(ldiagnostic)call start_timing2("LB","ex_hfields_wait")
+		 call exchange_hfields_wait(hfields_flip)
+		 if(ldiagnostic)call end_timing2("LB","ex_hfields_wait")
+		 !***********************************force pbcs boundary conditions ********************************!
+         if(ldiagnostic)call start_timing2("LB","ex_forces_sendrecv")
+		 call exchange_forces_sendrecv
+		 if(ldiagnostic)call end_timing2("LB","ex_forces_sendrecv")
+		 if(ldiagnostic)call start_timing2("LB","ex_forces_intpbc")
+		 call exchange_forces_intpbc
+		 if(ldiagnostic)call end_timing2("LB","ex_forces_intpbc")
+		 if(ldiagnostic)call start_timing2("LB","ex_forces_wait")
+		 call exchange_forces_wait
+		 if(ldiagnostic)call end_timing2("LB","ex_forces_wait")      
         
          if(lprint)then 
            if(mod(step,stamp).eq.0 .or. mod(step,stamp2D).eq.0 .or. mod(step,stamp_term).eq.0)then
              if(ldiagnostic)call start_timing2("IO","print")
-	         call copy_print(test3d_flip,iframe,hfields_flip &
+	         call copy_print(iframe,hfields_flip &
 #ifdef TWOCOMPONENT	      
 	          ,phifields_flip &
 #endif
@@ -335,7 +346,7 @@ contains
 
              if(mod(step,stamp_term).eq.0)then
                time_actual=current_time()
-               gi=18;gj=18;gk=2
+               gi=iprobe;gj=jprobe;gk=kprobe
                subchords(1)=(gi-1)/nx
                subchords(2)=(gj-1)/ny
                subchords(3)=(gk-1)/nz
@@ -346,12 +357,12 @@ contains
                  write(6,'(a,4i6,f10.2,a,i2,9g16.8)')'stamp step : ',step, &
                   (gi/stepskip)*stepskip,(gj/stepskip)*stepskip,(gk/stepskip)*stepskip, &
                   (time_actual-time_actual_old)/real(stamp_term,kind=db)*real(nsteps-step,kind=db), &
-                  '; probe values : ',isfluid(i,j,k),rhoprint(i,j,k),velprint(1:3,i,j,k), &
-#if defined(INTERNAL_OBSTACLES)                       
-                   corr,dphi,global_phi_sum_ini,global_phi_sum_new-global_phi_change_new,global_phi_sum_new !real(global_count_new)
-#else
-                   0.0e0_db                       
-#endif                       
+                  '; probe values : ',isfluid(i,j,k),rhoprint(i,j,k),velprint(1:3,i,j,k)!, &
+!#if defined(INTERNAL_OBSTACLES)                       
+!                   corr,dphi,global_phi_sum_ini,global_phi_sum_new-global_phi_change_new,global_phi_sum_new !real(global_count_new)
+!#else
+!                   0.0e0_db                       
+!#endif                       
                  call flush(6)
                endif
                time_actual_old=time_actual
@@ -362,7 +373,7 @@ contains
          
          !***********************************collision + no slip + forcing: fused implementation*********
 		 if(ldiagnostic)call start_timing2("LB","fused")   
-         call fused_LB_cuda(test3d_flip,test3d_flop,hfields_flip,hfields_flop &
+         call fused_LB_cuda(hfields_flip,hfields_flop &
 #ifdef TWOCOMPONENT	   
           ,phifields_flip &
 #endif
@@ -413,7 +424,7 @@ contains
          !$acc update device(step,flip,flop)
          !$acc wait
          
-         #ifdef TWOCOMPONENT	 
+#ifdef TWOCOMPONENT	 
 !****************scambio phi: boundary condition periodiche su phi************************
 		 if(ldiagnostic)call start_timing2("LB","ex_phifields_sendrecv")
 		 call exchange_phifields_sendrecv(phifields_flop)
@@ -443,16 +454,6 @@ contains
          
 #endif
  
-		 !***********************************pbcs boundary conditions ********************************!
-         if(ldiagnostic)call start_timing2("LB","ex_hfields_sendrecv")
-		 call exchange_hfields_sendrecv(hfields_flop)
-		 if(ldiagnostic)call end_timing2("LB","ex_hfields_sendrecv")
-		 if(ldiagnostic)call start_timing2("LB","ex_hfields_intpbc")
-		 call exchange_hfields_intpbc(test3d_flop,hfields_flop)
-		 if(ldiagnostic)call end_timing2("LB","ex_hfields_intpbc")
-		 if(ldiagnostic)call start_timing2("LB","ex_hfields_wait")
-		 call exchange_hfields_wait(hfields_flop)
-		 if(ldiagnostic)call end_timing2("LB","ex_hfields_wait")
          !************ thread-safe boundary condition setup
 #ifdef TWOCOMPONENT         
          if(ldiagnostic)call start_timing2("LB","bcs_phi")
@@ -468,17 +469,37 @@ contains
 		 call repulsive_flux_normal_cuda(phifields_flop)
 #endif
 #endif
-         call moments_LB_cuda(test3d_flop,hfields_flop &
+         call moments_LB_cuda(hfields_flop &
 #ifdef TWOCOMPONENT         
           ,phifields_flop &
 #endif
           )
          if(ldiagnostic)call end_timing2("LB","moments")	 
+		 !***********************************pbcs boundary conditions ********************************!
+         if(ldiagnostic)call start_timing2("LB","ex_hfields_sendrecv")
+		 call exchange_hfields_sendrecv(hfields_flop)
+		 if(ldiagnostic)call end_timing2("LB","ex_hfields_sendrecv")
+		 if(ldiagnostic)call start_timing2("LB","ex_hfields_intpbc")
+		 call exchange_hfields_intpbc(hfields_flop)
+		 if(ldiagnostic)call end_timing2("LB","ex_hfields_intpbc")
+		 if(ldiagnostic)call start_timing2("LB","ex_hfields_wait")
+		 call exchange_hfields_wait(hfields_flop)
+		 if(ldiagnostic)call end_timing2("LB","ex_hfields_wait")
+		 !***********************************force pbcs boundary conditions ********************************!
+         if(ldiagnostic)call start_timing2("LB","ex_forces_sendrecv")
+		 call exchange_forces_sendrecv
+		 if(ldiagnostic)call end_timing2("LB","ex_forces_sendrecv")
+		 if(ldiagnostic)call start_timing2("LB","ex_forces_intpbc")
+		 call exchange_forces_intpbc
+		 if(ldiagnostic)call end_timing2("LB","ex_forces_intpbc")
+		 if(ldiagnostic)call start_timing2("LB","ex_forces_wait")
+		 call exchange_forces_wait
+		 if(ldiagnostic)call end_timing2("LB","ex_forces_wait")  
         
          if(lprint)then 
            if(mod(step,stamp).eq.0 .or. mod(step,stamp2D).eq.0 .or. mod(step,stamp_term).eq.0)then
              if(ldiagnostic)call start_timing2("IO","print")
-	         call copy_print(test3d_flop,iframe,hfields_flop &
+	         call copy_print(iframe,hfields_flop &
 #ifdef TWOCOMPONENT	      
 	          ,phifields_flop &
 #endif
@@ -501,7 +522,7 @@ contains
 
              if(mod(step,stamp_term).eq.0)then
                time_actual=current_time()
-               gi=18;gj=18;gk=2
+               gi=iprobe;gj=jprobe;gk=kprobe
                subchords(1)=(gi-1)/nx
                subchords(2)=(gj-1)/ny
                subchords(3)=(gk-1)/nz
@@ -512,12 +533,12 @@ contains
                  write(6,'(a,4i6,f10.2,a,i2,9g16.8)')'stamp step : ',step, &
                   (gi/stepskip)*stepskip,(gj/stepskip)*stepskip,(gk/stepskip)*stepskip, &
                   (time_actual-time_actual_old)/real(stamp_term,kind=db)*real(nsteps-step,kind=db), &
-                  '; probe values : ',isfluid(i,j,k),rhoprint(i,j,k),velprint(1:3,i,j,k), &
-#if defined(INTERNAL_OBSTACLES)                       
-                   corr,dphi,global_phi_sum_ini,global_phi_sum_new-global_phi_change_new,global_phi_sum_new !real(global_count_new)
-#else
-                   0.0e0                       
-#endif                       
+                  '; probe values : ',isfluid(i,j,k),rhoprint(i,j,k),velprint(1:3,i,j,k)!, &
+!#if defined(INTERNAL_OBSTACLES)                       
+!                   corr,dphi,global_phi_sum_ini,global_phi_sum_new-global_phi_change_new,global_phi_sum_new !real(global_count_new)
+!#else
+!                   0.0e0                       
+!#endif                       
                  call flush(6)
                endif
                time_actual_old=time_actual
@@ -528,7 +549,7 @@ contains
          
          !***********************************collision + no slip + forcing: fused implementation*********
 		 if(ldiagnostic)call start_timing2("LB","fused")   
-         call fused_LB_cuda(test3d_flop,test3d_flip,hfields_flop,hfields_flip &
+         call fused_LB_cuda(hfields_flop,hfields_flip &
 #ifdef TWOCOMPONENT	            
          ,phifields_flop &
 #endif
