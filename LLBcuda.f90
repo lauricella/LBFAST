@@ -283,7 +283,7 @@ program threadsafeLB
 #endif   
    
 #ifdef DOBENCHMARK 
-   !isfluid=1
+   isfluid=1
 #endif
 
    !setup domain decomposition among MPI process

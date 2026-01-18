@@ -1654,8 +1654,7 @@ contains
 	 !$acc update host(global_phi_change)
 	 !$acc wait
 	 call sum_world_float(global_phi_change)
-	 endif
-#endif
+
         
         call phi_sum_count_cuda(hfields_s,phifields_s)
         
@@ -1680,6 +1679,8 @@ contains
 		
 		call apply_lagrangian_phi_cuda(hfields_s,phifields_s)
 
+	 endif
+#endif
 
 #endif
 #endif

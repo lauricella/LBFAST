@@ -689,20 +689,20 @@ contains
 #if defined(DENSRATIO) && defined(TWOCOMPONENT)
 #ifdef WRITEPRESS
          !$acc kernels present(rhoprint,velprint,pressprint,isfluid, &
-         !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz,rhophi_loc)
+         !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz)
 #else
          !$acc kernels present(rhoprint,velprint,isfluid, &
-         !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz,rhophi_loc)
+         !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz)
 #endif
 #endif
 
 #if defined(TWOCOMPONENT) && !defined(DENSRATIO)
 #ifdef WRITEPRESS
 		 !$acc kernels present(rhoprint,velprint,pressprint,isfluid, &
-		 !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz,rhophi_loc)
+		 !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz)
 #else
          !$acc kernels present(rhoprint,velprint,isfluid, &
-         !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz,rhophi_loc)
+         !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz)
 #endif
 #endif
 

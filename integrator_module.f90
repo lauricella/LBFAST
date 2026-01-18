@@ -113,6 +113,7 @@ contains
       !$acc& ,fvec_recv_buffmpi)
       ! quali sono i buff effettivamente da tenere? servono tutti!
       !$acc wait
+      
 #ifdef _OPENACC
       call printDeviceProperties(ngpus,devNum,devType,6)
 #endif

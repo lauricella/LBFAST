@@ -1,9 +1,9 @@
-#define noTWOCOMPONENT
+#define TWOCOMPONENT
 #define noDENSRATIO
 #define DOBENCHMARK
 #define DOXDMF
 #define noWRITEPRESS
-#define noJAQMIN
+
 #define noINTERFACE_INCOMP
 #define noREPULSIVE_FLUX
 

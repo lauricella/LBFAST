@@ -144,8 +144,11 @@ module mpi_template
    integer, dimension(nlinksmpi*2), save :: b_reqs
    integer, dimension(nlinksmpi*2), save :: c_reqs
    integer, dimension(nlinksmpi*2), save :: i_reqs 
-
-
+#ifdef TWOCOMPONENT
+   logical, parameter :: ltwocomp=.true.
+#else   
+   logical, parameter :: ltwocomp=.false.
+#endif
    integer, save :: nreqs
 
    integer, save :: nf_reqs
@@ -161,7 +164,7 @@ module mpi_template
    integer, parameter :: nbuff=1    !phifields
    integer, parameter :: nbuffvec=1 !auxfields
 #endif
-   logical, parameter :: lbuff=.false.
+   
    integer, parameter :: nbuffbvec=1 !hfields
 
 
@@ -1874,7 +1877,7 @@ contains
 
 #ifdef VERBOSE
       !stampo per debug
-      if(lbuff)then
+      if(ltwocomp)then
         if(myrank==0)write(6,'(a)')'####################### f_send_extr  f_recv_extr #######################'
         do l=1,nlinksmpi
            if(myrank==0)write(6,'(a,i3,a,3i3,a,6i4,a,6i4,a,i4)')'dir l ',l,' disp ',&
@@ -1939,7 +1942,7 @@ contains
 #ifdef MPI
 
       !dir
-      if(lbuff)then
+      if(ltwocomp)then
         do l=1,nlinksmpi,2
           ll=(l+1)/2
           call MPI_type_contiguous(f_num_extr(l), MYMPIREAL, f_datampi(ll), ierr)
@@ -2022,7 +2025,7 @@ contains
       
 
       !alloco per f
-    if(lbuff)then
+    if(ltwocomp)then
       f_numtot_extr=sum(f_num_extr)
       ll=0
       do l=1,nlinksmpi

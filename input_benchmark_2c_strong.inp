@@ -1,8 +1,8 @@
 &simulation
-   nsteps=10000
+   nsteps=1000
    stamp=100
    stamp2D=1000
-   stamp_term=100
+   stamp_term=10
    stepskip=1
    lreadisfluid=.false.   !metti true se leggi isfluid
    lreadinit=.false.  !metti true se leggi rho phi e u v w
@@ -10,9 +10,9 @@
    lx=64
    ly=64
    lz=64
-   iprobe=64
+   iprobe=48
    jprobe=32
-   kprobe=2
+   kprobe=32
    lprint=.true.
    lvtk=.false.
    lraw=.true.
@@ -33,15 +33,15 @@
    fx=0.0e-6
    fy=0.0e-6
    fz=0.0e-6
-   !tau_diff=0.12e0
-   !radius=16.0e0
-   !width=8.0e0
-   !sigma=0.01e0
+   tau_diff=0.12e0
+   radius=16.0e0
+   width=8.0e0
+   sigma=0.01e0
    !wettab_r=0.85e0
    !wettab_b=1.0e0
-   visc1= 0.0001e0 !0.16666666666e0 !0.025e0
+   visc1= 0.16666666666e0 !0.025e0
    !tau1= 1.0
-   !visc2= 0.025e0
+   visc2= 0.025e0
    !rho_r=5.0e0
    !rho_b=0.5e0
    !npoint = 32!, 32, 32

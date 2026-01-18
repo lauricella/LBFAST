@@ -37,10 +37,6 @@
 #error "ERROR: CSF not implemented"
 #endif
 
-#ifdef JAQMIN
-#warning "JAQMIN:  surface force a la jaqmin activated"
-#endif
-
 #ifdef CRAY
 #warning "CRAY: CRAY activated for cray compilers"
 #endif

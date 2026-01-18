@@ -556,7 +556,10 @@ contains
 
       implicit none
       real(kind=db), allocatable, dimension(:) :: phifields_s
- 
+      
+      integer(8) :: mymshared
+      
+      mymshared = 1 * (TILE_DIMx + 2) * (TILE_DIMy + 2) * (TILE_DIMz + 2) * db
       
 #ifdef TWOCOMPONENT
       !$acc wait
@@ -564,7 +567,7 @@ contains
 
 !$acc host_data use_device(flop,nx,ny,nz,coords,isfluid &
        !$acc& ,rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-       call compute_norm_interface_kernel<<<dimGrid, dimBlockshared>>>(flop,nx,ny,nz,coords,isfluid, &
+       call compute_norm_interface_kernel<<<dimGrid, dimBlockshared, mymshared>>>(flop,nx,ny,nz,coords,isfluid, &
         rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
 !$acc end host_data
       istat = cudaDeviceSynchronize
@@ -707,7 +710,9 @@ contains
 
       implicit none
       real(kind=db), allocatable, dimension(:) :: phifields_s
- 
+      integer(8) :: mymshared
+      
+      mymshared = 3 * (TILE_DIMx + 2) * (TILE_DIMy + 2) * (TILE_DIMz + 2) * db
       
 #ifdef TWOCOMPONENT
       !$acc wait
@@ -715,7 +720,7 @@ contains
 
 !$acc host_data use_device(flop,nx,ny,nz,coords,isfluid &
        !$acc& ,rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-       call compute_div_thetan_kernel<<<dimGrid, dimBlockshared>>>(flop,nx,ny,nz,coords,isfluid, &
+       call compute_div_thetan_kernel<<<dimGrid, dimBlockshared, mymshared>>>(flop,nx,ny,nz,coords,isfluid, &
         rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
 !$acc end host_data
       istat = cudaDeviceSynchronize
@@ -1307,7 +1312,7 @@ contains
 #endif	
 			 
 #ifdef TWOCOMPONENT		
-#ifdef JAQMIN			   
+		   
 				   !jaqmin 
 				   mytemp=auxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields)) !modgrad
 				   gradfix=auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))*mytemp !normx*modgrad
@@ -1317,7 +1322,7 @@ contains
 				   forcey=(4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
 				   forcez=(4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
-#endif
+
 
 #ifdef REPULSIVE_FLUX
 				  mytemp=locauxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))*rhophi_loc 
@@ -1563,7 +1568,7 @@ contains
 #ifdef TWOCOMPONENT       
       real(kind=db), allocatable, dimension(:) :: phifields_s
 #endif
-      integer :: mymshared
+      integer(8) :: mymshared
       
       mymshared = 4 * (TILE_DIMx + 2) * (TILE_DIMy + 2) * (TILE_DIMz + 2) * db
       
