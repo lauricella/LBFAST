@@ -147,7 +147,7 @@ contains
       endif
 #endif      
 
-      if(lprint)then
+      if(lprint .and. (.not. lrestart))then
 	     call copy_print(iframe,hfields_flip &
 #ifdef TWOCOMPONENT	      
 	      ,phifields_flip &
