@@ -1,10 +1,10 @@
 #define TWOCOMPONENT
-#define noDENSRATIO
+#define DENSRATIO
 #define DOBENCHMARK
 #define DOXDMF
 #define noWRITEPRESS
 
-#define noINTERFACE_INCOMP
+#define INTERFACE_INCOMP
 #define noREPULSIVE_FLUX
 
 #define noSMAGORINSKI
