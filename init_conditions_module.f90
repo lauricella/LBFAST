@@ -262,7 +262,7 @@ contains
  
                   !if(gi==lx/2 .and. gj==ly/2 .and. gk==lz/2)then
                   if(gi.le.lx/4+2 .and. gi.ge.lx/4-2 .and. gj.le.ly/4+2 .and. gj.ge.ly/4-2 .and. gk.le.lz/3+2 .and. gk.ge.lz/3-2)then
-                    loc_press = loc_press + 0.00_db
+                    loc_press = loc_press + 0.05_db
                   endif
                   loc_w=ZERO!fcut(dist,radius-width*0.5,radius+width*0.5)*uwall !   - fcut(dist2,radius-width*0.5,radius+width*0.5)*HALF*uwall
 

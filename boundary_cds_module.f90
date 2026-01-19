@@ -120,19 +120,23 @@ contains
 				 vtmp=0.0_db !
 				 wtmp=0.0_db !
 				 
-				 #ifdef EXPLICITEQ 
+#ifdef EXPLICITEQ 
 	             uu=HALF*(u*u+v*v+w*w)*invcssq
 	  
 	             do l=1,nlinks
 		           udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
 		           feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-		 
-		           pxx=pxx - feq*dex(l)*dex(l)
-		           pyy=pyy - feq*dey(l)*dey(l)
-		           pzz=pzz - feq*dez(l)*dez(l)
-		           pxy=pxy - feq*dex(l)*dey(l)
-		           pxz=pxz - feq*dex(l)*dez(l)
-		           pyz=pyz - feq*dey(l)*dez(l)
+                           !fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		           ! + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	                   ! + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		           ! + TWO*(dey(l)*dez(l))*pyz)
+                           fpost=feq!+fneq1
+                           pxx=pxx - fpost*(dex(l)*dex(l)-TWO*cssq)
+                           pyy=pyy - fpost*(dey(l)*dey(l)-TWO*cssq)
+                           pzz=pzz - fpost*(dez(l)*dez(l)-TWO*cssq)
+                           pxy=pxy - fpost*(dex(l)*dey(l))
+                           pxz=pxz - fpost*(dex(l)*dez(l))
+                           pyz=pyz - fpost*(dey(l)*dez(l))
 	             enddo
 #else
 	             pxx=pxx - cssq*press - u*u 
@@ -294,19 +298,23 @@ contains
 				 vtmp=0.0_db !
 				 wtmp=0.0_db !
 				 
-				 #ifdef EXPLICITEQ 
+#ifdef EXPLICITEQ 
 	             uu=HALF*(u*u+v*v+w*w)*invcssq
 	  
 	             do l=1,nlinks
 		           udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
 		           feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-		 
-		           pxx=pxx - feq*dex(l)*dex(l)
-		           pyy=pyy - feq*dey(l)*dey(l)
-		           pzz=pzz - feq*dez(l)*dez(l)
-		           pxy=pxy - feq*dex(l)*dey(l)
-		           pxz=pxz - feq*dex(l)*dez(l)
-		           pyz=pyz - feq*dey(l)*dez(l)
+                           !fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		           ! + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	                   ! + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		           ! + TWO*(dey(l)*dez(l))*pyz)
+                           fpost=feq!+fneq1
+                           pxx=pxx - fpost*(dex(l)*dex(l)-TWO*cssq)
+                           pyy=pyy - fpost*(dey(l)*dey(l)-TWO*cssq)
+                           pzz=pzz - fpost*(dez(l)*dez(l)-TWO*cssq)
+                           pxy=pxy - fpost*(dex(l)*dey(l))
+                           pxz=pxz - fpost*(dex(l)*dez(l))
+                           pyz=pyz - fpost*(dey(l)*dez(l))
 	             enddo
 #else
 	             pxx=pxx - cssq*press - u*u 
@@ -470,19 +478,23 @@ contains
 				 vtmp=0.0_db !
 				 wtmp=0.0_db !
 				 
-				 #ifdef EXPLICITEQ 
+#ifdef EXPLICITEQ 
 	             uu=HALF*(u*u+v*v+w*w)*invcssq
 	  
 	             do l=1,nlinks
 		           udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
 		           feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-		 
-		           pxx=pxx - feq*dex(l)*dex(l)
-		           pyy=pyy - feq*dey(l)*dey(l)
-		           pzz=pzz - feq*dez(l)*dez(l)
-		           pxy=pxy - feq*dex(l)*dey(l)
-		           pxz=pxz - feq*dex(l)*dez(l)
-		           pyz=pyz - feq*dey(l)*dez(l)
+                           !fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		           ! + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	                   ! + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		           ! + TWO*(dey(l)*dez(l))*pyz)
+                           fpost=feq!+fneq1
+                           pxx=pxx - fpost*(dex(l)*dex(l)-TWO*cssq)
+                           pyy=pyy - fpost*(dey(l)*dey(l)-TWO*cssq)
+                           pzz=pzz - fpost*(dez(l)*dez(l)-TWO*cssq)
+                           pxy=pxy - fpost*(dex(l)*dey(l))
+                           pxz=pxz - fpost*(dex(l)*dez(l))
+                           pyz=pyz - fpost*(dey(l)*dez(l))
 	             enddo
 #else
 	             pxx=pxx - cssq*press - u*u 
@@ -644,19 +656,23 @@ contains
 				 vtmp=0.0_db !
 				 wtmp=0.0_db !
 				 
-				 #ifdef EXPLICITEQ 
+#ifdef EXPLICITEQ 
 	             uu=HALF*(u*u+v*v+w*w)*invcssq
 	  
 	             do l=1,nlinks
 		           udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
 		           feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-		 
-		           pxx=pxx - feq*dex(l)*dex(l)
-		           pyy=pyy - feq*dey(l)*dey(l)
-		           pzz=pzz - feq*dez(l)*dez(l)
-		           pxy=pxy - feq*dex(l)*dey(l)
-		           pxz=pxz - feq*dex(l)*dez(l)
-		           pyz=pyz - feq*dey(l)*dez(l)
+                           !fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		           ! + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	                   ! + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		           ! + TWO*(dey(l)*dez(l))*pyz)
+                           fpost=feq!+fneq1
+                           pxx=pxx - fpost*(dex(l)*dex(l)-TWO*cssq)
+                           pyy=pyy - fpost*(dey(l)*dey(l)-TWO*cssq)
+                           pzz=pzz - fpost*(dez(l)*dez(l)-TWO*cssq)
+                           pxy=pxy - fpost*(dex(l)*dey(l))
+                           pxz=pxz - fpost*(dex(l)*dez(l))
+                           pyz=pyz - fpost*(dey(l)*dez(l))
 	             enddo
 #else
 	             pxx=pxx - cssq*press - u*u 
@@ -820,19 +836,23 @@ contains
 				 vtmp=0.0_db !
 				 wtmp=0.0_db !
 				 
-				 #ifdef EXPLICITEQ 
+#ifdef EXPLICITEQ 
 	             uu=HALF*(u*u+v*v+w*w)*invcssq
 	  
 	             do l=1,nlinks
 		           udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
 		           feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-		 
-		           pxx=pxx - feq*dex(l)*dex(l)
-		           pyy=pyy - feq*dey(l)*dey(l)
-		           pzz=pzz - feq*dez(l)*dez(l)
-		           pxy=pxy - feq*dex(l)*dey(l)
-		           pxz=pxz - feq*dex(l)*dez(l)
-		           pyz=pyz - feq*dey(l)*dez(l)
+                           !fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		           ! + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	                   ! + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		           ! + TWO*(dey(l)*dez(l))*pyz)
+                           fpost=feq!+fneq1
+                           pxx=pxx - fpost*(dex(l)*dex(l)-TWO*cssq)
+                           pyy=pyy - fpost*(dey(l)*dey(l)-TWO*cssq)
+                           pzz=pzz - fpost*(dez(l)*dez(l)-TWO*cssq)
+                           pxy=pxy - fpost*(dex(l)*dey(l))
+                           pxz=pxz - fpost*(dex(l)*dez(l))
+                           pyz=pyz - fpost*(dey(l)*dez(l))
 	             enddo
 #else
 	             pxx=pxx - cssq*press - u*u 
@@ -1000,13 +1020,17 @@ contains
 	             do l=1,nlinks
 		           udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
 		           feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-		 
-		           pxx=pxx - feq*dex(l)*dex(l)
-		           pyy=pyy - feq*dey(l)*dey(l)
-		           pzz=pzz - feq*dez(l)*dez(l)
-		           pxy=pxy - feq*dex(l)*dey(l)
-		           pxz=pxz - feq*dex(l)*dez(l)
-		           pyz=pyz - feq*dey(l)*dez(l)
+                           !fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		           ! + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	                   ! + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		           ! + TWO*(dey(l)*dez(l))*pyz)
+                           fpost=feq!+fneq1
+                           pxx=pxx - fpost*(dex(l)*dex(l)-TWO*cssq)
+                           pyy=pyy - fpost*(dey(l)*dey(l)-TWO*cssq)
+                           pzz=pzz - fpost*(dez(l)*dez(l)-TWO*cssq)
+                           pxy=pxy - fpost*(dex(l)*dey(l))
+                           pxz=pxz - fpost*(dex(l)*dez(l))
+                           pyz=pyz - fpost*(dey(l)*dez(l))
 	             enddo
 #else
 	             pxx=pxx - cssq*press - u*u 
@@ -1464,7 +1488,6 @@ contains
 	    			
 
 !******************lagrange multiplier
-#define BCPHIFLUX
 #ifdef BCPHIFLUX
 
 	 if(pbc_x.eq.0)then

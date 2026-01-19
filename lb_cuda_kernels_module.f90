@@ -1260,7 +1260,7 @@ contains
       real(kind=db) :: mytemp,forcex,forcey,forcez,rhophi_loc,press_loc,u_loc,v_loc,w_loc
 #ifdef EXPLICITEQ
       integer :: l
-      real(kind=db) :: udotc,uu,F_discr,feq
+      real(kind=db) :: udotc,uu,F_discr,feq,fneq1,fpost
 #endif
 #ifdef TWOCOMPONENT
 	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc
@@ -1404,14 +1404,18 @@ contains
 				  
                   do l=1,nlinks
                      udotc=(u_loc*dex(l) + v_loc*dey(l)+ w_loc*dez(l))*invcssq
-					 feq=p(l)*(press_loc + (udotc+0.5_db*udotc*udotc - uu))
-                     !
-                     pxx=pxx - feq*dex(l)*dex(l)
-                     pyy=pyy - feq*dey(l)*dey(l)
-                     pzz=pzz - feq*dez(l)*dez(l)
-                     pxy=pxy - feq*dex(l)*dey(l)
-                     pxz=pxz - feq*dex(l)*dez(l)
-                     pyz=pyz - feq*dey(l)*dez(l)
+		     feq=p(l)*(press_loc + (udotc+0.5_db*udotc*udotc - uu))
+                     !fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		     ! + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	             ! + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		     ! + TWO*(dey(l)*dez(l))*pyz)
+                    fpost=feq!+fneq1
+                    pxx=pxx - fpost*(dex(l)*dex(l))
+                    pyy=pyy - fpost*(dey(l)*dey(l))
+                    pzz=pzz - fpost*(dez(l)*dez(l))
+                    pxy=pxy - fpost*(dex(l)*dey(l))
+                    pxz=pxz - fpost*(dex(l)*dez(l))
+                    pyz=pyz - fpost*(dey(l)*dez(l))
                   enddo
 #else
                   pxx=pxx - cssq*press_loc - u_loc*u_loc
@@ -1491,15 +1495,14 @@ contains
                   
                   
 #ifdef EXPLICITEQ 
-				  uu=HALF*(u_loc*u_loc+v_loc*v_loc+w_loc*w_loc)*invcssq
-				  
+		  uu=HALF*(u_loc*u_loc+v_loc*v_loc+w_loc*w_loc)*invcssq
+	  
                   do l=1,nlinks
                      udotc=(u_loc*dex(l) + v_loc*dey(l)+ w_loc*dez(l))*invcssq
-					 feq=p(l)*(press_loc + (udotc+0.5_db*udotc*udotc - uu))
-					 F_discr= &
-					  p(l)*( (dex(l)-u_loc)*(forcex)+(dey(l)-v_loc)*(forcey)+(dez(l)-w_loc)*(forcez) + &
-					  (1.0_db/(cssq))*( (u_loc*dex(l)+v_loc*dey(l)+w_loc*dez(l))*&
-					  ( (forcex)*dex(l) + (forcey)*dey(l) + (forcez)*dez(l) ) ) )/(cssq*rhophi_loc) 
+		     F_discr= &
+		     p(l)*( (dex(l)-u_loc)*(forcex)+(dey(l)-v_loc)*(forcey)+(dez(l)-w_loc)*(forcez) + &
+		      (1.0_db/(cssq))*( (u_loc*dex(l)+v_loc*dey(l)+w_loc*dez(l))*&
+		      ( (forcex)*dex(l) + (forcey)*dey(l) + (forcez)*dez(l) ) ) )/(cssq*rhophi_loc) 
 					 
                      udotc = 0.5_db*F_discr 
                      
@@ -1872,7 +1875,7 @@ contains
       real(kind=db) :: mytemp,rhophi_loc,press_loc
       !real(kind=db) :: forcex,forcey,forcez,F_discr
   
-      real(kind=db) :: fneq1,feq,fpost
+      real(kind=db) :: fneq1,feq,fpost,uu,udotc
 #ifdef TWOCOMPONENT
       real(kind=db) :: wet_loc
 #endif
@@ -1943,13 +1946,17 @@ contains
 	  do l=1,nlinks
 		 udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
 		 feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-		 
-		 pxx=pxx - feq*dex(l)*dex(l)
-		 pyy=pyy - feq*dey(l)*dey(l)
-		 pzz=pzz - feq*dez(l)*dez(l)
-		 pxy=pxy - feq*dex(l)*dey(l)
-		 pxz=pxz - feq*dex(l)*dez(l)
-		 pyz=pyz - feq*dey(l)*dez(l)
+                 !fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		 !     + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	         !     + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		 !     + TWO*(dey(l)*dez(l))*pyz)
+                 fpost=feq!+fneq1
+                 pxx=pxx - fpost*(dex(l)*dex(l))
+                 pyy=pyy - fpost*(dey(l)*dey(l))
+                 pzz=pzz - fpost*(dez(l)*dez(l))
+                 pxy=pxy - fpost*(dex(l)*dey(l))
+                 pxz=pxz - fpost*(dex(l)*dez(l))
+                 pyz=pyz - fpost*(dey(l)*dez(l))
 	  enddo
 #else
 	  pxx=pxx - cssq*press - u*u 

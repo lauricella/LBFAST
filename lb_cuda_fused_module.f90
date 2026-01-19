@@ -170,14 +170,18 @@ contains
 				  
                   do lii=1,nlinks
                      udotc=(u*dex(lii) + v*dey(lii)+ w*dez(lii))*invcssq
-					 feq=p(lii)*(press + (udotc+0.5_db*udotc*udotc - uu))
-                     
-                     pxx=pxx - feq*dex(lii)*dex(lii)
-                     pyy=pyy - feq*dey(lii)*dey(lii)
-                     pzz=pzz - feq*dez(lii)*dez(lii)
-                     pxy=pxy - feq*dex(lii)*dey(lii)
-                     pxz=pxz - feq*dex(lii)*dez(lii)
-                     pyz=pyz - feq*dey(lii)*dez(lii)
+		     feq=p(lii)*(press + (udotc+0.5_db*udotc*udotc - uu))
+                     !fneq1=(HALF/(cssq*cssq))*( (dex(lii)*dex(lii)-cssq)*pxx &
+		     ! + (dey(lii)*dey(lii)-cssq)*pyy + (dez(lii)*dez(lii)-cssq)*pzz &
+	             ! + TWO*(dex(lii)*dey(lii))*pxy + TWO*(dex(lii)*dez(lii))*pxz &
+		     ! + TWO*(dey(lii)*dez(lii))*pyz)
+                     fpost=feq!+fneq1
+                     pxx=pxx - fpost*(dex(lii)*dex(lii))
+                     pyy=pyy - fpost*(dey(lii)*dey(lii))
+                     pzz=pzz - fpost*(dez(lii)*dez(lii))
+                     pxy=pxy - fpost*(dex(lii)*dey(lii))
+                     pxz=pxz - fpost*(dex(lii)*dez(lii))
+                     pyz=pyz - fpost*(dey(lii)*dez(lii))
                   enddo
 #else
                   pxx=pxx - cssq*press - u*u 

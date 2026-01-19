@@ -10,9 +10,9 @@
    lx=64
    ly=64
    lz=64
-   iprobe=48
-   jprobe=32
-   kprobe=32
+   iprobe=16
+   jprobe=16
+   kprobe=16
    lprint=.true.
    lvtk=.false.
    lraw=.true.
