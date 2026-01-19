@@ -1325,7 +1325,6 @@ contains
 		  forcez = forcez + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
-                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'af',forcex,forcey,forcez
 
 #ifdef REPULSIVE_FLUX
 		  mytemp=locauxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))*rhophi_loc 
@@ -1351,7 +1350,7 @@ contains
 		  forcey=forcey + rhophi_loc*ABCy(i,j,k) !+ AAA*sin(k_zero*gi) + AAA*sin(k_zero*gk)
 		  forcez=forcez + rhophi_loc*ABCz(i,j,k) !+ AAA*sin(k_zero*gj) + AAA*sin(k_zero*gi) 	
 #endif
-                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'bf',forcex,forcey,forcez
+                  
 #ifdef DENSRATIO				  
 		  ! pressure and viscous forces
 				  
@@ -1369,8 +1368,7 @@ contains
 		  !! these terms should be not included in force arrays since they must be computed with the updated velocity
 		  !! at the end of this subroutine
 #endif
-                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'cf',forcex,forcey,forcez
-
+                  
                   gif=idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces)
                   gjf=idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces)
                   gkf=idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces)
@@ -1393,9 +1391,6 @@ contains
 		  forcez=forcez + &
 		   rhophi_loc*(w_loc - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc + rhophi_loc*fz !+  	
 #endif
-                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'df',forces_s(gif),forces_s(gjf),forces_s(gkf)
-                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'ddf',forcex,forcey,forcez
-
 
 #ifdef DENSRATIO 
 			  
@@ -1447,11 +1442,7 @@ contains
                   !I compute the new velocities
 		  u_loc=hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields)) !velocity
                   v_loc=hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  w_loc=hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'v',u_loc,v_loc,w_loc
-                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'vf',forces_s(gif),forces_s(gjf),forces_s(gkf)
-                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'vvf',forcex,forcey,forcez
-            
+                  w_loc=hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))            
 					 
 #if defined(INTERFACE_INCOMP) && defined(DENSRATIO)
 		  mytemp= -sharp_c*locauxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))
@@ -1483,7 +1474,6 @@ contains
 					 
 		  forcez=forcez - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*w_loc
-                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'fv',forces_s(gif),forces_s(gjf),forces_s(gkf)
                   
 #else
                   u_loc = u_loc + 0.5_db*forcex/rhophi_loc
@@ -1557,7 +1547,7 @@ contains
 		  forces_s(gkf)= forces_s(gkf) + &
 		   rhophi_loc*(w_loc - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+rhophi_loc*fz  
 #endif               
-                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'f0',forces_s(gif),forces_s(gjf),forces_s(gkf)   
+                  
 #if defined(DENSRATIO)	
                   pxx=pxx - cssq*press_loc - u_loc*u_loc 
                   pyy=pyy - cssq*press_loc - v_loc*v_loc
@@ -1573,7 +1563,6 @@ contains
 		  forces_s(gkf)= forces_s(gkf) - &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
-                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'f',forces_s(gif),forces_s(gjf),forces_s(gkf)
 
 
    endsubroutine moments_LB_kernel  
