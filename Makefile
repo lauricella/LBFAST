@@ -79,8 +79,9 @@ nvfortran-mpi:
 	$(MAKE) CC=mpicc \
 	FC=mpif90 \
 	CFLAGS="-O3 -I $(CURDIR) " \
-	FCUDAFLAGS="-cuda -gpu=cc$(GPUCC),ptxinfo" \
-	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=4 -DLATTICE=D3Q27 -DMPI -D_KERNELCUDA -I $(CURDIR) " \
+	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo -Minfo=accel -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
+	FCUDAFLAGSRID="-O1 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo -Minfo=accel -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
+	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -DMPI -I $(CURDIR) " \
 	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=4 -DMPI -I $(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EXP) BINROOT=$(BINROOT) seq

@@ -1,8 +1,8 @@
 &simulation
-   nsteps=10
-   stamp=1
+   nsteps=100
+   stamp=10
    stamp2D=1000
-   stamp_term=1
+   stamp_term=10
    stepskip=1
    lreadisfluid=.false.   !metti true se leggi isfluid
    lreadinit=.false.  !metti true se leggi rho phi e u v w
