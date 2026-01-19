@@ -17,7 +17,7 @@ EXEP = $(BINROOT)/$(EXP)
 SHELL=/bin/sh
 
 # default (change calling: make GPUCC=80)
-GPUCC ?= 80
+GPUCC ?= all
 
 def:	all
 
@@ -68,10 +68,11 @@ nvfortran:
 nvfortran-debug:
 	$(MAKE) CC=nvcc \
 	FC=nvfortran \
-	CFLAGS="-O3 -g -I $(CURDIR) " \
-	FCUDAFLAGS="-cuda -gpu=cc$(GPUCC),debug,keep,ptxinfo,lineinfo" \
+	CFLAGS="-O1 -g -I $(CURDIR) " \
+	FCUDAFLAGS="-O1 -g -cuda -gpu=cc$(GPUCC),debug,keep,ptxinfo,lineinfo -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
+	FCUDAFLAGSRID="-O1 -g -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
 	FFLAGS="-O1 -g -cpp -acc -gpu=cc$(GPUCC),debug,keep,ptxinfo,lineinfo -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
-	LDFLAGS="-O3 -acc -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=4 -I $(CURDIR) -o" \
+	LDFLAGS="-O1 -acc -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=4 -I $(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EX) BINROOT=$(BINROOT) seq
 
@@ -90,7 +91,8 @@ nvfortran-mpi-debug:
 	$(MAKE) CC=mpicc \
 	FC=mpif90 \
 	CFLAGS="-O1 -g -I $(CURDIR) " \
-	FCUDAFLAGS="-cuda -gpu=cc$(GPUCC),debug,keep,ptxinfo" \
+	FCUDAFLAGS="-O1 -g -cuda -gpu=cc$(GPUCC),debug,keep,ptxinfo -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
+	FCUDAFLAGSRID="-O1 -g -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
 	FFLAGS="-O1 -g -cpp -acc -gpu=cc$(GPUCC),debug,keep,ptxinfo -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -DMPI -I $(CURDIR) " \
 	LDFLAGS="-O1 -acc -cuda -gpu=cc$(GPUCC) -Minfo=accel -DPRC=4 -DMPI -I $(CURDIR) -o" \
 	TYPE=seq \
@@ -100,7 +102,8 @@ nvfortran-dble:
 	$(MAKE) CC=nvcc \
 	FC=nvfortran \
 	CFLAGS="-O3 -I $(CURDIR) " \
-	FCUDAFLAGS="-cuda -gpu=cc$(GPUCC),ptxinfo" \
+	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo -Minfo=accel -DPRC=8 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
+	FCUDAFLAGSRID="-O1 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo -Minfo=accel -DPRC=8 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
 	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=8 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
 	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=8 -I $(CURDIR) -o" \
 	TYPE=seq \
@@ -110,7 +113,8 @@ nvfortran-mpi-dble:
 	$(MAKE) CC=mpicc \
 	FC=mpif90 \
 	CFLAGS="-O3 -I $(CURDIR) " \
-	FCUDAFLAGS="-cuda -gpu=cc$(GPUCC),ptxinfo" \
+	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo -Minfo=accel -DPRC=8 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
+	FCUDAFLAGSRID="-O1 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo -Minfo=accel -DPRC=8 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
 	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=8 -DLATTICE=D3Q27 -DMPI -D_KERNELCUDA -I $(CURDIR) " \
 	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=8 -DMPI -I $(CURDIR) -o" \
 	TYPE=seq \
@@ -121,11 +125,11 @@ nvfortran-mpi-dble:
 seq:get_mem.o get_ram.o vars_module.o \
 	mpi_module.o profiling_m.o lb_cuda_vars_module.o lb_cuda_fused_module.o lb_cuda_kernels_module.o boundary_cds_module.o \
 	init_conditions_module.o statistics.o print_module.o allocate_module.o integrator_module.o \
-	LLBcuda.o
+	LBFAST.o
 	$(FC) $(LDFLAGS) $(EX) get_mem.o get_ram.o vars_module.o mpi_module.o \
 	profiling_m.o lb_cuda_vars_module.o lb_cuda_fused_module.o lb_cuda_kernels_module.o boundary_cds_module.o \
 	init_conditions_module.o statistics.o print_module.o allocate_module.o integrator_module.o \
-	LLBcuda.o
+	LBFAST.o
 #	mv $(EXP) $(EXEP)
 
 get_mem.o:get_mem.c
@@ -170,8 +174,8 @@ allocate_module.o:allocate_module.f90
 integrator_module.o:integrator_module.f90
 	$(FC) $(FFLAGS) -c integrator_module.f90
 
-LLBcuda.o:LLBcuda.f90
-	$(FC) $(FFLAGS) -c LLBcuda.f90
+LBFAST.o:LBFAST.f90
+	$(FC) $(FFLAGS) -c LBFAST.f90
 
 clean-all:
 	rm -rf *.mod *.o *.x *.dat *.i
