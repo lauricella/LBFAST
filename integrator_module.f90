@@ -68,7 +68,7 @@ contains
       flop = 3 - flip
       
       !$acc data copy(step,lx,ly,lz,nx,ny,nz,coords,myoffset,isfluid,myrank, &
-      !$acc& rhoprint,velprint,radius, &
+      !$acc& rhoprint,velprint,radius,iprobe,jprobe,kprobe, &
 	  !$acc& tau1,visc1,rho_r,rho_b,invrho_r,invrho_b,omega,arr_3d, &
       !$acc& intpbc_dir,num_links_pops,links_pops,f_datampi,uwall,udotc,uu, &
       !$acc& f_send_extr,f_recv_extr, &
@@ -294,7 +294,7 @@ contains
 		 call repulsive_flux_normal_cuda(phifields_flip)
 #endif
 #endif
-         call moments_LB_cuda(hfields_flip &
+         call moments_LB_cuda(hfields_flop,hfields_flip &
 #ifdef TWOCOMPONENT         
           ,phifields_flip &
 #endif
@@ -470,7 +470,7 @@ contains
 		 call repulsive_flux_normal_cuda(phifields_flop)
 #endif
 #endif
-         call moments_LB_cuda(hfields_flop &
+         call moments_LB_cuda(hfields_flip,hfields_flop &
 #ifdef TWOCOMPONENT         
           ,phifields_flop &
 #endif

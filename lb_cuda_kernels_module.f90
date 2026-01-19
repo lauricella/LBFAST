@@ -1151,7 +1151,7 @@ contains
        
  end subroutine repulsive_flux_normal_kernel
  
- subroutine moments_LB_cuda(hfields_s &
+ subroutine moments_LB_cuda(hfields_old,hfields_s &
 #ifdef TWOCOMPONENT    
   ,phifields_s &
 #endif 
@@ -1159,7 +1159,7 @@ contains
 
       implicit none
       
-      real(kind=db), allocatable, dimension(:) :: hfields_s
+      real(kind=db), allocatable, dimension(:) :: hfields_old,hfields_s
 #ifdef TWOCOMPONENT          
       real(kind=db), allocatable, dimension(:) :: phifields_s
 #endif 
@@ -1168,7 +1168,7 @@ contains
       !$acc wait
       istat = cudaDeviceSynchronize
 
-!$acc host_data use_device(flop,nx,ny,nz,coords,isfluid & 
+!$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid & 
 #ifdef MULTIHIT
        !$acc& ,ABCx,ABCy,ABCz &
 #endif 
@@ -1182,8 +1182,8 @@ contains
        !$acc& ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
        !$acc& ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-       !$acc& ,hfields_s,auxfields,locauxfields,forces)
-       call moments_LB_kernel<<<dimGrid, dimBlock>>>(flop,nx,ny,nz,coords,isfluid &   
+       !$acc& ,hfields_old,hfields_s,auxfields,locauxfields,forces)
+       call moments_LB_kernel<<<dimGrid, dimBlock>>>(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &   
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
 #endif 
@@ -1197,7 +1197,7 @@ contains
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
 	   ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_s,auxfields,locauxfields,forces)
+	   ,hfields_old,hfields_s,auxfields,locauxfields,forces)
 !$acc end host_data
       istat = cudaDeviceSynchronize
       istat = cudaGetLastError()
@@ -1210,7 +1210,7 @@ contains
       
    endsubroutine moments_LB_cuda
  
- attributes(global) subroutine moments_LB_kernel(flop,nx,ny,nz,coords,isfluid &   
+ attributes(global) subroutine moments_LB_kernel(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &   
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
 #endif 
@@ -1224,12 +1224,12 @@ contains
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
        ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-       ,hfields_s,auxfields_s,locauxfields_s,forces_s)
+       ,hfields_old,hfields_s,auxfields_s,locauxfields_s,forces_s)
  
 
       implicit none
       
-      integer :: flop,nx,ny,nz
+      integer :: step,iprobe,jprobe,kprobe,flop,nx,ny,nz
       
       integer, dimension(3) :: coords
       integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
@@ -1250,7 +1250,7 @@ contains
 #endif
       real(kind=db) :: fx,fy,fz
 
-      real(kind=db), dimension(ntothfields) :: hfields_s
+      real(kind=db), dimension(ntothfields) :: hfields_old,hfields_s
       real(kind=db), dimension(ntotauxfields) :: auxfields_s
       real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
       real(kind=db), dimension(ntotforces) :: forces_s
@@ -1293,100 +1293,110 @@ contains
       
 
 				 
-				 press_loc=hfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+		  press_loc=hfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
 				 
 #ifdef TWOCOMPONENT					 
-				 phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
-				 lap_phi_loc=locauxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))
+		  phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+		  lap_phi_loc=locauxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))
 #endif
 #ifdef DENSRATIO
                   rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
-                  forcex=(rhophi_loc-(rho_r+rho_b)*HALF)*fx !0.0_db
-                  forcey=(rhophi_loc-(rho_r+rho_b)*HALF)*fy !0.0_db
-                  forcez=(rhophi_loc-(rho_r+rho_b)*HALF)*fz !0.0_db
+                  forcex=fx !(rhophi_loc-(rho_r+rho_b)*HALF)*fx !0.0_db
+                  forcey=fy !(rhophi_loc-(rho_r+rho_b)*HALF)*fy !0.0_db
+                  forcez=fz !(rhophi_loc-(rho_r+rho_b)*HALF)*fz !0.0_db
 #else
                   rhophi_loc = 1.0_db !press_loc
                   forcex=fx !0.0_db
-				  forcey=fy !0.0_db
-				  forcez=fz !0.0_db
+		  forcey=fy !0.0_db
+		  forcez=fz !0.0_db
 #endif	
 			 
 #ifdef TWOCOMPONENT		
 		   
-				   !jaqmin 
-				   mytemp=auxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields)) !modgrad
-				   gradfix=auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))*mytemp !normx*modgrad
-				   gradfiy=auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))*mytemp !normy*modgrad
-				   gradfiz=auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))*mytemp !normz*modgrad
-				   forcex=(4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-				   forcey=(4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-				   forcez=(4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
+		  !jaqmin 
+		  mytemp=auxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields)) !modgrad
+		  gradfix=auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))*mytemp !normx*modgrad
+		  gradfiy=auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))*mytemp !normy*modgrad
+		  gradfiz=auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))*mytemp !normz*modgrad
+		  forcex = forcex + &
+                   (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
+		  forcey = forcey + &
+                   (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
+		  forcez = forcez + &
+                   (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
-
+                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'af',forcex,forcey,forcez
 
 #ifdef REPULSIVE_FLUX
-				  mytemp=locauxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))*rhophi_loc 
-				  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-				  forcex=forcex + mytemp*rhophi_loc
+		  mytemp=locauxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))*rhophi_loc 
+		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+		  forcex=forcex + mytemp*rhophi_loc
 				  
-				  mytemp=locauxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))*rhophi_loc 
-				  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-				  forcey=forcey + mytemp*rhophi_loc
+		  mytemp=locauxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))*rhophi_loc 
+		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+		  forcey=forcey + mytemp*rhophi_loc
 				  
-				  mytemp=locauxfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))*rhophi_loc 
-				  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-				  forcez=forcez + mytemp*rhophi_loc
+		  mytemp=locauxfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))*rhophi_loc 
+		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+		  forcez=forcez + mytemp*rhophi_loc
 #endif
 #endif
 
 #if defined(PLUG_FLOW)   
                   
-				  forcez = forcez + rhophi_loc*fz !forcez=forcez + phi_loc*fz ! if mnulticomponent/phase (rhophi_loc-rho_r or rho_b)*fz 	
+		  forcez = forcez + rhophi_loc*fz !forcez=forcez + phi_loc*fz ! if mnulticomponent/phase (rhophi_loc-rho_r or rho_b)*fz 	
 #endif
 #if defined(MULTIHIT)   
                   forcex=forcex + rhophi_loc*ABCx(i,j,k) !+ AAA*sin(k_zero*gk) + AAA*sin(k_zero*gj)  
-				  forcey=forcey + rhophi_loc*ABCy(i,j,k) !+ AAA*sin(k_zero*gi) + AAA*sin(k_zero*gk)
-				  forcez=forcez + rhophi_loc*ABCz(i,j,k) !+ AAA*sin(k_zero*gj) + AAA*sin(k_zero*gi) 	
+		  forcey=forcey + rhophi_loc*ABCy(i,j,k) !+ AAA*sin(k_zero*gi) + AAA*sin(k_zero*gk)
+		  forcez=forcez + rhophi_loc*ABCz(i,j,k) !+ AAA*sin(k_zero*gj) + AAA*sin(k_zero*gi) 	
 #endif
+                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'bf',forcex,forcey,forcez
 #ifdef DENSRATIO				  
-				  ! pressure and viscous forces
+		  ! pressure and viscous forces
 				  
-				  gradrhox=(rho_r-rho_b)*gradfix
-				  gradrhoy=(rho_r-rho_b)*gradfiy
-				  gradrhoz=(rho_r-rho_b)*gradfiz
+		  gradrhox=(rho_r-rho_b)*gradfix
+		  gradrhoy=(rho_r-rho_b)*gradfiy
+		  gradrhoz=(rho_r-rho_b)*gradfiz
 				  
                   forcex=forcex - &
                    press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
                   forcey=forcey - &
                    press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
-				  forcez=forcez - &
-				   press_loc*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
-				  !! from this point I compute the force terms that depend on the velocity
-				  !! these terms should be not included in force arrays since they must be computed with the updated velocity
-				  !! at the end of this subroutine
+		  forcez=forcez - &
+		   press_loc*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
+		  !! from this point I compute the force terms that depend on the velocity
+		  !! these terms should be not included in force arrays since they must be computed with the updated velocity
+		  !! at the end of this subroutine
 #endif
+                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'cf',forcex,forcey,forcez
+
                   gif=idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces)
                   gjf=idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces)
                   gkf=idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces)
                   
-				  forces_s(gif)=forcex
-				  forces_s(gjf)=forcey
-				  forces_s(gkf)=forcez
+		  forces_s(gif)=forcex
+		  forces_s(gjf)=forcey
+		  forces_s(gkf)=forcez
 				  
-				  u_loc=hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields)) !velocity
-                  v_loc=hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  w_loc=hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+		  u_loc=hfields_old(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields)) !velocity
+                  v_loc=hfields_old(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  w_loc=hfields_old(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
                   
                  
 				  
 #if defined(ELASTIC_FORCE)
                   forcex=forcex + &
                    rhophi_loc*(u_loc - u_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+   
-				  forcey=forcey + &
-				   rhophi_loc*(v_loc - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-				  forcez=forcez + &
-				   rhophi_loc*(w_loc - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc + rhophi_loc*fz !+  	
+		  forcey=forcey + &
+		   rhophi_loc*(v_loc - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
+		  forcez=forcez + &
+		   rhophi_loc*(w_loc - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc + rhophi_loc*fz !+  	
 #endif
+                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'df',forces_s(gif),forces_s(gjf),forces_s(gkf)
+                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'ddf',forcex,forcey,forcez
+
+
 #ifdef DENSRATIO 
 			  
                   pxx=hfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
@@ -1400,7 +1410,7 @@ contains
                   !*1
                   ! 2nd order
 #ifdef EXPLICITEQ                  
-				  uu=HALF*(u_loc*u_loc+v_loc*v_loc+w_loc*w_loc)*invcssq
+		  uu=HALF*(u_loc*u_loc+v_loc*v_loc+w_loc*w_loc)*invcssq
 				  
                   do l=1,nlinks
                      udotc=(u_loc*dex(l) + v_loc*dey(l)+ w_loc*dez(l))*invcssq
@@ -1426,67 +1436,70 @@ contains
                   pyz=pyz - v_loc*w_loc
 
 #endif
-				  visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
+		  visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 				  
                   tau_loc=(visc_loc/cssq + HALF) !è una tau
 				  
-				  forcex=forcex - (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-				  forcey=forcey - (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-				  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
+		  forcex=forcex - (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
+		  forcey=forcey - (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
+		  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
-			
-
-
+		  u_loc=hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields)) !velocity
+                  v_loc=hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  w_loc=hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'v',u_loc,v_loc,w_loc
+                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'vf',forces_s(gif),forces_s(gjf),forces_s(gkf)
+                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'vvf',forcex,forcey,forcez
             
 					 
 #if defined(INTERFACE_INCOMP) && defined(DENSRATIO)
-				  mytemp= -sharp_c*locauxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))
-				  u_loc = u_loc + 0.5_db*forcex/(rhophi_loc)
+		  mytemp= -sharp_c*locauxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))
+		  u_loc = u_loc + 0.5_db*forcex/(rhophi_loc)
                   v_loc = v_loc + 0.5_db*forcey/(rhophi_loc)
                   w_loc = w_loc + 0.5_db*forcez/(rhophi_loc)
 				  
-				  u_loc = u_loc/ &
-				   (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc )
+		  u_loc = u_loc/ &
+		   (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc )
 				  
-				  v_loc = v_loc/ &
-				   (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc ) 
+		  v_loc = v_loc/ &
+		   (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc ) 
 				  
-				  w_loc = w_loc/ &
-				   (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc ) 
-  
+		  w_loc = w_loc/ &
+	           (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc ) 
+
+		  forces_s(gif)= forces_s(gif) - &
+		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*u_loc
+		  forces_s(gjf)= forces_s(gjf) - &
+		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*v_loc
+		  forces_s(gkf)= forces_s(gkf) - &
+		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*w_loc
+					 
+		  forcex=forcex - &
+		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*u_loc
+					 
+		  forcey=forcey - &
+		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*v_loc
+					 
+		  forcez=forcez - &
+		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*w_loc
+                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'fv',forces_s(gif),forces_s(gjf),forces_s(gkf)
+                  
 #else
                   u_loc = u_loc + 0.5_db*forcex/rhophi_loc
                   v_loc = v_loc + 0.5_db*forcey/rhophi_loc
                   w_loc = w_loc + 0.5_db*forcez/rhophi_loc
 #endif
+                  
 
                   hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=u_loc   !put the new velocity in hfields_s
                   hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=v_loc
                   hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=w_loc
                   
-                  
-#if defined(INTERFACE_INCOMP) && defined(DENSRATIO)
-					 forces_s(gif)= forces_s(gif) - &
-					  (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*u_loc
-					 forces_s(gjf)= forces_s(gjf) - &
-					  (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*v_loc
-					 forces_s(gkf)= forces_s(gkf) - &
-					  (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*w_loc
-					 
-					 forcex=forcex - &
-					  (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*u_loc
-					 
-					 forcey=forcey - &
-					  (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*v_loc
-					 
-					 forcez=forcez - &
-					  (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*w_loc
-#endif 
-
+                                    
 
 !regularized 
-				  pxx=hfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+		  pxx=hfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
                   pyy=hfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
                   pzz=hfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
                   pxy=hfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
@@ -1495,10 +1508,8 @@ contains
                   
                   
 #ifdef EXPLICITEQ 
-		  uu=HALF*(u_loc*u_loc+v_loc*v_loc+w_loc*w_loc)*invcssq
-	  
                   do l=1,nlinks
-                     udotc=(u_loc*dex(l) + v_loc*dey(l)+ w_loc*dez(l))*invcssq
+                     
 		     F_discr= &
 		     p(l)*( (dex(l)-u_loc)*(forcex)+(dey(l)-v_loc)*(forcey)+(dez(l)-w_loc)*(forcez) + &
 		      (1.0_db/(cssq))*( (u_loc*dex(l)+v_loc*dey(l)+w_loc*dez(l))*&
@@ -1532,29 +1543,37 @@ contains
                   
                   
 #if defined(ELASTIC_FORCE)
-				  u_ref(i,j,k) = u_ref(i,j,k) + &
-				   lambda_rel*(u_loc - u_ref(i,j,k))
-				  v_ref(i,j,k) = v_ref(i,j,k) + &
-				   lambda_rel*(v_loc - v_ref(i,j,k))
-				  w_ref(i,j,k) = w_ref(i,j,k) + &
-				   lambda_rel*(w_loc - w_ref(i,j,k))
+		  u_ref(i,j,k) = u_ref(i,j,k) + &
+		   lambda_rel*(u_loc - u_ref(i,j,k))
+		  v_ref(i,j,k) = v_ref(i,j,k) + &
+		   lambda_rel*(v_loc - v_ref(i,j,k))
+		  w_ref(i,j,k) = w_ref(i,j,k) + &
+		   lambda_rel*(w_loc - w_ref(i,j,k))
 				  
                   forces_s(gif)= forces_s(gif) + &
                    rhophi_loc*(u_loc - u_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-				  forces_s(gjf)= forces_s(gjf) +&
-				    rhophi_loc*(v_loc - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-				  forces_s(gkf)= forces_s(gkf) + &
-				   rhophi_loc*(w_loc - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc+rhophi_loc*fz  
-#endif                  
-#if defined(DENSRATIO)			  
-				  forces_s(gif)= forces_s(gif) - &
-				   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-				  forces_s(gjf)= forces_s(gjf) - &
-				   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-				  forces_s(gkf)= forces_s(gkf) - &
-				   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
+		  forces_s(gjf)= forces_s(gjf) +&
+		   rhophi_loc*(v_loc - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
+		  forces_s(gkf)= forces_s(gkf) + &
+		   rhophi_loc*(w_loc - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+rhophi_loc*fz  
 #endif               
- 
+                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'f0',forces_s(gif),forces_s(gjf),forces_s(gkf)   
+#if defined(DENSRATIO)	
+                  pxx=pxx - cssq*press_loc - u_loc*u_loc 
+                  pyy=pyy - cssq*press_loc - v_loc*v_loc
+                  pzz=pzz - cssq*press_loc - w_loc*w_loc 
+                  pxy=pxy - u_loc*v_loc
+                  pxz=pxz - u_loc*w_loc
+                  pyz=pyz - v_loc*w_loc
+		  
+		  forces_s(gif)= forces_s(gif) - &
+		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
+		  forces_s(gjf)= forces_s(gjf) - &
+		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
+		  forces_s(gkf)= forces_s(gkf) - &
+		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
+#endif               
+                  !if(gi==iprobe .and. gj==jprobe .and. gk==kprobe)write(*,*)'f',forces_s(gif),forces_s(gjf),forces_s(gkf)
 
 
    endsubroutine moments_LB_kernel  
