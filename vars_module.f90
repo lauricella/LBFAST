@@ -61,8 +61,8 @@
 #warning "INTERNAL_OBSTACLES: actiaved"
 #endif
 
-#ifdef PLUG_FLOW
-#warning "PLUG_FLOW: actiaved"
+#ifdef BUOYANCY_FORCING
+#warning "BUOYANCY_FORCING: actiaved"
 #endif
 
 #ifdef IMPOSED_PRESSURE_GRADIENT

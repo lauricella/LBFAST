@@ -1300,13 +1300,19 @@ contains
 		  lap_phi_loc=locauxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))
 #endif
 #ifdef DENSRATIO
-                  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
-                  forcex=fx !(rhophi_loc-(rho_r+rho_b)*HALF)*fx !0.0_db
-                  forcey=fy !(rhophi_loc-(rho_r+rho_b)*HALF)*fy !0.0_db
-                  forcez=fz !(rhophi_loc-(rho_r+rho_b)*HALF)*fz !0.0_db
+		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
+#ifdef BUOYANCY_FORCING   
+		  forcex=(rhophi_loc-(rho_r+rho_b)*HALF)*fx !0.0_db
+		  forcey=(rhophi_loc-(rho_r+rho_b)*HALF)*fy !0.0_db
+		  forcez=(rhophi_loc-(rho_r+rho_b)*HALF)*fz !0.0_db	
 #else
-                  rhophi_loc = 1.0_db !press_loc
-                  forcex=fx !0.0_db
+		  forcex=rhophi_loc*fx !(rhophi_loc-(rho_r+rho_b)*HALF)*fx !0.0_db
+		  forcey=rhophi_loc*fy !(rhophi_loc-(rho_r+rho_b)*HALF)*fy !0.0_db
+		  forcez=rhophi_loc*fz !(rhophi_loc-(rho_r+rho_b)*HALF)*fz !0.0_db
+#endif
+#else
+		  rhophi_loc = 1.0_db !press_loc
+		  forcex=fx !0.0_db
 		  forcey=fy !0.0_db
 		  forcez=fz !0.0_db
 #endif	
@@ -1341,10 +1347,7 @@ contains
 #endif
 #endif
 
-#if defined(PLUG_FLOW)   
-                  
-		  forcez = forcez + rhophi_loc*fz !forcez=forcez + phi_loc*fz ! if mnulticomponent/phase (rhophi_loc-rho_r or rho_b)*fz 	
-#endif
+
 #if defined(MULTIHIT)   
                   forcex=forcex + rhophi_loc*ABCx(i,j,k) !+ AAA*sin(k_zero*gk) + AAA*sin(k_zero*gj)  
 		  forcey=forcey + rhophi_loc*ABCy(i,j,k) !+ AAA*sin(k_zero*gi) + AAA*sin(k_zero*gk)
