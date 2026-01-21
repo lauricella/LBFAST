@@ -28,7 +28,7 @@ program threadsafeLB
    
    namelist /simulation/ nsteps,stamp,stamp2D,stepskip,lreadisfluid, &
     lreadinit,lx,ly,lz,lprint,lvtk,lraw,lrestart,pbc_x,pbc_y,pbc_z,openbc,lasync, &
-    TILE_DIMx,TILE_DIMy,TILE_DIMz,TILE_DIM,iprobe,jprobe,kprobe, &   
+    iprobe,jprobe,kprobe, &   
     nplanes,stamp_term,time_limit,every_time_check,lwriterestart,lweakscaling
     
    namelist /fluid/ fx,fy,fz,visc1, &

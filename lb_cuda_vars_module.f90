@@ -12,8 +12,7 @@ module lb_cuda_vars
    implicit none
    
    integer :: istat
-
-   integer, constant :: TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,TILE_DIM_d
+   
    integer, constant :: nx_d,ny_d,nz_d
    integer, constant :: lx_d,ly_d,lz_d
    integer, constant :: nxblock_d,nyblock_d,nzblock_d

@@ -74,7 +74,7 @@ contains
       !$acc& f_send_extr,f_recv_extr, &
       !$acc& ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
       !$acc& hfields_flip,hfields_flop,auxfields,locauxfields,forces, &
-      !$acc& TILE_DIMx,TILE_DIMy,TILE_DIMz,nblocks,nxblock,nxyblock, &
+      !$acc& nblocks,nxblock,nxyblock, &
 #ifdef TWOCOMPONENT
       !$acc& phifields_flip,phifields_flop, &
       !$acc& sharp_c,beta,tau2,visc2, kapp, sigma,width,tau_diff,corr,global_phi_sum_ini,global_count,global_phi_sum,&

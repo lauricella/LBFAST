@@ -171,10 +171,28 @@ module vars
    integer(acc_device_kind) :: devType
 #endif
 
-   integer, save :: TILE_DIMx=4
-   integer, save :: TILE_DIMy=4
-   integer, save :: TILE_DIMz=4
-   integer, save :: TILE_DIM=16
+#ifdef GPUTILEX
+#warning "GPUTILEX: the TILE_DIMx value was defined in defines.h" 
+   integer, parameter :: TILE_DIMx = GPUTILEX
+#else
+   integer, parameter :: TILE_DIMx = 4
+#endif
+
+#ifdef GPUTILEY
+#warning "GPUTILEY: the TILE_DIMx value was defined in defines.h" 
+   integer, parameter :: TILE_DIMy = GPUTILEY
+#else
+   integer, parameter :: TILE_DIMy = 4
+#endif
+
+#ifdef GPUTILEZ
+#warning "GPUTILEZ: the TILE_DIMx value was defined in defines.h" 
+   integer, parameter :: TILE_DIMz = GPUTILEZ
+#else
+   integer, parameter :: TILE_DIMz = 4
+#endif
+   integer, parameter :: TILE_DIM=16
+   
    integer, save :: nxblock,nyblock,nzblock,nxyblock,nblocks
 
    real(kind=db),parameter :: pi_greek=3.14159265359793234626433

@@ -65,10 +65,10 @@ contains
       real(kind=db) :: opress,ou,ov,ow,opxx,opyy,opzz,opxy,opxz,opyz
       real(kind=db) :: forcex,forcey,forcez,rhophi_loc,press_loc,uu,udotc
       
-      real(kind=db), shared :: f1(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
-      real(kind=db), shared :: f2(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
-      real(kind=db), shared :: f3(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
-      real(kind=db), shared :: f4(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
+      real(kind=db), shared :: f1(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
+      real(kind=db), shared :: f2(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
+      real(kind=db), shared :: f3(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
+      real(kind=db), shared :: f4(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
   
       real(kind=db) :: F_discr,fneq1,feq,fpost
 #ifdef TWOCOMPONENT
@@ -90,26 +90,26 @@ contains
       lj = threadIdx%y-1
       lk = threadIdx%z-1
       
-      i = (blockIdx%x-1) * TILE_DIMx_d + li
-      j = (blockIdx%y-1) * TILE_DIMy_d + lj
-      k = (blockIdx%z-1) * TILE_DIMz_d + lk
+      i = (blockIdx%x-1) * TILE_DIMx + li
+      j = (blockIdx%y-1) * TILE_DIMy + lj
+      k = (blockIdx%z-1) * TILE_DIMz + lk
       
       gi=nx*coords(1)+i
       gj=ny*coords(2)+j
       gk=nz*coords(3)+k
       
-      xblock=(i+2*TILE_DIMx_d-1)/TILE_DIMx_d
-	  yblock=(j+2*TILE_DIMy_d-1)/TILE_DIMy_d
-	  zblock=(k+2*TILE_DIMz_d-1)/TILE_DIMz_d
+      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
-      ii=i-xblock*TILE_DIMx_d+2*TILE_DIMx_d
-      jj=j-yblock*TILE_DIMy_d+2*TILE_DIMy_d
-      kk=k-zblock*TILE_DIMz_d+2*TILE_DIMz_d
+      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
 
-      !i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
-      !j = (blockIdx%y-1) * TILE_DIMy_d + threadIdx%y
-      !k = (blockIdx%z-1) * TILE_DIMz_d + threadIdx%z
+      !i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
+      !j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
+      !k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
       
 !      gi=nx*coords(1)+i
 !      gj=ny*coords(2)+j
@@ -122,7 +122,7 @@ contains
        
      
 #ifdef TWOCOMPONENT	  
-                  phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+                  phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
 #endif                  
 #ifdef DENSRATIO
                   
@@ -131,20 +131,20 @@ contains
                   rhophi_loc = 1.0_db !press_loc
 #endif	
 
-				  forcex=forces_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
-				  forcey=forces_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
-				  forcez=forces_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
+				  forcex=forces_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+				  forcey=forces_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+				  forcez=forces_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
                   
-                  press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields)) 
-                  v=hfields_in(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  w=hfields_in(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pxx=hfields_in(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pyy=hfields_in(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pzz=hfields_in(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pxy=hfields_in(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pxz=hfields_in(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pyz=hfields_in(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
+                  v=hfields_in(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  w=hfields_in(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pxx=hfields_in(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pyy=hfields_in(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pzz=hfields_in(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pxy=hfields_in(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pxz=hfields_in(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pyz=hfields_in(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
                   
                   
 #ifdef INTERNAL_OBSTACLES
@@ -288,9 +288,9 @@ contains
                   lii=li+1
                   ljj=lj
                   lkk=lk
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  !ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  !lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*press + 6.0_db*u &
 			       *(1.0_db + u) - 3.0_db*v**2.0_db &
@@ -315,9 +315,9 @@ contains
                   lii=li-1
                   ljj=lj
                   lkk=lk
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  !ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  !lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*press + 6.0_db*(-1.0_db &
 			       + u)*u - 3.0_db*v**2.0_db &
@@ -343,9 +343,9 @@ contains
                   lii=li
                   ljj=lj+1
                   lkk=lk
-                  !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  !lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  !lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*press - 3.0_db*(u**2.0_db &
 			       - 2.0_db*v*(1.0_db + v) + w**2.0_db))/27.0_db
@@ -370,9 +370,9 @@ contains
                   lii=li
                   ljj=lj-1
                   lkk=lk
-                  !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  !lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  !lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*press - 3.0_db*(u**2.0_db &
 			      - 2.0_db*(-1.0_db + v)*v + w**2.0_db))/27.0_db
@@ -406,9 +406,9 @@ contains
                   lii=li
                   ljj=lj
                   lkk=lk+1
-                  !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  !lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  !ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*press - 3.0_db*(u**2.0_db &
 			       + v**2.0_db - 2.0_db*w*(1.0_db + w)))/27.0_db
@@ -432,9 +432,9 @@ contains
                   lii=li
                   ljj=lj
                   lkk=lk-1
-                  !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  !lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  !ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*press - 3.0_db*(u**2.0_db &
 			       + v**2.0_db - 2.0_db*(-1.0_db + w)*w))/27.0_db
@@ -459,9 +459,9 @@ contains
                   lii=li+1
                   ljj=lj+1
                   lkk=lk
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  !lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*press + 6.0_db*(u &
 			       + u**2.0_db + v + 3.0_db*u*v &
@@ -490,9 +490,9 @@ contains
                   lii=li-1
                   ljj=lj-1
                   lkk=lk
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  !lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*press + 6.0_db*(u**2.0_db &
 			       + (-1.0_db + v)*v + u*(-1.0_db &
@@ -537,9 +537,9 @@ contains
                   lii=li+1
                   ljj=lj-1
                   lkk=lk
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  !lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*press + 6.0_db*(u &
 			       + u**2.0_db - 3.0_db*u*v + (-1.0_db &
@@ -568,9 +568,9 @@ contains
                   lii=li-1
                   ljj=lj+1
                   lkk=lk
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  !lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  !lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*press + 6.0_db*((-1.0_db &
 			       + u)*u + v - 3.0_db*u*v &
@@ -599,9 +599,9 @@ contains
                   lii=li
                   ljj=lj+1
                   lkk=lk+1
-                  !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  !lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*press - 3.0_db*u**2.0_db &
 			       + 6.0_db*(v + v**2.0_db + w &
@@ -629,9 +629,9 @@ contains
                   lii=li
                   ljj=lj-1
                   lkk=lk-1
-                  !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  !lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*press - 3.0_db*u**2.0_db &
 			       + 6.0_db*(v**2.0_db + (-1.0_db &
@@ -675,9 +675,9 @@ contains
                   lii=li
                   ljj=lj+1
                   lkk=lk-1
-                  !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  !lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*press - 3.0_db*u**2.0_db &
 			       + 6.0_db*(v + v**2.0_db &
@@ -705,9 +705,9 @@ contains
                   lii=li
                   ljj=lj-1
                   lkk=lk+1
-                  !lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  !lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*press - 3.0_db*u**2.0_db &
 			       + 6.0_db*((-1.0_db + v)*v + w &
@@ -737,9 +737,9 @@ contains
                   lii=li+1
                   ljj=lj
                   lkk=lk+1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  !ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*press - 3.0_db*v**2.0_db &
 			       + 6.0_db*w + 6.0_db*(u &
@@ -770,9 +770,9 @@ contains
                   lii=li-1
                   ljj=lj
                   lkk=lk-1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  !ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*press + 3.0_db*(2.0_db*u**2.0_db &
 			       - v**2.0_db + 2.0_db*(-1.0_db + w)*w &
@@ -819,9 +819,9 @@ contains
                   lii=li-1
                   ljj=lj
                   lkk=lk+1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  !ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*press + 3.0_db*(2.0_db*u**2.0_db &
 			       - v**2.0_db + 2.0_db*w*(1.0_db + w) &
@@ -850,9 +850,9 @@ contains
                   lii=li+1
                   ljj=lj
                   lkk=lk-1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  !ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  !ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(2.0_db*press - 3.0_db*v**2.0_db &
 			       - 6.0_db*w + 6.0_db*(u &
@@ -882,9 +882,9 @@ contains
                   lii=li+1
                   ljj=lj+1
                   lkk=lk+1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(press + 3.0_db*(u + u**2.0_db &
 			       + v + 3.0_db*u*v + v**2.0_db &
@@ -915,9 +915,9 @@ contains
                   lii=li-1
                   ljj=lj-1
                   lkk=lk-1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(press + 3.0_db*(u**2.0_db + (-1.0_db &
 			       + v)*v + (-1.0_db + 3.0_db*v)*w &
@@ -968,9 +968,9 @@ contains
                   lii=li+1
                   ljj=lj-1
                   lkk=lk+1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(press + 3.0_db*(u**2.0_db + (-1.0_db &
 			       + v)*v + w - 3.0_db*v*w &
@@ -1003,9 +1003,9 @@ contains
                   lii=li-1
                   ljj=lj+1
                   lkk=lk-1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(press + 3.0_db*(u**2.0_db + v &
 			       + v**2.0_db - 3.0_db*v*w + (-1.0_db &
@@ -1038,9 +1038,9 @@ contains
                   lii=li-1
                   ljj=lj-1
                   lkk=lk+1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(press + 3.0_db*(-u + u**2.0_db &
 			       - v + 3.0_db*u*v + v**2.0_db + w &
@@ -1070,9 +1070,9 @@ contains
                   lii=li+1
                   ljj=lj+1
                   lkk=lk-1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(press + 3.0_db*(u + u**2.0_db &
 			       + v + 3.0_db*u*v + v**2.0_db - w &
@@ -1121,9 +1121,9 @@ contains
                   lii=li+1
                   ljj=lj-1
                   lkk=lk-1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(press + 3.0_db*(u**2.0_db + (-1.0_db &
 			       + v)*v + u*(1.0_db - 3.0_db*v &
@@ -1154,9 +1154,9 @@ contains
                   lii=li-1
                   ljj=lj+1
                   lkk=lk+1
-                  lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                  ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                  lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2))
+                  lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                  ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                  lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2))
 #ifdef SECOND_ORDER
 			      feq=(press + 3.0_db*(u**2.0_db + v &
 			       + v**2.0_db + w + 3.0_db*v*w &
@@ -1204,16 +1204,16 @@ contains
                   !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
 	              if(myblock .ne. intblock)return
 	                 
-	              hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opress
-                  hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ou
-                  hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ov
-                  hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ow
-                  hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxx
-                  hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opyy
-                  hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opzz
-                  hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxy
-                  hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxz
-                  hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opyz
+	              hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
+                  hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
+                  hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
+                  hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
+                  hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
+                  hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
+                  hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
+                  hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
+                  hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
+                  hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
                   
 
                   
@@ -1267,8 +1267,8 @@ contains
       real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
       real(kind=db), dimension(ntotforces) :: forces_s
       
-      real(kind=db), shared :: f1(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
-      real(kind=db), shared :: f2(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
+      real(kind=db), shared :: f1(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
+      real(kind=db), shared :: f2(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       
       real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
       real(kind=db) :: opress,ou,ov,ow,opxx,opyy,opzz,opxy,opxz,opyz,feq,fneq1,f_discr
@@ -1291,26 +1291,26 @@ contains
       lj = threadIdx%y-1
       lk = threadIdx%z-1
       
-      i = (blockIdx%x-1) * TILE_DIMx_d + li
-      j = (blockIdx%y-1) * TILE_DIMy_d + lj
-      k = (blockIdx%z-1) * TILE_DIMz_d + lk
+      i = (blockIdx%x-1) * TILE_DIMx + li
+      j = (blockIdx%y-1) * TILE_DIMy + lj
+      k = (blockIdx%z-1) * TILE_DIMz + lk
       
 !      gi=nx*coords(1)+i
 !      gj=ny*coords(2)+j
 !      gk=nz*coords(3)+k
       
-      xblock=(i+2*TILE_DIMx_d-1)/TILE_DIMx_d
-	  yblock=(j+2*TILE_DIMy_d-1)/TILE_DIMy_d
-	  zblock=(k+2*TILE_DIMz_d-1)/TILE_DIMz_d
+      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
-      ii=i-xblock*TILE_DIMx_d+2*TILE_DIMx_d
-      jj=j-yblock*TILE_DIMy_d+2*TILE_DIMy_d
-      kk=k-zblock*TILE_DIMz_d+2*TILE_DIMz_d
+      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
 
-      !i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
-      !j = (blockIdx%y-1) * TILE_DIMy_d + threadIdx%y
-      !k = (blockIdx%z-1) * TILE_DIMz_d + threadIdx%z
+      !i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
+      !j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
+      !k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
       
 !      gi=nx*coords(1)+i
 !      gj=ny*coords(2)+j
@@ -1323,7 +1323,7 @@ contains
        
      
 #ifdef TWOCOMPONENT	  
-                  phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+                  phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
 #endif                  
 #ifdef DENSRATIO
                   
@@ -1332,20 +1332,20 @@ contains
                   rhophi_loc = 1.0_db !press_loc
 #endif	
 
-				  forcex=forces_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
-				  forcey=forces_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
-				  forcez=forces_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
+				  forcex=forces_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+				  forcey=forces_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+				  forcez=forces_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
                   
-                  press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields)) 
-                  v=hfields_in(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  w=hfields_in(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pxx=hfields_in(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pyy=hfields_in(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pzz=hfields_in(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pxy=hfields_in(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pxz=hfields_in(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pyz=hfields_in(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
+                  v=hfields_in(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  w=hfields_in(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pxx=hfields_in(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pyy=hfields_in(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pzz=hfields_in(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pxy=hfields_in(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pxz=hfields_in(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pyz=hfields_in(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
                   
                   
 #ifdef INTERNAL_OBSTACLES
@@ -1464,9 +1464,9 @@ contains
                      lii=li+ex(l)
                      ljj=lj+ey(l)
                      lkk=lk+ez(l)
-                     lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                     ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                     lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2)) 
+                     lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                     ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                     lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
 		             f1(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l)*fneq1 + HALF*F_discr
 		             
                      udotc=(u*dex(l+1) + v*dey(l+1)+ w*dez(l+1))*invcssq
@@ -1481,9 +1481,9 @@ contains
                      lii=li+ex(l+1)
                      ljj=lj+ey(l+1)
                      lkk=lk+ez(l+1)
-                     lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                     ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                     lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2)) 
+                     lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                     ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                     lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
 		             f2(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l+1)*fneq1 + HALF*F_discr
 		             
 		             call syncthreads
@@ -1516,16 +1516,16 @@ contains
                   !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
 	              if(myblock .ne. (blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1) )return
 	                 
-	              hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opress
-                  hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ou
-                  hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ov
-                  hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ow
-                  hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxx
-                  hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opyy
-                  hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opzz
-                  hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxy
-                  hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxz
-                  hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opyz
+	              hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
+                  hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
+                  hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
+                  hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
+                  hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
+                  hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
+                  hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
+                  hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
+                  hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
+                  hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
                   
     endsubroutine fused_LB_kernel2     
 
@@ -1573,7 +1573,7 @@ contains
       real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
       real(kind=db), dimension(ntotforces) :: forces_s
       
-      real(kind=db), shared :: f1(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
+      real(kind=db), shared :: f1(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       
       real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
       real(kind=db) :: opress,ou,ov,ow,opxx,opyy,opzz,opxy,opxz,opyz,feq,fneq1,f_discr
@@ -1596,26 +1596,26 @@ contains
       lj = threadIdx%y-1
       lk = threadIdx%z-1
       
-      i = (blockIdx%x-1) * TILE_DIMx_d + li
-      j = (blockIdx%y-1) * TILE_DIMy_d + lj
-      k = (blockIdx%z-1) * TILE_DIMz_d + lk
+      i = (blockIdx%x-1) * TILE_DIMx + li
+      j = (blockIdx%y-1) * TILE_DIMy + lj
+      k = (blockIdx%z-1) * TILE_DIMz + lk
       
 !      gi=nx*coords(1)+i
 !      gj=ny*coords(2)+j
 !      gk=nz*coords(3)+k
       
-      xblock=(i+2*TILE_DIMx_d-1)/TILE_DIMx_d
-	  yblock=(j+2*TILE_DIMy_d-1)/TILE_DIMy_d
-	  zblock=(k+2*TILE_DIMz_d-1)/TILE_DIMz_d
+      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
-      ii=i-xblock*TILE_DIMx_d+2*TILE_DIMx_d
-      jj=j-yblock*TILE_DIMy_d+2*TILE_DIMy_d
-      kk=k-zblock*TILE_DIMz_d+2*TILE_DIMz_d
+      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
 
-      !i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
-      !j = (blockIdx%y-1) * TILE_DIMy_d + threadIdx%y
-      !k = (blockIdx%z-1) * TILE_DIMz_d + threadIdx%z
+      !i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
+      !j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
+      !k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
       
 !      gi=nx*coords(1)+i
 !      gj=ny*coords(2)+j
@@ -1628,7 +1628,7 @@ contains
        
      
 #ifdef TWOCOMPONENT	  
-                  phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+                  phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
 #endif                  
 #ifdef DENSRATIO
                   
@@ -1637,20 +1637,20 @@ contains
                   rhophi_loc = 1.0_db !press_loc
 #endif	
 
-				  forcex=forces_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
-				  forcey=forces_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
-				  forcez=forces_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
+				  forcex=forces_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+				  forcey=forces_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+				  forcez=forces_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
                   
-                  press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields)) 
-                  v=hfields_in(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  w=hfields_in(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pxx=hfields_in(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pyy=hfields_in(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pzz=hfields_in(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pxy=hfields_in(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pxz=hfields_in(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pyz=hfields_in(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
+                  v=hfields_in(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  w=hfields_in(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pxx=hfields_in(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pyy=hfields_in(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pzz=hfields_in(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pxy=hfields_in(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pxz=hfields_in(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pyz=hfields_in(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
                   
                   
 #ifdef INTERNAL_OBSTACLES
@@ -1769,9 +1769,9 @@ contains
                      lii=li+ex(l)
                      ljj=lj+ey(l)
                      lkk=lk+ez(l)
-                     lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
-                     ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
-                     lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2)) 
+                     lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                     ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                     lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
 		             f1(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l)*fneq1 + HALF*F_discr
 		             
 		             
@@ -1796,16 +1796,16 @@ contains
                   !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
 	              if(myblock .ne. (blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1) )return
 	                 
-	              hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opress
-                  hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ou
-                  hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ov
-                  hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ow
-                  hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxx
-                  hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opyy
-                  hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opzz
-                  hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxy
-                  hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxz
-                  hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opyz
+	              hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
+                  hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
+                  hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
+                  hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
+                  hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
+                  hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
+                  hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
+                  hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
+                  hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
+                  hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
                    
     endsubroutine fused_LB_kernel1
 

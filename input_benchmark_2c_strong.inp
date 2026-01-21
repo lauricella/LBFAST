@@ -23,10 +23,6 @@
    pbc_z=1
    openbc=0
    nplanes=0
-   TILE_DIMx=8
-   TILE_DIMy=8
-   TILE_DIMz=8
-   TILE_DIM=16
 &end
 &fluid
    !uwall=-0.0e0

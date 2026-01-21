@@ -658,11 +658,11 @@ contains
 #if defined(DENSRATIO) && defined(TWOCOMPONENT)
 #ifdef WRITEPRESS
          !$acc parallel loop independent collapse(3) present(rhoprint,velprint,pressprint, &
-         !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz,isfluid) &
+         !$acc& hfields_s,phifields_s,isfluid) &
          !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock,rhophi_loc)
 #else
          !$acc parallel loop independent collapse(3) present(rhoprint,velprint, &
-         !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz,isfluid) &
+         !$acc& hfields_s,phifields_s,isfluid) &
          !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock,rhophi_loc)
 #endif
 #endif
@@ -670,18 +670,18 @@ contains
 #if defined(TWOCOMPONENT) && !defined(DENSRATIO)
 #ifdef WRITEPRESS
 		 !$acc parallel loop independent collapse(3) present(rhoprint,velprint,pressprint, &
-		 !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz,isfluid) &
+		 !$acc& hfields_s,phifields_s,isfluid) &
 		 !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock,rhophi_loc)
 #else
          !$acc parallel loop independent collapse(3) present(rhoprint,velprint, &
-         !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz,isfluid) &
+         !$acc& hfields_s,phifields_s,isfluid) &
          !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock,rhophi_loc)
 #endif 
 #endif    
              
 #ifndef TWOCOMPONENT 
          !$acc parallel loop independent collapse(3) present(rhoprint,velprint, &
-         !$acc& hfields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz,isfluid) &
+         !$acc& hfields_s,isfluid) &
          !$acc& private(i,j,k,ii,jj,kk,iii,jjj,kkk,xblock,yblock,zblock,myblock,rhophi_loc)
 #endif         
 #else
@@ -689,26 +689,26 @@ contains
 #if defined(DENSRATIO) && defined(TWOCOMPONENT)
 #ifdef WRITEPRESS
          !$acc kernels present(rhoprint,velprint,pressprint,isfluid, &
-         !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz)
+         !$acc& hfields_s,phifields_s)
 #else
          !$acc kernels present(rhoprint,velprint,isfluid, &
-         !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz)
+         !$acc& hfields_s,phifields_s)
 #endif
 #endif
 
 #if defined(TWOCOMPONENT) && !defined(DENSRATIO)
 #ifdef WRITEPRESS
 		 !$acc kernels present(rhoprint,velprint,pressprint,isfluid, &
-		 !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz)
+		 !$acc& hfields_s,phifields_s)
 #else
          !$acc kernels present(rhoprint,velprint,isfluid, &
-         !$acc& hfields_s,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz)
+         !$acc& hfields_s,phifields_s)
 #endif
 #endif
 
 #ifndef TWOCOMPONENT
          !$acc kernels present(rhoprint,velprint,hfields_s, &
-         !$acc& TILE_DIMx,TILE_DIMy,TILE_DIMz,isfluid)
+         !$acc& isfluid)
 #endif
          !$acc loop independent collapse(3)  private(i,j,k,ii,jj,kk,iii,jjj,kkk, &
          !$acc& xblock,yblock,zblock,myblock,rhophi_loc)

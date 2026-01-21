@@ -55,20 +55,17 @@ contains
       nx_d=nx
       ny_d=ny
       nz_d=nz
-      TILE_DIMx_d=TILE_DIMx
-      TILE_DIMy_d=TILE_DIMy
-      TILE_DIMz_d=TILE_DIMz
-      TILE_DIM_d=TILE_DIM
+      
       if (mod(nx, TILE_DIMx)/= 0) then
-        if(myrank==0)write(6,*) 'nx must be a multiple of TILE_DIM'
+        if(myrank==0)write(6,'(a,i4)') 'nx must be a multiple of TILE_DIMx=',TILE_DIMx
         call dostop
       end if
       if (mod(ny, TILE_DIMy) /= 0) then
-        if(myrank==0)write(6,*) 'ny must be a multiple of TILE_DIMy'
+        if(myrank==0)write(6,'(a,i4)') 'ny must be a multiple of TILE_DIMy=',TILE_DIMy
         call dostop
       end if
       if (mod(nz, TILE_DIMz) /= 0) then
-        if(myrank==0)write(6,*) 'nz must be a multiple of TILE_DIMz'
+        if(myrank==0)write(6,'(a,i4)') 'nz must be a multiple of TILE_DIMz=',TILE_DIMz
         call dostop
       end if
       
@@ -195,9 +192,9 @@ contains
       
       integer :: i,j,k,gi,gj,gk,myblock
 
-      i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
-      j = (blockIdx%y-1) * TILE_DIMy_d + threadIdx%y
-      k = (blockIdx%z-1) * TILE_DIMz_d + threadIdx%z
+      i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
+      j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
+      k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
       
       gi=nx*coords(1)+i
       gj=ny*coords(2)+j
@@ -230,17 +227,17 @@ contains
       lj = threadIdx%y-1
       lk = threadIdx%z-1
 
-      i = (blockIdx%x-1) * TILE_DIMx_d + li
-      j = (blockIdx%y-1) * TILE_DIMy_d + lj
-      k = (blockIdx%z-1) * TILE_DIMz_d + lk
+      i = (blockIdx%x-1) * TILE_DIMx + li
+      j = (blockIdx%y-1) * TILE_DIMy + lj
+      k = (blockIdx%z-1) * TILE_DIMz + lk
       
       gi=nx*coords(1)+i
       gj=ny*coords(2)+j
       gk=nz*coords(3)+k
       
-      xblock=(i+2*TILE_DIMx_d-1)/TILE_DIMx_d
-	  yblock=(j+2*TILE_DIMy_d-1)/TILE_DIMy_d
-	  zblock=(k+2*TILE_DIMz_d-1)/TILE_DIMz_d
+      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
       
@@ -269,17 +266,17 @@ contains
       lj = threadIdx%y-1
       lk = threadIdx%z-1
 
-      i = (blockIdx%x) * TILE_DIMx_d + li
-      j = (blockIdx%y) * TILE_DIMy_d + lj
-      k = (blockIdx%z) * TILE_DIMz_d + lk
+      i = (blockIdx%x) * TILE_DIMx + li
+      j = (blockIdx%y) * TILE_DIMy + lj
+      k = (blockIdx%z) * TILE_DIMz + lk
       
       gi=nx*coords(1)+i
       gj=ny*coords(2)+j
       gk=nz*coords(3)+k
       
-      xblock=(i+2*TILE_DIMx_d-1)/TILE_DIMx_d
-	  yblock=(j+2*TILE_DIMy_d-1)/TILE_DIMy_d
-	  zblock=(k+2*TILE_DIMz_d-1)/TILE_DIMz_d
+      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
       
@@ -309,19 +306,19 @@ contains
       lj = threadIdx%y-1
       lk = threadIdx%z-1
 
-      i = (blockIdx%x-1) * TILE_DIMx_d + li
-      j = (blockIdx%y-1) * TILE_DIMy_d + lj
+      i = (blockIdx%x-1) * TILE_DIMx + li
+      j = (blockIdx%y-1) * TILE_DIMy + lj
       
       gi=nx*coords(1)+i
       gj=ny*coords(2)+j
       
-      xblock=(i+2*TILE_DIMx_d-1)/TILE_DIMx_d
-	  yblock=(j+2*TILE_DIMy_d-1)/TILE_DIMy_d
+      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
 	  
 	  
 	  k = lk
 	  gk=nz*coords(3)+k
-	  zblock=(k+2*TILE_DIMz_d-1)/TILE_DIMz_d
+	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
       
@@ -333,9 +330,9 @@ contains
      
      !phi_old(i,j,k)=phi(i,j,k)
      
-      k = ((nzblock_d-2)-1) * TILE_DIMz_d + lk
+      k = ((nzblock_d-2)-1) * TILE_DIMz + lk
 	  gk=nz*coords(3)+k
-	  zblock=(k+2*TILE_DIMz_d-1)/TILE_DIMz_d
+	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
       
@@ -360,19 +357,19 @@ contains
       lj = threadIdx%y-1
       lk = threadIdx%z-1
 
-      i = (blockIdx%x-1) * TILE_DIMx_d + li + TILE_DIMx_d
-      k = (blockIdx%z-1) * TILE_DIMz_d + lk
+      i = (blockIdx%x-1) * TILE_DIMx + li + TILE_DIMx
+      k = (blockIdx%z-1) * TILE_DIMz + lk
       
       gi=nx*coords(1)+i
       gk=nz*coords(3)+k
       
-      xblock=(i+2*TILE_DIMx_d-1)/TILE_DIMx_d
-	  zblock=(k+2*TILE_DIMz_d-1)/TILE_DIMz_d
+      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
 	  
 	  
       j = lj
       gj=ny*coords(2)+j
-      yblock=(j+2*TILE_DIMy_d-1)/TILE_DIMy_d
+      yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
       
@@ -384,9 +381,9 @@ contains
      
      !phi_old(i,j,k)=phi(i,j,k)
  
-      j = ((nyblock_d-2)-1) * TILE_DIMy_d + lj
+      j = ((nyblock_d-2)-1) * TILE_DIMy + lj
       gj=ny*coords(2)+j
-      yblock=(j+2*TILE_DIMy_d-1)/TILE_DIMy_d
+      yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
       
@@ -412,8 +409,8 @@ contains
       lk = threadIdx%z-1
 
       
-      j = (blockIdx%y-1) * TILE_DIMy_d + lj + TILE_DIMy_d
-      k = (blockIdx%z-1) * TILE_DIMz_d + lk + TILE_DIMz_d
+      j = (blockIdx%y-1) * TILE_DIMy + lj + TILE_DIMy
+      k = (blockIdx%z-1) * TILE_DIMz + lk + TILE_DIMz
       !if(myrank==0)write(*,*)'ciao',j
       
      
@@ -421,12 +418,12 @@ contains
       gk=nz*coords(3)+k
       
       
-	  yblock=(j+2*TILE_DIMy_d-1)/TILE_DIMy_d
-	  zblock=(k+2*TILE_DIMz_d-1)/TILE_DIMz_d
+	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
 	  
 	  i = li
 	  gi=nx*coords(1)+i
-	  xblock=(i+2*TILE_DIMx_d-1)/TILE_DIMx_d
+	  xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
       
@@ -438,9 +435,9 @@ contains
      
      !phi_old(i,j,k)=phi(i,j,k)
  
-	  i = ((nxblock_d-2)-1) * TILE_DIMx_d + li
+	  i = ((nxblock_d-2)-1) * TILE_DIMx + li
 	  gi=nx*coords(1)+i
-	  xblock=(i+2*TILE_DIMx_d-1)/TILE_DIMx_d
+	  xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
       
@@ -460,17 +457,17 @@ contains
       integer :: i,j,k,gi,gj,gk,myblock
       integer :: xblock,yblock,zblock
 
-      i = (blockIdx%x-2) * TILE_DIMx_d + threadIdx%x
-      j = (blockIdx%y-2) * TILE_DIMy_d + threadIdx%y
-      k = (blockIdx%z-2) * TILE_DIMz_d + threadIdx%z
+      i = (blockIdx%x-2) * TILE_DIMx + threadIdx%x
+      j = (blockIdx%y-2) * TILE_DIMy + threadIdx%y
+      k = (blockIdx%z-2) * TILE_DIMz + threadIdx%z
       
       gi=nx*coords(1)+i
       gj=ny*coords(2)+j
       gk=nz*coords(3)+k
       
-      xblock=(i+2*TILE_DIMx_d-1)/TILE_DIMx_d
-	  yblock=(j+2*TILE_DIMy_d-1)/TILE_DIMy_d
-	  zblock=(k+2*TILE_DIMz_d-1)/TILE_DIMz_d
+      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
       
@@ -529,9 +526,9 @@ contains
       integer :: i,j,k,gi,gj,gk,myblock,ii,jj,kk
       real(kind=db) :: phitemp
       
-      i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
-      j = (blockIdx%y-1) * TILE_DIMy_d + threadIdx%y
-      k = (blockIdx%z-1) * TILE_DIMz_d + threadIdx%z
+      i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
+      j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
+      k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
       
       if(abs(isfluid(i,j,k)) .ne. 1)return
       
@@ -545,7 +542,7 @@ contains
       jj=threadIdx%y
       kk=threadIdx%z
       
-      phitemp=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+      phitemp=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
       
       return
      
@@ -557,17 +554,13 @@ contains
       implicit none
       real(kind=db), allocatable, dimension(:) :: phifields_s
       
-      integer(8) :: mymshared
-      
-      mymshared = 1 * (TILE_DIMx + 2) * (TILE_DIMy + 2) * (TILE_DIMz + 2) * c_sizeof( real(0.0,kind=db) )
-      
 #ifdef TWOCOMPONENT
       !$acc wait
       istat = cudaDeviceSynchronize
 
 !$acc host_data use_device(flop,nx,ny,nz,coords,isfluid &
        !$acc& ,rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-       call compute_norm_interface_kernel<<<dimGrid, dimBlockshared, mymshared>>>(flop,nx,ny,nz,coords,isfluid, &
+       call compute_norm_interface_kernel<<<dimGrid, dimBlockshared>>>(flop,nx,ny,nz,coords,isfluid, &
         rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
 !$acc end host_data
       istat = cudaDeviceSynchronize
@@ -597,7 +590,7 @@ contains
       real(kind=db), dimension(ntotauxfields) :: auxfields_s
       real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
       
-      real(kind=db), shared :: myphi(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
+      real(kind=db), shared :: myphi(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       real(kind=db):: grad_fix,grad_fiy,grad_fiz,mod_grad
       
       integer :: i,j,k,gi,gj,gk,myblock,idblock
@@ -609,24 +602,24 @@ contains
       lj = threadIdx%y-1
       lk = threadIdx%z-1
 
-      i = (blockIdx%x-1) * TILE_DIMx_d + li
-      j = (blockIdx%y-1) * TILE_DIMy_d + lj
-      k = (blockIdx%z-1) * TILE_DIMz_d + lk
+      i = (blockIdx%x-1) * TILE_DIMx + li
+      j = (blockIdx%y-1) * TILE_DIMy + lj
+      k = (blockIdx%z-1) * TILE_DIMz + lk
       
       gi=nx*coords(1)+i
       gj=ny*coords(2)+j
       gk=nz*coords(3)+k
       
-      xblock=(i+2*TILE_DIMx_d-1)/TILE_DIMx_d
-	  yblock=(j+2*TILE_DIMy_d-1)/TILE_DIMy_d
-	  zblock=(k+2*TILE_DIMz_d-1)/TILE_DIMz_d
+      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
-      ii=i-xblock*TILE_DIMx_d+2*TILE_DIMx_d
-      jj=j-yblock*TILE_DIMy_d+2*TILE_DIMy_d
-      kk=k-zblock*TILE_DIMz_d+2*TILE_DIMz_d
+      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
       
-      myphi(li,lj,lk)=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+      myphi(li,lj,lk)=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
       
       call syncthreads
       
@@ -669,24 +662,24 @@ contains
       
 	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
 
-	  auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))= &
+	  auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
 	   grad_fix/(mod_grad+1.0e-9_db)
-	  auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))= &
+	  auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
 	   grad_fiy/(mod_grad+1.0e-9_db)
-	  auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))= &
+	  auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
 	   grad_fiz/(mod_grad+1.0e-9_db)
 	  
-	  auxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))=mod_grad 
+	  auxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=mod_grad 
 
-	  auxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))= &
+	  auxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
 	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9_db))
-	  auxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))= &
+	  auxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
 	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9_db))
-	  auxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))= &
+	  auxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
 	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9_db))
 	   
       !lap_phi here
-      locauxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))= &
+      locauxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))= &
                    (2.0_db/cssq)*(myphi(li,lj,lk)*(p0-1.0_db) + &
                    ( p1*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
                    myphi(li,lj+1,lk)+myphi(li,lj-1,lk) + &
@@ -710,9 +703,7 @@ contains
 
       implicit none
       real(kind=db), allocatable, dimension(:) :: phifields_s
-      integer(8) :: mymshared
-      
-      mymshared = 3 * (TILE_DIMx + 2) * (TILE_DIMy + 2) * (TILE_DIMz + 2) * c_sizeof( real(0.0,kind=db) )
+
       
 #ifdef TWOCOMPONENT
       !$acc wait
@@ -720,7 +711,7 @@ contains
 
 !$acc host_data use_device(flop,nx,ny,nz,coords,isfluid &
        !$acc& ,rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-       call compute_div_theta_n_kernel<<<dimGrid, dimBlockshared, mymshared>>>(flop,nx,ny,nz,coords,isfluid, &
+       call compute_div_theta_n_kernel<<<dimGrid, dimBlockshared>>>(flop,nx,ny,nz,coords,isfluid, &
         rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
 !$acc end host_data
       istat = cudaDeviceSynchronize
@@ -750,9 +741,9 @@ contains
       real(kind=db), dimension(ntotauxfields) :: auxfields_s
       real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
       
-      real(kind=db), shared :: myarrx(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
-      real(kind=db), shared :: myarry(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
-      real(kind=db), shared :: myarrz(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
+      real(kind=db), shared :: myarrx(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
+      real(kind=db), shared :: myarry(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
+      real(kind=db), shared :: myarrz(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       
       integer :: i,j,k,gi,gj,gk,myblock,idblock
       integer :: ii,jj,kk
@@ -763,26 +754,26 @@ contains
       lj = threadIdx%y-1
       lk = threadIdx%z-1
       
-      i = (blockIdx%x-1) * TILE_DIMx_d + li
-      j = (blockIdx%y-1) * TILE_DIMy_d + lj
-      k = (blockIdx%z-1) * TILE_DIMz_d + lk
+      i = (blockIdx%x-1) * TILE_DIMx + li
+      j = (blockIdx%y-1) * TILE_DIMy + lj
+      k = (blockIdx%z-1) * TILE_DIMz + lk
       
       gi=nx*coords(1)+i
       gj=ny*coords(2)+j
       gk=nz*coords(3)+k
       
-      xblock=(i+2*TILE_DIMx_d-1)/TILE_DIMx_d
-	  yblock=(j+2*TILE_DIMy_d-1)/TILE_DIMy_d
-	  zblock=(k+2*TILE_DIMz_d-1)/TILE_DIMz_d
+      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
-      ii=i-xblock*TILE_DIMx_d+2*TILE_DIMx_d
-      jj=j-yblock*TILE_DIMy_d+2*TILE_DIMy_d
-      kk=k-zblock*TILE_DIMz_d+2*TILE_DIMz_d
+      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
       
-      myarrx(li,lj,lk)=auxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))
-      myarry(li,lj,lk)=auxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))
-      myarrz(li,lj,lk)=auxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))
+      myarrx(li,lj,lk)=auxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+      myarry(li,lj,lk)=auxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+      myarrz(li,lj,lk)=auxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
       
       call syncthreads
       
@@ -796,7 +787,7 @@ contains
 
 	   
       !div_thetan here
-      locauxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))= &
+      locauxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))= &
        (( p1*(myarrx(li+1,lj,lk)-myarrx(li-1,lj,lk)) + &
        p2*((myarrx(li+1,lj+1,lk)-myarrx(li-1,lj-1,lk))+(myarrx(li+1,lj-1,lk)-myarrx(li-1,lj+1,lk))+ &
        (myarrx(li+1,lj,lk+1)-myarrx(li-1,lj,lk-1))+(myarrx(li+1,lj,lk-1)-myarrx(li-1,lj,lk+1)))+ &
@@ -874,9 +865,9 @@ contains
 	  integer :: oii,ojj,okk
       integer :: oxblock,oyblock,ozblock,omyblock
       
-      i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
-      j = (blockIdx%y-1) * TILE_DIMy_d + threadIdx%y
-      k = (blockIdx%z-1) * TILE_DIMz_d + threadIdx%z
+      i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
+      j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
+      k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
       
       if(abs(isfluid(i,j,k)) .ne. 1)return
       
@@ -891,19 +882,19 @@ contains
       kk=threadIdx%z
       
       rep_mask(i,j,k) = 0
-      locauxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)) = 0
-      locauxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)) = 0
-      locauxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)) = 0
+      locauxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)) = 0
+      locauxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)) = 0
+      locauxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)) = 0
 
 	  ! gate: interfacial cell (use clamped phi for q)
-      qloc = phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+      qloc = phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
       qloc = min(max(qloc,0.0_db),1.0_db)
       qloc = qloc*(1.0_db - qloc)
       if (qloc < q_th) return
 
-      nix = auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields)) 
-      niy = auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))
-      niz = auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))
+      nix = auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)) 
+      niy = auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+      niz = auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
 
       best_r2   = HUGE(1.0_db)
       best_face = -1.0_db
@@ -934,23 +925,23 @@ contains
 
 				  ! ---- neighbor interfacial gate (clamped) + similarity
 				  
-				  oxblock=(iii+2*TILE_DIMx_d-1)/TILE_DIMx_d   
-                  oyblock=(jjj+2*TILE_DIMy_d-1)/TILE_DIMy_d     
-                  ozblock=(kkk+2*TILE_DIMz_d-1)/TILE_DIMz_d 
+				  oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+                  oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+                  ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
                   omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
-                  oii=iii-oxblock*TILE_DIMx_d+2*TILE_DIMx_d
-                  ojj=jjj-oyblock*TILE_DIMy_d+2*TILE_DIMy_d
-                  okk=kkk-ozblock*TILE_DIMz_d+2*TILE_DIMz_d
+                  oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+                  ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+                  okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
 				  
-				  qneig = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+				  qneig = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
 				  qneig = min(max(qneig,0.0_db),1.0_db)
 				  qneig = qneig*(1.0_db - qneig)
 				  if ( (qneig < q_th) .or. (abs(qneig - qloc) > 0.1_db*max(qloc,1.0e-12_db)) ) cycle
 
 				  ! ---- facing condition (opposite normals): dotn <= cosOppT
-				  dotn = nix*auxfields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields)) &
-				   + niy*auxfields_s(idx5d(oii,ojj,okk,2,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields)) &
-				   + niz*auxfields_s(idx5d(oii,ojj,okk,3,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields)) 
+				  dotn = nix*auxfields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)) &
+				   + niy*auxfields_s(idx5d(oii,ojj,okk,2,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)) &
+				   + niz*auxfields_s(idx5d(oii,ojj,okk,3,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)) 
 				  if (dotn > cosOppT) cycle
 				  face = 0.5_db*(1.0_db - dotn)   ! in [0,1]
 
@@ -972,9 +963,9 @@ contains
 			end do
 
 			if (found) then
-			  locauxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)) = iii_best
-			  locauxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)) = jjj_best
-			  locauxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)) = kkk_best
+			  locauxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)) = iii_best
+			  locauxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)) = jjj_best
+			  locauxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)) = kkk_best
 			  rep_mask(i,j,k) = 1
 			end if
    
@@ -1038,9 +1029,9 @@ contains
 	  integer :: oii,ojj,okk
       integer :: oxblock,oyblock,ozblock,omyblock
       
-      i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
-      j = (blockIdx%y-1) * TILE_DIMy_d + threadIdx%y
-      k = (blockIdx%z-1) * TILE_DIMz_d + threadIdx%z
+      i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
+      j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
+      k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
       
       if(abs(isfluid(i,j,k)) .ne. 1)return
       
@@ -1054,21 +1045,21 @@ contains
       jj=threadIdx%y
       kk=threadIdx%z
 
-	  locauxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))=0.0_db
-	  locauxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))=0.0_db
-	  locauxfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))=0.0_db
+	  locauxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))=0.0_db
+	  locauxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))=0.0_db
+	  locauxfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))=0.0_db
 	
 	  if (rep_mask(i,j,k) .ne. 1) return
       
-      loc_phi=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+      loc_phi=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
       
 	  q1 = loc_phi*(1.0_db - loc_phi)
 	
 	  if (q1 <= eps) return
 
-	  iii = int(locauxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)))
-	  jjj = int(locauxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)))
-	  kkk = int(locauxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)))
+	  iii = int(locauxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)))
+	  jjj = int(locauxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)))
+	  kkk = int(locauxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)))
 
 	  !line-of-centers
 	  dx = real(iii - i,db)
@@ -1080,22 +1071,22 @@ contains
 	  dx = dx*rinv; dy = dy*rinv; dz = dz*rinv      ! u
 
 	  !normals
-	  nx1 = auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields)) 
-      ny1 = auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))
-      nz1 = auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))
+	  nx1 = auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)) 
+      ny1 = auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+      nz1 = auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
 	  
 	  
-	  oxblock=(iii+2*TILE_DIMx_d-1)/TILE_DIMx_d   
-      oyblock=(jjj+2*TILE_DIMy_d-1)/TILE_DIMy_d     
-      ozblock=(kkk+2*TILE_DIMz_d-1)/TILE_DIMz_d 
+	  oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+      oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+      ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
       omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
-      oii=iii-oxblock*TILE_DIMx_d+2*TILE_DIMx_d
-      ojj=jjj-oyblock*TILE_DIMy_d+2*TILE_DIMy_d
-      okk=kkk-ozblock*TILE_DIMz_d+2*TILE_DIMz_d
+      oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+      ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+      okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
                   
-	  nx2 = auxfields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))
-	  ny2 = auxfields_s(idx5d(oii,ojj,okk,2,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))
-	  nz2 = auxfields_s(idx5d(oii,ojj,okk,3,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))
+	  nx2 = auxfields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+	  ny2 = auxfields_s(idx5d(oii,ojj,okk,2,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+	  nz2 = auxfields_s(idx5d(oii,ojj,okk,3,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
 
 	  !facing factor in [0,1]
 	  face = max( 0.0_db, -(nx1*nx2 + ny1*ny2 + nz1*nz2) )
@@ -1122,7 +1113,7 @@ contains
 	  end if
 
 	  !symmetric magnitude from qpair
-	  loc_phi2=phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+	  loc_phi2=phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
 	  q2 = loc_phi2*(1.0_db - loc_phi2)
 	  qpair = 0.5_db*(q1 + q2)
 	  qcl   = min( max(qpair, eps), 0.25_db - eps )
@@ -1145,9 +1136,9 @@ contains
 	  cap   = alpha * (abs(dx)+abs(dy)+abs(dz)) 
 	  scales = min(1.0_db, loc_phi / max(cap, 1.0e-9_db))
 	  
-	  locauxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)) = dx * scales
-	  locauxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)) = dy * scales
-	  locauxfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields)) = dz * scales
+	  locauxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)) = dx * scales
+	  locauxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)) = dy * scales
+	  locauxfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)) = dz * scales
        
  end subroutine repulsive_flux_normal_kernel
  
@@ -1275,9 +1266,9 @@ contains
       integer :: gif,gjf,gkf
       integer :: myblock,ii,jj,kk
       
-      i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
-      j = (blockIdx%y-1) * TILE_DIMy_d + threadIdx%y
-      k = (blockIdx%z-1) * TILE_DIMz_d + threadIdx%z
+      i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
+      j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
+      k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
       
       if(abs(isfluid(i,j,k)) .ne. 1)return
       
@@ -1293,11 +1284,11 @@ contains
       
 
 				 
-		  press_loc=hfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+		  press_loc=hfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 				 
 #ifdef TWOCOMPONENT					 
-		  phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
-		  lap_phi_loc=locauxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))
+		  phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+		  lap_phi_loc=locauxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -1320,10 +1311,10 @@ contains
 #ifdef TWOCOMPONENT		
 		   
 		  !jaqmin 
-		  mytemp=auxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields)) !modgrad
-		  gradfix=auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))*mytemp !normx*modgrad
-		  gradfiy=auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))*mytemp !normy*modgrad
-		  gradfiz=auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))*mytemp !normz*modgrad
+		  mytemp=auxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)) !modgrad
+		  gradfix=auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))*mytemp !normx*modgrad
+		  gradfiy=auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))*mytemp !normy*modgrad
+		  gradfiz=auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))*mytemp !normz*modgrad
 		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
 		  forcey = forcey + &
@@ -1333,15 +1324,15 @@ contains
 				   				   
 
 #ifdef REPULSIVE_FLUX
-		  mytemp=locauxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))*rhophi_loc 
+		  mytemp=locauxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))*rhophi_loc 
 		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
 		  forcex=forcex + mytemp*rhophi_loc
 				  
-		  mytemp=locauxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))*rhophi_loc 
+		  mytemp=locauxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))*rhophi_loc 
 		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
 		  forcey=forcey + mytemp*rhophi_loc
 				  
-		  mytemp=locauxfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))*rhophi_loc 
+		  mytemp=locauxfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))*rhophi_loc 
 		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
 		  forcez=forcez + mytemp*rhophi_loc
 #endif
@@ -1372,17 +1363,17 @@ contains
 		  !! at the end of this subroutine
 #endif
                   
-                  gif=idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces)
-                  gjf=idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces)
-                  gkf=idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces)
+                  gif=idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces)
+                  gjf=idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces)
+                  gkf=idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces)
                   
 		  forces_s(gif)=forcex
 		  forces_s(gjf)=forcey
 		  forces_s(gkf)=forcez
 				  
-		  u_loc=hfields_old(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields)) !velocity
-                  v_loc=hfields_old(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  w_loc=hfields_old(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+		  u_loc=hfields_old(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) !velocity
+                  v_loc=hfields_old(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  w_loc=hfields_old(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
                   
                  
 				  
@@ -1397,12 +1388,12 @@ contains
 
 #ifdef DENSRATIO 
 			  
-                  pxx=hfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pyy=hfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pzz=hfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pxy=hfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pxz=hfields_s(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pyz=hfields_s(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  pxx=hfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pyy=hfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pzz=hfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pxy=hfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pxz=hfields_s(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pyz=hfields_s(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
                   
                   !1-2
                   !*1
@@ -1443,12 +1434,12 @@ contains
 		  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
-		  u_loc=hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields)) !velocity
-                  v_loc=hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  w_loc=hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))            
+		  u_loc=hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) !velocity
+                  v_loc=hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  w_loc=hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))            
 					 
 #if defined(INTERFACE_INCOMP) && defined(DENSRATIO)
-		  mytemp= -sharp_c*locauxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))
+		  mytemp= -sharp_c*locauxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))
 		  u_loc = u_loc + 0.5_db*forcex/(rhophi_loc)
                   v_loc = v_loc + 0.5_db*forcey/(rhophi_loc)
                   w_loc = w_loc + 0.5_db*forcez/(rhophi_loc)
@@ -1485,19 +1476,19 @@ contains
 #endif
                   
 
-                  hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=u_loc   !put the new velocity in hfields_s
-                  hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=v_loc
-                  hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=w_loc
+                  hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=u_loc   !put the new velocity in hfields_s
+                  hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=v_loc
+                  hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=w_loc
                   
                                     
 
 !regularized 
-		  pxx=hfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pyy=hfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pzz=hfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pxy=hfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pxz=hfields_s(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-                  pyz=hfields_s(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+		  pxx=hfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pyy=hfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pzz=hfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pxy=hfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pxz=hfields_s(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pyz=hfields_s(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
                   
                   
 #ifdef EXPLICITEQ 
@@ -1527,12 +1518,12 @@ contains
                   pyz=pyz + HALF*(forcez*v_loc+forcey*w_loc)/rhophi_loc
 
 #endif
-                  hfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=pxx
-                  hfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=pyy
-                  hfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=pzz
-                  hfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=pxy
-                  hfields_s(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=pxz
-                  hfields_s(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=pyz
+                  hfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=pxx
+                  hfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=pyy
+                  hfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=pzz
+                  hfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=pxy
+                  hfields_s(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=pxz
+                  hfields_s(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=pyz
                   
                   
 #if defined(ELASTIC_FORCE)
@@ -1582,9 +1573,6 @@ contains
 #ifdef TWOCOMPONENT       
       real(kind=db), allocatable, dimension(:) :: phifields_s
 #endif
-      integer(8) :: mymshared
-      
-      mymshared = 1 * (TILE_DIMx + 2) * (TILE_DIMy + 2) * (TILE_DIMz + 2) * c_sizeof( real(0.0,kind=db) )
       
 !      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
       !$acc wait
@@ -1605,7 +1593,7 @@ contains
 #endif   
        !$acc& ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
        !$acc& ,hfields_in,hfields_out,auxfields,locauxfields,forces)
-      call fused_LB_kernel1<<<dimGrid,dimBlockshared,mymshared>>>(step,flip,flop,nx,ny,nz,coords,isfluid &    
+      call fused_LB_kernel1<<<dimGrid,dimBlockshared>>>(step,flip,flop,nx,ny,nz,coords,isfluid &    
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
 #endif 
@@ -1728,9 +1716,9 @@ contains
 	  real(kind=db) :: S_mono
 #endif
       
-      i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
-      j = (blockIdx%y-1) * TILE_DIMy_d + threadIdx%y
-      k = (blockIdx%z-1) * TILE_DIMz_d + threadIdx%z
+      i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
+      j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
+      k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
       
       if(abs(isfluid(i,j,k)) .ne. 1)return
       
@@ -1746,21 +1734,21 @@ contains
 	   
 #ifdef TWOCOMPONENT
 				  
-	  mytemp= -sharp_c*locauxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))
+	  mytemp= -sharp_c*locauxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))
 	  			  
 	  !reuse gradrhox,gradrhoy,gradrhoz as local velocity (reusing variables is saving register memory)
 	  !reuse gradfix,gradfiy,gradfiz
-      modgrad=auxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields)) !modgrad
-	  gradfix=auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))*modgrad !normx*modgrad
-	  gradfiy=auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))*modgrad !normy*modgrad
-	  gradfiz=auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))*modgrad !normz*modgrad
+      modgrad=auxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)) !modgrad
+	  gradfix=auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))*modgrad !normx*modgrad
+	  gradfiy=auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))*modgrad !normy*modgrad
+	  gradfiz=auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))*modgrad !normz*modgrad
                   
-      phi_loc=phifields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
-      lap_phi_loc=locauxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nlocauxfields))
+      phi_loc=phifields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      lap_phi_loc=locauxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))
                   
-      loc_u=hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields)) !velocity
-      loc_v=hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-      loc_w=hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+      loc_u=hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) !velocity
+      loc_v=hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+      loc_w=hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
                   
       phi_out = phi_loc &
         - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
@@ -1772,7 +1760,7 @@ contains
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
-      phifields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))=phi_out
+      phifields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=phi_out
       
       return
       
@@ -1900,9 +1888,9 @@ contains
       integer :: myblock,ii,jj,kk
       integer :: iii,jjj,kkk
       
-      i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
-      j = (blockIdx%y-1) * TILE_DIMy_d + threadIdx%y
-      k = (blockIdx%z-1) * TILE_DIMz_d + threadIdx%z
+      i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
+      j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
+      k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
       
       if(isfluid(i,j,k) .ne. -1)return
       
@@ -1917,7 +1905,7 @@ contains
       kk=threadIdx%z
        
 #ifdef TWOCOMPONENT	       
-	  phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+	  phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
 #endif	
 #ifdef DENSRATIO
 	  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -1925,32 +1913,32 @@ contains
 	  rhophi_loc = 1.0_db !press_loc
 #endif	
 
-!	  forcex=force_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
-!	  forcey=force_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
-!	  forcez=force_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
+!	  forcex=force_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+!	  forcey=force_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+!	  forcez=force_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
 
 
-	  press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-	  u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields)) 
-	  v=hfields_in(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-	  w=hfields_in(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-	  pxx=hfields_in(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-	  pyy=hfields_in(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-	  pzz=hfields_in(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-	  pxy=hfields_in(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-	  pxz=hfields_in(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-	  pyz=hfields_in(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+	  press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	  u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
+	  v=hfields_in(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	  w=hfields_in(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	  pxx=hfields_in(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	  pyy=hfields_in(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	  pzz=hfields_in(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	  pxy=hfields_in(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	  pxz=hfields_in(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	  pyz=hfields_in(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 	  
-	  opress=hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-	  ou=hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-	  ov=hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-	  ow=hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-	  opxx=hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-	  opyy=hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-	  opzz=hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-	  opxy=hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-	  opxz=hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
-	  opyz=hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+	  opress=hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	  ou=hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	  ov=hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	  ow=hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	  opxx=hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	  opyy=hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	  opzz=hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	  opxy=hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	  opxz=hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	  opyz=hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 	  
 #ifdef EXPLICITEQ 
 	  uu=HALF*(u*u+v*v+w*w)*invcssq
@@ -2034,16 +2022,16 @@ contains
       enddo
 
 		 
-	  hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opress
-	  hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ou
-	  hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ov
-	  hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ow
-	  hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxx
-	  hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opyy
-	  hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opzz
-	  hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxy
-	  hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxz
-	  hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opyz
+	  hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
+	  hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
+	  hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
+	  hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
+	  hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
+	  hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
+	  hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
+	  hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
+	  hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
+	  hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
 	              
      return
 
@@ -2134,9 +2122,9 @@ contains
       integer :: oxblock,oyblock,ozblock,omyblock
       real(kind=db) :: wettab_r_sub=90.0_db
     
-      i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
-      j = (blockIdx%y-1) * TILE_DIMy_d + threadIdx%y
-      k = (blockIdx%z-1) * TILE_DIMz_d + threadIdx%z
+      i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
+      j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
+      k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
       
       if(isfluid(i,j,k) .ne. 0)return
       
@@ -2161,23 +2149,23 @@ contains
 
 		if (isfluid(ii,jj,kk) .ne. -1) cycle  ! only fluid neighbor
 		
-		oxblock=(iii+2*TILE_DIMx_d-1)/TILE_DIMx_d   
-		oyblock=(jjj+2*TILE_DIMy_d-1)/TILE_DIMy_d     
-		ozblock=(kkk+2*TILE_DIMz_d-1)/TILE_DIMz_d 
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
 		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
-		oii=iii-oxblock*TILE_DIMx_d+2*TILE_DIMx_d
-		ojj=jjj-oyblock*TILE_DIMy_d+2*TILE_DIMy_d
-		okk=kkk-ozblock*TILE_DIMz_d+2*TILE_DIMz_d
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
 
 		! Found fluid neighbor: enforce contact angle via ghost node extrapolation
-		phi_fluid = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+		phi_fluid = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
 		
 		
 		! Estimate gradient parallel to wall
-		modgrad=auxfields_s(idx5d(oii,ojj,okk,4,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields)) !modgrad
-		gradfix=auxfields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))*modgrad !normx*modgrad
-		gradfiy=auxfields_s(idx5d(oii,ojj,okk,2,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))*modgrad !normy*modgrad
-		gradfiz=auxfields_s(idx5d(oii,ojj,okk,3,omyblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))*modgrad !normz*modgrad
+		modgrad=auxfields_s(idx5d(oii,ojj,okk,4,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)) !modgrad
+		gradfix=auxfields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))*modgrad !normx*modgrad
+		gradfiy=auxfields_s(idx5d(oii,ojj,okk,2,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))*modgrad !normy*modgrad
+		gradfiz=auxfields_s(idx5d(oii,ojj,okk,3,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))*modgrad !normz*modgrad
         
         grad_parallel=ZERO
 		if(l.eq.1 .or. l.eq.2)then
@@ -2204,7 +2192,7 @@ contains
 		exit
 	  end do
       
-      phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))=loc_phi
+      phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=loc_phi
        
       return
       
@@ -2271,9 +2259,9 @@ contains
       real(kind=db) :: dummy
       integer :: dummy_i
     
-      i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
-      j = (blockIdx%y-1) * TILE_DIMy_d + threadIdx%y
-      k = (blockIdx%z-1) * TILE_DIMz_d + threadIdx%z
+      i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
+      j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
+      k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
       
       if(abs(isfluid(i,j,k)) /= 1)return
       
@@ -2287,7 +2275,7 @@ contains
       jj=threadIdx%y
       kk=threadIdx%z
 
-      loc_phi = phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+      loc_phi = phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
 
       dummy=atomicAdd(loc_phi_sum, loc_phi)
 
@@ -2357,9 +2345,9 @@ contains
       real(kind=db) :: gradfix,gradfiy,gradfiz,grad_parallel,modgrad,phi_fluid
       real(kind=db) :: loc_u,loc_v,loc_w,loc_phi,theta_rad,cot_theta,dphi_dz
     
-      i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
-      j = (blockIdx%y-1) * TILE_DIMy_d + threadIdx%y
-      k = (blockIdx%z-1) * TILE_DIMz_d + threadIdx%z
+      i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
+      j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
+      k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
       
       if(abs(isfluid(i,j,k)) /= 1)return
       
@@ -2373,10 +2361,10 @@ contains
       jj=threadIdx%y
       kk=threadIdx%z
 
-      loc_phi = phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+      loc_phi = phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
 
       if(loc_phi > 0.5d0 .and. loc_phi < 0.9d0)then
-        phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))=loc_phi + loc_corr
+        phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=loc_phi + loc_corr
       endif
     
       return

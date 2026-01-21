@@ -2179,10 +2179,10 @@ contains
          kmax=f_recv_extr(6,lmio)
 #ifdef ACCNOKERNELS
          !$acc parallel loop independent collapse(3) present(intpbc_dir,phifields_s, &
-         !$acc& TILE_DIMx,TILE_DIMy,TILE_DIMz) private(i,j,k,ii,jj,kk,myblock, &
+         !$acc& ) private(i,j,k,ii,jj,kk,myblock, &
          !$acc& oi,oj,ok,oii,ojj,okk,omyblock)
 #else
-         !$acc kernels present(intpbc_dir,phifields_s,TILE_DIMx,TILE_DIMy,TILE_DIMz)
+         !$acc kernels present(intpbc_dir,phifields_s)
          !$acc loop independent collapse(3) private(i,j,k,ii,jj,kk,myblock, &
          !$acc& oi,oj,ok,oii,ojj,okk,omyblock)
 #endif
