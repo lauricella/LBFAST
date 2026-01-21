@@ -1632,7 +1632,7 @@ contains
       integer :: li,lj,lk
       integer :: lii,ljj,lkk
       integer :: xblock,yblock,zblock
-      integer :: gi,gj,gk
+!      integer :: gi,gj,gk
 
       
       li = threadIdx%x-1
@@ -1660,9 +1660,9 @@ contains
       !j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
       !k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
       
-      gi=nx*coords(1)+i
-      gj=ny*coords(2)+j
-      gk=nz*coords(3)+k
+!      gi=nx*coords(1)+i
+!      gj=ny*coords(2)+j
+!      gk=nz*coords(3)+k
       
       intblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
 
