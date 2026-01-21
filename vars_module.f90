@@ -17,10 +17,6 @@
 #warning "DROPLET: the 2c is compiled with a single droplet initial configuration" 
 #endif
 
-#ifdef SECOND_ORDER
-#warning "SECOND ORDER REG is used" 
-#endif
-
 #ifdef MONOD
 #warning "MONOD_like growth of biofilms is activated" 
 #endif

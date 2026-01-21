@@ -1,6 +1,6 @@
 #define TWOCOMPONENT
 #define DENSRATIO
-#define SECOND_ORDER
+
 #define DOBENCHMARK
 #define DOXDMF
 #define noWRITEPRESS
