@@ -699,6 +699,470 @@ contains
       
    endsubroutine compute_norm_interface_kernel
    
+   attributes(global) subroutine compute_norm_interface_kernel_nohalo(flop,nx,ny,nz,coords,isfluid, &
+  rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields_s,locauxfields_s)
+
+      implicit none
+      integer :: flop,nx,ny,nz
+      integer, dimension(3) :: coords
+      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
+      real(kind=db) :: rho_r,rho_b
+      integer :: ntotphifields,ntotauxfields,ntotlocauxfields
+      real(kind=db), dimension(ntotphifields) :: phifields_s
+      real(kind=db), dimension(ntotauxfields) :: auxfields_s
+      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
+      
+      real(kind=db), shared :: myphi(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
+      real(kind=db):: grad_fix,grad_fiy,grad_fiz,mod_grad
+      
+      integer :: i,j,k,gi,gj,gk,myblock
+      integer :: ii,jj,kk
+      integer :: xblock,yblock,zblock
+      integer :: iii,jjj,kkk
+      integer :: oii,ojj,okk
+      integer :: oxblock,oyblock,ozblock,omyblock
+      
+      ii=threadIdx%x
+      jj=threadIdx%y
+      kk=threadIdx%z
+
+      i = (blockIdx%x-1) * TILE_DIMx + ii
+      j = (blockIdx%y-1) * TILE_DIMy + jj
+      k = (blockIdx%z-1) * TILE_DIMz + kk
+      
+      gi=nx*coords(1)+i
+      gj=ny*coords(2)+j
+      gk=nz*coords(3)+k
+      
+      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+      
+      myblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1
+      
+      myphi(ii,jj,kk)=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+     ! Halo Faces
+      if(ii==1)then
+        iii = i -1
+		jjj = j 
+		kkk = k 
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+	    myphi(ii-1,jj,kk) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+      if(ii==TILE_DIMx)then
+        iii = i +1
+		jjj = j 
+		kkk = k 
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+	    myphi(ii+1,jj,kk) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+
+      if(jj==1)then
+        iii = i 
+		jjj = j -1
+		kkk = k 
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+	    myphi(ii,jj-1,kk) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+      if (jj==TILE_DIMy) then
+        iii = i 
+		jjj = j +1
+		kkk = k 
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+	    myphi(ii,jj+1,kk) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+
+      if(kk==1) then
+        iii = i 
+		jjj = j 
+		kkk = k -1
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+	    myphi(ii,jj,kk-1) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+      if(kk==TILE_DIMz) then
+        iii = i 
+		jjj = j 
+		kkk = k +1
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+	    myphi(ii,jj,kk+1) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+
+      ! Halo edges
+      if(ii==1 .and. jj==1)then
+        iii = i -1
+		jjj = j -1
+		kkk = k 
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+        myphi(ii-1,jj-1,kk) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+      if(ii==1 .and. jj==TILE_DIMy)then
+        iii = i -1
+		jjj = j +1
+		kkk = k 
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+        myphi(ii-1,jj+1,kk) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+      if(ii==TILE_DIMx .and. jj==1)then
+        iii = i +1
+		jjj = j -1
+		kkk = k 
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+        myphi(ii+1,jj-1,kk) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif      
+      if(ii==TILE_DIMx .and. jj==TILE_DIMy)then 
+        iii = i +1
+		jjj = j +1
+		kkk = k 
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+        myphi(ii+1,jj+1,kk) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif      
+      
+      if(ii==1 .and. kk==1)then
+        iii = i -1
+		jjj = j 
+		kkk = k -1
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+        myphi(ii-1,jj,kk-1) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+      if(ii==1 .and. kk==TILE_DIMz)then
+        iii = i -1
+		jjj = j 
+		kkk = k +1
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+        myphi(ii-1,jj,kk+1) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+      if(ii==TILE_DIMx .and. kk==1)then
+        iii = i +1
+		jjj = j 
+		kkk = k -1
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+        myphi(ii+1,jj,kk-1) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+      if(ii==TILE_DIMx .and. kk==TILE_DIMz)then
+        iii = i +1
+		jjj = j 
+		kkk = k +1
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+        myphi(ii+1,jj,kk+1) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+      
+      if(jj==1 .and. kk==1)then
+        iii = i 
+		jjj = j -1
+		kkk = k -1
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+        myphi(ii,jj-1,kk-1) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+      if(jj==1 .and. kk==TILE_DIMz)then
+        iii = i 
+		jjj = j -1
+		kkk = k +1
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+        myphi(ii,jj-1,kk+1) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+      if(jj==TILE_DIMy .and. kk==1)then
+        iii = i 
+		jjj = j +1
+		kkk = k -1
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+        myphi(ii,jj+1,kk-1) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+      if(jj==TILE_DIMy .and. kk==TILE_DIMz)then
+        iii = i 
+		jjj = j +1
+		kkk = k +1
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+        myphi(ii,jj+1,kk+1) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+      
+      ! Halo corner
+      if(ii==1 .and. jj==1 .and. kk==1)then
+        iii = i -1
+		jjj = j -1
+		kkk = k -1
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+        myphi(ii-1,jj-1,kk-1) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+      if(ii==TILE_DIMx .and. jj==1 .and. kk==1)then
+        iii = i +1
+		jjj = j -1
+		kkk = k -1
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+        myphi(ii+1,jj-1,kk-1) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+      if(ii==1 .and. jj==TILE_DIMy .and. kk==1)then
+        iii = i -1
+		jjj = j +1
+		kkk = k -1
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+        myphi(ii-1,jj+1,kk-1) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+      if(ii==1 .and. jj==1 .and. kk==TILE_DIMz)then
+        iii = i -1
+		jjj = j -1
+		kkk = k +1
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+        myphi(ii-1,jj-1,kk+1) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+      if(ii==1 .and. jj==TILE_DIMy .and. kk==TILE_DIMz)then
+        iii = i -1
+		jjj = j +1
+		kkk = k +1
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+        myphi(ii-1,jj+1,kk+1) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+      if(ii==TILE_DIMx .and. jj==1 .and. kk==TILE_DIMz)then
+        iii = i +1
+		jjj = j -1
+		kkk = k +1
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+        myphi(ii+1,jj-1,kk+1) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+      if(ii==TILE_DIMx .and. jj==TILE_DIMy .and. kk==1)then
+        iii = i +1
+		jjj = j +1
+		kkk = k -1
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+        myphi(ii+1,jj+1,kk-1) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+      if(ii==TILE_DIMx .and. jj==TILE_DIMy .and. kk==TILE_DIMz)then
+        iii = i +1
+		jjj = j +1
+		kkk = k +1
+		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+        myphi(ii+1,jj+1,kk+1) = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      endif
+
+      call syncthreads
+      
+      if(abs(isfluid(i,j,k)) .ne. 1)return
+      
+
+	  grad_fix=3.0_db*(p1*(myphi(ii+1,jj,kk)-myphi(ii-1,jj,kk)) + &
+		 p2*( (myphi(ii+1,jj+1,kk)-myphi(ii-1,jj-1,kk))+ &
+		 (myphi(ii+1,jj-1,kk)-myphi(ii-1,jj+1,kk))+ &
+		 (myphi(ii+1,jj,kk+1)-myphi(ii-1,jj,kk-1))+ &
+		 (myphi(ii+1,jj,kk-1)-myphi(ii-1,jj,kk+1)) )  + &
+		 p3*((myphi(ii+1,jj+1,kk+1)-myphi(ii-1,jj-1,kk-1))+ &
+		 (myphi(ii+1,jj-1,kk-1)-myphi(ii-1,jj+1,kk+1))+ &
+		 (myphi(ii+1,jj-1,kk+1)-myphi(ii-1,jj+1,kk-1))+ &
+		 (myphi(ii+1,jj+1,kk-1)-myphi(ii-1,jj-1,kk+1))))
+
+	  grad_fiy=3.0_db*(p1*(myphi(ii,jj+1,kk)-myphi(ii,jj-1,kk)) + &
+		 p2*((myphi(ii+1,jj+1,kk)-myphi(ii-1,jj-1,kk))+ &
+		 (myphi(ii-1,jj+1,kk)-myphi(ii+1,jj-1,kk))+ &
+		 (myphi(ii,jj+1,kk+1)-myphi(ii,jj-1,kk-1))+ &
+		 (myphi(ii,jj+1,kk-1)-myphi(ii,jj-1,kk+1)) ) + &
+		 p3*((myphi(ii+1,jj+1,kk+1)-myphi(ii-1,jj-1,kk-1))+ &
+		 (myphi(ii-1,jj+1,kk-1)-myphi(ii+1,jj-1,kk+1))+ &
+		 (myphi(ii+1,jj+1,kk-1)-myphi(ii-1,jj-1,kk+1))+ &
+		 (myphi(ii-1,jj+1,kk+1)-myphi(ii+1,jj-1,kk-1))))
+
+	  grad_fiz=3.0_db*(p1*(myphi(ii,jj,kk+1)-myphi(ii,jj,kk-1)) + &
+		 p2*((myphi(ii+1,jj,kk+1)-myphi(ii-1,jj,kk-1))+ &
+		 (myphi(ii-1,jj,kk+1)-myphi(ii+1,jj,kk-1))+ &
+		 (myphi(ii,jj+1,kk+1)-myphi(ii,jj-1,kk-1))+ &
+		 (myphi(ii,jj-1,kk+1)-myphi(ii,jj+1,kk-1)) ) + &
+		 p3*((myphi(ii+1,jj+1,kk+1)-myphi(ii-1,jj-1,kk-1)) &
+		 +(myphi(ii-1,jj-1,kk+1)-myphi(ii+1,jj+1,kk-1))+ &
+		 (myphi(ii+1,jj-1,kk+1)-myphi(ii-1,jj+1,kk-1))+ &
+		 (myphi(ii-1,jj+1,kk+1)-myphi(ii+1,jj-1,kk-1))))
+      
+	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
+
+	  auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
+	   grad_fix/(mod_grad+1.0e-9_db)
+	  auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
+	   grad_fiy/(mod_grad+1.0e-9_db)
+	  auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
+	   grad_fiz/(mod_grad+1.0e-9_db)
+	  
+	  auxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=mod_grad 
+
+	  auxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
+	   myphi(ii,jj,kk)*(1.0_db-myphi(ii,jj,kk))*(grad_fix/(mod_grad+1.0e-9_db))
+	  auxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
+	   myphi(ii,jj,kk)*(1.0_db-myphi(ii,jj,kk))*(grad_fiy/(mod_grad+1.0e-9_db))
+	  auxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
+	   myphi(ii,jj,kk)*(1.0_db-myphi(ii,jj,kk))*(grad_fiz/(mod_grad+1.0e-9_db))
+	   
+      !lap_phi here
+      locauxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))= &
+                   (2.0_db/cssq)*(myphi(ii,jj,kk)*(p0-1.0_db) + &
+                   ( p1*(myphi(ii+1,jj,kk)+myphi(ii-1,jj,kk) + &
+                   myphi(ii,jj+1,kk)+myphi(ii,jj-1,kk) + &
+                   myphi(ii,jj,kk+1)+myphi(ii,jj,kk-1)) + &
+                   p2*( (myphi(ii+1,jj+1,kk)+myphi(ii-1,jj-1,kk))+ &
+                   (myphi(ii+1,jj-1,kk)+myphi(ii-1,jj+1,kk))+ &
+                   (myphi(ii+1,jj,kk+1)+myphi(ii-1,jj,kk-1))+ &
+                   (myphi(ii+1,jj,kk-1)+myphi(ii-1,jj,kk+1)) + &
+                   (myphi(ii,jj+1,kk+1)+myphi(ii,jj-1,kk-1))+ &
+                   (myphi(ii,jj+1,kk-1)+myphi(ii,jj-1,kk+1)) )  + &
+                   p3*((myphi(ii+1,jj+1,kk+1)+myphi(ii-1,jj-1,kk-1))+ &
+                   (myphi(ii+1,jj-1,kk-1)+myphi(ii-1,jj+1,kk+1))+ &
+                   (myphi(ii+1,jj-1,kk+1)+myphi(ii-1,jj+1,kk-1))+ &
+                   (myphi(ii+1,jj+1,kk-1)+myphi(ii-1,jj-1,kk+1)))))
+      
+      return
+      
+   endsubroutine compute_norm_interface_kernel_nohalo
+   
    subroutine compute_div_theta_n(phifields_s)
 
       implicit none
