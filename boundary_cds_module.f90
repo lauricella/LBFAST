@@ -120,32 +120,13 @@ contains
 				 vtmp=0.0_db !
 				 wtmp=0.0_db !
 				 
-#ifdef EXPLICITEQ 
-	             uu=HALF*(u*u+v*v+w*w)*invcssq
-	  
-	             do l=1,nlinks
-		           udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
-		           feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-                           !fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
-		           ! + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
-	                   ! + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
-		           ! + TWO*(dey(l)*dez(l))*pyz)
-                           fpost=feq!+fneq1
-                           pxx=pxx - fpost*(dex(l)*dex(l)-TWO*cssq)
-                           pyy=pyy - fpost*(dey(l)*dey(l)-TWO*cssq)
-                           pzz=pzz - fpost*(dez(l)*dez(l)-TWO*cssq)
-                           pxy=pxy - fpost*(dex(l)*dey(l))
-                           pxz=pxz - fpost*(dex(l)*dez(l))
-                           pyz=pyz - fpost*(dey(l)*dez(l))
-	             enddo
-#else
 	             pxx=pxx - cssq*press - u*u 
 	             pyy=pyy - cssq*press - v*v 
 	             pzz=pzz - cssq*press - w*w 
 	             pxy=pxy - u*v
 	             pxz=pxz - u*w
 	             pyz=pyz - v*w
-#endif
+
 #ifdef TWOCOMPONENT	  
                  phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
 #endif	           
@@ -182,7 +163,7 @@ contains
 		            + TWO*(dey(l)*dez(l))*pyz)
                    !F_discr = p(l)*(dex(l)*forcex &
                    ! + dey(l)*forcey &
-                   ! + dez(l)*forcez)/cssq
+                   ! + dez(l)*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress - fpost
 		           ou=ou - fpost*dex(l)
@@ -202,7 +183,7 @@ contains
 		            + TWO*(dey(l)*dez(l))*pyz)
                    ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*forcex &
                    ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
-                   ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/cssq
+                   ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress + fpost
 		           ou=ou + fpost*dex(l)
@@ -298,32 +279,13 @@ contains
 				 vtmp=0.0_db !
 				 wtmp=0.0_db !
 				 
-#ifdef EXPLICITEQ 
-	             uu=HALF*(u*u+v*v+w*w)*invcssq
-	  
-	             do l=1,nlinks
-		           udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
-		           feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-                           !fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
-		           ! + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
-	                   ! + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
-		           ! + TWO*(dey(l)*dez(l))*pyz)
-                           fpost=feq!+fneq1
-                           pxx=pxx - fpost*(dex(l)*dex(l)-TWO*cssq)
-                           pyy=pyy - fpost*(dey(l)*dey(l)-TWO*cssq)
-                           pzz=pzz - fpost*(dez(l)*dez(l)-TWO*cssq)
-                           pxy=pxy - fpost*(dex(l)*dey(l))
-                           pxz=pxz - fpost*(dex(l)*dez(l))
-                           pyz=pyz - fpost*(dey(l)*dez(l))
-	             enddo
-#else
 	             pxx=pxx - cssq*press - u*u 
 	             pyy=pyy - cssq*press - v*v 
 	             pzz=pzz - cssq*press - w*w 
 	             pxy=pxy - u*v
 	             pxz=pxz - u*w
 	             pyz=pyz - v*w
-#endif
+
 #ifdef TWOCOMPONENT	 
                  phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
 #endif	           
@@ -360,7 +322,7 @@ contains
 		            + TWO*(dey(l)*dez(l))*pyz)
                    !F_discr = p(l)*(dex(l)*forcex &
                    ! + dey(l)*forcey &
-                   ! + dez(l)*forcez)/cssq
+                   ! + dez(l)*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress - fpost
 		           ou=ou - fpost*dex(l)
@@ -380,7 +342,7 @@ contains
 		            + TWO*(dey(l)*dez(l))*pyz)
                    ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*forcex &
                    ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
-                   ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/cssq
+                   ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress + fpost
 		           ou=ou + fpost*dex(l)
@@ -478,32 +440,13 @@ contains
 				 vtmp=0.0_db !
 				 wtmp=0.0_db !
 				 
-#ifdef EXPLICITEQ 
-	             uu=HALF*(u*u+v*v+w*w)*invcssq
-	  
-	             do l=1,nlinks
-		           udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
-		           feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-                           !fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
-		           ! + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
-	                   ! + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
-		           ! + TWO*(dey(l)*dez(l))*pyz)
-                           fpost=feq!+fneq1
-                           pxx=pxx - fpost*(dex(l)*dex(l)-TWO*cssq)
-                           pyy=pyy - fpost*(dey(l)*dey(l)-TWO*cssq)
-                           pzz=pzz - fpost*(dez(l)*dez(l)-TWO*cssq)
-                           pxy=pxy - fpost*(dex(l)*dey(l))
-                           pxz=pxz - fpost*(dex(l)*dez(l))
-                           pyz=pyz - fpost*(dey(l)*dez(l))
-	             enddo
-#else
 	             pxx=pxx - cssq*press - u*u 
 	             pyy=pyy - cssq*press - v*v 
 	             pzz=pzz - cssq*press - w*w 
 	             pxy=pxy - u*v
 	             pxz=pxz - u*w
 	             pyz=pyz - v*w
-#endif
+
 #ifdef TWOCOMPONENT	 
                  phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
 #endif	           
@@ -540,7 +483,7 @@ contains
 		            + TWO*(dey(l)*dez(l))*pyz)
                    !F_discr = p(l)*(dex(l)*forcex &
                    ! + dey(l)*forcey &
-                   ! + dez(l)*forcez)/cssq
+                   ! + dez(l)*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress - fpost
 		           ou=ou - fpost*dex(l)
@@ -560,7 +503,7 @@ contains
 		            + TWO*(dey(l)*dez(l))*pyz)
                    ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*forcex &
                    ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
-                   ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/cssq
+                   ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress + fpost
 		           ou=ou + fpost*dex(l)
@@ -656,32 +599,13 @@ contains
 				 vtmp=0.0_db !
 				 wtmp=0.0_db !
 				 
-#ifdef EXPLICITEQ 
-	             uu=HALF*(u*u+v*v+w*w)*invcssq
-	  
-	             do l=1,nlinks
-		           udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
-		           feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-                           !fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
-		           ! + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
-	                   ! + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
-		           ! + TWO*(dey(l)*dez(l))*pyz)
-                           fpost=feq!+fneq1
-                           pxx=pxx - fpost*(dex(l)*dex(l)-TWO*cssq)
-                           pyy=pyy - fpost*(dey(l)*dey(l)-TWO*cssq)
-                           pzz=pzz - fpost*(dez(l)*dez(l)-TWO*cssq)
-                           pxy=pxy - fpost*(dex(l)*dey(l))
-                           pxz=pxz - fpost*(dex(l)*dez(l))
-                           pyz=pyz - fpost*(dey(l)*dez(l))
-	             enddo
-#else
 	             pxx=pxx - cssq*press - u*u 
 	             pyy=pyy - cssq*press - v*v 
 	             pzz=pzz - cssq*press - w*w 
 	             pxy=pxy - u*v
 	             pxz=pxz - u*w
 	             pyz=pyz - v*w
-#endif
+	             
 #ifdef TWOCOMPONENT	 
                  phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
 #endif	           
@@ -718,7 +642,7 @@ contains
 		            + TWO*(dey(l)*dez(l))*pyz)
                    !F_discr = p(l)*(dex(l)*forcex &
                    ! + dey(l)*forcey &
-                   ! + dez(l)*forcez)/cssq
+                   ! + dez(l)*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress - fpost
 		           ou=ou - fpost*dex(l)
@@ -738,7 +662,7 @@ contains
 		            + TWO*(dey(l)*dez(l))*pyz)
                    ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*forcex &
                    ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
-                   ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/cssq
+                   ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress + fpost
 		           ou=ou + fpost*dex(l)
@@ -836,32 +760,13 @@ contains
 				 vtmp=0.0_db !
 				 wtmp=0.0_db !
 				 
-#ifdef EXPLICITEQ 
-	             uu=HALF*(u*u+v*v+w*w)*invcssq
-	  
-	             do l=1,nlinks
-		           udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
-		           feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-                           !fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
-		           ! + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
-	                   ! + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
-		           ! + TWO*(dey(l)*dez(l))*pyz)
-                           fpost=feq!+fneq1
-                           pxx=pxx - fpost*(dex(l)*dex(l)-TWO*cssq)
-                           pyy=pyy - fpost*(dey(l)*dey(l)-TWO*cssq)
-                           pzz=pzz - fpost*(dez(l)*dez(l)-TWO*cssq)
-                           pxy=pxy - fpost*(dex(l)*dey(l))
-                           pxz=pxz - fpost*(dex(l)*dez(l))
-                           pyz=pyz - fpost*(dey(l)*dez(l))
-	             enddo
-#else
 	             pxx=pxx - cssq*press - u*u 
 	             pyy=pyy - cssq*press - v*v 
 	             pzz=pzz - cssq*press - w*w 
 	             pxy=pxy - u*v
 	             pxz=pxz - u*w
 	             pyz=pyz - v*w
-#endif
+
 #ifdef TWOCOMPONENT	 
                  phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
 #endif	           
@@ -898,7 +803,7 @@ contains
 		            + TWO*(dey(l)*dez(l))*pyz)
                    !F_discr = p(l)*(dex(l)*forcex &
                    ! + dey(l)*forcey &
-                   ! + dez(l)*forcez)/cssq
+                   ! + dez(l)*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress - fpost
 		           ou=ou - fpost*dex(l)
@@ -918,7 +823,7 @@ contains
 		            + TWO*(dey(l)*dez(l))*pyz)
                    ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*forcex &
                    ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
-                   ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/cssq
+                   ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress + fpost
 		           ou=ou + fpost*dex(l)
@@ -1014,32 +919,13 @@ contains
 				 vtmp=0.0_db !
 				 wtmp=0.0_db !
 				 
-#ifdef EXPLICITEQ 
-	             uu=HALF*(u*u+v*v+w*w)*invcssq
-	  
-	             do l=1,nlinks
-		           udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
-		           feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-                           !fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
-		           ! + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
-	                   ! + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
-		           ! + TWO*(dey(l)*dez(l))*pyz)
-                           fpost=feq!+fneq1
-                           pxx=pxx - fpost*(dex(l)*dex(l)-TWO*cssq)
-                           pyy=pyy - fpost*(dey(l)*dey(l)-TWO*cssq)
-                           pzz=pzz - fpost*(dez(l)*dez(l)-TWO*cssq)
-                           pxy=pxy - fpost*(dex(l)*dey(l))
-                           pxz=pxz - fpost*(dex(l)*dez(l))
-                           pyz=pyz - fpost*(dey(l)*dez(l))
-	             enddo
-#else
 	             pxx=pxx - cssq*press - u*u 
 	             pyy=pyy - cssq*press - v*v 
 	             pzz=pzz - cssq*press - w*w 
 	             pxy=pxy - u*v
 	             pxz=pxz - u*w
 	             pyz=pyz - v*w
-#endif
+
 #ifdef TWOCOMPONENT	 
                  phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
 #endif	           
@@ -1077,7 +963,7 @@ contains
 		            + TWO*(dey(l)*dez(l))*pyz)
                    !F_discr = p(l)*(dex(l)*forcex &
                    ! + dey(l)*forcey &
-                   ! + dez(l)*forcez)/cssq
+                   ! + dez(l)*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress - fpost
 		           ou=ou - fpost*dex(l)
@@ -1097,7 +983,7 @@ contains
 		            + TWO*(dey(l)*dez(l))*pyz)
                    ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*forcex &
                    ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
-                   ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/cssq
+                   ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress + fpost
 		           ou=ou + fpost*dex(l)

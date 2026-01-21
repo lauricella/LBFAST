@@ -1249,10 +1249,7 @@ contains
 
       real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
       real(kind=db) :: mytemp,forcex,forcey,forcez,rhophi_loc,press_loc,u_loc,v_loc,w_loc
-#ifdef EXPLICITEQ
-      integer :: l
-      real(kind=db) :: udotc,uu,F_discr,feq,fneq1,fpost
-#endif
+
 #ifdef TWOCOMPONENT
 	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc
 #endif
@@ -1398,25 +1395,6 @@ contains
                   !1-2
                   !*1
                   ! 2nd order
-#ifdef EXPLICITEQ                  
-		  uu=HALF*(u_loc*u_loc+v_loc*v_loc+w_loc*w_loc)*invcssq
-				  
-                  do l=1,nlinks
-                     udotc=(u_loc*dex(l) + v_loc*dey(l)+ w_loc*dez(l))*invcssq
-		     feq=p(l)*(press_loc + (udotc+0.5_db*udotc*udotc - uu))
-                     !fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
-		     ! + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
-	             ! + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
-		     ! + TWO*(dey(l)*dez(l))*pyz)
-                    fpost=feq!+fneq1
-                    pxx=pxx - fpost*(dex(l)*dex(l))
-                    pyy=pyy - fpost*(dey(l)*dey(l))
-                    pzz=pzz - fpost*(dez(l)*dez(l))
-                    pxy=pxy - fpost*(dex(l)*dey(l))
-                    pxz=pxz - fpost*(dex(l)*dez(l))
-                    pyz=pyz - fpost*(dey(l)*dez(l))
-                  enddo
-#else
                   pxx=pxx - cssq*press_loc - u_loc*u_loc
                   pyy=pyy - cssq*press_loc - v_loc*v_loc
                   pzz=pzz - cssq*press_loc - w_loc*w_loc
@@ -1424,7 +1402,6 @@ contains
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 
-#endif
 		  visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 				  
                   tau_loc=(visc_loc/cssq + HALF) !è una tau
@@ -1491,25 +1468,6 @@ contains
                   pyz=hfields_s(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
                   
                   
-#ifdef EXPLICITEQ 
-                  do l=1,nlinks
-                     
-		     F_discr= &
-		     p(l)*( (dex(l)-u_loc)*(forcex)+(dey(l)-v_loc)*(forcey)+(dez(l)-w_loc)*(forcez) + &
-		      (1.0_db/(cssq))*( (u_loc*dex(l)+v_loc*dey(l)+w_loc*dez(l))*&
-		      ( (forcex)*dex(l) + (forcey)*dey(l) + (forcez)*dez(l) ) ) )/(cssq*rhophi_loc) 
-					 
-                     udotc = 0.5_db*F_discr 
-                     
-                     pxx=pxx + udotc*dex(l)*dex(l)
-                     pyy=pyy + udotc*dey(l)*dey(l)
-                     pzz=pzz + udotc*dez(l)*dez(l)
-                     pxy=pxy + udotc*dex(l)*dey(l)
-                     pxz=pxz + udotc*dex(l)*dez(l)
-                     pyz=pyz + udotc*dey(l)*dez(l)
-                  enddo
-#else
-                  
                   pxx=pxx + forcex*u_loc/rhophi_loc
                   pyy=pyy + forcey*v_loc/rhophi_loc
                   pzz=pzz + forcez*w_loc/rhophi_loc
@@ -1517,7 +1475,7 @@ contains
                   pxz=pxz + HALF*(forcez*u_loc+forcex*w_loc)/rhophi_loc
                   pyz=pyz + HALF*(forcez*v_loc+forcey*w_loc)/rhophi_loc
 
-#endif
+
                   hfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=pxx
                   hfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=pyy
                   hfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=pzz
@@ -1940,31 +1898,12 @@ contains
 	  opxz=hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 	  opyz=hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 	  
-#ifdef EXPLICITEQ 
-	  uu=HALF*(u*u+v*v+w*w)*invcssq
-	  do l=1,nlinks
-		 udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
-		 feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-                 !fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
-		 !     + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
-	         !     + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
-		 !     + TWO*(dey(l)*dez(l))*pyz)
-                 fpost=feq!+fneq1
-                 pxx=pxx - fpost*(dex(l)*dex(l))
-                 pyy=pyy - fpost*(dey(l)*dey(l))
-                 pzz=pzz - fpost*(dez(l)*dez(l))
-                 pxy=pxy - fpost*(dex(l)*dey(l))
-                 pxz=pxz - fpost*(dex(l)*dez(l))
-                 pyz=pyz - fpost*(dey(l)*dez(l))
-	  enddo
-#else
 	  pxx=pxx - cssq*press - u*u 
 	  pyy=pyy - cssq*press - v*v 
 	  pzz=pzz - cssq*press - w*w 
 	  pxy=pxy - u*v
 	  pxz=pxz - u*w
 	  pyz=pyz - v*w
-#endif
 
 #ifdef TWOCOMPONENT
 	  !visc_loc it is used to store the local viscosity

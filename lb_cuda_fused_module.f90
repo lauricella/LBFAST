@@ -205,7 +205,7 @@ contains
 
 #else
 #ifdef TWOCOMPONENT
-                  omega_loc=(visc_loc/cssq + 0.5_db) !it is tau   !visc_loc it is used to store the local viscosity
+                  omega_loc=(visc_loc*invcssq + 0.5_db) !it is tau   !visc_loc it is used to store the local viscosity
                   omega_loc=1.0_db/omega_loc !it is omega
 #else
                   omega_loc=omega
@@ -226,8 +226,8 @@ contains
                   uu=HALF*(u*u+v*v+w*w)*invcssq
 
 			      feq=p(0)*(press - uu)
-				  fneq1=(HALF/cssq)*(-pxx-pyy-pzz)
-				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)/cssq
+				  fneq1=(HALF*invcssq)*(-pxx-pyy-pzz)
+				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)*invcssq
                   
                   opress=feq + (1.0_db-omega_loc)*fneq1*p(0) + HALF*(F_discr)
                   
@@ -240,7 +240,7 @@ contains
 		              + TWO*(dey(l)*dez(l))*pyz)
 		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
                       + ((dey(l) - v) + udotc * dey(l))*forcey &
-                      + ((dez(l) - w) + udotc * dez(l))*forcez)/cssq
+                      + ((dez(l) - w) + udotc * dez(l))*forcez)*invcssq
                      lii=li+ex(l)
                      ljj=lj+ey(l)
                      lkk=lk+ez(l)
@@ -257,7 +257,7 @@ contains
 		              + TWO*(dey(l+1)*dez(l+1))*pyz)
 		             F_discr = p(l+1)*(((dex(l+1) - u) + udotc * dex(l+1))*forcex &
                       + ((dey(l+1) - v) + udotc * dey(l+1))*forcey &
-                      + ((dez(l+1) - w) + udotc * dez(l+1))*forcez)/cssq
+                      + ((dez(l+1) - w) + udotc * dez(l+1))*forcez)*invcssq
                      lii=li+ex(l+1)
                      ljj=lj+ey(l+1)
                      lkk=lk+ez(l+1)
@@ -496,7 +496,7 @@ contains
 
 #else
 #ifdef TWOCOMPONENT
-                  omega_loc=(visc_loc/cssq + 0.5_db) !it is tau   !visc_loc it is used to store the local viscosity
+                  omega_loc=(visc_loc*invcssq + 0.5_db) !it is tau   !visc_loc it is used to store the local viscosity
                   omega_loc=1.0_db/omega_loc !it is omega
 #else
                   omega_loc=omega
@@ -517,8 +517,8 @@ contains
                   uu=HALF*(u*u+v*v+w*w)*invcssq
 
 			      feq=p(0)*(press - uu)
-				  fneq1=(HALF/cssq)*(-pxx-pyy-pzz)
-				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)/cssq
+				  fneq1=(HALF*invcssq)*(-pxx-pyy-pzz)
+				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)*invcssq
                   
                   opress=feq + (1.0_db-omega_loc)*fneq1*p(0) + HALF*(F_discr)
                   
@@ -531,7 +531,7 @@ contains
 		              + TWO*(dey(l)*dez(l))*pyz)
 		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
                       + ((dey(l) - v) + udotc * dey(l))*forcey &
-                      + ((dez(l) - w) + udotc * dez(l))*forcez)/cssq
+                      + ((dez(l) - w) + udotc * dez(l))*forcez)*invcssq
                      lii=li+ex(l)
                      ljj=lj+ey(l)
                      lkk=lk+ez(l)
