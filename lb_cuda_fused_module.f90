@@ -1840,4 +1840,779 @@ contains
                    
     endsubroutine fused_LB_kernel1
 
+!      attributes(global) subroutine fused_LB_kernel_nohalo(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &  
+!#ifdef MULTIHIT
+!       ,ABCx,ABCy,ABCz &
+!#endif 
+!#ifdef WETTABILITY
+!       ,wettab_r,wettab_b &
+!#endif  
+!#ifdef TWOCOMPONENT 
+!       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
+!#ifdef MONOD
+!       ,mu_max,Ks &
+!#endif
+!#endif   
+!       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
+!       hfields_in,hfields_out,auxfields_s,locauxfields_s,forces_s)
+
+!      implicit none
+      
+!      integer :: step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz
+      
+!      integer, dimension(3) :: coords
+!      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
+!      integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
+!#ifdef MULTIHIT
+!	  real(kind=db), dimension(1:nx,1:ny,1:nz) :: ABCx,ABCy,ABCz
+!#endif
+!#ifdef WETTABILITY  
+!      real(kind=db) :: wettab_r,wettab_b  
+!#endif  
+!#ifdef TWOCOMPONENT 
+!      real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
+!      real(kind=db), dimension(ntotphifields) :: phifields_s
+!#ifdef MONOD
+!      real(kind=db) :: mu_max,Ks
+!#endif
+!#endif           
+!      real(kind=db) :: visc1,omega,fx,fy,fz
+      
+!      real(kind=db), dimension(ntothfields) :: hfields_in,hfields_out
+      
+!      real(kind=db), dimension(ntotauxfields) :: auxfields_s
+!      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
+!      real(kind=db), dimension(ntotforces) :: forces_s
+      
+!      real(kind=db), shared :: myarr1(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
+!      real(kind=db), shared :: myarr2(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
+!      real(kind=db), shared :: myarr3(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
+      
+!      real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
+!      real(kind=db) :: opress,ou,ov,ow,opxx,opyy,opzz,opxy,opxz,opyz,feq,fneq1,f_discr
+!      real(kind=db) :: mytemp,forcex,forcey,forcez,rhophi_loc,uu,udotc
+      
+!      real(kind=db) :: omega_loc,phi_loc,visc_loc
+!#ifdef SMAGORINSKI
+!	  real(kind=db) :: QQ
+!#endif
+
+!      integer :: i,j,k
+!      integer :: gi,gj,gk
+!      integer :: myblock,ii,jj,kk
+!      integer :: iii,jjj,kkk
+!      integer :: oii,ojj,okk
+!      integer :: oxblock,oyblock,ozblock,omyblock
+      
+!      i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
+!      j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
+!      k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
+      
+!      gi=nx*coords(1)+i
+!      gj=ny*coords(2)+j
+!      gk=nz*coords(3)+k
+      
+!      myblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1
+      
+!      ii=threadIdx%x
+!      jj=threadIdx%y
+!      kk=threadIdx%z
+      
+!      myarr1=(ii,jj,kk)=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+!#ifdef INTERNAL_OBSTACLES
+!      if(isfluid(i,j,k) == 0)then
+!        myarr1(ii,jj,kk)=ZERO
+!      endif
+!#endif
+!         ! Halo Faces
+!      if(ii==1)then
+!        iii = i -1
+!		jjj = j 
+!		kkk = k 
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!	    myarr1(ii-1,jj,kk) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i-1,j,k) == 0)then
+!          myarr1(ii-1,jj,kk)=ZERO
+!        endif
+!#endif
+!      endif
+!      if(ii==TILE_DIMx)then
+!        iii = i +1
+!		jjj = j 
+!		kkk = k 
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!	    myarr1(ii+1,jj,kk) = rhoR_d(i+1,j,k)
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i+1,j,k) == 0)then
+!          myarr1(ii+1,jj,kk)=ZERO
+!        endif
+!#endif
+!      endif
+
+!      if(jj==1)then
+!        iii = i 
+!		jjj = j -1
+!		kkk = k 
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!	    myarr1(ii,jj-1,kk) = rhoR_d(i,j-1,k)
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i,j-1,k) == 0)then
+!          myarr1(ii,jj-1,kk)=ZERO
+!        endif
+!#endif
+!      endif
+!      if (jj==TILE_DIMy) then
+!        iii = i 
+!		jjj = j +1
+!		kkk = k 
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!	    myarr1(ii,jj+1,kk) = rhoR_d(i,j+1,k)
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i,j+1,k) == 0)then
+!          myarr1(ii,jj+1,kk)=ZERO
+!        endif
+!#endif
+!      endif
+
+!      if(kk==1) then
+!        iii = i 
+!		jjj = j 
+!		kkk = k -1
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!	    myarr1(ii,jj,kk-1) = rhoR_d(i,j,k-1)
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i,j,k-1) == 0)then
+!          myarr1(ii,jj,kk-1)=ZERO
+!        endif
+!#endif
+!      endif
+!      if(kk==TILE_DIMz) then
+!        iii = i 
+!		jjj = j 
+!		kkk = k +1
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!	    myarr1(ii,jj,kk+1) = rhoR_d(i,j,k+1)
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i,j,k+1) == 0)then
+!          myarr1(ii,jj,kk+1)=ZERO
+!        endif
+!#endif
+!      endif
+
+!      ! Halo edges
+!      if(ii==1 .and. jj==1)then
+!        iii = i -1
+!		jjj = j -1
+!		kkk = k 
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!        myarr1(ii-1,jj-1,kk) = rhoR_d(i-1,j-1,k)
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i-1,j-1,k) == 0)then
+!          myarr1(ii-1,jj-1,kk)=ZERO
+!        endif
+!#endif
+!      endif
+!      if(ii==1 .and. jj==TILE_DIMy)then
+!        iii = i -1
+!		jjj = j +1
+!		kkk = k 
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!        myarr1(ii-1,jj+1,kk) = rhoR_d(i-1,j+1,k)
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i-1,j+1,k) == 0)then
+!          myarr1(ii-1,jj+1,kk)=ZERO
+!        endif
+!#endif
+!      endif
+!      if(ii==TILE_DIMx .and. jj==1)then
+!        iii = i +1
+!		jjj = j -1
+!		kkk = k 
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!        myarr1(ii+1,jj-1,kk) = rhoR_d(i+1,j-1,k)
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i+1,j-1,k) == 0)then
+!          myarr1(ii+1,jj-1,kk)=ZERO
+!        endif
+!#endif
+!      endif      
+!      if(ii==TILE_DIMx .and. jj==TILE_DIMy)then 
+!        iii = i +1
+!		jjj = j +1
+!		kkk = k 
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!        myarr1(ii+1,jj+1,kk) = rhoR_d(i+1,j+1,k)
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i+1,j+1,k) == 0)then
+!          myarr1((ii+1,jj+1,kk)=ZERO
+!        endif
+!#endif
+!      endif      
+      
+!      if(ii==1 .and. kk==1)then
+!        iii = i -1
+!		jjj = j 
+!		kkk = k -1
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!        myarr1(ii-1,jj,kk-1) = rhoR_d(i-1,j,k-1)
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i-1,j,k-1) == 0)then
+!          myarr1(ii-1,jj,kk-1)=ZERO
+!        endif
+!#endif
+!      endif
+!      if(ii==1 .and. kk==TILE_DIMz)then
+!        iii = i -1
+!		jjj = j 
+!		kkk = k +1
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!        myarr1(ii-1,jj,kk+1) = rhoR_d(i-1,j,k+1)
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i-1,j,k+1) == 0)then
+!          myarr1(ii-1,jj,kk+1)=ZERO
+!        endif
+!#endif
+!      endif
+!      if(ii==TILE_DIMx .and. kk==1)then
+!        iii = i +1
+!		jjj = j 
+!		kkk = k -1
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!        myarr1(ii+1,jj,kk-1) = rhoR_d(i+1,j,k-1)
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i+1,j,k-1) == 0)then
+!          myarr1(ii+1,jj,kk-1)=ZERO
+!        endif
+!#endif
+!      endif
+!      if(ii==TILE_DIMx .and. kk==TILE_DIMz)then
+!        iii = i +1
+!		jjj = j 
+!		kkk = k +1
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!        myarr1(ii+1,jj,kk+1) = rhoR_d(i+1,j,k+1)
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i+1,j,k+1) == 0)then
+!          myarr1(ii+1,jj,kk+1)=ZERO
+!        endif
+!#endif
+!      endif
+      
+!      if(jj==1 .and. kk==1)then
+!        iii = i 
+!		jjj = j -1
+!		kkk = k -1
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!        myarr1(ii,jj-1,kk-1) = rhoR_d(i,j-1,k-1)
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i,j-1,k-1) == 0)then
+!          myarr1(ii,jj-1,kk-1)=ZERO
+!        endif
+!#endif
+!      endif
+!      if(jj==1 .and. kk==TILE_DIMz)then
+!        iii = i 
+!		jjj = j -1
+!		kkk = k +1
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!        myarr1(ii,jj-1,kk+1) = rhoR_d(i,j-1,k+1)
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i,j-1,k+1) == 0)then
+!          myarr1(ii,jj-1,kk+1)=ZERO
+!        endif
+!#endif
+!      endif
+!      if(jj==TILE_DIMy .and. kk==1)then
+!        iii = i 
+!		jjj = j +1
+!		kkk = k -1
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!        myarr1(ii,jj+1,kk-1) = rhoR_d(i,j+1,k-1)
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i,j+1,k-1) == 0)then
+!          myarr1(ii,jj+1,kk-1)=ZERO
+!        endif
+!#endif
+!      endif
+!      if(jj==TILE_DIMy .and. kk==TILE_DIMz)then
+!        iii = i 
+!		jjj = j +1
+!		kkk = k +1
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!        myarr1(ii,jj+1,kk+1) = rhoR_d(i,j+1,k+1)
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i,j+1,k+1) == 0)then
+!          myarr1(ii,jj+1,kk+1)=ZERO
+!        endif
+!#endif
+!      endif
+      
+!      ! Halo corner
+!      if(ii==1 .and. jj==1 .and. kk==1)then
+!        iii = i -1
+!		jjj = j -1
+!		kkk = k -1
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!        myarr1(ii-1,jj-1,kk-1) = rhoR_d(i-1,j-1,k-1) 
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i-1,j-1,k-1) == 0)then
+!          myarr1(ii-1,jj-1,kk-1)=ZERO
+!        endif
+!#endif
+!      endif
+!      if(ii==TILE_DIMx .and. jj==1 .and. kk==1)then
+!        iii = i +1
+!		jjj = j -1
+!		kkk = k -1
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!        myarr1(ii+1,jj-1,kk-1) = rhoR_d(i+1,j-1,k-1)
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i+1,j-1,k-1) == 0)then
+!          myarr1(ii+1,jj-1,kk-1)=ZERO
+!        endif
+!#endif
+!      endif
+!      if(ii==1 .and. jj==TILE_DIMy .and. kk==1)then
+!        iii = i -1
+!		jjj = j +1
+!		kkk = k -1
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!        myarr1(ii-1,jj+1,kk-1) = rhoR_d(i-1,j+1,k-1) 
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i-1,j+1,k-1) == 0)then
+!          myarr1(ii-1,jj+1,kk-1)=ZERO
+!        endif
+!#endif
+!      endif
+!      if(ii==1 .and. jj==1 .and. kk==TILE_DIMz)then
+!        iii = i -1
+!		jjj = j -1
+!		kkk = k +1
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!        myarr1(ii-1,jj-1,kk+1) = rhoR_d(i-1,j-1,k+1) 
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i-1,j-1,k+1) == 0)then
+!          myarr1(ii-1,jj-1,kk+1)=ZERO
+!        endif
+!#endif
+!      endif
+!      if(ii==1 .and. jj==TILE_DIMy .and. kk==TILE_DIMz)then
+!        iii = i -1
+!		jjj = j +1
+!		kkk = k +1
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!        myarr1(ii-1,jj+1,kk+1) = rhoR_d(i-1,j+1,k+1) 
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i-1,j+1,k+1) == 0)then
+!          myarr1(ii-1,jj+1,kk+1)=ZERO
+!        endif
+!#endif
+!      endif
+!      if(ii==TILE_DIMx .and. jj==1 .and. kk==TILE_DIMz)then
+!        iii = i +1
+!		jjj = j -1
+!		kkk = k +1
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!        myarr1(ii+1,jj-1,kk+1) = rhoR_d(i+1,j-1,k+1) 
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i+1,j-1,k+1) == 0)then
+!          myarr1(ii+1,jj-1,kk+1)=ZERO
+!        endif
+!#endif
+!      endif
+!      if(ii==TILE_DIMx .and. jj==TILE_DIMy .and. kk==1)then
+!        iii = i +1
+!		jjj = j +1
+!		kkk = k -1
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!        myarr1(ii+1,jj+1,kk-1) = rhoR_d(i+1,j+1,k-1) 
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i+1,j+1,k-1) == 0)then
+!          myarr1(ii+1,jj+1,kk-1)=ZERO
+!        endif
+!#endif
+!      endif
+!      if(ii==TILE_DIMx .and. jj==TILE_DIMy .and. kk==TILE_DIMz)then
+!        iii = i +1
+!		jjj = j +1
+!		kkk = k +1
+!		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
+!		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
+!		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
+!		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+!		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
+!		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
+!		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+!        myarr1(ii+1,jj+1,kk+1) = rhoR_d(i+1,j+1,k+1) 
+!#ifdef INTERNAL_OBSTACLES
+!        if(isfluid(i+1,j+1,k+1) == 0)then
+!          myarr1(ii+1,jj+1,kk+1)=ZERO
+!        endif
+!#endif
+!      endif
+
+!      integer :: i,j,k,myblock,l,intblock
+!      integer :: ii,jj,kk
+!      integer :: li,lj,lk
+!      integer :: lii,ljj,lkk
+!      integer :: xblock,yblock,zblock
+!!      integer :: gi,gj,gk
+
+      
+!      li = threadIdx%x-1
+!      lj = threadIdx%y-1
+!      lk = threadIdx%z-1
+      
+!      i = (blockIdx%x-1) * TILE_DIMx + li
+!      j = (blockIdx%y-1) * TILE_DIMy + lj
+!      k = (blockIdx%z-1) * TILE_DIMz + lk
+      
+!!      gi=nx*coords(1)+i
+!!      gj=ny*coords(2)+j
+!!      gk=nz*coords(3)+k
+      
+!      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+!	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+!	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+      
+!      myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+!      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+!      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+!      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+
+!      !i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
+!      !j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
+!      !k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
+      
+!!      gi=nx*coords(1)+i
+!!      gj=ny*coords(2)+j
+!!      gk=nz*coords(3)+k
+      
+!      intblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
+
+
+!               !if (abs(isfluid(i,j,k)) /= 1) return
+       
+     
+!#ifdef TWOCOMPONENT	  
+!                  phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+!#endif                  
+!#ifdef DENSRATIO
+                  
+!                  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
+!#else
+!                  rhophi_loc = 1.0_db !press_loc
+!#endif	
+
+!				  forcex=forces_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))/rhophi_loc
+!				  forcey=forces_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))/rhophi_loc
+!				  forcez=forces_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))/rhophi_loc
+                  
+!                  press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+!                  u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
+!                  v=hfields_in(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+!                  w=hfields_in(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+!                  pxx=hfields_in(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+!                  pyy=hfields_in(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+!                  pzz=hfields_in(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+!                  pxy=hfields_in(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+!                  pxz=hfields_in(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+!                  pyz=hfields_in(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  
+                  
+!#ifdef INTERNAL_OBSTACLES
+!                  if(isfluid(i,j,k) == 0)then
+!                    forcex=ZERO
+!                    forcey=ZERO
+!                    forcez=ZERO
+!                    press=ZERO
+!                    u=ZERO
+!                    v=ZERO
+!                    w=ZERO
+!                    pxx=ZERO
+!                    pyy=ZERO
+!                    pzz=ZERO
+!                    pxy=ZERO
+!                    pxz=ZERO
+!                    pyz=ZERO
+!                  endif
+!#endif
+                  
+
+!!				  uu=HALF*(u*u+v*v+w*w)*invcssq
+				  
+!!                  do lii=1,nlinks
+!!                     udotc=(u*dex(lii) + v*dey(lii)+ w*dez(lii))*invcssq
+!!		     feq=p(lii)*(press + (udotc+0.5_db*udotc*udotc - uu))
+!!                     !fneq1=(HALF/(cssq*cssq))*( (dex(lii)*dex(lii)-cssq)*pxx &
+!!		     ! + (dey(lii)*dey(lii)-cssq)*pyy + (dez(lii)*dez(lii)-cssq)*pzz &
+!!	             ! + TWO*(dex(lii)*dey(lii))*pxy + TWO*(dex(lii)*dez(lii))*pxz &
+!!		     ! + TWO*(dey(lii)*dez(lii))*pyz)
+!!                     fpost=feq!+fneq1
+!!                     pxx=pxx - fpost*(dex(lii)*dex(lii))
+!!                     pyy=pyy - fpost*(dey(lii)*dey(lii))
+!!                     pzz=pzz - fpost*(dez(lii)*dez(lii))
+!!                     pxy=pxy - fpost*(dex(lii)*dey(lii))
+!!                     pxz=pxz - fpost*(dex(lii)*dez(lii))
+!!                     pyz=pyz - fpost*(dey(lii)*dez(lii))
+!!                  enddo
+
+!                  pxx=pxx - cssq*press - u*u 
+!                  pyy=pyy - cssq*press - v*v 
+!                  pzz=pzz - cssq*press - w*w 
+!                  pxy=pxy - u*v
+!                  pxz=pxz - u*w
+!                  pyz=pyz - v*w
+
+!#ifdef TWOCOMPONENT
+!                  !visc_loc it is used to store the local viscosity
+!                  visc_loc=(rho_r*visc1*phi_loc+(ONE-phi_loc)*visc2*rho_b)/rhophi_loc
+!#else
+!#ifdef SMAGORINSKI
+!                  visc_loc=visc1
+!#endif
+!#endif
+
+!#ifdef SMAGORINSKI
+!                  QQ=pxx*pxx + pyy*pyy + pzz*pzz + &
+!                   TWO*(pxy*pxy + pxz*pxz + pyz*pyz)  !QQ i sused to store the double contraction of flux tensor (Frobenius norm) 
+!                  !!!smago
+!                  omega_loc= 0.5_db + (1.0_db/6.0_db)*(3.0_db*visc_loc + &   !visc_loc it is used to store the local viscosity
+!                   sqrt((3.0*visc_loc)**2.0 + 0.053*18.0*sqrt(2.0*QQ)/rhophi_loc)) !it is tau
+!                  omega_loc=1.0_db/omega_loc !it is omega
+
+!#else
+!#ifdef TWOCOMPONENT
+!                  omega_loc=(visc_loc/cssq + 0.5_db) !it is tau   !visc_loc it is used to store the local viscosity
+!                  omega_loc=1.0_db/omega_loc !it is omega
+!#else
+!                  omega_loc=omega
+!#endif
+!#endif      
+      
+!                  !opress=ZERO
+!                  ou=ZERO
+!                  ov=ZERO
+!                  ow=ZERO
+!                  opxx=ZERO
+!                  opyy=ZERO
+!                  opzz=ZERO
+!                  opxy=ZERO
+!                  opxz=ZERO
+!                  opyz=ZERO
+!!!!!!!!!!!!!!!!!!!!!!!!!!!0
+!                  uu=HALF*(u*u+v*v+w*w)*invcssq
+
+!			      feq=p(0)*(press - uu)
+!				  fneq1=(HALF/cssq)*(-pxx-pyy-pzz)
+!				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)/cssq
+                  
+!                  opress=feq + (1.0_db-omega_loc)*fneq1*p(0) + HALF*(F_discr)
+                  
+!                  do l=1,nlinks
+!                     udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
+!		             feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
+!                     fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+!		              + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+!	                  + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+!		              + TWO*(dey(l)*dez(l))*pyz)
+!		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
+!                      + ((dey(l) - v) + udotc * dey(l))*forcey &
+!                      + ((dez(l) - w) + udotc * dez(l))*forcez)/cssq
+!                     lii=li+ex(l)
+!                     ljj=lj+ey(l)
+!                     lkk=lk+ez(l)
+!                     lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+!                     ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+!                     lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
+!		             f1(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l)*fneq1 + HALF*F_discr
+!!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,f1(lii,ljj,lkk)
+!!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,feq
+!!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*p(l)*fneq1
+!!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,HALF*F_discr
+!		             call syncthreads
+		             
+!		             opress=opress + f1(li,lj,lk)
+!		             ou=ou + f1(li,lj,lk)*dex(l)
+!                     ov=ov + f1(li,lj,lk)*dey(l)
+!                     ow=ow + f1(li,lj,lk)*dez(l)
+!                     opxx=opxx + f1(li,lj,lk)*dex(l)*dex(l)
+!                     opyy=opyy + f1(li,lj,lk)*dey(l)*dey(l)
+!                     opzz=opzz + f1(li,lj,lk)*dez(l)*dez(l)
+!                     opxy=opxy + f1(li,lj,lk)*dex(l)*dey(l)
+!                     opxz=opxz + f1(li,lj,lk)*dex(l)*dez(l)
+!                     opyz=opyz + f1(li,lj,lk)*dey(l)*dez(l)
+                     
+!                     call syncthreads
+                     
+!                  enddo
+                  
+                  
+!                  !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
+!	              if(myblock .ne. intblock)return
+	                 
+!	              hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
+!                  hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
+!                  hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
+!                  hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
+!                  hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
+!                  hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
+!                  hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
+!                  hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
+!                  hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
+!                  hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
+                   
+!    endsubroutine fused_LB_kernel_nohalo
+
 endmodule
