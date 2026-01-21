@@ -1954,7 +1954,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!	    myarr1(ii+1,jj,kk) = rhoR_d(i+1,j,k)
+!	    myarr1(ii+1,jj,kk) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i+1,j,k) == 0)then
 !          myarr1(ii+1,jj,kk)=ZERO
@@ -1973,7 +1973,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!	    myarr1(ii,jj-1,kk) = rhoR_d(i,j-1,k)
+!	    myarr1(ii,jj-1,kk) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i,j-1,k) == 0)then
 !          myarr1(ii,jj-1,kk)=ZERO
@@ -1991,7 +1991,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!	    myarr1(ii,jj+1,kk) = rhoR_d(i,j+1,k)
+!	    myarr1(ii,jj+1,kk) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i,j+1,k) == 0)then
 !          myarr1(ii,jj+1,kk)=ZERO
@@ -2010,7 +2010,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!	    myarr1(ii,jj,kk-1) = rhoR_d(i,j,k-1)
+!	    myarr1(ii,jj,kk-1) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i,j,k-1) == 0)then
 !          myarr1(ii,jj,kk-1)=ZERO
@@ -2028,7 +2028,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!	    myarr1(ii,jj,kk+1) = rhoR_d(i,j,k+1)
+!	    myarr1(ii,jj,kk+1) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i,j,k+1) == 0)then
 !          myarr1(ii,jj,kk+1)=ZERO
@@ -2048,7 +2048,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!        myarr1(ii-1,jj-1,kk) = rhoR_d(i-1,j-1,k)
+!        myarr1(ii-1,jj-1,kk) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i-1,j-1,k) == 0)then
 !          myarr1(ii-1,jj-1,kk)=ZERO
@@ -2066,7 +2066,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!        myarr1(ii-1,jj+1,kk) = rhoR_d(i-1,j+1,k)
+!        myarr1(ii-1,jj+1,kk) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i-1,j+1,k) == 0)then
 !          myarr1(ii-1,jj+1,kk)=ZERO
@@ -2084,7 +2084,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!        myarr1(ii+1,jj-1,kk) = rhoR_d(i+1,j-1,k)
+!        myarr1(ii+1,jj-1,kk) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i+1,j-1,k) == 0)then
 !          myarr1(ii+1,jj-1,kk)=ZERO
@@ -2102,7 +2102,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!        myarr1(ii+1,jj+1,kk) = rhoR_d(i+1,j+1,k)
+!        myarr1(ii+1,jj+1,kk) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i+1,j+1,k) == 0)then
 !          myarr1((ii+1,jj+1,kk)=ZERO
@@ -2121,7 +2121,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!        myarr1(ii-1,jj,kk-1) = rhoR_d(i-1,j,k-1)
+!        myarr1(ii-1,jj,kk-1) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i-1,j,k-1) == 0)then
 !          myarr1(ii-1,jj,kk-1)=ZERO
@@ -2139,7 +2139,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!        myarr1(ii-1,jj,kk+1) = rhoR_d(i-1,j,k+1)
+!        myarr1(ii-1,jj,kk+1) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i-1,j,k+1) == 0)then
 !          myarr1(ii-1,jj,kk+1)=ZERO
@@ -2157,7 +2157,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!        myarr1(ii+1,jj,kk-1) = rhoR_d(i+1,j,k-1)
+!        myarr1(ii+1,jj,kk-1) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i+1,j,k-1) == 0)then
 !          myarr1(ii+1,jj,kk-1)=ZERO
@@ -2175,7 +2175,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!        myarr1(ii+1,jj,kk+1) = rhoR_d(i+1,j,k+1)
+!        myarr1(ii+1,jj,kk+1) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i+1,j,k+1) == 0)then
 !          myarr1(ii+1,jj,kk+1)=ZERO
@@ -2194,7 +2194,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!        myarr1(ii,jj-1,kk-1) = rhoR_d(i,j-1,k-1)
+!        myarr1(ii,jj-1,kk-1) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i,j-1,k-1) == 0)then
 !          myarr1(ii,jj-1,kk-1)=ZERO
@@ -2212,7 +2212,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!        myarr1(ii,jj-1,kk+1) = rhoR_d(i,j-1,k+1)
+!        myarr1(ii,jj-1,kk+1) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i,j-1,k+1) == 0)then
 !          myarr1(ii,jj-1,kk+1)=ZERO
@@ -2230,7 +2230,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!        myarr1(ii,jj+1,kk-1) = rhoR_d(i,j+1,k-1)
+!        myarr1(ii,jj+1,kk-1) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i,j+1,k-1) == 0)then
 !          myarr1(ii,jj+1,kk-1)=ZERO
@@ -2248,7 +2248,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!        myarr1(ii,jj+1,kk+1) = rhoR_d(i,j+1,k+1)
+!        myarr1(ii,jj+1,kk+1) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i,j+1,k+1) == 0)then
 !          myarr1(ii,jj+1,kk+1)=ZERO
@@ -2268,7 +2268,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!        myarr1(ii-1,jj-1,kk-1) = rhoR_d(i-1,j-1,k-1) 
+!        myarr1(ii-1,jj-1,kk-1) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i-1,j-1,k-1) == 0)then
 !          myarr1(ii-1,jj-1,kk-1)=ZERO
@@ -2286,7 +2286,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!        myarr1(ii+1,jj-1,kk-1) = rhoR_d(i+1,j-1,k-1)
+!        myarr1(ii+1,jj-1,kk-1) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i+1,j-1,k-1) == 0)then
 !          myarr1(ii+1,jj-1,kk-1)=ZERO
@@ -2304,7 +2304,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!        myarr1(ii-1,jj+1,kk-1) = rhoR_d(i-1,j+1,k-1) 
+!        myarr1(ii-1,jj+1,kk-1) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i-1,j+1,k-1) == 0)then
 !          myarr1(ii-1,jj+1,kk-1)=ZERO
@@ -2322,7 +2322,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!        myarr1(ii-1,jj-1,kk+1) = rhoR_d(i-1,j-1,k+1) 
+!        myarr1(ii-1,jj-1,kk+1) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i-1,j-1,k+1) == 0)then
 !          myarr1(ii-1,jj-1,kk+1)=ZERO
@@ -2340,7 +2340,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!        myarr1(ii-1,jj+1,kk+1) = rhoR_d(i-1,j+1,k+1) 
+!        myarr1(ii-1,jj+1,kk+1) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i-1,j+1,k+1) == 0)then
 !          myarr1(ii-1,jj+1,kk+1)=ZERO
@@ -2358,7 +2358,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!        myarr1(ii+1,jj-1,kk+1) = rhoR_d(i+1,j-1,k+1) 
+!        myarr1(ii+1,jj-1,kk+1) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i+1,j-1,k+1) == 0)then
 !          myarr1(ii+1,jj-1,kk+1)=ZERO
@@ -2376,7 +2376,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!        myarr1(ii+1,jj+1,kk-1) = rhoR_d(i+1,j+1,k-1) 
+!        myarr1(ii+1,jj+1,kk-1) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i+1,j+1,k-1) == 0)then
 !          myarr1(ii+1,jj+1,kk-1)=ZERO
@@ -2394,7 +2394,7 @@ contains
 !		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 !		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 !		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-!        myarr1(ii+1,jj+1,kk+1) = rhoR_d(i+1,j+1,k+1) 
+!        myarr1(ii+1,jj+1,kk+1) = hfields_in(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 !#ifdef INTERNAL_OBSTACLES
 !        if(isfluid(i+1,j+1,k+1) == 0)then
 !          myarr1(ii+1,jj+1,kk+1)=ZERO
