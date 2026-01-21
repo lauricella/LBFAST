@@ -11,7 +11,7 @@ module lb_cuda_kernels
    use cudafor
    use mpi_template, only: coords,dostop,doerror,mydev,myrank,nprocs,nbuff,nbuffbvec
    use lb_cuda_vars
-   use lb_cuda_fused, only: fused_LB_kernel
+   use lb_cuda_fused, only: fused_LB_kernel,fused_LB_kernel2,fused_LB_kernel1
 
    implicit none
    
@@ -559,7 +559,7 @@ contains
       
       integer(8) :: mymshared
       
-      mymshared = 1 * (TILE_DIMx + 2) * (TILE_DIMy + 2) * (TILE_DIMz + 2) * db
+      mymshared = 1 * (TILE_DIMx + 2) * (TILE_DIMy + 2) * (TILE_DIMz + 2) * c_sizeof( real(0.0,kind=db) )
       
 #ifdef TWOCOMPONENT
       !$acc wait
@@ -676,7 +676,7 @@ contains
 	  auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))= &
 	   grad_fiz/(mod_grad+1.0e-9_db)
 	  
-	  auxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))=mod_grad
+	  auxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))=mod_grad 
 
 	  auxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nauxfields))= &
 	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9_db))
@@ -706,13 +706,13 @@ contains
       
    endsubroutine compute_norm_interface_kernel
    
-   subroutine compute_div_thetan(phifields_s)
+   subroutine compute_div_theta_n(phifields_s)
 
       implicit none
       real(kind=db), allocatable, dimension(:) :: phifields_s
       integer(8) :: mymshared
       
-      mymshared = 3 * (TILE_DIMx + 2) * (TILE_DIMy + 2) * (TILE_DIMz + 2) * db
+      mymshared = 3 * (TILE_DIMx + 2) * (TILE_DIMy + 2) * (TILE_DIMz + 2) * c_sizeof( real(0.0,kind=db) )
       
 #ifdef TWOCOMPONENT
       !$acc wait
@@ -720,7 +720,7 @@ contains
 
 !$acc host_data use_device(flop,nx,ny,nz,coords,isfluid &
        !$acc& ,rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-       call compute_div_thetan_kernel<<<dimGrid, dimBlockshared, mymshared>>>(flop,nx,ny,nz,coords,isfluid, &
+       call compute_div_theta_n_kernel<<<dimGrid, dimBlockshared, mymshared>>>(flop,nx,ny,nz,coords,isfluid, &
         rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
 !$acc end host_data
       istat = cudaDeviceSynchronize
@@ -728,16 +728,16 @@ contains
       if (istat/= cudaSuccess) then
         if(myrank==0)write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
         if(myrank==0)write(6,*) cudaGetErrorString(istat)
-        call doerror(6,'ERROR in compute_div_thetan')
+        call doerror(6,'ERROR in compute_div_theta_n')
       endif
       !$acc wait        
 #endif
       
       return
       
-   endsubroutine compute_div_thetan 
+   endsubroutine compute_div_theta_n 
    
-   attributes(global) subroutine compute_div_thetan_kernel(flop,nx,ny,nz,coords,isfluid, &
+   attributes(global) subroutine compute_div_theta_n_kernel(flop,nx,ny,nz,coords,isfluid, &
      rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields_s,locauxfields_s)
 
       implicit none
@@ -815,7 +815,7 @@ contains
       
       return
       
-   endsubroutine compute_div_thetan_kernel
+   endsubroutine compute_div_theta_n_kernel
       
    subroutine thinfilm_scan_mark_cuda(phifields_s)
 
@@ -1584,7 +1584,7 @@ contains
 #endif
       integer(8) :: mymshared
       
-      mymshared = 4 * (TILE_DIMx + 2) * (TILE_DIMy + 2) * (TILE_DIMz + 2) * db
+      mymshared = 1 * (TILE_DIMx + 2) * (TILE_DIMy + 2) * (TILE_DIMz + 2) * c_sizeof( real(0.0,kind=db) )
       
 !      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
       !$acc wait
@@ -1605,7 +1605,7 @@ contains
 #endif   
        !$acc& ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
        !$acc& ,hfields_in,hfields_out,auxfields,locauxfields,forces)
-      call fused_LB_kernel<<<dimGrid,dimBlockshared,mymshared>>>(step,flip,flop,nx,ny,nz,coords,isfluid &    
+      call fused_LB_kernel1<<<dimGrid,dimBlockshared,mymshared>>>(step,flip,flop,nx,ny,nz,coords,isfluid &    
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
 #endif 

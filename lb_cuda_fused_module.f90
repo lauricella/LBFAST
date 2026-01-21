@@ -63,7 +63,7 @@ contains
 
       real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
       real(kind=db) :: opress,ou,ov,ow,opxx,opyy,opzz,opxy,opxz,opyz
-      real(kind=db) :: mytemp,forcex,forcey,forcez,rhophi_loc,press_loc,uu,udotc
+      real(kind=db) :: forcex,forcey,forcez,rhophi_loc,press_loc,uu,udotc
       
       real(kind=db), shared :: f1(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
       real(kind=db), shared :: f2(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
@@ -1222,5 +1222,591 @@ contains
 
    endsubroutine fused_LB_kernel   
    
+   
+      attributes(global) subroutine fused_LB_kernel2(step,flip,flop,nx,ny,nz,coords,isfluid &  
+#ifdef MULTIHIT
+       ,ABCx,ABCy,ABCz &
+#endif 
+#ifdef WETTABILITY
+       ,wettab_r,wettab_b &
+#endif  
+#ifdef TWOCOMPONENT 
+       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
+#ifdef MONOD
+       ,mu_max,Ks &
+#endif
+#endif   
+       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
+       hfields_in,hfields_out,auxfields_s,locauxfields_s,forces_s)
+
+      implicit none
+      
+      integer :: step,flip,flop,nx,ny,nz
+      
+      integer, dimension(3) :: coords
+      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
+      integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
+#ifdef MULTIHIT
+	  real(kind=db), dimension(1:nx,1:ny,1:nz) :: ABCx,ABCy,ABCz
+#endif
+#ifdef WETTABILITY  
+      real(kind=db) :: wettab_r,wettab_b  
+#endif  
+#ifdef TWOCOMPONENT 
+      real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
+      real(kind=db), dimension(ntotphifields) :: phifields_s
+#ifdef MONOD
+      real(kind=db) :: mu_max,Ks
+#endif
+#endif           
+      real(kind=db) :: visc1,omega,fx,fy,fz
+      
+      real(kind=db), dimension(ntothfields) :: hfields_in,hfields_out
+      
+      real(kind=db), dimension(ntotauxfields) :: auxfields_s
+      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
+      real(kind=db), dimension(ntotforces) :: forces_s
+      
+      real(kind=db), shared :: f1(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
+      real(kind=db), shared :: f2(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
+      
+      real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
+      real(kind=db) :: opress,ou,ov,ow,opxx,opyy,opzz,opxy,opxz,opyz,feq,fneq1,f_discr
+      real(kind=db) :: mytemp,forcex,forcey,forcez,rhophi_loc,uu,udotc
+      
+      real(kind=db) :: omega_loc,phi_loc,visc_loc
+#ifdef SMAGORINSKI
+	  real(kind=db) :: QQ
+#endif
+
+      integer :: i,j,k,myblock,l
+      integer :: ii,jj,kk
+      integer :: li,lj,lk
+      integer :: lii,ljj,lkk
+      integer :: xblock,yblock,zblock
+      !integer :: gi,gj,gk
+
+      
+      li = threadIdx%x-1
+      lj = threadIdx%y-1
+      lk = threadIdx%z-1
+      
+      i = (blockIdx%x-1) * TILE_DIMx_d + li
+      j = (blockIdx%y-1) * TILE_DIMy_d + lj
+      k = (blockIdx%z-1) * TILE_DIMz_d + lk
+      
+!      gi=nx*coords(1)+i
+!      gj=ny*coords(2)+j
+!      gk=nz*coords(3)+k
+      
+      xblock=(i+2*TILE_DIMx_d-1)/TILE_DIMx_d
+	  yblock=(j+2*TILE_DIMy_d-1)/TILE_DIMy_d
+	  zblock=(k+2*TILE_DIMz_d-1)/TILE_DIMz_d
+      
+      myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+      ii=i-xblock*TILE_DIMx_d+2*TILE_DIMx_d
+      jj=j-yblock*TILE_DIMy_d+2*TILE_DIMy_d
+      kk=k-zblock*TILE_DIMz_d+2*TILE_DIMz_d
+
+      !i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
+      !j = (blockIdx%y-1) * TILE_DIMy_d + threadIdx%y
+      !k = (blockIdx%z-1) * TILE_DIMz_d + threadIdx%z
+      
+!      gi=nx*coords(1)+i
+!      gj=ny*coords(2)+j
+!      gk=nz*coords(3)+k
+      
+      !intblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
+
+
+               !if (abs(isfluid(i,j,k)) /= 1) return
+       
+     
+#ifdef TWOCOMPONENT	  
+                  phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+#endif                  
+#ifdef DENSRATIO
+                  
+                  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
+#else
+                  rhophi_loc = 1.0_db !press_loc
+#endif	
+
+				  forcex=forces_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
+				  forcey=forces_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
+				  forcez=forces_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
+                  
+                  press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields)) 
+                  v=hfields_in(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  w=hfields_in(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  pxx=hfields_in(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  pyy=hfields_in(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  pzz=hfields_in(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  pxy=hfields_in(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  pxz=hfields_in(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  pyz=hfields_in(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  
+                  
+#ifdef INTERNAL_OBSTACLES
+                  if(isfluid(i,j,k) == 0)then
+                    forcex=ZERO
+                    forcey=ZERO
+                    forcez=ZERO
+                    press=ZERO
+                    u=ZERO
+                    v=ZERO
+                    w=ZERO
+                    pxx=ZERO
+                    pyy=ZERO
+                    pzz=ZERO
+                    pxy=ZERO
+                    pxz=ZERO
+                    pyz=ZERO
+                  endif
+#endif
+                  
+
+!				  uu=HALF*(u*u+v*v+w*w)*invcssq
+				  
+!                  do lii=1,nlinks
+!                     udotc=(u*dex(lii) + v*dey(lii)+ w*dez(lii))*invcssq
+!		     feq=p(lii)*(press + (udotc+0.5_db*udotc*udotc - uu))
+!                     !fneq1=(HALF/(cssq*cssq))*( (dex(lii)*dex(lii)-cssq)*pxx &
+!		     ! + (dey(lii)*dey(lii)-cssq)*pyy + (dez(lii)*dez(lii)-cssq)*pzz &
+!	             ! + TWO*(dex(lii)*dey(lii))*pxy + TWO*(dex(lii)*dez(lii))*pxz &
+!		     ! + TWO*(dey(lii)*dez(lii))*pyz)
+!                     fpost=feq!+fneq1
+!                     pxx=pxx - fpost*(dex(lii)*dex(lii))
+!                     pyy=pyy - fpost*(dey(lii)*dey(lii))
+!                     pzz=pzz - fpost*(dez(lii)*dez(lii))
+!                     pxy=pxy - fpost*(dex(lii)*dey(lii))
+!                     pxz=pxz - fpost*(dex(lii)*dez(lii))
+!                     pyz=pyz - fpost*(dey(lii)*dez(lii))
+!                  enddo
+
+                  pxx=pxx - cssq*press - u*u 
+                  pyy=pyy - cssq*press - v*v 
+                  pzz=pzz - cssq*press - w*w 
+                  pxy=pxy - u*v
+                  pxz=pxz - u*w
+                  pyz=pyz - v*w
+
+#ifdef TWOCOMPONENT
+                  !visc_loc it is used to store the local viscosity
+                  visc_loc=(rho_r*visc1*phi_loc+(ONE-phi_loc)*visc2*rho_b)/rhophi_loc
+#else
+#ifdef SMAGORINSKI
+                  visc_loc=visc1
+#endif
+#endif
+
+#ifdef SMAGORINSKI
+                  QQ=pxx*pxx + pyy*pyy + pzz*pzz + &
+                   TWO*(pxy*pxy + pxz*pxz + pyz*pyz)  !QQ i sused to store the double contraction of flux tensor (Frobenius norm) 
+                  !!!smago
+                  omega_loc= 0.5_db + (1.0_db/6.0_db)*(3.0_db*visc_loc + &   !visc_loc it is used to store the local viscosity
+                   sqrt((3.0*visc_loc)**2.0 + 0.053*18.0*sqrt(2.0*QQ)/rhophi_loc)) !it is tau
+                  omega_loc=1.0_db/omega_loc !it is omega
+
+#else
+#ifdef TWOCOMPONENT
+                  omega_loc=(visc_loc/cssq + 0.5_db) !it is tau   !visc_loc it is used to store the local viscosity
+                  omega_loc=1.0_db/omega_loc !it is omega
+#else
+                  omega_loc=omega
+#endif
+#endif      
+      
+                  opress=ZERO
+                  ou=ZERO
+                  ov=ZERO
+                  ow=ZERO
+                  opxx=ZERO
+                  opyy=ZERO
+                  opzz=ZERO
+                  opxy=ZERO
+                  opxz=ZERO
+                  opyz=ZERO
+!!!!!!!!!!!!!!!!!!!!!!!!!!0
+
+#ifdef SECOND_ORDER
+			      feq=(4.0_db*(2.0_db*press - 3.0_db &
+			       *(u**2.0_db + v**2.0_db + w**2.0_db)))/27.0_db
+
+#else
+!0
+			      feq=(8.0_db*press - 3.0_db*(4.0_db*w**2.0_db &
+			       + v**2.0_db*(4.0_db - 6.0_db*w**2.0_db) &
+			       + u**2.0_db*(-2.0_db + 3.0_db*v**2.0_db)*(-2.0_db &
+			       + 3.0_db*w**2.0_db)))/27.0_db
+!0
+#endif 
+
+				  fneq1=(-3.0_db*(pxx + pyy + pzz))/2.0_db
+
+
+				  F_discr=(-8.0_db*(forcex*u + forcey*v &
+				   + forcez*w))/(9.0_db*rhophi_loc)
+                  opress=feq + (1.0_db-omega_loc)*fneq1*p0 + 0.5_db*(F_discr)
+                  
+				  uu=HALF*(u*u+v*v+w*w)*invcssq
+                  do l=1,nlinks,2
+                     udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
+		             feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
+                     fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		              + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	                  + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		              + TWO*(dey(l)*dez(l))*pyz)
+		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
+                      + ((dey(l) - v) + udotc * dey(l))*forcey &
+                      + ((dez(l) - w) + udotc * dez(l))*forcez)/cssq
+                     lii=li+ex(l)
+                     ljj=lj+ey(l)
+                     lkk=lk+ez(l)
+                     lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
+                     ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
+                     lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2)) 
+		             f1(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l)*fneq1 + HALF*F_discr
+		             
+                     udotc=(u*dex(l+1) + v*dey(l+1)+ w*dez(l+1))*invcssq
+		             feq=p(l+1)*(press + (udotc+0.5_db*udotc*udotc - uu))
+                     fneq1=(HALF/(cssq*cssq))*( (dex(l+1)*dex(l+1)-cssq)*pxx &
+		              + (dey(l+1)*dey(l+1)-cssq)*pyy + (dez(l+1)*dez(l+1)-cssq)*pzz &
+	                  + TWO*(dex(l+1)*dey(l+1))*pxy + TWO*(dex(l+1)*dez(l+1))*pxz &
+		              + TWO*(dey(l+1)*dez(l+1))*pyz)
+		             F_discr = p(l+1)*(((dex(l+1) - u) + udotc * dex(l+1))*forcex &
+                      + ((dey(l+1) - v) + udotc * dey(l+1))*forcey &
+                      + ((dez(l+1) - w) + udotc * dez(l+1))*forcez)/cssq
+                     lii=li+ex(l+1)
+                     ljj=lj+ey(l+1)
+                     lkk=lk+ez(l+1)
+                     lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
+                     ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
+                     lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2)) 
+		             f2(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l+1)*fneq1 + HALF*F_discr
+		             
+		             call syncthreads
+		             opress=opress + f1(li,lj,lk)
+		             ou=ou + f1(li,lj,lk)*dex(l)
+                     ov=ov + f1(li,lj,lk)*dey(l)
+                     ow=ow + f1(li,lj,lk)*dez(l)
+                     opxx=opxx + f1(li,lj,lk)*dex(l)*dex(l)
+                     opyy=opyy + f1(li,lj,lk)*dey(l)*dey(l)
+                     opzz=opzz + f1(li,lj,lk)*dez(l)*dez(l)
+                     opxy=opxy + f1(li,lj,lk)*dex(l)*dey(l)
+                     opxz=opxz + f1(li,lj,lk)*dex(l)*dez(l)
+                     opyz=opyz + f1(li,lj,lk)*dey(l)*dez(l)
+                     
+                     opress=opress + f2(li,lj,lk)
+		             ou=ou + f2(li,lj,lk)*dex(l)
+                     ov=ov + f2(li,lj,lk)*dey(l)
+                     ow=ow + f2(li,lj,lk)*dez(l)
+                     opxx=opxx + f2(li,lj,lk)*dex(l)*dex(l)
+                     opyy=opyy + f2(li,lj,lk)*dey(l)*dey(l)
+                     opzz=opzz + f2(li,lj,lk)*dez(l)*dez(l)
+                     opxy=opxy + f2(li,lj,lk)*dex(l)*dey(l)
+                     opxz=opxz + f2(li,lj,lk)*dex(l)*dez(l)
+                     opyz=opyz + f2(li,lj,lk)*dey(l)*dez(l)
+                     call syncthreads
+                     
+                  enddo
+                  
+                  
+                  !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
+	              if(myblock .ne. (blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1) )return
+	                 
+	              hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opress
+                  hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ou
+                  hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ov
+                  hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ow
+                  hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxx
+                  hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opyy
+                  hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opzz
+                  hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxy
+                  hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxz
+                  hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opyz
+                  
+    endsubroutine fused_LB_kernel2     
+
+      attributes(global) subroutine fused_LB_kernel1(step,flip,flop,nx,ny,nz,coords,isfluid &  
+#ifdef MULTIHIT
+       ,ABCx,ABCy,ABCz &
+#endif 
+#ifdef WETTABILITY
+       ,wettab_r,wettab_b &
+#endif  
+#ifdef TWOCOMPONENT 
+       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
+#ifdef MONOD
+       ,mu_max,Ks &
+#endif
+#endif   
+       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
+       hfields_in,hfields_out,auxfields_s,locauxfields_s,forces_s)
+
+      implicit none
+      
+      integer :: step,flip,flop,nx,ny,nz
+      
+      integer, dimension(3) :: coords
+      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
+      integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
+#ifdef MULTIHIT
+	  real(kind=db), dimension(1:nx,1:ny,1:nz) :: ABCx,ABCy,ABCz
+#endif
+#ifdef WETTABILITY  
+      real(kind=db) :: wettab_r,wettab_b  
+#endif  
+#ifdef TWOCOMPONENT 
+      real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
+      real(kind=db), dimension(ntotphifields) :: phifields_s
+#ifdef MONOD
+      real(kind=db) :: mu_max,Ks
+#endif
+#endif           
+      real(kind=db) :: visc1,omega,fx,fy,fz
+      
+      real(kind=db), dimension(ntothfields) :: hfields_in,hfields_out
+      
+      real(kind=db), dimension(ntotauxfields) :: auxfields_s
+      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
+      real(kind=db), dimension(ntotforces) :: forces_s
+      
+      real(kind=db), shared :: f1(0:TILE_DIMx_d+1,0:TILE_DIMy_d+1,0:TILE_DIMz_d+1)
+      
+      real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
+      real(kind=db) :: opress,ou,ov,ow,opxx,opyy,opzz,opxy,opxz,opyz,feq,fneq1,f_discr
+      real(kind=db) :: mytemp,forcex,forcey,forcez,rhophi_loc,uu,udotc
+      
+      real(kind=db) :: omega_loc,phi_loc,visc_loc
+#ifdef SMAGORINSKI
+	  real(kind=db) :: QQ
+#endif
+
+      integer :: i,j,k,myblock,l
+      integer :: ii,jj,kk
+      integer :: li,lj,lk
+      integer :: lii,ljj,lkk
+      integer :: xblock,yblock,zblock
+      !integer :: gi,gj,gk
+
+      
+      li = threadIdx%x-1
+      lj = threadIdx%y-1
+      lk = threadIdx%z-1
+      
+      i = (blockIdx%x-1) * TILE_DIMx_d + li
+      j = (blockIdx%y-1) * TILE_DIMy_d + lj
+      k = (blockIdx%z-1) * TILE_DIMz_d + lk
+      
+!      gi=nx*coords(1)+i
+!      gj=ny*coords(2)+j
+!      gk=nz*coords(3)+k
+      
+      xblock=(i+2*TILE_DIMx_d-1)/TILE_DIMx_d
+	  yblock=(j+2*TILE_DIMy_d-1)/TILE_DIMy_d
+	  zblock=(k+2*TILE_DIMz_d-1)/TILE_DIMz_d
+      
+      myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+      ii=i-xblock*TILE_DIMx_d+2*TILE_DIMx_d
+      jj=j-yblock*TILE_DIMy_d+2*TILE_DIMy_d
+      kk=k-zblock*TILE_DIMz_d+2*TILE_DIMz_d
+
+      !i = (blockIdx%x-1) * TILE_DIMx_d + threadIdx%x
+      !j = (blockIdx%y-1) * TILE_DIMy_d + threadIdx%y
+      !k = (blockIdx%z-1) * TILE_DIMz_d + threadIdx%z
+      
+!      gi=nx*coords(1)+i
+!      gj=ny*coords(2)+j
+!      gk=nz*coords(3)+k
+      
+      !intblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
+
+
+               !if (abs(isfluid(i,j,k)) /= 1) return
+       
+     
+#ifdef TWOCOMPONENT	  
+                  phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nphifields))
+#endif                  
+#ifdef DENSRATIO
+                  
+                  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
+#else
+                  rhophi_loc = 1.0_db !press_loc
+#endif	
+
+				  forcex=forces_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
+				  forcey=forces_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
+				  forcez=forces_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nforces))
+                  
+                  press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields)) 
+                  v=hfields_in(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  w=hfields_in(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  pxx=hfields_in(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  pyy=hfields_in(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  pzz=hfields_in(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  pxy=hfields_in(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  pxz=hfields_in(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  pyz=hfields_in(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))
+                  
+                  
+#ifdef INTERNAL_OBSTACLES
+                  if(isfluid(i,j,k) == 0)then
+                    forcex=ZERO
+                    forcey=ZERO
+                    forcez=ZERO
+                    press=ZERO
+                    u=ZERO
+                    v=ZERO
+                    w=ZERO
+                    pxx=ZERO
+                    pyy=ZERO
+                    pzz=ZERO
+                    pxy=ZERO
+                    pxz=ZERO
+                    pyz=ZERO
+                  endif
+#endif
+                  
+
+!				  uu=HALF*(u*u+v*v+w*w)*invcssq
+				  
+!                  do lii=1,nlinks
+!                     udotc=(u*dex(lii) + v*dey(lii)+ w*dez(lii))*invcssq
+!		     feq=p(lii)*(press + (udotc+0.5_db*udotc*udotc - uu))
+!                     !fneq1=(HALF/(cssq*cssq))*( (dex(lii)*dex(lii)-cssq)*pxx &
+!		     ! + (dey(lii)*dey(lii)-cssq)*pyy + (dez(lii)*dez(lii)-cssq)*pzz &
+!	             ! + TWO*(dex(lii)*dey(lii))*pxy + TWO*(dex(lii)*dez(lii))*pxz &
+!		     ! + TWO*(dey(lii)*dez(lii))*pyz)
+!                     fpost=feq!+fneq1
+!                     pxx=pxx - fpost*(dex(lii)*dex(lii))
+!                     pyy=pyy - fpost*(dey(lii)*dey(lii))
+!                     pzz=pzz - fpost*(dez(lii)*dez(lii))
+!                     pxy=pxy - fpost*(dex(lii)*dey(lii))
+!                     pxz=pxz - fpost*(dex(lii)*dez(lii))
+!                     pyz=pyz - fpost*(dey(lii)*dez(lii))
+!                  enddo
+
+                  pxx=pxx - cssq*press - u*u 
+                  pyy=pyy - cssq*press - v*v 
+                  pzz=pzz - cssq*press - w*w 
+                  pxy=pxy - u*v
+                  pxz=pxz - u*w
+                  pyz=pyz - v*w
+
+#ifdef TWOCOMPONENT
+                  !visc_loc it is used to store the local viscosity
+                  visc_loc=(rho_r*visc1*phi_loc+(ONE-phi_loc)*visc2*rho_b)/rhophi_loc
+#else
+#ifdef SMAGORINSKI
+                  visc_loc=visc1
+#endif
+#endif
+
+#ifdef SMAGORINSKI
+                  QQ=pxx*pxx + pyy*pyy + pzz*pzz + &
+                   TWO*(pxy*pxy + pxz*pxz + pyz*pyz)  !QQ i sused to store the double contraction of flux tensor (Frobenius norm) 
+                  !!!smago
+                  omega_loc= 0.5_db + (1.0_db/6.0_db)*(3.0_db*visc_loc + &   !visc_loc it is used to store the local viscosity
+                   sqrt((3.0*visc_loc)**2.0 + 0.053*18.0*sqrt(2.0*QQ)/rhophi_loc)) !it is tau
+                  omega_loc=1.0_db/omega_loc !it is omega
+
+#else
+#ifdef TWOCOMPONENT
+                  omega_loc=(visc_loc/cssq + 0.5_db) !it is tau   !visc_loc it is used to store the local viscosity
+                  omega_loc=1.0_db/omega_loc !it is omega
+#else
+                  omega_loc=omega
+#endif
+#endif      
+      
+                  opress=ZERO
+                  ou=ZERO
+                  ov=ZERO
+                  ow=ZERO
+                  opxx=ZERO
+                  opyy=ZERO
+                  opzz=ZERO
+                  opxy=ZERO
+                  opxz=ZERO
+                  opyz=ZERO
+!!!!!!!!!!!!!!!!!!!!!!!!!!0
+
+#ifdef SECOND_ORDER
+			      feq=(4.0_db*(2.0_db*press - 3.0_db &
+			       *(u**2.0_db + v**2.0_db + w**2.0_db)))/27.0_db
+
+#else
+!0
+			      feq=(8.0_db*press - 3.0_db*(4.0_db*w**2.0_db &
+			       + v**2.0_db*(4.0_db - 6.0_db*w**2.0_db) &
+			       + u**2.0_db*(-2.0_db + 3.0_db*v**2.0_db)*(-2.0_db &
+			       + 3.0_db*w**2.0_db)))/27.0_db
+!0
+#endif 
+
+				  fneq1=(-3.0_db*(pxx + pyy + pzz))/2.0_db
+
+
+				  F_discr=(-8.0_db*(forcex*u + forcey*v &
+				   + forcez*w))/(9.0_db*rhophi_loc)
+                  opress=feq + (1.0_db-omega_loc)*fneq1*p0 + 0.5_db*(F_discr)
+                  
+				  uu=HALF*(u*u+v*v+w*w)*invcssq
+                  do l=1,nlinks
+                     udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
+		             feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
+                     fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		              + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
+	                  + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
+		              + TWO*(dey(l)*dez(l))*pyz)
+		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
+                      + ((dey(l) - v) + udotc * dey(l))*forcey &
+                      + ((dez(l) - w) + udotc * dez(l))*forcez)/cssq
+                     lii=li+ex(l)
+                     ljj=lj+ey(l)
+                     lkk=lk+ez(l)
+                     lii=mod(lii+TILE_DIMx_d+2,(TILE_DIMx_d+2))
+                     ljj=mod(ljj+TILE_DIMy_d+2,(TILE_DIMy_d+2))
+                     lkk=mod(lkk+TILE_DIMz_d+2,(TILE_DIMz_d+2)) 
+		             f1(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l)*fneq1 + HALF*F_discr
+		             
+		             
+		             call syncthreads
+		             
+		             opress=opress + f1(li,lj,lk)
+		             ou=ou + f1(li,lj,lk)*dex(l)
+                     ov=ov + f1(li,lj,lk)*dey(l)
+                     ow=ow + f1(li,lj,lk)*dez(l)
+                     opxx=opxx + f1(li,lj,lk)*dex(l)*dex(l)
+                     opyy=opyy + f1(li,lj,lk)*dey(l)*dey(l)
+                     opzz=opzz + f1(li,lj,lk)*dez(l)*dez(l)
+                     opxy=opxy + f1(li,lj,lk)*dex(l)*dey(l)
+                     opxz=opxz + f1(li,lj,lk)*dex(l)*dez(l)
+                     opyz=opyz + f1(li,lj,lk)*dey(l)*dez(l)
+                     
+                     call syncthreads
+                     
+                  enddo
+                  
+                  
+                  !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
+	              if(myblock .ne. (blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1) )return
+	                 
+	              hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opress
+                  hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ou
+                  hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ov
+                  hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=ow
+                  hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxx
+                  hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opyy
+                  hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opzz
+                  hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxy
+                  hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opxz
+                  hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx_d,TILE_DIMy_d,TILE_DIMz_d,nhfields))=opyz
+                   
+    endsubroutine fused_LB_kernel1
 
 endmodule

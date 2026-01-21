@@ -15,6 +15,7 @@ contains
       implicit none
       integer:: subchords(3)
       real(kind=db) :: dist1,dist2,sel1,sel2,dist
+      real(kind=db),dimension(3) :: dist3d,dist3dout,invdim
       real(kind=db) :: fneq1,feq, rhophi_loc
 	  
 #if defined(MULTIHIT)
@@ -30,7 +31,10 @@ contains
     
     integer :: xblock,yblock,zblock,myblock,ii,jj,kk
     real(kind=db) :: tempphi,tempphi2,loc_u,loc_v,loc_w,loc_press
-
+    
+    invdim(1) = ONE/real(lx,kind=db)
+    invdim(2) = ONE/real(ly,kind=db)
+    invdim(3) = ONE/real(lz,kind=db)
        
       !*************************************initial conditions ************************
       
@@ -243,7 +247,12 @@ contains
                 if(abs(isfluid(i,j,k)).eq.1)then
 #ifdef TWOCOMPONENT
                    !dist=sqrt((float(gi)-lx/TWO)**TWO + (float(gj)-ly/TWO)**TWO+(float(gk)-(lz/TWO)+1.5*radius)**TWO)
-                   dist=sqrt((float(gi)-lx/TWO)**TWO + (float(gj)-ly/TWO)**TWO+(float(gk)-(lz/TWO))**TWO)
+                   dist3d(1)=real(gi,kind=db)-center(1)
+                   dist3d(2)=real(gj,kind=db)-center(2)
+                   dist3d(3)=real(gk,kind=db)-center(3)
+                   call pbc_images(invdim,dist3d,dist3dout)
+                   
+                   dist=sqrt(dist3dout(1)**TWO + dist3dout(2)**TWO + dist3dout(3)**TWO)
                    
                    tempphi=ONE*fcut_tanh(dist,radius,width)
                    
@@ -269,14 +278,14 @@ contains
 #endif               
                  hfields_flip(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= loc_press
                  hfields_flip(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u
-                 hfields_flip(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v 
-                 hfields_flip(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_w 
+                 hfields_flip(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v
+                 hfields_flip(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_w
                  hfields_flip(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_u+cssq*loc_press
                  hfields_flip(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v*loc_v+cssq*loc_press
                  hfields_flip(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_w*loc_w+cssq*loc_press
                  hfields_flip(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_v
                  hfields_flip(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_w
-                 hfields_flip(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v*loc_w       
+                 hfields_flip(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v*loc_w
                       
                 endif
              enddo
@@ -332,5 +341,16 @@ contains
 #endif     
 
    endsubroutine
+   
+    subroutine pbc_images(aaa,xxs,xout)
+      real(kind=db), dimension(3), intent(in) :: aaa,xxs
+      real(kind=db), dimension(3), intent(out) :: xout
+      
+      xout(1) = xxs(1) - real(lx,kind=db)*nint(aaa(1)*xxs(1)) 
+      xout(2) = xxs(2) - real(ly,kind=db)*nint(aaa(2)*xxs(2)) 
+      xout(3) = xxs(3) - real(lz,kind=db)*nint(aaa(3)*xxs(3)) 
+      
+    end subroutine
+   
 
 endmodule

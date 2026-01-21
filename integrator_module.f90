@@ -36,7 +36,7 @@ module integrator_module
 #if defined(_OPENACC)        
    use lb_cuda_kernels, only : moments_LB_cuda,fused_lb_cuda,test_LB_cuda, &
     compute_norm_interface_cuda,thinfilm_scan_mark_cuda,repulsive_flux_normal_cuda, &
-    compute_div_thetan,update_phifields
+    compute_div_theta_n,update_phifields
 #endif
    use profiling_m,   only : timer_init,itime_start, &
       startPreprocessingTime,print_timing_partial, &
@@ -286,14 +286,21 @@ contains
          if(ldiagnostic)call end_timing2("LB","bcs_phi") 
 #endif
          !***********************************moments************************
-         if(ldiagnostic)call start_timing2("LB","moments")
+
 #ifdef TWOCOMPONENT
-         call compute_div_thetan(phifields_flip)
+         if(ldiagnostic)call start_timing2("LB","compute_div_theta_n")
+         call compute_div_theta_n(phifields_flip)
+         if(ldiagnostic)call end_timing2("LB","compute_div_theta_n")
+         
 #ifdef REPULSIVE_FLUX
+         if(ldiagnostic)call start_timing2("LB","repulsive_flux")
 		 call thinfilm_scan_mark_cuda(phifields_flip)
 		 call repulsive_flux_normal_cuda(phifields_flip)
+		 if(ldiagnostic)call end_timing2("LB","repulsive_flux")
 #endif
 #endif
+
+         if(ldiagnostic)call start_timing2("LB","moments")
          call moments_LB_cuda(hfields_flop,hfields_flip &
 #ifdef TWOCOMPONENT         
           ,phifields_flip &
@@ -379,10 +386,13 @@ contains
           ,phifields_flip &
 #endif
          )
-#ifdef TWOCOMPONENT	            
-         call update_phifields(hfields_flip,phifields_flip,phifields_flop)
-#endif
          if(ldiagnostic)call end_timing2("LB","fused")
+         
+#ifdef TWOCOMPONENT	       
+         if(ldiagnostic)call start_timing2("LB","update_phifields")       
+         call update_phifields(hfields_flip,phifields_flip,phifields_flop)
+         if(ldiagnostic)call end_timing2("LB","update_phifields")
+#endif
          
          !************ thread-safe boundary condition setup
 #ifdef INTERNAL_OBSTACLES    
@@ -462,14 +472,20 @@ contains
          if(ldiagnostic)call end_timing2("LB","bcs_phi") 
 #endif
          !***********************************moments************************
-         if(ldiagnostic)call start_timing2("LB","moments")
+         
 #ifdef TWOCOMPONENT
-         call compute_div_thetan(phifields_flop)
+         if(ldiagnostic)call start_timing2("LB","compute_div_theta_n")
+         call compute_div_theta_n(phifields_flop)
+         if(ldiagnostic)call end_timing2("LB","compute_div_theta_n")
+         
 #ifdef REPULSIVE_FLUX
+         if(ldiagnostic)call start_timing2("LB","repulsive_flux")
 		 call thinfilm_scan_mark_cuda(phifields_flop)
 		 call repulsive_flux_normal_cuda(phifields_flop)
+		 if(ldiagnostic)call end_timing2("LB","repulsive_flux")
 #endif
 #endif
+         if(ldiagnostic)call start_timing2("LB","moments")
          call moments_LB_cuda(hfields_flip,hfields_flop &
 #ifdef TWOCOMPONENT         
           ,phifields_flop &
@@ -555,10 +571,14 @@ contains
          ,phifields_flop &
 #endif
          )
-#ifdef TWOCOMPONENT	   
-         call update_phifields(hfields_flop,phifields_flop,phifields_flip)
-#endif
          if(ldiagnostic)call end_timing2("LB","fused")
+         
+#ifdef TWOCOMPONENT	  
+         if(ldiagnostic)call start_timing2("LB","update_phifields")  
+         call update_phifields(hfields_flop,phifields_flop,phifields_flip)
+         if(ldiagnostic)call end_timing2("LB","update_phifields")
+#endif
+         
          
          !************ thread-safe boundary condition setup
 #ifdef INTERNAL_OBSTACLES          

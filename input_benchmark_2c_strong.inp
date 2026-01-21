@@ -1,8 +1,8 @@
 &simulation
-   nsteps=100
-   stamp=10
+   nsteps=1000
+   stamp=1000
    stamp2D=1000
-   stamp_term=10
+   stamp_term=100
    stepskip=1
    lreadisfluid=.false.   !metti true se leggi isfluid
    lreadinit=.false.  !metti true se leggi rho phi e u v w
@@ -10,9 +10,9 @@
    lx=64
    ly=64
    lz=64
-   iprobe=16
-   jprobe=16
-   kprobe=16
+   iprobe=20
+   jprobe=32
+   kprobe=32
    lprint=.true.
    lvtk=.false.
    lraw=.true.
@@ -23,19 +23,20 @@
    pbc_z=1
    openbc=0
    nplanes=0
-   TILE_DIMx=4
-   TILE_DIMy=4
-   TILE_DIMz=4
+   TILE_DIMx=8
+   TILE_DIMy=8
+   TILE_DIMz=8
    TILE_DIM=16
 &end
 &fluid
    !uwall=-0.0e0
    fx=0.0e-6
    fy=0.0e-6
-   fz=0.0e-6
+   fz=1.0e-5
    tau_diff=0.12e0
    radius=16.0e0
    width=8.0e0
+   center=32.0e0,32.0e0,48.0e0
    sigma=0.01e0
    !wettab_r=0.85e0
    !wettab_b=1.0e0
