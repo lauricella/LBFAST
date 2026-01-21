@@ -17,7 +17,7 @@ module lb_cuda_fused
 contains
 
 
-   attributes(global) subroutine fused_LB_kernel(step,flip,flop,nx,ny,nz,coords,isfluid &  
+   attributes(global) subroutine fused_LB_kernel(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &  
 #ifdef MULTIHIT
        ,ABCx,ABCy,ABCz &
 #endif 
@@ -35,7 +35,7 @@ contains
 
       implicit none
       
-      integer :: step,flip,flop,nx,ny,nz
+      integer :: step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz
       
       integer, dimension(3) :: coords
       integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
@@ -1223,7 +1223,7 @@ contains
    endsubroutine fused_LB_kernel   
    
    
-      attributes(global) subroutine fused_LB_kernel2(step,flip,flop,nx,ny,nz,coords,isfluid &  
+      attributes(global) subroutine fused_LB_kernel2(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &  
 #ifdef MULTIHIT
        ,ABCx,ABCy,ABCz &
 #endif 
@@ -1241,7 +1241,7 @@ contains
 
       implicit none
       
-      integer :: step,flip,flop,nx,ny,nz
+      integer :: step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz
       
       integer, dimension(3) :: coords
       integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
@@ -1529,7 +1529,7 @@ contains
                   
     endsubroutine fused_LB_kernel2     
 
-      attributes(global) subroutine fused_LB_kernel1(step,flip,flop,nx,ny,nz,coords,isfluid &  
+      attributes(global) subroutine fused_LB_kernel1(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &  
 #ifdef MULTIHIT
        ,ABCx,ABCy,ABCz &
 #endif 
@@ -1547,7 +1547,7 @@ contains
 
       implicit none
       
-      integer :: step,flip,flop,nx,ny,nz
+      integer :: step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz
       
       integer, dimension(3) :: coords
       integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid

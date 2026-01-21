@@ -1578,7 +1578,7 @@ contains
       !$acc wait
       istat = cudaDeviceSynchronize
 
-!$acc host_data use_device(step,flip,flop,nx,ny,nz,coords,isfluid & 
+!$acc host_data use_device(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid & 
 #ifdef MULTIHIT
 	   !$acc& ,ABCx,ABCy,ABCz &
 #endif 
@@ -1593,7 +1593,7 @@ contains
 #endif   
        !$acc& ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
        !$acc& ,hfields_in,hfields_out,auxfields,locauxfields,forces)
-      call fused_LB_kernel1<<<dimGrid,dimBlockshared>>>(step,flip,flop,nx,ny,nz,coords,isfluid &    
+      call fused_LB_kernel1<<<dimGrid,dimBlockshared>>>(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
 #endif 
