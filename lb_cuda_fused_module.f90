@@ -1279,7 +1279,7 @@ contains
 	  real(kind=db) :: QQ
 #endif
 
-      integer :: i,j,k,myblock,l
+      integer :: i,j,k,myblock,l,intblock
       integer :: ii,jj,kk
       integer :: li,lj,lk
       integer :: lii,ljj,lkk
@@ -1316,7 +1316,7 @@ contains
 !      gj=ny*coords(2)+j
 !      gk=nz*coords(3)+k
       
-      !intblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
+      intblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
 
 
                !if (abs(isfluid(i,j,k)) /= 1) return
@@ -1499,15 +1499,15 @@ contains
                      opyz=opyz + f1(li,lj,lk)*dey(l)*dez(l)
                      
                      opress=opress + f2(li,lj,lk)
-		             ou=ou + f2(li,lj,lk)*dex(l)
-                     ov=ov + f2(li,lj,lk)*dey(l)
-                     ow=ow + f2(li,lj,lk)*dez(l)
-                     opxx=opxx + f2(li,lj,lk)*dex(l)*dex(l)
-                     opyy=opyy + f2(li,lj,lk)*dey(l)*dey(l)
-                     opzz=opzz + f2(li,lj,lk)*dez(l)*dez(l)
-                     opxy=opxy + f2(li,lj,lk)*dex(l)*dey(l)
-                     opxz=opxz + f2(li,lj,lk)*dex(l)*dez(l)
-                     opyz=opyz + f2(li,lj,lk)*dey(l)*dez(l)
+		             ou=ou + f2(li,lj,lk)*dex(l+1)
+                     ov=ov + f2(li,lj,lk)*dey(l+1)
+                     ow=ow + f2(li,lj,lk)*dez(l+1)
+                     opxx=opxx + f2(li,lj,lk)*dex(l+1)*dex(l+1)
+                     opyy=opyy + f2(li,lj,lk)*dey(l+1)*dey(l+1)
+                     opzz=opzz + f2(li,lj,lk)*dez(l+1)*dez(l+1)
+                     opxy=opxy + f2(li,lj,lk)*dex(l+1)*dey(l+1)
+                     opxz=opxz + f2(li,lj,lk)*dex(l+1)*dez(l+1)
+                     opyz=opyz + f2(li,lj,lk)*dey(l+1)*dez(l+1)
                      call syncthreads
                      
                   enddo
@@ -1584,7 +1584,7 @@ contains
 	  real(kind=db) :: QQ
 #endif
 
-      integer :: i,j,k,myblock,l
+      integer :: i,j,k,myblock,l,intblock
       integer :: ii,jj,kk
       integer :: li,lj,lk
       integer :: lii,ljj,lkk
@@ -1621,7 +1621,7 @@ contains
 !      gj=ny*coords(2)+j
 !      gk=nz*coords(3)+k
       
-      !intblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
+      intblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
 
 
                !if (abs(isfluid(i,j,k)) /= 1) return
@@ -1794,7 +1794,7 @@ contains
                   
                   
                   !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
-	              if(myblock .ne. (blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1) )return
+	              if(myblock .ne. intblock)return
 	                 
 	              hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
                   hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
