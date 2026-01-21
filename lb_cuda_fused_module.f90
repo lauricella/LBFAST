@@ -83,8 +83,8 @@ contains
       integer :: ii,jj,kk
       integer :: li,lj,lk
       integer :: lii,ljj,lkk
-      integer :: xblock,yblock,zblock
-      integer :: gi,gj,gk,intblock
+      integer :: xblock,yblock,zblock,intblock
+      !integer :: gi,gj,gk
       
       li = threadIdx%x-1
       lj = threadIdx%y-1
@@ -94,9 +94,9 @@ contains
       j = (blockIdx%y-1) * TILE_DIMy + lj
       k = (blockIdx%z-1) * TILE_DIMz + lk
       
-      gi=nx*coords(1)+i
-      gj=ny*coords(2)+j
-      gk=nz*coords(3)+k
+      !gi=nx*coords(1)+i
+      !gj=ny*coords(2)+j
+      !gk=nz*coords(3)+k
       
       xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
 	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
@@ -309,8 +309,10 @@ contains
 				  F_discr=(2.0_db*(forcex + 2.0_db*forcex*u - forcey*v &
 				   - forcez*w))/(9.0_db*rhophi_loc)
                   f1(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p1 + 0.5_db*(F_discr)
-
-
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)1,f1(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)1,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)1,(1.0_db-omega_loc)*fneq1*p1
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)1,0.5_db*(F_discr)
 !!!!!!!!!!!!!!!!!!!!!!!!!!2
                   lii=li-1
                   ljj=lj
@@ -337,8 +339,10 @@ contains
 				  F_discr=(-2.0_db*(forcex - 2.0_db*forcex*u + forcey*v &
 				   + forcez*w))/(9.0_db*rhophi_loc)
                   f2(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p1 + 0.5_db*(F_discr)
-
-
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)2,f2(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)2,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)2,(1.0_db-omega_loc)*fneq1*p1
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)2,0.5_db*(F_discr)
 !!!!!!!!!!!!!!!!!!!!!!!!!!3
                   lii=li
                   ljj=lj+1
@@ -364,8 +368,10 @@ contains
 				  F_discr=(2.0_db*(forcey - forcex*u + 2.0_db*forcey*v &
 				   - forcez*w))/(9.0_db*rhophi_loc)
                   f3(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p1 + 0.5_db*(F_discr)
-
-
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)3,f3(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)3,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)3,(1.0_db-omega_loc)*fneq1*p1
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)3,0.5_db*(F_discr)
 !!!!!!!!!!!!!!!!!!!!!!!!!!4
                   lii=li
                   ljj=lj-1
@@ -391,9 +397,12 @@ contains
 				  F_discr=(-2.0_db*(forcey + forcex*u - 2.0_db*forcey*v &
 				   + forcez*w))/(9.0_db*rhophi_loc)
                   f4(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p1 + 0.5_db*(F_discr)
-                  
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)4,f4(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)4,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)4,(1.0_db-omega_loc)*fneq1*p1
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)4,0.5_db*(F_discr)
                   call syncthreads
-                            
+
                   opress = opress + (f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk))
                   ou = f1(li,lj,lk)-f2(li,lj,lk)
                   ov = f3(li,lj,lk)-f4(li,lj,lk)
@@ -426,8 +435,10 @@ contains
 				  F_discr=(2.0_db*(forcez - forcex*u - forcey*v &
 				   + 2.0_db*forcez*w))/(9.0_db*rhophi_loc)
                   f1(lii,ljj,lkk)= feq + (1.0_db-omega_loc)*fneq1*p1 + 0.5_db*(F_discr)
-
-
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)5,f1(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)5,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)5,(1.0_db-omega_loc)*fneq1*p1
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)5,0.5_db*(F_discr)
 !!!!!!!!!!!!!!!!!!!!!!!!!!6
                   lii=li
                   ljj=lj
@@ -453,8 +464,10 @@ contains
 				  F_discr=(-2.0_db*(forcez + forcex*u + forcey*v &
 				   - 2.0_db*forcez*w))/(9.0_db*rhophi_loc)
                   f2(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p1 + 0.5_db*(F_discr)
-
-
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)6,f2(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)6,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)6,(1.0_db-omega_loc)*fneq1*p1
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)6,0.5_db*(F_discr)
 !!!!!!!!!!!!!!!!!!!!!!!!!!7
                   lii=li+1
                   ljj=lj+1
@@ -484,8 +497,10 @@ contains
 				   + 3.0_db*forcey*u + 3.0_db*forcex*v &
 				   + 2.0_db*forcey*v - forcez*w)/(18.0_db*rhophi_loc)
                   f3(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-
-
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)7,f3(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)7,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)7,(1.0_db-omega_loc)*fneq1*p2
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)7,0.5_db*(F_discr)
 !!!!!!!!!!!!!!!!!!!!!!!!!!8
                   lii=li-1
                   ljj=lj-1
@@ -515,9 +530,12 @@ contains
 				   - 3.0_db*forcey*u - 3.0_db*forcex*v &
 				   - 2.0_db*forcey*v + forcez*w)/(-18.0_db*rhophi_loc)
                   f4(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
- 
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)8,f4(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)8,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)8,(1.0_db-omega_loc)*fneq1*p2
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)8,0.5_db*(F_discr)
                   call syncthreads
-                       
+
                   opress = opress + (f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk))
                   ou = ou + f3(li,lj,lk)-f4(li,lj,lk)
                   ov = ov + f3(li,lj,lk)-f4(li,lj,lk)
@@ -562,8 +580,10 @@ contains
 				   + forcex*(-1.0_db - 2.0_db*u + 3.0_db*v) &
 				   + forcez*w)/(-18.0_db*rhophi_loc)
                   f1(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-
-
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)9,f1(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)9,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)9,(1.0_db-omega_loc)*fneq1*p2
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)9,0.5_db*(F_discr)
 !!!!!!!!!!!!!!!!!!!!!!!!!!10
                   lii=li-1
                   ljj=lj+1
@@ -593,8 +613,10 @@ contains
 				   + 3.0_db*forcey*u + 3.0_db*forcex*v &
 				   - 2.0_db*forcey*v + forcez*w)/(-18.0_db*rhophi_loc)
                   f2(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-
-
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)10,f2(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)10,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)10,(1.0_db-omega_loc)*fneq1*p2
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)10,0.5_db*(F_discr)
 !!!!!!!!!!!!!!!!!!!!!!!!!!11
                   lii=li
                   ljj=lj+1
@@ -623,8 +645,10 @@ contains
 				   + 3.0_db*forcez*v + 3.0_db*forcey*w &
 				   + 2.0_db*forcez*w)/(18.0_db*rhophi_loc)
                   f3(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-
-
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)11,f3(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)11,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)11,(1.0_db-omega_loc)*fneq1*p2
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)11,0.5_db*(F_discr)
 !!!!!!!!!!!!!!!!!!!!!!!!!!12
                   lii=li
                   ljj=lj-1
@@ -653,9 +677,12 @@ contains
 				   - 3.0_db*forcez*v - 3.0_db*forcey*w &
 				   - 2.0_db*forcez*w)/(-18.0_db*rhophi_loc)
                   f4(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-                 
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)12,f4(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)12,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)12,(1.0_db-omega_loc)*fneq1*p2
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)12,0.5_db*(F_discr)
                   call syncthreads
-                  
+
                   opress = opress + (f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk))
                   ou = ou + f1(li,lj,lk)-f2(li,lj,lk)
                   ov = ov - f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)-f4(li,lj,lk)
@@ -699,8 +726,10 @@ contains
 				   - 2.0_db*forcez*w + forcey*(-1.0_db - 2.0_db*v &
 				   + 3.0_db*w))/(-18.0_db*rhophi_loc)
                   f1(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-
-
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)13,f1(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)13,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)13,(1.0_db-omega_loc)*fneq1*p2
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)13,0.5_db*(F_discr)
 !!!!!!!!!!!!!!!!!!!!!!!!!!14
                   lii=li
                   ljj=lj-1
@@ -731,8 +760,10 @@ contains
 				   + 3.0_db*forcez*v + 3.0_db*forcey*w &
 				   - 2.0_db*forcez*w)/(-18.0_db*rhophi_loc)
                   f2(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-
-
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)14,f2(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)14,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)14,(1.0_db-omega_loc)*fneq1*p2
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)14,0.5_db*(F_discr)
 !!!!!!!!!!!!!!!!!!!!!!!!!!15
                   lii=li+1
                   ljj=lj
@@ -762,10 +793,10 @@ contains
 				   + 3.0_db*forcez*u - forcey*v + 3.0_db*forcex*w &
 				   + 2.0_db*forcez*w)/(18.0_db*rhophi_loc)
                   f3(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-!                  if(gi==0 .and. gj==2 .and. gk==15 .and. intblock==236)then
-!                    write(*,*)'15 check',step,forcez
-!                  endif
-
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)15,f3(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)15,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)15,(1.0_db-omega_loc)*fneq1*p2
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)15,0.5_db*(F_discr)
 !!!!!!!!!!!!!!!!!!!!!!!!!!16
                   lii=li-1
                   ljj=lj
@@ -795,9 +826,12 @@ contains
 				   - 3.0_db*forcez*u + forcey*v - 3.0_db*forcex*w &
 				   - 2.0_db*forcez*w)/(-18.0_db*rhophi_loc)
                   f4(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-        
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)16,f4(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)16,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)16,(1.0_db-omega_loc)*fneq1*p2
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)16,0.5_db*(F_discr)
                   call syncthreads
-                  
+
                   opress = opress + (f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk))
                   ou = ou + f3(li,lj,lk)-f4(li,lj,lk)
                   ov = ov + f1(li,lj,lk)-f2(li,lj,lk)
@@ -844,8 +878,10 @@ contains
 				   + 3.0_db*forcez*u + forcey*v + 3.0_db*forcex*w &
 				   - 2.0_db*forcez*w)/(-18.0_db*rhophi_loc)
                   f1(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-
-
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)17,f1(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)17,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)17,(1.0_db-omega_loc)*fneq1*p2
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)17,0.5_db*(F_discr)
 !!!!!!!!!!!!!!!!!!!!!!!!!!18
                   lii=li+1
                   ljj=lj
@@ -876,8 +912,10 @@ contains
 				   - 2.0_db*forcez*w + forcex*(-1.0_db - 2.0_db*u &
 				   + 3.0_db*w))/(-18.0_db*rhophi_loc)
                   f2(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p2 + 0.5_db*(F_discr)
-
-
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)18,f2(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)18,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)18,(1.0_db-omega_loc)*fneq1*p2
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)18,0.5_db*(F_discr)
 !!!!!!!!!!!!!!!!!!!!!!!!!!19
                   lii=li+1
                   ljj=lj+1
@@ -909,8 +947,10 @@ contains
 				   + 2.0_db*v + 3.0_db*w) + forcex*(1.0_db + 2.0_db*u &
 				   + 3.0_db*v + 3.0_db*w))/(72.0_db*rhophi_loc)
                   f3(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p3 + 0.5_db*(F_discr)
-
-
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)19,f3(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)19,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)19,(1.0_db-omega_loc)*fneq1*p3
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)19,0.5_db*(F_discr)
 !!!!!!!!!!!!!!!!!!!!!!!!!!20
                   lii=li-1
                   ljj=lj-1
@@ -943,9 +983,12 @@ contains
 				   + 2.0_db*v + 3.0_db*w) + forcex*(-1.0_db &
 				   + 2.0_db*u + 3.0_db*v + 3.0_db*w))/(72.0_db*rhophi_loc)
                   f4(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p3 + 0.5_db*(F_discr)
-     
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)20,f4(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)20,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)20,(1.0_db-omega_loc)*fneq1*p3
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)20,0.5_db*(F_discr)
                   call syncthreads
-                  
+
                   opress = opress + (f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk))
                   ou = ou - f1(li,lj,lk) +f2(li,lj,lk)+f3(li,lj,lk)-f4(li,lj,lk)
                   ov = ov + f3(li,lj,lk)-f4(li,lj,lk)
@@ -996,8 +1039,10 @@ contains
 				   - 3.0_db*v + 3.0_db*w) - forcey*(1.0_db &
 				   + 3.0_db*u - 2.0_db*v + 3.0_db*w))/(72.0_db*rhophi_loc)
                   f1(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p3 + 0.5_db*(F_discr)
-
-
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)21,f1(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)21,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)21,(1.0_db-omega_loc)*fneq1*p3
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)21,0.5_db*(F_discr)
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!22
                   lii=li-1
@@ -1030,8 +1075,10 @@ contains
 				   - 3.0_db*v + 2.0_db*w) + forcex*(-1.0_db &
 				   + 2.0_db*u - 3.0_db*v + 3.0_db*w))/(72.0_db*rhophi_loc)
                   f2(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p3 + 0.5_db*(F_discr)
-
-
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)22,f2(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)22,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)22,(1.0_db-omega_loc)*fneq1*p3
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)22,0.5_db*(F_discr)
 
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!23
@@ -1064,8 +1111,10 @@ contains
 				   + forcex*(-1.0_db + 2.0_db*u + 3.0_db*v &
 				   - 3.0_db*w) + 2.0_db*forcez*w)/(72.0_db*rhophi_loc)
                   f3(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p3 + 0.5_db*(F_discr)
-
-
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)23,f3(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)23,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)23,(1.0_db-omega_loc)*fneq1*p3
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)23,0.5_db*(F_discr)
 !!!!!!!!!!!!!!!!!!!!!!!!!!24
                   lii=li+1
                   ljj=lj+1
@@ -1096,9 +1145,12 @@ contains
 				   + 2.0_db*u + 3.0_db*v - 3.0_db*w) &
 				   + 2.0_db*forcez*w)/(72.0_db*rhophi_loc)
                   f4(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p3 + 0.5_db*(F_discr)
-           
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)24,f4(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)24,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)24,(1.0_db-omega_loc)*fneq1*p3
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)24,0.5_db*(F_discr)
                   call syncthreads
-                  
+
                   opress = opress + (f1(li,lj,lk)+f2(li,lj,lk)+f3(li,lj,lk)+f4(li,lj,lk))
                   ou = ou +f1(li,lj,lk)-f2(li,lj,lk)-f3(li,lj,lk)+f4(li,lj,lk)
                   ov = ov -f1(li,lj,lk)+f2(li,lj,lk)-f3(li,lj,lk)+f4(li,lj,lk)
@@ -1148,8 +1200,10 @@ contains
 				   + 3.0_db*v + 2.0_db*w) + forcey*(-1.0_db &
 				   - 3.0_db*u + 2.0_db*v + 3.0_db*w))/(72.0_db*rhophi_loc)
                   f1(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p3 + 0.5_db*(F_discr)
-
-
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)25,f1(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)25,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)25,(1.0_db-omega_loc)*fneq1*p3
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)25,0.5_db*(F_discr)
 !!!!!!!!!!!!!!!!!!!!!!!!!!26
                   lii=li-1
                   ljj=lj+1
@@ -1181,9 +1235,12 @@ contains
 				   + 3.0_db*v + 2.0_db*w) + forcey*(1.0_db &
 				   - 3.0_db*u + 2.0_db*v + 3.0_db*w))/(72.0_db*rhophi_loc)
                   f2(lii,ljj,lkk)=feq + (1.0_db-omega_loc)*fneq1*p3 + 0.5_db*(F_discr)
-                  
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)26,f2(lii,ljj,lkk)
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)26,feq
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)26,(1.0_db-omega_loc)*fneq1*p3
+!if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)26,0.5_db*(F_discr)
                   call syncthreads
-                           
+
                   opress = opress + (f1(li,lj,lk)+f2(li,lj,lk))
                   ou = ou + f1(li,lj,lk)-f2(li,lj,lk)
                   ov = ov - f1(li,lj,lk)+f2(li,lj,lk)
@@ -1332,9 +1389,9 @@ contains
                   rhophi_loc = 1.0_db !press_loc
 #endif	
 
-				  forcex=forces_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
-				  forcey=forces_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
-				  forcez=forces_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+				  forcex=forces_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))/rhophi_loc
+				  forcey=forces_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))/rhophi_loc
+				  forcez=forces_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))/rhophi_loc
                   
                   press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
                   u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
@@ -1418,7 +1475,7 @@ contains
 #endif
 #endif      
       
-                  opress=ZERO
+                  !opress=ZERO
                   ou=ZERO
                   ov=ZERO
                   ow=ZERO
@@ -1429,28 +1486,14 @@ contains
                   opxz=ZERO
                   opyz=ZERO
 !!!!!!!!!!!!!!!!!!!!!!!!!!0
+                  uu=HALF*(u*u+v*v+w*w)*invcssq
 
-#ifdef SECOND_ORDER
-			      feq=(4.0_db*(2.0_db*press - 3.0_db &
-			       *(u**2.0_db + v**2.0_db + w**2.0_db)))/27.0_db
-
-#else
-!0
-			      feq=(8.0_db*press - 3.0_db*(4.0_db*w**2.0_db &
-			       + v**2.0_db*(4.0_db - 6.0_db*w**2.0_db) &
-			       + u**2.0_db*(-2.0_db + 3.0_db*v**2.0_db)*(-2.0_db &
-			       + 3.0_db*w**2.0_db)))/27.0_db
-!0
-#endif 
-
-				  fneq1=(-3.0_db*(pxx + pyy + pzz))/2.0_db
-
-
-				  F_discr=(-8.0_db*(forcex*u + forcey*v &
-				   + forcez*w))/(9.0_db*rhophi_loc)
-                  opress=feq + (1.0_db-omega_loc)*fneq1*p0 + 0.5_db*(F_discr)
+			      feq=p(0)*(press - uu)
+				  fneq1=(HALF/cssq)*(-pxx-pyy-pzz)
+				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)/cssq
                   
-				  uu=HALF*(u*u+v*v+w*w)*invcssq
+                  opress=feq + (1.0_db-omega_loc)*fneq1*p(0) + HALF*(F_discr)
+                  
                   do l=1,nlinks,2
                      udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
 		             feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
@@ -1589,7 +1632,7 @@ contains
       integer :: li,lj,lk
       integer :: lii,ljj,lkk
       integer :: xblock,yblock,zblock
-      !integer :: gi,gj,gk
+      integer :: gi,gj,gk
 
       
       li = threadIdx%x-1
@@ -1617,9 +1660,9 @@ contains
       !j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
       !k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
       
-!      gi=nx*coords(1)+i
-!      gj=ny*coords(2)+j
-!      gk=nz*coords(3)+k
+      gi=nx*coords(1)+i
+      gj=ny*coords(2)+j
+      gk=nz*coords(3)+k
       
       intblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
 
@@ -1637,9 +1680,9 @@ contains
                   rhophi_loc = 1.0_db !press_loc
 #endif	
 
-				  forcex=forces_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
-				  forcey=forces_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
-				  forcez=forces_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+				  forcex=forces_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))/rhophi_loc
+				  forcey=forces_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))/rhophi_loc
+				  forcez=forces_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))/rhophi_loc
                   
                   press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
                   u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
@@ -1723,7 +1766,7 @@ contains
 #endif
 #endif      
       
-                  opress=ZERO
+                  !opress=ZERO
                   ou=ZERO
                   ov=ZERO
                   ow=ZERO
@@ -1734,28 +1777,14 @@ contains
                   opxz=ZERO
                   opyz=ZERO
 !!!!!!!!!!!!!!!!!!!!!!!!!!0
+                  uu=HALF*(u*u+v*v+w*w)*invcssq
 
-#ifdef SECOND_ORDER
-			      feq=(4.0_db*(2.0_db*press - 3.0_db &
-			       *(u**2.0_db + v**2.0_db + w**2.0_db)))/27.0_db
-
-#else
-!0
-			      feq=(8.0_db*press - 3.0_db*(4.0_db*w**2.0_db &
-			       + v**2.0_db*(4.0_db - 6.0_db*w**2.0_db) &
-			       + u**2.0_db*(-2.0_db + 3.0_db*v**2.0_db)*(-2.0_db &
-			       + 3.0_db*w**2.0_db)))/27.0_db
-!0
-#endif 
-
-				  fneq1=(-3.0_db*(pxx + pyy + pzz))/2.0_db
-
-
-				  F_discr=(-8.0_db*(forcex*u + forcey*v &
-				   + forcez*w))/(9.0_db*rhophi_loc)
-                  opress=feq + (1.0_db-omega_loc)*fneq1*p0 + 0.5_db*(F_discr)
+			      feq=p(0)*(press - uu)
+				  fneq1=(HALF/cssq)*(-pxx-pyy-pzz)
+				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)/cssq
                   
-				  uu=HALF*(u*u+v*v+w*w)*invcssq
+                  opress=feq + (1.0_db-omega_loc)*fneq1*p(0) + HALF*(F_discr)
+                  
                   do l=1,nlinks
                      udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
 		             feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
@@ -1773,8 +1802,10 @@ contains
                      ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
                      lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
 		             f1(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l)*fneq1 + HALF*F_discr
-		             
-		             
+!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,f1(lii,ljj,lkk)
+!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,feq
+!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*p(l)*fneq1
+!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,HALF*F_discr
 		             call syncthreads
 		             
 		             opress=opress + f1(li,lj,lk)

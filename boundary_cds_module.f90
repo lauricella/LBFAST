@@ -1152,7 +1152,7 @@ contains
 	 real(kind=db) :: visc_loc,omega_loc,tau_loc
 #endif
 #if defined(INTERNAL_OBSTACLES)
-	 real(kind=db) :: F_discr,wet_R,rhotemp,phiavg, wet_thresh_low, wet_thresh_high,grad_thresh,phi_adj,weight,correc
+	 real(kind=db) :: wet_R,rhotemp,phiavg, wet_thresh_low, wet_thresh_high,grad_thresh,phi_adj,weight,correc
 	 real(kind=db) :: phi_fluid,gradfix,gradfiy,grad_parallel,theta_rad,cot_theta,phi_ghost,dphi_dz,gradfiz
 	 integer :: conter
 	 logical :: found
