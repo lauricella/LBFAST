@@ -34,7 +34,7 @@ module integrator_module
    use vars
    use bcs3D, only : bcs_mesoscopic_hfields,bcs_mesoscopic_phifields
 #if defined(_OPENACC)        
-   use lb_cuda_kernels, only : moments_LB_cuda,fused_lb_cuda,test_LB_cuda, &
+   use lb_cuda_driver, only : moments_LB_cuda,fused_lb_cuda,test_LB_cuda, &
     compute_norm_interface_cuda,thinfilm_scan_mark_cuda,repulsive_flux_normal_cuda, &
     compute_div_theta_n,update_phifields
 #endif

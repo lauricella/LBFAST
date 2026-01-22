@@ -7,7 +7,7 @@ program threadsafeLB
    use openacc
 #endif
 #if defined(_OPENACC)            
-   use lb_cuda_kernels, only : setup_cuda
+   use lb_cuda_driver, only : setup_cuda
 #endif
    use prints, only : intstr,copystring,driver_read_isfluid_raw, &
     driver_read_init_raw

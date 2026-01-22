@@ -4,7 +4,7 @@ module bcs3D
    use vars
    use mpi_template , only: coords,pbc_x,pbc_y,pbc_z,myoffset,myrank, &
     sum_world_float,sum_world_int
-   use lb_cuda_kernels, only: PHI_int_boundary_cuda,LB_int_boundary_cuda, &
+   use lb_cuda_driver, only: PHI_int_boundary_cuda,LB_int_boundary_cuda, &
     phi_sum_count_cuda,apply_lagrangian_phi_cuda
 !   !$if _OPENACC
 !   use openacc

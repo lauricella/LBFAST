@@ -80,7 +80,7 @@ nvfortran-mpi:
 	$(MAKE) CC=mpicc \
 	FC=mpif90 \
 	CFLAGS="-O3 -I $(CURDIR) " \
-	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
+	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
 	FCUDAFLAGSRID="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
 	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -DMPI -I $(CURDIR) " \
 	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=4 -DMPI -I $(CURDIR) -o" \
@@ -123,12 +123,18 @@ nvfortran-mpi-dble:
 
 
 seq:get_mem.o get_ram.o vars_module.o \
-	mpi_module.o profiling_m.o lb_cuda_vars_module.o lb_cuda_fused_module.o lb_cuda_kernels_module.o boundary_cds_module.o \
-	init_conditions_module.o statistics.o print_module.o allocate_module.o integrator_module.o \
+	mpi_module.o profiling_m.o lb_cuda_vars_module.o \
+	lb_cuda_auxfields_module.o lb_cuda_repulsive_module.o lb_cuda_moments_module.o \
+	lb_cuda_fused_module.o lb_cuda_update_phi_module.o lb_cuda_boundary_module.o \
+	lb_cuda_driver_module.o boundary_cds_module.o init_conditions_module.o \
+	statistics.o print_module.o allocate_module.o integrator_module.o \
 	LBFAST.o
 	$(FC) $(LDFLAGS) $(EX) get_mem.o get_ram.o vars_module.o mpi_module.o \
-	profiling_m.o lb_cuda_vars_module.o lb_cuda_fused_module.o lb_cuda_kernels_module.o boundary_cds_module.o \
-	init_conditions_module.o statistics.o print_module.o allocate_module.o integrator_module.o \
+	profiling_m.o lb_cuda_vars_module.o lb_cuda_auxfields_module.o \
+	lb_cuda_repulsive_module.o lb_cuda_moments_module.o \
+	lb_cuda_fused_module.o lb_cuda_update_phi_module.o lb_cuda_boundary_module.o \
+	lb_cuda_driver_module.o boundary_cds_module.o init_conditions_module.o \
+	statistics.o print_module.o allocate_module.o integrator_module.o \
 	LBFAST.o
 #	mv $(EXP) $(EXEP)
 
@@ -150,11 +156,26 @@ profiling_m.o: profiling_m.f90
 lb_cuda_vars_module.o:lb_cuda_vars_module.f90
 	$(FC) $(FCUDAFLAGS) -c lb_cuda_vars_module.f90
 
-lb_cuda_fused_module.o:lb_cuda_fused_module.f90
-	$(FC) $(FCUDAFLAGSRID) -c lb_cuda_fused_module.f90
+lb_cuda_auxfields_module.o:lb_cuda_auxfields_module.f90
+	$(FC) $(FCUDAFLAGS) -c lb_cuda_auxfields_module.f90
 
-lb_cuda_kernels_module.o:lb_cuda_kernels_module.f90
-	$(FC) $(FCUDAFLAGS) -c lb_cuda_kernels_module.f90
+lb_cuda_repulsive_module.o:lb_cuda_repulsive_module.f90
+	$(FC) $(FCUDAFLAGS) -c lb_cuda_repulsive_module.f90
+
+lb_cuda_moments_module.o:lb_cuda_moments_module.f90
+	$(FC) $(FCUDAFLAGS) -c lb_cuda_moments_module.f90
+
+lb_cuda_fused_module.o:lb_cuda_fused_module.f90
+	$(FC) $(FCUDAFLAGS) -c lb_cuda_fused_module.f90
+
+lb_cuda_update_phi_module.o:lb_cuda_update_phi_module.f90
+	$(FC) $(FCUDAFLAGS) -c lb_cuda_update_phi_module.f90
+
+lb_cuda_boundary_module.o:lb_cuda_boundary_module.f90
+	$(FC) $(FCUDAFLAGS) -c lb_cuda_boundary_module.f90
+
+lb_cuda_driver_module.o:lb_cuda_driver_module.f90
+	$(FC) $(FCUDAFLAGS) -c lb_cuda_driver_module.f90
 
 boundary_cds_module.o:boundary_cds_module.f90
 	$(FC) $(FFLAGS) -c boundary_cds_module.f90
