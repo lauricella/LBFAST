@@ -225,9 +225,9 @@ module vars
 
    real(kind=db), parameter :: cssq=real(1.d0/3.d0,kind=db)
    real(kind=db), parameter :: invcssq=real(3.d0,kind=db)
-   real(kind=db), parameter :: p1dcssq=p1/cssq
-   real(kind=db), parameter :: p2dcssq=p2/cssq
-   real(kind=db), parameter :: p3dcssq=p3/cssq
+   real(kind=db), parameter :: p1dcssq=p1*invcssq
+   real(kind=db), parameter :: p2dcssq=p2*invcssq
+   real(kind=db), parameter :: p3dcssq=p3*invcssq
 
    real(kind=db), dimension(0:nlinks), parameter :: dex=real(ex,kind=db)
    real(kind=db), dimension(0:nlinks), parameter :: dey=real(ey,kind=db)

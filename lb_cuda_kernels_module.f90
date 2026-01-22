@@ -680,7 +680,7 @@ contains
 	   
       !lap_phi here
       locauxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))= &
-                   (2.0_db/cssq)*(myphi(li,lj,lk)*(p0-1.0_db) + &
+                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0-1.0_db) + &
                    ( p1*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
                    myphi(li,lj+1,lk)+myphi(li,lj-1,lk) + &
                    myphi(li,lj,lk+1)+myphi(li,lj,lk-1)) + &
@@ -1404,7 +1404,7 @@ contains
 
 		  visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 				  
-                  tau_loc=(visc_loc/cssq + HALF) !è una tau
+                  tau_loc=(visc_loc*invcssq + HALF) !è una tau
 				  
 		  forcex=forcex - (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
 		  forcey=forcey - (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
@@ -1924,7 +1924,7 @@ contains
 
 #else
 #ifdef TWOCOMPONENT
-	  omega_loc=(visc_loc/cssq + 0.5_db) !it is tau   !visc_loc it is used to store the local viscosity
+	  omega_loc=(visc_loc*invcssq + 0.5_db) !it is tau   !visc_loc it is used to store the local viscosity
 	  omega_loc=1.0_db/omega_loc !it is omega
 #else
 	  omega_loc=omega
@@ -1946,7 +1946,7 @@ contains
 		   + TWO*(dey(l)*dez(l))*pyz)
           ! F_discr = p(l)*(dex(l)*forcex &
            ! + dey(l)*forcey &
-           ! + dez(l)*forcez)/cssq
+           ! + dez(l)*forcez)*invcssq
 		  fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
 		  opress=opress + fpost
 		  ou=ou + fpost*dex(l)

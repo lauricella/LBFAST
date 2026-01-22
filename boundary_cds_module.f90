@@ -141,14 +141,14 @@ contains
 			     visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 
 						
-			     tau_loc=(visc_loc/cssq + HALF) !è una tau
+			     tau_loc=(visc_loc*invcssq + HALF) !è una tau
 						
 			     omega_loc=ONE/tau_loc !è una omega
 						
 #else
 			     omega_loc=omega
 #endif		
-				 uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)/cssq
+				 uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)*invcssq
 				 !$acc loop seq
 				 do l=1,nlinks
 		           lopp=opp(l)
@@ -175,7 +175,7 @@ contains
                    opxy=opxy - fpost*dex(l)*dey(l)
                    opxz=opxz - fpost*dex(l)*dez(l)
                    opyz=opyz - fpost*dey(l)*dez(l)	
-		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))/cssq
+		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))*invcssq
 		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
 		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
@@ -300,14 +300,14 @@ contains
 			     visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 
 						
-			     tau_loc=(visc_loc/cssq + HALF) !è una tau
+			     tau_loc=(visc_loc*invcssq + HALF) !è una tau
 						
 			     omega_loc=ONE/tau_loc !è una omega
 						
 #else
 			     omega_loc=omega
 #endif		
-                 uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)/cssq
+                 uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)*invcssq
 				 !$acc loop seq
 				 do l=1,nlinks
 		           lopp=opp(l)
@@ -334,7 +334,7 @@ contains
                    opxy=opxy - fpost*dex(l)*dey(l)
                    opxz=opxz - fpost*dex(l)*dez(l)
                    opyz=opyz - fpost*dey(l)*dez(l)	
-		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))/cssq
+		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))*invcssq
 		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
 		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
@@ -461,14 +461,14 @@ contains
 			     visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 
 						
-			     tau_loc=(visc_loc/cssq + HALF) !è una tau
+			     tau_loc=(visc_loc*invcssq + HALF) !è una tau
 						
 			     omega_loc=ONE/tau_loc !è una omega
 						
 #else
 			     omega_loc=omega
 #endif		
-                 uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)/cssq
+                 uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)*invcssq
 				 !$acc loop seq
 				 do l=1,nlinks
 		           lopp=opp(l)
@@ -495,7 +495,7 @@ contains
                    opxy=opxy - fpost*dex(l)*dey(l)
                    opxz=opxz - fpost*dex(l)*dez(l)
                    opyz=opyz - fpost*dey(l)*dez(l)	
-		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))/cssq
+		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))*invcssq
 		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
 		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
@@ -620,14 +620,14 @@ contains
 			     visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 
 						
-			     tau_loc=(visc_loc/cssq + HALF) !è una tau
+			     tau_loc=(visc_loc*invcssq + HALF) !è una tau
 						
 			     omega_loc=ONE/tau_loc !è una omega
 						
 #else
 			     omega_loc=omega
 #endif		
-                 uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)/cssq
+                 uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)*invcssq
 				 !$acc loop seq
 				 do l=1,nlinks
 		           lopp=opp(l)
@@ -654,7 +654,7 @@ contains
                    opxy=opxy - fpost*dex(l)*dey(l)
                    opxz=opxz - fpost*dex(l)*dez(l)
                    opyz=opyz - fpost*dey(l)*dez(l)	
-		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))/cssq
+		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))*invcssq
 		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
 		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
@@ -781,14 +781,14 @@ contains
 			     visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 
 						
-			     tau_loc=(visc_loc/cssq + HALF) !è una tau
+			     tau_loc=(visc_loc*invcssq + HALF) !è una tau
 						
 			     omega_loc=ONE/tau_loc !è una omega
 						
 #else
 			     omega_loc=omega
 #endif		
-                 uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)/cssq
+                 uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)*invcssq
 				 !$acc loop seq
 				 do l=1,nlinks
 		           lopp=opp(l)
@@ -815,7 +815,7 @@ contains
                    opxy=opxy - fpost*dex(l)*dey(l)
                    opxz=opxz - fpost*dex(l)*dez(l)
                    opyz=opyz - fpost*dey(l)*dez(l)	
-		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))/cssq
+		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))*invcssq
 		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
 		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
@@ -940,7 +940,7 @@ contains
 			     visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 
 						
-			     tau_loc=(visc_loc/cssq + HALF) !è una tau
+			     tau_loc=(visc_loc*invcssq + HALF) !è una tau
 						
 			     omega_loc=ONE/tau_loc !è una omega
 						
@@ -948,7 +948,7 @@ contains
 			     omega_loc=omega
 #endif		
 
-                 uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)/cssq
+                 uu=HALF*(utmp*utmp + vtmp*vtmp+ wtmp*wtmp)*invcssq
 				 !$acc loop seq
 				 do l=1,nlinks
 		           lopp=opp(l)
@@ -975,7 +975,7 @@ contains
                    opxy=opxy - fpost*dex(l)*dey(l)
                    opxz=opxz - fpost*dex(l)*dez(l)
                    opyz=opyz - fpost*dey(l)*dez(l)	
-		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))/cssq
+		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))*invcssq
 		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
 		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &

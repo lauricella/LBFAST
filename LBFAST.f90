@@ -199,14 +199,14 @@ program threadsafeLB
       
       read(inputio,nml=fluid)
       close(inputio)
-      tau1=visc1/cssq + 0.5_db
+      tau1=visc1*invcssq + 0.5_db
       omega=1.0_db/tau1      
 #ifdef TWOCOMPONENT      
       beta=12.0_db*sigma/width 
       kapp=1.5_db*sigma*width 
       sharp_c=4.0_db*tau_diff/width
       !visc2= 1.0_db*visc1 
-      tau2=visc2/cssq + 0.5_db
+      tau2=visc2*invcssq + 0.5_db
 #ifdef REPULSIVE_FLUX
       win=3 
 	  !q_th=0.125
