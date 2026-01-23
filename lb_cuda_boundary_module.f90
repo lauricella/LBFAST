@@ -46,18 +46,18 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
-      real(kind=db), dimension(ntotphifields) :: phifields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
 #ifdef MONOD
       real(kind=db) :: mu_max,Ks
 #endif
 #endif           
       real(kind=db) :: visc1,omega,fx,fy,fz
       
-      real(kind=db), dimension(ntothfields) :: hfields_in,hfields_out
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
 
-      real(kind=db), dimension(ntotauxfields) :: auxfields_s
-      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
-      real(kind=db), dimension(ntotforces) :: forces_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
 
       real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
@@ -96,7 +96,7 @@ contains
       kk=threadIdx%z
        
 #ifdef TWOCOMPONENT	       
-	  phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+	  phi_loc=phifields_s(ii,jj,kk,1,myblock)
 #endif	
 #ifdef DENSRATIO
 	  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -104,32 +104,32 @@ contains
 	  rhophi_loc = 1.0_db !press_loc
 #endif	
 
-!	  forcex=force_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
-!	  forcey=force_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
-!	  forcez=force_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+!	  forcex=force_s(ii,jj,kk,1,myblock)
+!	  forcey=force_s(ii,jj,kk,2,myblock)
+!	  forcez=force_s(ii,jj,kk,3,myblock)
 
 
-	  press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
-	  v=hfields_in(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  w=hfields_in(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  pxx=hfields_in(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  pyy=hfields_in(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  pzz=hfields_in(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  pxy=hfields_in(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  pxz=hfields_in(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  pyz=hfields_in(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	  press=hfields_in(ii,jj,kk,1,myblock)
+	  u=hfields_in(ii,jj,kk,2,myblock) 
+	  v=hfields_in(ii,jj,kk,3,myblock)
+	  w=hfields_in(ii,jj,kk,4,myblock)
+	  pxx=hfields_in(ii,jj,kk,5,myblock)
+	  pyy=hfields_in(ii,jj,kk,6,myblock)
+	  pzz=hfields_in(ii,jj,kk,7,myblock)
+	  pxy=hfields_in(ii,jj,kk,8,myblock)
+	  pxz=hfields_in(ii,jj,kk,9,myblock)
+	  pyz=hfields_in(ii,jj,kk,10,myblock)
 	  
-	  opress=hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  ou=hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  ov=hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  ow=hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  opxx=hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  opyy=hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  opzz=hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  opxy=hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  opxz=hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  opyz=hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	  opress=hfields_out(ii,jj,kk,1,myblock)
+	  ou=hfields_out(ii,jj,kk,2,myblock)
+	  ov=hfields_out(ii,jj,kk,3,myblock)
+	  ow=hfields_out(ii,jj,kk,4,myblock)
+	  opxx=hfields_out(ii,jj,kk,5,myblock)
+	  opyy=hfields_out(ii,jj,kk,6,myblock)
+	  opzz=hfields_out(ii,jj,kk,7,myblock)
+	  opxy=hfields_out(ii,jj,kk,8,myblock)
+	  opxz=hfields_out(ii,jj,kk,9,myblock)
+	  opyz=hfields_out(ii,jj,kk,10,myblock)
 	  
 	  pxx=pxx - cssq*press - u*u 
 	  pyy=pyy - cssq*press - v*v 
@@ -194,16 +194,16 @@ contains
       enddo
 
 		 
-	  hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
-	  hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
-	  hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
-	  hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
-	  hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
-	  hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
-	  hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
-	  hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
-	  hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
-	  hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
+	  hfields_out(ii,jj,kk,1,myblock)=opress
+	  hfields_out(ii,jj,kk,2,myblock)=ou
+	  hfields_out(ii,jj,kk,3,myblock)=ov
+	  hfields_out(ii,jj,kk,4,myblock)=ow
+	  hfields_out(ii,jj,kk,5,myblock)=opxx
+	  hfields_out(ii,jj,kk,6,myblock)=opyy
+	  hfields_out(ii,jj,kk,7,myblock)=opzz
+	  hfields_out(ii,jj,kk,8,myblock)=opxy
+	  hfields_out(ii,jj,kk,9,myblock)=opxz
+	  hfields_out(ii,jj,kk,10,myblock)=opyz
 	              
      return
 
@@ -233,11 +233,11 @@ contains
       real(kind=db) :: mu_max,Ks
 #endif
       integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
-      real(kind=db), dimension(ntothfields) :: hfields_s
-      real(kind=db), dimension(ntotphifields) :: phifields_s
-      real(kind=db), dimension(ntotauxfields) :: auxfields_s
-      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
-      real(kind=db), dimension(ntotforces) :: forces_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       integer :: i,j,k,l
       integer :: gi,gj,gk
@@ -285,14 +285,14 @@ contains
 		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
 
 		! Found fluid neighbor: enforce contact angle via ghost node extrapolation
-		phi_fluid = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+		phi_fluid = phifields_s(oii,ojj,okk,1,omyblock)
 		
 		
 		! Estimate gradient parallel to wall
-		modgrad=auxfields_s(idx5d(oii,ojj,okk,4,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)) !modgrad
-		gradfix=auxfields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))*modgrad !normx*modgrad
-		gradfiy=auxfields_s(idx5d(oii,ojj,okk,2,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))*modgrad !normy*modgrad
-		gradfiz=auxfields_s(idx5d(oii,ojj,okk,3,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))*modgrad !normz*modgrad
+		modgrad=auxfields_s(oii,ojj,okk,4,omyblock) !modgrad
+		gradfix=auxfields_s(oii,ojj,okk,1,omyblock)*modgrad !normx*modgrad
+		gradfiy=auxfields_s(oii,ojj,okk,2,omyblock)*modgrad !normy*modgrad
+		gradfiz=auxfields_s(oii,ojj,okk,3,omyblock)*modgrad !normz*modgrad
         
         grad_parallel=ZERO
 		if(l.eq.1 .or. l.eq.2)then
@@ -319,7 +319,7 @@ contains
 		exit
 	  end do
       
-      phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=loc_phi
+      phifields_s(ii,jj,kk,1,myblock)=loc_phi
        
       return
       
@@ -338,10 +338,10 @@ contains
       real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
 
       integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields
-      real(kind=db), dimension(ntothfields) :: hfields_s
-      real(kind=db), dimension(ntotphifields) :: phifields_s
-      real(kind=db), dimension(ntotauxfields) :: auxfields_s
-      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
       real(kind=db) :: loc_phi_sum
       integer :: cnt
       
@@ -369,7 +369,7 @@ contains
       jj=threadIdx%y
       kk=threadIdx%z
 
-      loc_phi = phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      loc_phi = phifields_s(ii,jj,kk,1,myblock)
 
       dummy=atomicAdd(loc_phi_sum, loc_phi)
 
@@ -394,10 +394,10 @@ contains
       real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
 
       integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields
-      real(kind=db), dimension(ntothfields) :: hfields_s
-      real(kind=db), dimension(ntotphifields) :: phifields_s
-      real(kind=db), dimension(ntotauxfields) :: auxfields_s
-      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
       real(kind=db) :: loc_corr
       
       integer :: i,j,k,l
@@ -422,10 +422,10 @@ contains
       jj=threadIdx%y
       kk=threadIdx%z
 
-      loc_phi = phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      loc_phi = phifields_s(ii,jj,kk,1,myblock)
 
       if(loc_phi > 0.5d0 .and. loc_phi < 0.9d0)then
-        phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=loc_phi + loc_corr
+        phifields_s(ii,jj,kk,1,myblock)=loc_phi + loc_corr
       endif
     
       return

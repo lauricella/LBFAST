@@ -26,9 +26,9 @@ contains
       integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
       integer(kind=isf), dimension(1:nx,1:ny,1:nz) :: rep_mask
       integer :: ntotphifields,ntotauxfields,ntotlocauxfields
-      real(kind=db), dimension(ntotphifields) :: phifields_s
-      real(kind=db), dimension(ntotauxfields) :: auxfields_s
-      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
       
       integer :: i,j,k,gi,gj,gk,myblock,ii,jj,kk,iii,jjj,kkk
       
@@ -59,19 +59,19 @@ contains
       kk=threadIdx%z
       
       rep_mask(i,j,k) = 0
-      locauxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)) = 0
-      locauxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)) = 0
-      locauxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)) = 0
+      locauxfields_s(ii,jj,kk,3,myblock) = 0
+      locauxfields_s(ii,jj,kk,4,myblock) = 0
+      locauxfields_s(ii,jj,kk,5,myblock) = 0
 
 	  ! gate: interfacial cell (use clamped phi for q)
-      qloc = phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      qloc = phifields_s(ii,jj,kk,1,myblock)
       qloc = min(max(qloc,0.0_db),1.0_db)
       qloc = qloc*(1.0_db - qloc)
       if (qloc < q_th) return
 
-      nix = auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)) 
-      niy = auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
-      niz = auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+      nix = auxfields_s(ii,jj,kk,1,myblock) 
+      niy = auxfields_s(ii,jj,kk,2,myblock)
+      niz = auxfields_s(ii,jj,kk,3,myblock)
 
       best_r2   = HUGE(1.0_db)
       best_face = -1.0_db
@@ -110,15 +110,15 @@ contains
                   ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
                   okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
 				  
-				  qneig = phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+				  qneig = phifields_s(oii,ojj,okk,1,omyblock)
 				  qneig = min(max(qneig,0.0_db),1.0_db)
 				  qneig = qneig*(1.0_db - qneig)
 				  if ( (qneig < q_th) .or. (abs(qneig - qloc) > 0.1_db*max(qloc,1.0e-12_db)) ) cycle
 
 				  ! ---- facing condition (opposite normals): dotn <= cosOppT
-				  dotn = nix*auxfields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)) &
-				   + niy*auxfields_s(idx5d(oii,ojj,okk,2,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)) &
-				   + niz*auxfields_s(idx5d(oii,ojj,okk,3,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)) 
+				  dotn = nix*auxfields_s(oii,ojj,okk,1,omyblock) &
+				   + niy*auxfields_s(oii,ojj,okk,2,omyblock) &
+				   + niz*auxfields_s(oii,ojj,okk,3,omyblock) 
 				  if (dotn > cosOppT) cycle
 				  face = 0.5_db*(1.0_db - dotn)   ! in [0,1]
 
@@ -140,9 +140,9 @@ contains
 			end do
 
 			if (found) then
-			  locauxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)) = iii_best
-			  locauxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)) = jjj_best
-			  locauxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)) = kkk_best
+			  locauxfields_s(ii,jj,kk,3,myblock) = iii_best
+			  locauxfields_s(ii,jj,kk,4,myblock) = jjj_best
+			  locauxfields_s(ii,jj,kk,5,myblock) = kkk_best
 			  rep_mask(i,j,k) = 1
 			end if
    
@@ -160,9 +160,9 @@ contains
       integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
       integer(kind=isf), dimension(1:nx,1:ny,1:nz) :: rep_mask
       integer :: ntotphifields,ntotauxfields,ntotlocauxfields
-      real(kind=db), dimension(ntotphifields) :: phifields_s
-      real(kind=db), dimension(ntotauxfields) :: auxfields_s
-      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
       
       integer :: i,j,k,gi,gj,gk,myblock,ii,jj,kk,iii,jjj,kkk
       
@@ -191,21 +191,21 @@ contains
       jj=threadIdx%y
       kk=threadIdx%z
 
-	  locauxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))=0.0_db
-	  locauxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))=0.0_db
-	  locauxfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))=0.0_db
+	  locauxfields_s(ii,jj,kk,6,myblock)=0.0_db
+	  locauxfields_s(ii,jj,kk,7,myblock)=0.0_db
+	  locauxfields_s(ii,jj,kk,8,myblock)=0.0_db
 	
 	  if (rep_mask(i,j,k) .ne. 1) return
       
-      loc_phi=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      loc_phi=phifields_s(ii,jj,kk,1,myblock)
       
 	  q1 = loc_phi*(1.0_db - loc_phi)
 	
 	  if (q1 <= eps) return
 
-	  iii = int(locauxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)))
-	  jjj = int(locauxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)))
-	  kkk = int(locauxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)))
+	  iii = int(locauxfields_s(ii,jj,kk,3,myblock))
+	  jjj = int(locauxfields_s(ii,jj,kk,4,myblock))
+	  kkk = int(locauxfields_s(ii,jj,kk,5,myblock))
 
 	  !line-of-centers
 	  dx = real(iii - i,db)
@@ -217,9 +217,9 @@ contains
 	  dx = dx*rinv; dy = dy*rinv; dz = dz*rinv      ! u
 
 	  !normals
-	  nx1 = auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)) 
-      ny1 = auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
-      nz1 = auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+	  nx1 = auxfields_s(ii,jj,kk,1,myblock) 
+      ny1 = auxfields_s(ii,jj,kk,2,myblock)
+      nz1 = auxfields_s(ii,jj,kk,3,myblock)
 	  
 	  
 	  oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
@@ -230,9 +230,9 @@ contains
       ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
       okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
                   
-	  nx2 = auxfields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
-	  ny2 = auxfields_s(idx5d(oii,ojj,okk,2,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
-	  nz2 = auxfields_s(idx5d(oii,ojj,okk,3,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+	  nx2 = auxfields_s(oii,ojj,okk,1,omyblock)
+	  ny2 = auxfields_s(oii,ojj,okk,2,omyblock)
+	  nz2 = auxfields_s(oii,ojj,okk,3,omyblock)
 
 	  !facing factor in [0,1]
 	  face = max( 0.0_db, -(nx1*nx2 + ny1*ny2 + nz1*nz2) )
@@ -259,7 +259,7 @@ contains
 	  end if
 
 	  !symmetric magnitude from qpair
-	  loc_phi2=phifields_s(idx5d(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+	  loc_phi2=phifields_s(oii,ojj,okk,1,omyblock)
 	  q2 = loc_phi2*(1.0_db - loc_phi2)
 	  qpair = 0.5_db*(q1 + q2)
 	  qcl   = min( max(qpair, eps), 0.25_db - eps )
@@ -282,9 +282,9 @@ contains
 	  cap   = alpha * (abs(dx)+abs(dy)+abs(dz)) 
 	  scales = min(1.0_db, loc_phi / max(cap, 1.0e-9_db))
 	  
-	  locauxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)) = dx * scales
-	  locauxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)) = dy * scales
-	  locauxfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields)) = dz * scales
+	  locauxfields_s(ii,jj,kk,6,myblock) = dx * scales
+	  locauxfields_s(ii,jj,kk,7,myblock) = dy * scales
+	  locauxfields_s(ii,jj,kk,8,myblock) = dz * scales
        
  end subroutine repulsive_flux_normal_kernel
 

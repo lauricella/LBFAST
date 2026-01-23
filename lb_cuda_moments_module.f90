@@ -48,7 +48,7 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff    
-      real(kind=db), dimension(ntotphifields) :: phifields_s 
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s 
 #endif           
 #if defined(ELASTIC_FORCE)
       real(kind=db) :: lambda_rel,k_elastic
@@ -56,10 +56,10 @@ contains
 #endif
       real(kind=db) :: fx,fy,fz
 
-      real(kind=db), dimension(ntothfields) :: hfields_old,hfields_s
-      real(kind=db), dimension(ntotauxfields) :: auxfields_s
-      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
-      real(kind=db), dimension(ntotforces) :: forces_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
 
       real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
@@ -75,7 +75,6 @@ contains
       
       integer :: i,j,k
       integer :: gi,gj,gk
-      integer :: gif,gjf,gkf
       integer :: myblock,ii,jj,kk
       
       i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
@@ -96,11 +95,11 @@ contains
       
 
 				 
-		  press_loc=hfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+		  press_loc=hfields_s(ii,jj,kk,1,myblock)
 				 
 #ifdef TWOCOMPONENT					 
-		  phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
-		  lap_phi_loc=locauxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))
+		  phi_loc=phifields_s(ii,jj,kk,1,myblock)
+		  lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -123,10 +122,10 @@ contains
 #ifdef TWOCOMPONENT		
 		   
 		  !jaqmin 
-		  mytemp=auxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)) !modgrad
-		  gradfix=auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))*mytemp !normx*modgrad
-		  gradfiy=auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))*mytemp !normy*modgrad
-		  gradfiz=auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))*mytemp !normz*modgrad
+		  mytemp=auxfields_s(ii,jj,kk,4,myblock) !modgrad
+		  gradfix=auxfields_s(ii,jj,kk,1,myblock)*mytemp !normx*modgrad
+		  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*mytemp !normy*modgrad
+		  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*mytemp !normz*modgrad
 		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
 		  forcey = forcey + &
@@ -136,15 +135,15 @@ contains
 				   				   
 
 #ifdef REPULSIVE_FLUX
-		  mytemp=locauxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))*rhophi_loc 
+		  mytemp=locauxfields_s(ii,jj,kk,6,myblock)*rhophi_loc 
 		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
 		  forcex=forcex + mytemp*rhophi_loc
 				  
-		  mytemp=locauxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))*rhophi_loc 
+		  mytemp=locauxfields_s(ii,jj,kk,7,myblock)*rhophi_loc 
 		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
 		  forcey=forcey + mytemp*rhophi_loc
 				  
-		  mytemp=locauxfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))*rhophi_loc 
+		  mytemp=locauxfields_s(ii,jj,kk,8,myblock)*rhophi_loc 
 		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
 		  forcez=forcez + mytemp*rhophi_loc
 #endif
@@ -175,17 +174,15 @@ contains
 		  !! at the end of this subroutine
 #endif
                   
-                  gif=idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces)
-                  gjf=idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces)
-                  gkf=idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces)
+              
                   
-		  forces_s(gif)=forcex
-		  forces_s(gjf)=forcey
-		  forces_s(gkf)=forcez
+		  forces_s(ii,jj,kk,1,myblock)=forcex
+		  forces_s(ii,jj,kk,2,myblock)=forcey
+		  forces_s(ii,jj,kk,3,myblock)=forcez
 				  
-		  u_loc=hfields_old(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) !velocity
-                  v_loc=hfields_old(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  w_loc=hfields_old(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+		  u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
+                  v_loc=hfields_old(ii,jj,kk,3,myblock)
+                  w_loc=hfields_old(ii,jj,kk,4,myblock)
                   
                  
 				  
@@ -200,12 +197,12 @@ contains
 
 #ifdef DENSRATIO 
 			  
-                  pxx=hfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pyy=hfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pzz=hfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pxy=hfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pxz=hfields_s(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pyz=hfields_s(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pxx=hfields_s(ii,jj,kk,5,myblock)
+                  pyy=hfields_s(ii,jj,kk,6,myblock)
+                  pzz=hfields_s(ii,jj,kk,7,myblock)
+                  pxy=hfields_s(ii,jj,kk,8,myblock)
+                  pxz=hfields_s(ii,jj,kk,9,myblock)
+                  pyz=hfields_s(ii,jj,kk,10,myblock)
                   
                   !1-2
                   !*1
@@ -226,12 +223,12 @@ contains
 		  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
-		  u_loc=hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) !velocity
-                  v_loc=hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  w_loc=hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))            
+		  u_loc=hfields_s(ii,jj,kk,2,myblock) !velocity
+                  v_loc=hfields_s(ii,jj,kk,3,myblock)
+                  w_loc=hfields_s(ii,jj,kk,4,myblock)            
 					 
 #if defined(INTERFACE_INCOMP) && defined(DENSRATIO)
-		  mytemp= -sharp_c*locauxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))
+		  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
 		  u_loc = u_loc + 0.5_db*forcex/(rhophi_loc)
                   v_loc = v_loc + 0.5_db*forcey/(rhophi_loc)
                   w_loc = w_loc + 0.5_db*forcez/(rhophi_loc)
@@ -245,11 +242,11 @@ contains
 		  w_loc = w_loc/ &
 	           (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc ) 
 
-		  forces_s(gif)= forces_s(gif) - &
+		  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*u_loc
-		  forces_s(gjf)= forces_s(gjf) - &
+		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*v_loc
-		  forces_s(gkf)= forces_s(gkf) - &
+		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*w_loc
 					 
 		  forcex=forcex - &
@@ -268,19 +265,19 @@ contains
 #endif
                   
 
-                  hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=u_loc   !put the new velocity in hfields_s
-                  hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=v_loc
-                  hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=w_loc
+                  hfields_s(ii,jj,kk,2,myblock)=u_loc   !put the new velocity in hfields_s
+                  hfields_s(ii,jj,kk,3,myblock)=v_loc
+                  hfields_s(ii,jj,kk,4,myblock)=w_loc
                   
                                     
 
 !regularized 
-		  pxx=hfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pyy=hfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pzz=hfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pxy=hfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pxz=hfields_s(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pyz=hfields_s(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+		  pxx=hfields_s(ii,jj,kk,5,myblock)
+                  pyy=hfields_s(ii,jj,kk,6,myblock)
+                  pzz=hfields_s(ii,jj,kk,7,myblock)
+                  pxy=hfields_s(ii,jj,kk,8,myblock)
+                  pxz=hfields_s(ii,jj,kk,9,myblock)
+                  pyz=hfields_s(ii,jj,kk,10,myblock)
                   
                   
                   pxx=pxx + forcex*u_loc/rhophi_loc
@@ -291,12 +288,12 @@ contains
                   pyz=pyz + HALF*(forcez*v_loc+forcey*w_loc)/rhophi_loc
 
 
-                  hfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=pxx
-                  hfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=pyy
-                  hfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=pzz
-                  hfields_s(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=pxy
-                  hfields_s(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=pxz
-                  hfields_s(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=pyz
+                  hfields_s(ii,jj,kk,5,myblock)=pxx
+                  hfields_s(ii,jj,kk,6,myblock)=pyy
+                  hfields_s(ii,jj,kk,7,myblock)=pzz
+                  hfields_s(ii,jj,kk,8,myblock)=pxy
+                  hfields_s(ii,jj,kk,9,myblock)=pxz
+                  hfields_s(ii,jj,kk,10,myblock)=pyz
                   
                   
 #if defined(ELASTIC_FORCE)
@@ -307,11 +304,11 @@ contains
 		  w_ref(i,j,k) = w_ref(i,j,k) + &
 		   lambda_rel*(w_loc - w_ref(i,j,k))
 				  
-                  forces_s(gif)= forces_s(gif) + &
+                  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) + &
                    rhophi_loc*(u_loc - u_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-		  forces_s(gjf)= forces_s(gjf) +&
+		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) +&
 		   rhophi_loc*(v_loc - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-		  forces_s(gkf)= forces_s(gkf) + &
+		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) + &
 		   rhophi_loc*(w_loc - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+rhophi_loc*fz  
 #endif               
                   
@@ -323,11 +320,11 @@ contains
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  forces_s(gif)= forces_s(gif) - &
+		  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) - &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forces_s(gjf)= forces_s(gjf) - &
+		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) - &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forces_s(gkf)= forces_s(gkf) - &
+		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) - &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 

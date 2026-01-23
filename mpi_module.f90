@@ -11,7 +11,7 @@ module mpi_template
 #endif
       flip,flop,rho_r,rho_b, &
       physic_type, &
-      idx5,nhfields,nphifields,auxfields,nauxfields,forces,nforces, &
+      nhfields,nphifields,auxfields,nauxfields,forces,nforces, &
       TILE_DIMx,TILE_DIMy,TILE_DIMz,TILE_DIM,nxblock,nyblock,nzblock,nxyblock,nblocks
 #ifdef _OPENACC
    use openacc
@@ -2160,7 +2160,7 @@ contains
 
       implicit none
       
-      real(kind=db), allocatable, dimension(:) :: phifields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
       integer :: lmio
       integer :: oi,oj,ok
       integer :: ii,jj,kk
@@ -2213,8 +2213,8 @@ contains
                   kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
                   
                  
-                  phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))= &
-                   phifields_s(idx5(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+                  phifields_s(ii,jj,kk,1,myblock)= &
+                   phifields_s(oii,ojj,okk,1,omyblock)
                                  
                enddo
             enddo
@@ -2232,7 +2232,7 @@ contains
 
       implicit none
       
-      real(kind=db), allocatable, dimension(:) :: phifields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
       integer :: l,ll,myoffset,tag,ierr,mm
 #ifndef MPI
       return
@@ -2273,7 +2273,7 @@ contains
 
       implicit none
       
-      real(kind=db), allocatable, dimension(:) :: phifields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
       integer :: l,ll,myoffset,tag,ierr
 #ifdef MPI
       integer, dimension(:), allocatable :: myierr
@@ -2304,7 +2304,7 @@ contains
       implicit none
 
       integer, intent(in) :: lmio
-      real(kind=db), allocatable, dimension(:) :: phifields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
       integer :: myoffset
 
       integer :: i,j,k,l,ll,m1,m2,m3
@@ -2345,7 +2345,7 @@ contains
                !poi mandero solo i pezzi contigui che mi servono per la data direzione
                idx=myoffset+(i-f_send_extr(1,lmio))+(j-f_send_extr(3,lmio))*m1+(&
                   k-f_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               f_send_buffmpi(idx)=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))		   
+               f_send_buffmpi(idx)=phifields_s(ii,jj,kk,1,myblock)		   
             enddo
          enddo
       enddo
@@ -2363,7 +2363,7 @@ contains
       implicit none
 
       integer, intent(in) :: lmio
-      real(kind=db), allocatable, dimension(:) :: phifields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
       integer :: myoffset
 
       integer :: i,j,k,l,ll,m1,m2,m3
@@ -2404,7 +2404,7 @@ contains
                !poi mandero solo i pezzi contigui che mi servono per la data direzione
                idx=myoffset+(i-f_recv_extr(1,lmio))+(j-f_recv_extr(3,lmio))*m1+(&
                   k-f_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=f_recv_buffmpi(idx)
+               phifields_s(ii,jj,kk,1,myblock)=f_recv_buffmpi(idx)
             enddo
          enddo
       enddo
@@ -2476,26 +2476,26 @@ contains
                   kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
                    
 #ifdef TWOCOMPONENT
-                  auxfields(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
-                   auxfields(idx5(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+                  auxfields(ii,jj,kk,1,myblock)= &
+                   auxfields(oii,ojj,okk,1,omyblock)
                    
-                  auxfields(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
-                   auxfields(idx5(oii,ojj,okk,2,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+                  auxfields(ii,jj,kk,2,myblock)= &
+                   auxfields(oii,ojj,okk,2,omyblock)
                    
-                  auxfields(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
-                   auxfields(idx5(oii,ojj,okk,3,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+                  auxfields(ii,jj,kk,3,myblock)= &
+                   auxfields(oii,ojj,okk,3,omyblock)
                    
-                  auxfields(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
-                   auxfields(idx5(oii,ojj,okk,4,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+                  auxfields(ii,jj,kk,4,myblock)= &
+                   auxfields(oii,ojj,okk,4,omyblock)
                    
-                  auxfields(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
-                   auxfields(idx5(oii,ojj,okk,5,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+                  auxfields(ii,jj,kk,5,myblock)= &
+                   auxfields(oii,ojj,okk,5,omyblock)
                   
-                  auxfields(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
-                   auxfields(idx5(oii,ojj,okk,6,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+                  auxfields(ii,jj,kk,6,myblock)= &
+                   auxfields(oii,ojj,okk,6,omyblock)
                   
-                  auxfields(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
-                   auxfields(idx5(oii,ojj,okk,7,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+                  auxfields(ii,jj,kk,7,myblock)= &
+                   auxfields(oii,ojj,okk,7,omyblock)
                     
 #endif
                enddo
@@ -2633,37 +2633,37 @@ contains
                ll=1
                idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
                   k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=auxfields(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+               fvec_send_buffmpi(idx)=auxfields(ii,jj,kk,1,myblock)
 
                ll=2
                idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
                   k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=auxfields(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+               fvec_send_buffmpi(idx)=auxfields(ii,jj,kk,2,myblock)
 
                ll=3
                idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
                   k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=auxfields(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+               fvec_send_buffmpi(idx)=auxfields(ii,jj,kk,3,myblock)
 			   
                ll=4
                idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
                   k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=auxfields(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+               fvec_send_buffmpi(idx)=auxfields(ii,jj,kk,4,myblock)
 			   
 			   ll=5
                idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
                   k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=auxfields(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+               fvec_send_buffmpi(idx)=auxfields(ii,jj,kk,5,myblock)
 			   
 			   ll=6
                idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
                   k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=auxfields(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+               fvec_send_buffmpi(idx)=auxfields(ii,jj,kk,6,myblock)
 			   
 			   ll=7
                idx=myoffset+(i-fvec_send_extr(1,lmio))+(j-fvec_send_extr(3,lmio))*m1+(&
                   k-fvec_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               fvec_send_buffmpi(idx)=auxfields(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+               fvec_send_buffmpi(idx)=auxfields(ii,jj,kk,7,myblock)
 
 #endif
             enddo
@@ -2727,37 +2727,37 @@ contains
                ll=1
                idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
                   k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               auxfields(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=fvec_recv_buffmpi(idx)
+               auxfields(ii,jj,kk,1,myblock)=fvec_recv_buffmpi(idx)
 
                ll=2
                idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
                   k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               auxfields(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=fvec_recv_buffmpi(idx)
+               auxfields(ii,jj,kk,2,myblock)=fvec_recv_buffmpi(idx)
 
                ll=3
                idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
                   k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               auxfields(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=fvec_recv_buffmpi(idx)
+               auxfields(ii,jj,kk,3,myblock)=fvec_recv_buffmpi(idx)
 
                ll=4
                idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
                   k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               auxfields(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=fvec_recv_buffmpi(idx)
+               auxfields(ii,jj,kk,4,myblock)=fvec_recv_buffmpi(idx)
 			   
 			   ll=5
                idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
                   k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               auxfields(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=fvec_recv_buffmpi(idx)
+               auxfields(ii,jj,kk,5,myblock)=fvec_recv_buffmpi(idx)
 			   
 			   ll=6
                idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
                   k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               auxfields(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=fvec_recv_buffmpi(idx)
+               auxfields(ii,jj,kk,6,myblock)=fvec_recv_buffmpi(idx)
 			   
 			   ll=7
                idx=myoffset+(i-fvec_recv_extr(1,lmio))+(j-fvec_recv_extr(3,lmio))*m1+(&
                   k-fvec_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               auxfields(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=fvec_recv_buffmpi(idx)
+               auxfields(ii,jj,kk,7,myblock)=fvec_recv_buffmpi(idx)
 
 #endif
             enddo
@@ -2777,7 +2777,7 @@ contains
 
       implicit none
       
-      real(kind=db), allocatable, dimension(:) :: hfields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s
       integer :: imin,imax,jmin,jmax,kmin,kmax
       integer :: lmio,oi,oj,ok
       integer :: ii,jj,kk,xblock,yblock,zblock,myblock
@@ -2831,35 +2831,35 @@ contains
                   
                   
                   
-                  hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
-                   hfields_s(idx5(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  hfields_s(ii,jj,kk,1,myblock)= &
+                   hfields_s(oii,ojj,okk,1,omyblock)
                   
-                  hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
-                   hfields_s(idx5(oii,ojj,okk,2,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  hfields_s(ii,jj,kk,2,myblock)= &
+                   hfields_s(oii,ojj,okk,2,omyblock)
                   
-                  hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
-                   hfields_s(idx5(oii,ojj,okk,3,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  hfields_s(ii,jj,kk,3,myblock)= &
+                   hfields_s(oii,ojj,okk,3,omyblock)
                   
-                  hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
-                   hfields_s(idx5(oii,ojj,okk,4,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  hfields_s(ii,jj,kk,4,myblock)= &
+                   hfields_s(oii,ojj,okk,4,omyblock)
                   
-                  hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
-                   hfields_s(idx5(oii,ojj,okk,5,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  hfields_s(ii,jj,kk,5,myblock)= &
+                   hfields_s(oii,ojj,okk,5,omyblock)
                   
-                  hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
-                   hfields_s(idx5(oii,ojj,okk,6,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  hfields_s(ii,jj,kk,6,myblock)= &
+                   hfields_s(oii,ojj,okk,6,omyblock)
                   
-                  hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
-                   hfields_s(idx5(oii,ojj,okk,7,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  hfields_s(ii,jj,kk,7,myblock)= &
+                   hfields_s(oii,ojj,okk,7,omyblock)
                   
-                  hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
-                   hfields_s(idx5(oii,ojj,okk,8,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  hfields_s(ii,jj,kk,8,myblock)= &
+                   hfields_s(oii,ojj,okk,8,omyblock)
                   
-                  hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
-                   hfields_s(idx5(oii,ojj,okk,9,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  hfields_s(ii,jj,kk,9,myblock)= &
+                   hfields_s(oii,ojj,okk,9,omyblock)
                   
-                  hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= &
-                   hfields_s(idx5(oii,ojj,okk,10,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  hfields_s(ii,jj,kk,10,myblock)= &
+                   hfields_s(oii,ojj,okk,10,omyblock)
                   
                enddo
             enddo
@@ -2877,7 +2877,7 @@ contains
 
       implicit none
       
-      real(kind=db), allocatable, dimension(:) :: hfields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s
 
       integer :: l,ll,myoffset,tag,ierr,mm
 #ifndef MPI
@@ -2918,7 +2918,7 @@ contains
 
       implicit none
       
-      real(kind=db), allocatable, dimension(:) :: hfields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s
 
       integer :: l,ll,myoffset,tag,ierr
       integer, dimension(:), allocatable :: myierr
@@ -2949,7 +2949,7 @@ contains
       implicit none
 
       integer, intent(in) :: lmio
-      real(kind=db), allocatable, dimension(:) :: hfields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s
 
       integer :: myoffset
 
@@ -2994,52 +2994,52 @@ contains
                ll=1
                idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
                   k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               b_send_buffmpi(idx)=hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               b_send_buffmpi(idx)=hfields_s(ii,jj,kk,1,myblock)
                
                ll=2
                idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
                   k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               b_send_buffmpi(idx)=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               b_send_buffmpi(idx)=hfields_s(ii,jj,kk,2,myblock)
                
                ll=3
                idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
                   k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               b_send_buffmpi(idx)=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               b_send_buffmpi(idx)=hfields_s(ii,jj,kk,3,myblock)
                
                ll=4
                idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
                   k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               b_send_buffmpi(idx)=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               b_send_buffmpi(idx)=hfields_s(ii,jj,kk,4,myblock)
                
                ll=5
                idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
                   k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               b_send_buffmpi(idx)=hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               b_send_buffmpi(idx)=hfields_s(ii,jj,kk,5,myblock)
                
                ll=6
                idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
                   k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               b_send_buffmpi(idx)=hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               b_send_buffmpi(idx)=hfields_s(ii,jj,kk,6,myblock)
                
                ll=7
                idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
                   k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               b_send_buffmpi(idx)=hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               b_send_buffmpi(idx)=hfields_s(ii,jj,kk,7,myblock)
                
                ll=8
                idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
                   k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               b_send_buffmpi(idx)=hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               b_send_buffmpi(idx)=hfields_s(ii,jj,kk,8,myblock)
                
                ll=9
                idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
                   k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               b_send_buffmpi(idx)=hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               b_send_buffmpi(idx)=hfields_s(ii,jj,kk,9,myblock)
                
                ll=10
                idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
                   k-b_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               b_send_buffmpi(idx)=hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               b_send_buffmpi(idx)=hfields_s(ii,jj,kk,10,myblock)
 
             enddo
          enddo
@@ -3058,7 +3058,7 @@ contains
       implicit none
 
       integer, intent(in) :: lmio
-      real(kind=db), allocatable, dimension(:) :: hfields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s
       
       integer :: myoffset
 
@@ -3103,52 +3103,52 @@ contains
                ll=1
                idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
                   k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=b_recv_buffmpi(idx)
+               hfields_s(ii,jj,kk,1,myblock)=b_recv_buffmpi(idx)
                
                ll=2
                idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
                   k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=b_recv_buffmpi(idx)
+               hfields_s(ii,jj,kk,2,myblock)=b_recv_buffmpi(idx)
                
                ll=3
                idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
                   k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=b_recv_buffmpi(idx)
+               hfields_s(ii,jj,kk,3,myblock)=b_recv_buffmpi(idx)
                
                ll=4
                idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
                   k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=b_recv_buffmpi(idx)
+               hfields_s(ii,jj,kk,4,myblock)=b_recv_buffmpi(idx)
                
                ll=5
                idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
                   k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=b_recv_buffmpi(idx)
+               hfields_s(ii,jj,kk,5,myblock)=b_recv_buffmpi(idx)
                
                ll=6
                idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
                   k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=b_recv_buffmpi(idx)
+               hfields_s(ii,jj,kk,6,myblock)=b_recv_buffmpi(idx)
                
                ll=7
                idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
                   k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=b_recv_buffmpi(idx)
+               hfields_s(ii,jj,kk,7,myblock)=b_recv_buffmpi(idx)
                
                ll=8
                idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
                   k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=b_recv_buffmpi(idx)
+               hfields_s(ii,jj,kk,8,myblock)=b_recv_buffmpi(idx)
                
                ll=9
                idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
                   k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=b_recv_buffmpi(idx)
+               hfields_s(ii,jj,kk,9,myblock)=b_recv_buffmpi(idx)
                
                ll=10
                idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
                   k-b_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=b_recv_buffmpi(idx)
+               hfields_s(ii,jj,kk,10,myblock)=b_recv_buffmpi(idx)
 
             enddo
          enddo
@@ -3219,14 +3219,14 @@ contains
                   jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                   kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
                   
-                  forces(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))= &
-                   forces(idx5(oii,ojj,okk,1,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+                  forces(ii,jj,kk,1,myblock)= &
+                   forces(oii,ojj,okk,1,omyblock)
                   
-                  forces(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))= &
-                   forces(idx5(oii,ojj,okk,2,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+                  forces(ii,jj,kk,2,myblock)= &
+                   forces(oii,ojj,okk,2,omyblock)
                   
-                  forces(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))= &
-                   forces(idx5(oii,ojj,okk,3,omyblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+                  forces(ii,jj,kk,3,myblock)= &
+                   forces(oii,ojj,okk,3,omyblock)
                   
                enddo
             enddo
@@ -3356,17 +3356,17 @@ contains
                ll=1
                idx=myoffset+(i-c_send_extr(1,lmio))+(j-c_send_extr(3,lmio))*m1+(&
                   k-c_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               c_send_buffmpi(idx)=forces(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+               c_send_buffmpi(idx)=forces(ii,jj,kk,1,myblock)
                
                ll=2
                idx=myoffset+(i-c_send_extr(1,lmio))+(j-c_send_extr(3,lmio))*m1+(&
                   k-c_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               c_send_buffmpi(idx)=forces(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+               c_send_buffmpi(idx)=forces(ii,jj,kk,2,myblock)
                
                ll=3
                idx=myoffset+(i-c_send_extr(1,lmio))+(j-c_send_extr(3,lmio))*m1+(&
                   k-c_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               c_send_buffmpi(idx)=forces(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
+               c_send_buffmpi(idx)=forces(ii,jj,kk,3,myblock)
 
             enddo
          enddo
@@ -3429,17 +3429,17 @@ contains
                ll=1
                idx=myoffset+(i-c_recv_extr(1,lmio))+(j-c_recv_extr(3,lmio))*m1+(&
                   k-c_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               forces(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))=c_recv_buffmpi(idx)
+               forces(ii,jj,kk,1,myblock)=c_recv_buffmpi(idx)
                
                ll=2
                idx=myoffset+(i-c_recv_extr(1,lmio))+(j-c_recv_extr(3,lmio))*m1+(&
                   k-c_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               forces(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))=c_recv_buffmpi(idx)
+               forces(ii,jj,kk,2,myblock)=c_recv_buffmpi(idx)
                
                ll=3
                idx=myoffset+(i-c_recv_extr(1,lmio))+(j-c_recv_extr(3,lmio))*m1+(&
                   k-c_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
-               forces(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))=c_recv_buffmpi(idx)
+               forces(ii,jj,kk,3,myblock)=c_recv_buffmpi(idx)
 
             enddo
          enddo
@@ -3975,7 +3975,7 @@ contains
       implicit none
 
       integer(kind=4), intent(in) :: iframe,iframe2D
-      real(kind=db), allocatable, dimension(:) :: hfields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s
       integer, intent(out) :: e_io
 #ifdef MPI
       integer(kind=MPI_OFFSET_KIND) :: tempoffset,offset_final
@@ -4056,7 +4056,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,1,myblock)
              enddo
          enddo
       enddo
@@ -4073,7 +4073,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,2,myblock)
              enddo
          enddo
       enddo 
@@ -4090,7 +4090,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,3,myblock)
              enddo
          enddo
       enddo 
@@ -4107,75 +4107,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-             enddo
-         enddo
-      enddo 
-      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
-
-      
-      do k=1,nz
-  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
-         do j=1,ny
-            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
-            do i=1,nx
-               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
-               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
-               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
-               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
-               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-             enddo
-         enddo
-      enddo 
-      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
-      
-      
-      do k=1,nz
-  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
-         do j=1,ny
-            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
-            do i=1,nx
-               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
-               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
-               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
-               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
-               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-             enddo
-         enddo
-      enddo 
-      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
-      
-      
-      do k=1,nz
-  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
-         do j=1,ny
-            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
-            do i=1,nx
-               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
-               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
-               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
-               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
-               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-             enddo
-         enddo
-      enddo 
-      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
-      
-       
-      do k=1,nz
-  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
-         do j=1,ny
-            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
-            do i=1,nx
-               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
-               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
-               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
-               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
-               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,4,myblock)
              enddo
          enddo
       enddo 
@@ -4192,7 +4124,41 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,5,myblock)
+             enddo
+         enddo
+      enddo 
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      
+      
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,8,myblock)
+             enddo
+         enddo
+      enddo 
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      
+      
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,9,myblock)
              enddo
          enddo
       enddo 
@@ -4209,7 +4175,41 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,6,myblock)
+             enddo
+         enddo
+      enddo 
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
+
+      
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,10,myblock)
+             enddo
+         enddo
+      enddo 
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      
+       
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,7,myblock)
              enddo
          enddo
       enddo 
@@ -4269,7 +4269,7 @@ contains
       implicit none
 
       integer(kind=4), intent(out) ::  iframe,iframe2D
-      real(kind=db), allocatable, dimension(:) :: hfields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s
       integer, intent(out) :: e_io
 #ifdef MPI
       integer(kind=MPI_OFFSET_KIND) :: tempoffset,offset_final
@@ -4344,7 +4344,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,1,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -4361,7 +4361,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,2,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -4378,7 +4378,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,3,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -4395,7 +4395,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,4,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -4412,7 +4412,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,5,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -4429,7 +4429,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,8,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -4446,7 +4446,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,9,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -4463,7 +4463,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,6,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -4480,7 +4480,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,10,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -4497,7 +4497,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,7,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -4556,7 +4556,7 @@ contains
       implicit none
 
       integer(kind=4), intent(in) :: iframe,iframe2D
-      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_s
       integer, intent(out) :: e_io
 #ifdef MPI
       integer(kind=MPI_OFFSET_KIND) :: tempoffset,offset_final
@@ -4636,7 +4636,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,1,myblock)
              enddo
          enddo
       enddo 
@@ -4653,7 +4653,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,2,myblock)
              enddo
          enddo
       enddo 
@@ -4670,7 +4670,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,3,myblock)
              enddo
          enddo
       enddo 
@@ -4687,7 +4687,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,4,myblock)
              enddo
          enddo
       enddo 
@@ -4704,7 +4704,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,5,myblock)
              enddo
          enddo
       enddo 
@@ -4721,7 +4721,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,8,myblock)
              enddo
          enddo
       enddo 
@@ -4738,7 +4738,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,9,myblock)
              enddo
          enddo
       enddo 
@@ -4755,7 +4755,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,6,myblock)
              enddo
          enddo
       enddo 
@@ -4772,7 +4772,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,10,myblock)
              enddo
          enddo
       enddo 
@@ -4789,7 +4789,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,7,myblock)
              enddo
          enddo
       enddo
@@ -4806,7 +4806,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+               arr_3d(i,j,k)=phifields_s(ii,jj,kk,1,myblock)
              enddo
          enddo
       enddo
@@ -4869,7 +4869,7 @@ contains
       implicit none
 
       integer(kind=4), intent(out) :: iframe,iframe2D
-      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_s
       integer, intent(out) :: e_io
 #ifdef MPI
       integer(kind=MPI_OFFSET_KIND) :: tempoffset,offset_final
@@ -4947,7 +4947,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,1,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -4964,7 +4964,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,2,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -4981,7 +4981,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,3,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -4998,7 +4998,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,4,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -5015,7 +5015,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,5,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -5032,7 +5032,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,8,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -5049,7 +5049,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,9,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -5066,7 +5066,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,6,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -5083,7 +5083,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,10,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -5100,7 +5100,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,7,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo   
@@ -5117,7 +5117,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
-               phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=arr_3d(i,j,k) 
+               phifields_s(ii,jj,kk,1,myblock)=arr_3d(i,j,k) 
              enddo
          enddo
       enddo    
@@ -5280,7 +5280,7 @@ contains
 
       integer(kind=4), intent(in) ::  iframe
       integer, intent(out) :: e_io
-      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_s
 #ifdef MPI
       integer(kind=MPI_OFFSET_KIND) :: tempoffset,offset_final
 #endif
@@ -5368,7 +5368,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,1,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -5439,7 +5439,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,2,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -5510,7 +5510,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,3,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -5581,7 +5581,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,4,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -5653,7 +5653,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
-               phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=arr_3d(i,j,k) 
+               phifields_s(ii,jj,kk,1,myblock)=arr_3d(i,j,k) 
              enddo
          enddo
       enddo    

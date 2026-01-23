@@ -48,18 +48,18 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
-      real(kind=db), dimension(ntotphifields) :: phifields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
 #ifdef MONOD
       real(kind=db) :: mu_max,Ks
 #endif
 #endif           
       real(kind=db) :: visc1,omega,fx,fy,fz
       
-      real(kind=db), dimension(ntothfields) :: hfields_in,hfields_out
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
       
-      real(kind=db), dimension(ntotauxfields) :: auxfields_s
-      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
-      real(kind=db), dimension(ntotforces) :: forces_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       real(kind=db), shared :: f1(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       real(kind=db), shared :: f2(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
@@ -117,7 +117,7 @@ contains
        
      
 #ifdef TWOCOMPONENT	  
-                  phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+                  phi_loc=phifields_s(ii,jj,kk,1,myblock)
 #endif                  
 #ifdef DENSRATIO
                   
@@ -126,20 +126,20 @@ contains
                   rhophi_loc = 1.0_db !press_loc
 #endif	
 
-				  forcex=forces_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))/rhophi_loc
-				  forcey=forces_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))/rhophi_loc
-				  forcez=forces_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))/rhophi_loc
+				  forcex=forces_s(ii,jj,kk,1,myblock)/rhophi_loc
+				  forcey=forces_s(ii,jj,kk,2,myblock)/rhophi_loc
+				  forcez=forces_s(ii,jj,kk,3,myblock)/rhophi_loc
                   
-                  press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
-                  v=hfields_in(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  w=hfields_in(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pxx=hfields_in(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pyy=hfields_in(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pzz=hfields_in(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pxy=hfields_in(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pxz=hfields_in(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pyz=hfields_in(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  press=hfields_in(ii,jj,kk,1,myblock)
+                  u=hfields_in(ii,jj,kk,2,myblock) 
+                  v=hfields_in(ii,jj,kk,3,myblock)
+                  w=hfields_in(ii,jj,kk,4,myblock)
+                  pxx=hfields_in(ii,jj,kk,5,myblock)
+                  pyy=hfields_in(ii,jj,kk,6,myblock)
+                  pzz=hfields_in(ii,jj,kk,7,myblock)
+                  pxy=hfields_in(ii,jj,kk,8,myblock)
+                  pxz=hfields_in(ii,jj,kk,9,myblock)
+                  pyz=hfields_in(ii,jj,kk,10,myblock)
                   
                   
 #ifdef INTERNAL_OBSTACLES
@@ -296,16 +296,16 @@ contains
                   !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
 	              if(myblock .ne. (blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1) )return
 	                 
-	              hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
-                  hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
-                  hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
-                  hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
-                  hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
-                  hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
-                  hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
-                  hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
-                  hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
-                  hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
+	              hfields_out(ii,jj,kk,1,myblock)=opress
+                  hfields_out(ii,jj,kk,2,myblock)=ou
+                  hfields_out(ii,jj,kk,3,myblock)=ov
+                  hfields_out(ii,jj,kk,4,myblock)=ow
+                  hfields_out(ii,jj,kk,5,myblock)=opxx
+                  hfields_out(ii,jj,kk,6,myblock)=opyy
+                  hfields_out(ii,jj,kk,7,myblock)=opzz
+                  hfields_out(ii,jj,kk,8,myblock)=opxy
+                  hfields_out(ii,jj,kk,9,myblock)=opxz
+                  hfields_out(ii,jj,kk,10,myblock)=opyz
                   
     endsubroutine fused_LB_kernel2     
 
@@ -340,18 +340,18 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
-      real(kind=db), dimension(ntotphifields) :: phifields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
 #ifdef MONOD
       real(kind=db) :: mu_max,Ks
 #endif
 #endif           
       real(kind=db) :: visc1,omega,fx,fy,fz
       
-      real(kind=db), dimension(ntothfields) :: hfields_in,hfields_out
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
       
-      real(kind=db), dimension(ntotauxfields) :: auxfields_s
-      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
-      real(kind=db), dimension(ntotforces) :: forces_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       real(kind=db), shared :: f1(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       
@@ -408,7 +408,7 @@ contains
        
      
 #ifdef TWOCOMPONENT	  
-                  phi_loc=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+                  phi_loc=phifields_s(ii,jj,kk,1,myblock)
 #endif                  
 #ifdef DENSRATIO
                   
@@ -417,20 +417,20 @@ contains
                   rhophi_loc = 1.0_db !press_loc
 #endif	
 
-				  forcex=forces_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))/rhophi_loc
-				  forcey=forces_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))/rhophi_loc
-				  forcez=forces_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))/rhophi_loc
+				  forcex=forces_s(ii,jj,kk,1,myblock)/rhophi_loc
+				  forcey=forces_s(ii,jj,kk,2,myblock)/rhophi_loc
+				  forcez=forces_s(ii,jj,kk,3,myblock)/rhophi_loc
                   
-                  press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
-                  v=hfields_in(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  w=hfields_in(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pxx=hfields_in(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pyy=hfields_in(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pzz=hfields_in(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pxy=hfields_in(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pxz=hfields_in(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pyz=hfields_in(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  press=hfields_in(ii,jj,kk,1,myblock)
+                  u=hfields_in(ii,jj,kk,2,myblock) 
+                  v=hfields_in(ii,jj,kk,3,myblock)
+                  w=hfields_in(ii,jj,kk,4,myblock)
+                  pxx=hfields_in(ii,jj,kk,5,myblock)
+                  pyy=hfields_in(ii,jj,kk,6,myblock)
+                  pzz=hfields_in(ii,jj,kk,7,myblock)
+                  pxy=hfields_in(ii,jj,kk,8,myblock)
+                  pxz=hfields_in(ii,jj,kk,9,myblock)
+                  pyz=hfields_in(ii,jj,kk,10,myblock)
                   
                   
 #ifdef INTERNAL_OBSTACLES
@@ -564,16 +564,16 @@ contains
                   !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
 	              if(myblock .ne. intblock)return
 	                 
-	              hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
-                  hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
-                  hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
-                  hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
-                  hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
-                  hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
-                  hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
-                  hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
-                  hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
-                  hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
+	              hfields_out(ii,jj,kk,1,myblock)=opress
+                  hfields_out(ii,jj,kk,2,myblock)=ou
+                  hfields_out(ii,jj,kk,3,myblock)=ov
+                  hfields_out(ii,jj,kk,4,myblock)=ow
+                  hfields_out(ii,jj,kk,5,myblock)=opxx
+                  hfields_out(ii,jj,kk,6,myblock)=opyy
+                  hfields_out(ii,jj,kk,7,myblock)=opzz
+                  hfields_out(ii,jj,kk,8,myblock)=opxy
+                  hfields_out(ii,jj,kk,9,myblock)=opxz
+                  hfields_out(ii,jj,kk,10,myblock)=opyz
                    
     endsubroutine fused_LB_kernel1
 

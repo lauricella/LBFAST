@@ -241,11 +241,11 @@ module vars
    real(kind=db), allocatable, dimension(:,:,:) :: arr_3d
 
    !real(kind=db), allocatable, dimension(:,:,:,:) :: f       !pops
-   real(kind=db), allocatable, dimension(:) :: hfields_flip,hfields_flop  !allocate hydro fields flip and flop
-   real(kind=db), allocatable, dimension(:) :: phifields_flip,phifields_flop  !allocate phi fields flip and flop
-   real(kind=db), allocatable, dimension(:) :: forces
-   real(kind=db), allocatable, dimension(:) :: auxfields !allocate aux fields
-   real(kind=db), allocatable, dimension(:) :: locauxfields !allocate aux fields
+   real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_flip,hfields_flop  !allocate hydro fields flip and flop
+   real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_flip,phifields_flop  !allocate phi fields flip and flop
+   real(kind=db), allocatable, dimension(:,:,:,:,:) :: forces
+   real(kind=db), allocatable, dimension(:,:,:,:,:) :: auxfields !allocate aux fields
+   real(kind=db), allocatable, dimension(:,:,:,:,:) :: locauxfields !allocate aux fields
    
    
    integer, parameter :: nhfields=10
@@ -836,19 +836,6 @@ function my_mod(n, m) result(res)
     endif
 end function my_mod
 
-elemental integer function idx5(ind1,ind2,ind3,ind4,ind5,m1,m2,m3,m4)
- !$acc routine seq
-  implicit none
-  
-  integer, intent(in) :: ind1,ind2,ind3,ind4,ind5,m1,m2,m3,m4
-  
-  
-  idx5=1+(ind1-1)+(ind2-1)*m1+(ind3-1)*(m1*m2)+(ind4-1)*(m1*m2*m3)+ &
-   (ind5-1)*(m1*m2*m3*m4)
-  
-  return
-  
-end function idx5
 
 elemental function coordblock(idblock,nxblock,nxyblock)
   !$acc routine seq

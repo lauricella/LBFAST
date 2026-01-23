@@ -40,11 +40,11 @@ contains
 #endif
 #endif 
       integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
-      real(kind=db), dimension(ntothfields) :: hfields_s
-      real(kind=db), dimension(ntotphifields) :: phifields_in,phifields_out
-      real(kind=db), dimension(ntotauxfields) :: auxfields_s
-      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
-      real(kind=db), dimension(ntotforces) :: forces_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       integer :: i,j,k
       !integer :: gi,gj,gk
@@ -73,21 +73,21 @@ contains
 	   
 #ifdef TWOCOMPONENT
 				  
-	  mytemp= -sharp_c*locauxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))
+	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
 	  			  
 	  !reuse gradrhox,gradrhoy,gradrhoz as local velocity (reusing variables is saving register memory)
 	  !reuse gradfix,gradfiy,gradfiz
-      modgrad=auxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields)) !modgrad
-	  gradfix=auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))*modgrad !normx*modgrad
-	  gradfiy=auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))*modgrad !normy*modgrad
-	  gradfiz=auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))*modgrad !normz*modgrad
+      modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
+	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
+	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
+	  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*modgrad !normz*modgrad
                   
-      phi_loc=phifields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
-      lap_phi_loc=locauxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))
+      phi_loc=phifields_in(ii,jj,kk,1,myblock)
+      lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
                   
-      loc_u=hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) !velocity
-      loc_v=hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-      loc_w=hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+      loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
+      loc_v=hfields_s(ii,jj,kk,3,myblock)
+      loc_w=hfields_s(ii,jj,kk,4,myblock)
                   
       phi_out = phi_loc &
         - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
@@ -99,7 +99,7 @@ contains
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
-      phifields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=phi_out
+      phifields_out(ii,jj,kk,1,myblock)=phi_out
       
       return
       

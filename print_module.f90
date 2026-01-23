@@ -644,9 +644,9 @@ contains
       implicit none
       
       integer, intent(in) :: iframe
-      real(kind=db), allocatable, dimension(:) :: hfields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s
 #ifdef TWOCOMPONENT
-      real(kind=db), allocatable, dimension(:) :: phifields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
 #endif    
       integer :: ii,jj,kk
       integer :: iii,jjj,kkk
@@ -732,26 +732,26 @@ contains
                   kkk=kk-zblock*TILE_DIMz+2*TILE_DIMz                            
                   
 #if defined(DENSRATIO) && defined(TWOCOMPONENT)
-                  rhophi_loc=phifields_s(idx5(iii,jjj,kkk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+                  rhophi_loc=phifields_s(iii,jjj,kkk,1,myblock)
                   rhophi_loc=rho_r*rhophi_loc+(ONE-rhophi_loc)*rho_b
                   rhoprint(i,j,k)=real(rhophi_loc,kind=printdb)
 #ifdef WRITEPRESS                 
-                  pressprint(i,j,k)=real(hfields_s(idx5(iii,jjj,kkk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)),kind=printdb)
+                  pressprint(i,j,k)=real(hfields_s(iii,jjj,kkk,1,myblock),kind=printdb)
 #endif
 #endif
 
 #if defined(TWOCOMPONENT) && !defined(DENSRATIO)
-                  rhoprint(i,j,k)=real(phifields_s(idx5(iii,jjj,kkk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields)),kind=printdb)
+                  rhoprint(i,j,k)=real(phifields_s(iii,jjj,kkk,1,myblock),kind=printdb)
 #ifdef WRITEPRESS               
-                  pressprint(i,j,k)=real(hfields_s(idx5(iii,jjj,kkk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)),kind=printdb)				  
+                  pressprint(i,j,k)=real(hfields_s(iii,jjj,kkk,1,myblock),kind=printdb)				  
 #endif
 #endif
 #ifndef TWOCOMPONENT
-				  rhoprint(i,j,k)=real(hfields_s(idx5(iii,jjj,kkk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)),kind=printdb)
+				  rhoprint(i,j,k)=real(hfields_s(iii,jjj,kkk,1,myblock),kind=printdb)
 #endif
-				  velprint(1,i,j,k)=real(hfields_s(idx5(iii,jjj,kkk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)),kind=printdb)
-				  velprint(2,i,j,k)=real(hfields_s(idx5(iii,jjj,kkk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)),kind=printdb)
-				  velprint(3,i,j,k)=real(hfields_s(idx5(iii,jjj,kkk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)),kind=printdb)
+				  velprint(1,i,j,k)=real(hfields_s(iii,jjj,kkk,2,myblock),kind=printdb)
+				  velprint(2,i,j,k)=real(hfields_s(iii,jjj,kkk,3,myblock),kind=printdb)
+				  velprint(3,i,j,k)=real(hfields_s(iii,jjj,kkk,4,myblock),kind=printdb)
                enddo
             enddo
          enddo
@@ -846,7 +846,7 @@ contains
       implicit none
 
       integer, intent(in) :: iframe
-      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_s
       logical :: file_exists
       integer :: ii,jj,kk,myblock,xblock,yblock,zblock
       
@@ -872,7 +872,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,1,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -901,7 +901,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,2,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -930,7 +930,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,3,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -959,7 +959,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,4,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -989,7 +989,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
-               phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=arr_3d(i,j,k) 
+               phifields_s(ii,jj,kk,1,myblock)=arr_3d(i,j,k) 
              enddo
          enddo
       enddo 
@@ -1005,7 +1005,7 @@ contains
       implicit none
 
       integer, intent(out) :: iframe,iframe2D
-      real(kind=db), allocatable, dimension(:) :: hfields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s
 
       integer :: e_io,l,i,j,k
       
@@ -1026,7 +1026,7 @@ contains
       implicit none
 
       integer, intent(in) :: iframe,iframe2D
-      real(kind=db), allocatable, dimension(:) :: hfields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s
 
       integer :: e_io
       
@@ -1045,7 +1045,7 @@ contains
       implicit none
 
       integer, intent(in) :: iframe,iframe2D
-      real(kind=db), allocatable, dimension(:) :: hfields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s
       integer :: ii,jj,kk,xblock,yblock,zblock,myblock
 
       sevt1 = trim(dir_out) // 'restart.raw'
@@ -1063,7 +1063,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,1,myblock)
              enddo
          enddo
       enddo 
@@ -1080,7 +1080,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,2,myblock)
              enddo
          enddo
       enddo 
@@ -1097,7 +1097,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,3,myblock)
              enddo
          enddo
       enddo  
@@ -1115,7 +1115,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,4,myblock)
              enddo
          enddo
       enddo 
@@ -1132,7 +1132,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,5,myblock)
              enddo
          enddo
       enddo 
@@ -1149,7 +1149,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,8,myblock)
              enddo
          enddo
       enddo 
@@ -1166,7 +1166,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,9,myblock)
              enddo
          enddo
       enddo 
@@ -1183,7 +1183,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,6,myblock)
              enddo
          enddo
       enddo 
@@ -1200,7 +1200,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,10,myblock)
              enddo
          enddo
       enddo 
@@ -1217,7 +1217,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,7,myblock)
              enddo
          enddo
       enddo  
@@ -1234,7 +1234,7 @@ contains
       implicit none
 
       integer, intent(out) :: iframe,iframe2D
-      real(kind=db), allocatable, dimension(:) :: hfields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s
       logical :: file_exists
       integer :: ii,jj,kk,xblock,yblock,zblock,myblock
 
@@ -1260,7 +1260,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,1,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo       
@@ -1277,7 +1277,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,2,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -1294,7 +1294,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,3,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -1311,7 +1311,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,4,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo       
@@ -1328,7 +1328,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,5,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -1345,7 +1345,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,8,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -1362,7 +1362,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,9,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -1379,7 +1379,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,6,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -1396,7 +1396,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,10,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -1413,7 +1413,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,7,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -1429,7 +1429,7 @@ contains
       implicit none
 
       integer, intent(out) :: iframe,iframe2D
-      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_s
 
       integer :: e_io,l,i,j,k
       
@@ -1451,7 +1451,7 @@ contains
       implicit none
 
       integer, intent(in) :: iframe,iframe2D
-      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_s
 
       integer :: e_io
       
@@ -1470,7 +1470,7 @@ contains
       implicit none
 
       integer, intent(in) :: iframe,iframe2D
-      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_s
       integer :: ii,jj,kk,xblock,yblock,zblock,myblock
 
       sevt1 = trim(dir_out) // 'restart.raw'
@@ -1488,7 +1488,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,1,myblock)
              enddo
          enddo
       enddo 
@@ -1505,7 +1505,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,2,myblock)
              enddo
          enddo
       enddo 
@@ -1522,7 +1522,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,3,myblock)
              enddo
          enddo
       enddo 
@@ -1539,7 +1539,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,4,myblock)
              enddo
          enddo
       enddo 
@@ -1556,7 +1556,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,5,myblock)
              enddo
          enddo
       enddo 
@@ -1573,7 +1573,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,8,myblock)
              enddo
          enddo
       enddo 
@@ -1590,7 +1590,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,9,myblock)
              enddo
          enddo
       enddo 
@@ -1607,7 +1607,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,6,myblock)
              enddo
          enddo
       enddo 
@@ -1624,7 +1624,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,10,myblock)
              enddo
          enddo
       enddo 
@@ -1641,7 +1641,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+               arr_3d(i,j,k)=hfields_s(ii,jj,kk,7,myblock)
              enddo
          enddo
       enddo 
@@ -1658,7 +1658,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
-               arr_3d(i,j,k)=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+               arr_3d(i,j,k)=phifields_s(ii,jj,kk,1,myblock)
              enddo
          enddo
       enddo         
@@ -1675,7 +1675,7 @@ contains
       implicit none
 
       integer(kind=4), intent(out) :: iframe,iframe2D
-      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_s
       logical :: file_exists
       integer :: ii,jj,kk,myblock,xblock,yblock,zblock
 
@@ -1703,7 +1703,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,1,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -1720,7 +1720,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,2,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo       
@@ -1737,7 +1737,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,3,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -1754,7 +1754,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,4,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -1771,7 +1771,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,5,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -1788,7 +1788,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,8,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -1805,7 +1805,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,9,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -1822,7 +1822,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,6,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -1839,7 +1839,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,10,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -1856,7 +1856,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               hfields_s(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=arr_3d(i,j,k)   
+               hfields_s(ii,jj,kk,7,myblock)=arr_3d(i,j,k)   
              enddo
          enddo
       enddo 
@@ -1873,7 +1873,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
-               phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))=arr_3d(i,j,k) 
+               phifields_s(ii,jj,kk,1,myblock)=arr_3d(i,j,k) 
              enddo
          enddo
       enddo       

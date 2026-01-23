@@ -17,22 +17,22 @@ contains
       
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       ntothfields=TILE_DIMx*TILE_DIMy*TILE_DIMz*nhfields*nblocks
-      allocate(hfields_flip(ntothfields))
-      allocate(hfields_flop(ntothfields))
+      allocate(hfields_flip(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks))
+      allocate(hfields_flop(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks))
       
       ntotphifields=TILE_DIMx*TILE_DIMy*TILE_DIMz*nphifields*nblocks
 #ifdef TWOCOMPONENT       
-      allocate(phifields_flip(ntotphifields))
-      allocate(phifields_flop(ntotphifields))
+      allocate(phifields_flip(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks))
+      allocate(phifields_flop(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks))
 #endif      
       ntotauxfields=TILE_DIMx*TILE_DIMy*TILE_DIMz*nauxfields*nblocks
-      allocate(auxfields(ntotauxfields))
+      allocate(auxfields(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks))
       
       ntotlocauxfields=TILE_DIMx*TILE_DIMy*TILE_DIMz*nlocauxfields*nblocks
-      allocate(locauxfields(ntotlocauxfields))
+      allocate(locauxfields(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks))
       
       ntotforces=TILE_DIMx*TILE_DIMy*TILE_DIMz*nforces*nblocks
-      allocate(forces(ntotforces))
+      allocate(forces(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks))
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!      
       
       

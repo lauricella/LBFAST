@@ -25,9 +25,9 @@ contains
       integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
       real(kind=db) :: rho_r,rho_b
       integer :: ntotphifields,ntotauxfields,ntotlocauxfields
-      real(kind=db), dimension(ntotphifields) :: phifields_s
-      real(kind=db), dimension(ntotauxfields) :: auxfields_s
-      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
       
       real(kind=db), shared :: myphi(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       real(kind=db):: grad_fix,grad_fiy,grad_fiz,mod_grad
@@ -58,7 +58,7 @@ contains
       jj=j-yblock*TILE_DIMy+2*TILE_DIMy
       kk=k-zblock*TILE_DIMz+2*TILE_DIMz
       
-      myphi(li,lj,lk)=phifields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
+      myphi(li,lj,lk)=phifields_s(ii,jj,kk,1,myblock)
       
       call syncthreads
       
@@ -101,24 +101,24 @@ contains
       
 	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
 
-	  auxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
+	  auxfields_s(ii,jj,kk,1,myblock)= &
 	   grad_fix/(mod_grad+1.0e-9_db)
-	  auxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
+	  auxfields_s(ii,jj,kk,2,myblock)= &
 	   grad_fiy/(mod_grad+1.0e-9_db)
-	  auxfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
+	  auxfields_s(ii,jj,kk,3,myblock)= &
 	   grad_fiz/(mod_grad+1.0e-9_db)
 	  
-	  auxfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))=mod_grad 
+	  auxfields_s(ii,jj,kk,4,myblock)=mod_grad 
 
-	  auxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
+	  auxfields_s(ii,jj,kk,5,myblock)= &
 	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9_db))
-	  auxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
+	  auxfields_s(ii,jj,kk,6,myblock)= &
 	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9_db))
-	  auxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))= &
+	  auxfields_s(ii,jj,kk,7,myblock)= &
 	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9_db))
 	   
       !lap_phi here
-      locauxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))= &
+      locauxfields_s(ii,jj,kk,1,myblock)= &
                    (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0-1.0_db) + &
                    ( p1*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
                    myphi(li,lj+1,lk)+myphi(li,lj-1,lk) + &
@@ -147,9 +147,9 @@ contains
       integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
       real(kind=db) :: rho_r,rho_b
       integer :: ntotphifields,ntotauxfields,ntotlocauxfields
-      real(kind=db), dimension(ntotphifields) :: phifields_s
-      real(kind=db), dimension(ntotauxfields) :: auxfields_s
-      real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
       
       real(kind=db), shared :: myarrx(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       real(kind=db), shared :: myarry(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
@@ -181,9 +181,9 @@ contains
       jj=j-yblock*TILE_DIMy+2*TILE_DIMy
       kk=k-zblock*TILE_DIMz+2*TILE_DIMz
       
-      myarrx(li,lj,lk)=auxfields_s(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
-      myarry(li,lj,lk)=auxfields_s(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
-      myarrz(li,lj,lk)=auxfields_s(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields))
+      myarrx(li,lj,lk)=auxfields_s(ii,jj,kk,5,myblock)
+      myarry(li,lj,lk)=auxfields_s(ii,jj,kk,6,myblock)
+      myarrz(li,lj,lk)=auxfields_s(ii,jj,kk,7,myblock)
       
       call syncthreads
       
@@ -197,7 +197,7 @@ contains
 
 	   
       !div_thetan here
-      locauxfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))= &
+      locauxfields_s(ii,jj,kk,2,myblock)= &
        (( p1*(myarrx(li+1,lj,lk)-myarrx(li-1,lj,lk)) + &
        p2*((myarrx(li+1,lj+1,lk)-myarrx(li-1,lj-1,lk))+(myarrx(li+1,lj-1,lk)-myarrx(li-1,lj+1,lk))+ &
        (myarrx(li+1,lj,lk+1)-myarrx(li-1,lj,lk-1))+(myarrx(li+1,lj,lk-1)-myarrx(li-1,lj,lk+1)))+ &
