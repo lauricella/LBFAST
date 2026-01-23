@@ -75,6 +75,8 @@ contains
       !$acc& ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
       !$acc& auxfields,locauxfields,forces, &
       !$acc& nblocks,nxblock,nxyblock, &
+      !$acc& press_flip,u_flip,v_flip,w_flip,pxx_flip,pyy_flip,pzz_flip,pxy_flip,pxz_flip,pyz_flip, &
+      !$acc& press_flop,u_flop,v_flop,w_flop,pxx_flop,pyy_flop,pzz_flop,pxy_flop,pxz_flop,pyz_flop, &
 #ifdef TWOCOMPONENT
       !$acc& phifields_flip,phifields_flop, &
       !$acc& sharp_c,beta,tau2,visc2, kapp, sigma,width,tau_diff,corr,global_phi_sum_ini,global_count,global_phi_sum,&

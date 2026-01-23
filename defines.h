@@ -12,6 +12,6 @@
 
 #define noINTERNAL_OBSTACLES
 
-#define GPUTILEX 8
-#define GPUTILEY 8
-#define GPUTILEZ 8
+#define GPUTILEX 4
+#define GPUTILEY 4
+#define GPUTILEZ 4
