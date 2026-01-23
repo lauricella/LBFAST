@@ -608,19 +608,22 @@ contains
       
    endsubroutine repulsive_flux_normal_cuda
  
- subroutine moments_LB_cuda(hfields_old,hfields_s &
+ subroutine moments_LB_cuda( &
 #ifdef TWOCOMPONENT    
-  ,phifields_s &
+  phifields_s, &
 #endif 
- )
+  press_old,u_old,v_old,w_old,pxx_old,pyy_old,pzz_old,pxy_old,pxz_old,pyz_old, &
+  press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s)
 
       implicit none
       
-      real(kind=db), allocatable, dimension(:) :: hfields_old,hfields_s
 #ifdef TWOCOMPONENT          
       real(kind=db), allocatable, dimension(:) :: phifields_s
 #endif 
-
+      real(kind=db), allocatable, dimension(:,:,:) :: &
+       press_old,u_old,v_old,w_old,pxx_old,pyy_old,pzz_old,pxy_old,pxz_old,pyz_old, &
+       press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s 
+      
 !      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
       !$acc wait
       istat = cudaDeviceSynchronize
@@ -639,7 +642,9 @@ contains
        !$acc& ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
        !$acc& ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-       !$acc& ,hfields_old,hfields_s,auxfields,locauxfields,forces)
+       !$acc& ,auxfields,locauxfields,forces,press_old,u_old,v_old,w_old &
+       !$acc& ,pxx_old,pyy_old,pzz_old,pxy_old,pxz_old,pyz_old &
+       !$acc& ,press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s)
        call moments_LB_kernel<<<dimGrid, dimBlock>>>(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &   
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
@@ -654,7 +659,9 @@ contains
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
 	   ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_old,hfields_s,auxfields,locauxfields,forces)
+	   ,auxfields,locauxfields,forces &
+	   ,press_old,u_old,v_old,w_old,pxx_old,pyy_old,pzz_old,pxy_old,pxz_old,pyz_old &
+       ,press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s)
 !$acc end host_data
       istat = cudaDeviceSynchronize
       istat = cudaGetLastError()
@@ -667,19 +674,22 @@ contains
       
    endsubroutine moments_LB_cuda
 
-   subroutine fused_LB_cuda(hfields_in,hfields_out &
+   subroutine fused_LB_cuda( &
 #ifdef TWOCOMPONENT    
-   ,phifields_s &
+   phifields_s, &
 #endif   
-   )
+   press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
+   ,press_out,u_out,v_out,w_out,pxx_out,pyy_out,pzz_out,pxy_out,pxz_out,pyz_out)
 
       implicit none
       
-      real(kind=db), allocatable, dimension(:) :: hfields_in,hfields_out
 #ifdef TWOCOMPONENT       
       real(kind=db), allocatable, dimension(:) :: phifields_s
 #endif
-      
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: &
+       press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in, &
+       press_out,u_out,v_out,w_out,pxx_out,pyy_out,pzz_out,pxy_out,pxz_out,pyz_out
+       
 !      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
       !$acc wait
       istat = cudaDeviceSynchronize
@@ -698,7 +708,9 @@ contains
 #endif
 #endif   
        !$acc& ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-       !$acc& ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+       !$acc& ,auxfields,locauxfields,forces &
+       !$acc& ,press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
+       !$acc& ,press_out,u_out,v_out,w_out,pxx_out,pyy_out,pzz_out,pxy_out,pxz_out,pyz_out)
       call fused_LB_kernel1<<<dimGrid,dimBlockshared>>>(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
@@ -713,7 +725,9 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+       ,auxfields,locauxfields,forces &
+       ,press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
+       ,press_out,u_out,v_out,w_out,pxx_out,pyy_out,pzz_out,pxy_out,pxz_out,pyz_out)
 !$acc end host_data
       
       istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
@@ -740,11 +754,11 @@ contains
    end subroutine fused_LB_cuda
 
    
-   subroutine update_phifields(hfields_s,phifields_in,phifields_out)
+   subroutine update_phifields(phifields_in,phifields_out,u_s,v_s,w_s)
 
       implicit none
-      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_in,phifields_out
- 
+      real(kind=db), allocatable, dimension(:) :: phifields_in,phifields_out
+      real(kind=db), allocatable, dimension(:,:,:) :: u_s,v_s,w_s
       
 #ifdef TWOCOMPONENT
       !$acc wait
@@ -758,7 +772,8 @@ contains
 #endif
 #endif
        !$acc& ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   !$acc& ,hfields_s,phifields_in,phifields_out,auxfields,locauxfields,forces)
+	   !$acc& ,phifields_in,phifields_out,auxfields,locauxfields,forces &
+	   !$acc& ,u_s,v_s,w_s)
        call update_phifields_kernel<<<dimGrid, dimBlock>>>(flop,nx,ny,nz,coords,isfluid &
 #ifdef TWOCOMPONENT           
        ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
@@ -767,7 +782,8 @@ contains
 #endif   
 #endif   
        ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_s,phifields_in,phifields_out,auxfields,locauxfields,forces)
+	   ,phifields_in,phifields_out,auxfields,locauxfields,forces &
+	   ,u_s,v_s,w_s)
 !$acc end host_data
       istat = cudaDeviceSynchronize
       istat = cudaGetLastError()
@@ -783,17 +799,21 @@ contains
       
    endsubroutine update_phifields 
    
-   subroutine LB_int_boundary_cuda(hfields_in,hfields_out &
+   subroutine LB_int_boundary_cuda( &
 #ifdef TWOCOMPONENT	       
-     ,phifields_s &
+     phifields_s, &
 #endif     
-     )
+     press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
+     ,press_out,u_out,v_out,w_out,pxx_out,pyy_out,pzz_out,pxy_out,pxz_out,pyz_out)
 
       implicit none
-      real(kind=db), allocatable, dimension(:) :: hfields_in,hfields_out
+      
 #ifdef TWOCOMPONENT	       
       real(kind=db), allocatable, dimension(:) :: phifields_s
 #endif     
+      real(kind=db), allocatable, dimension(:,:,:) :: &
+       press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
+      ,press_out,u_out,v_out,w_out,pxx_out,pyy_out,pzz_out,pxy_out,pxz_out,pyz_out
       
 !      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
       !$acc wait
@@ -813,7 +833,9 @@ contains
 #endif
 #endif   
        !$acc& ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-       !$acc& ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+       !$acc& ,auxfields,locauxfields,forces &
+       !$acc& ,press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
+       !$acc& ,press_out,u_out,v_out,w_out,pxx_out,pyy_out,pzz_out,pxy_out,pxz_out,pyz_out)
       call LB_int_boundary_kernel<<<dimGrid,dimBlock>>>(flip,flop,nx,ny,nz,coords,isfluid &    
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
@@ -828,7 +850,9 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+	   ,auxfields,locauxfields,forces &
+	   ,press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
+       ,press_out,u_out,v_out,w_out,pxx_out,pyy_out,pzz_out,pxy_out,pxz_out,pyz_out)
 !$acc end host_data
       istat = cudaDeviceSynchronize
       istat = cudaGetLastError()
@@ -842,11 +866,13 @@ contains
       
    end subroutine LB_int_boundary_cuda
    
-   subroutine PHI_int_boundary_cuda(hfields_s,phifields_s)
+   subroutine PHI_int_boundary_cuda(phifields_s, &
+    press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s)
 
       implicit none
-      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
- 
+      real(kind=db), allocatable, dimension(:) :: phifields_s
+      real(kind=db), allocatable, dimension(:,:,:) :: &
+       press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s 
       
 #ifdef TWOCOMPONENT
       !$acc wait
@@ -861,7 +887,8 @@ contains
 	   !$acc& ,mu_max,Ks &
 #endif
        !$acc& ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   !$acc& ,hfields_s,phifields_s,auxfields,locauxfields,forces)
+	   !$acc& ,phifields_s,auxfields,locauxfields,forces &
+	   !$acc& ,press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s)
        call PHI_int_boundary_kernel<<<dimGrid, dimBlock>>>(flop,nx,ny,nz,coords,isfluid &
        ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
 #ifdef WETTABILITY
@@ -871,7 +898,8 @@ contains
 	   ,mu_max,Ks &
 #endif      
        ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_s,phifields_s,auxfields,locauxfields,forces)
+	   ,phifields_s,auxfields,locauxfields,forces &
+	   ,press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s)
 !$acc end host_data
       istat = cudaDeviceSynchronize
       istat = cudaGetLastError()
@@ -887,10 +915,13 @@ contains
       
    endsubroutine PHI_int_boundary_cuda 
    
-   subroutine phi_sum_count_cuda(hfields_s,phifields_s)
+   subroutine phi_sum_count_cuda(phifields_s, &
+    press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s)
 
       implicit none
-      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
+      real(kind=db), allocatable, dimension(:) :: phifields_s
+      real(kind=db), allocatable, dimension(:,:,:) :: &
+       press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s 
  
       
 #ifdef TWOCOMPONENT
@@ -900,11 +931,13 @@ contains
 !$acc host_data use_device(flop,nx,ny,nz,coords,isfluid &
        !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
        !$acc& ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields &
-	   !$acc& ,hfields_s,phifields_s,auxfields,locauxfields,global_phi_sum,global_count)
+	   !$acc& ,phifields_s,auxfields,locauxfields,press_s,u_s,v_s,w_s &
+	   !$acc& ,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s,global_phi_sum,global_count)
        call phi_sum_count_kernel<<<dimGrid, dimBlock>>>(flop,nx,ny,nz,coords,isfluid &
        ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
        ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields &
-	   ,hfields_s,phifields_s,auxfields,locauxfields,global_phi_sum,global_count)
+	   ,phifields_s,auxfields,locauxfields &
+	   ,press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s,global_phi_sum,global_count)
 !$acc end host_data
       istat = cudaDeviceSynchronize
       istat = cudaGetLastError()
@@ -920,11 +953,13 @@ contains
       
    endsubroutine phi_sum_count_cuda 
   
-  subroutine apply_lagrangian_phi_cuda(hfields_s,phifields_s)
+  subroutine apply_lagrangian_phi_cuda(phifields_s, &
+   press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s)
 
       implicit none
-      real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
- 
+      real(kind=db), allocatable, dimension(:) :: phifields_s
+      real(kind=db), allocatable, dimension(:,:,:) :: &
+       press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s 
       
 #ifdef TWOCOMPONENT
       !$acc wait
@@ -933,11 +968,13 @@ contains
 !$acc host_data use_device(flop,nx,ny,nz,coords,isfluid &
        !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
        !$acc& ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields &
-	   !$acc& ,hfields_s,phifields_s,auxfields,locauxfields,corr)
+	   !$acc& ,phifields_s,auxfields,locauxfields,press_s,u_s &
+	   !$acc& ,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s,corr)
        call apply_lagrangian_phi_kernel<<<dimGrid, dimBlock>>>(flop,nx,ny,nz,coords,isfluid &
        ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
        ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields &
-	   ,hfields_s,phifields_s,auxfields,locauxfields,corr)
+	   ,phifields_s,auxfields,locauxfields &
+	   ,press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s,corr)
 !$acc end host_data
       istat = cudaDeviceSynchronize
       istat = cudaGetLastError()

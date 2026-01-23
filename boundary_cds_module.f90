@@ -13,18 +13,22 @@ module bcs3D
 
 contains
    !***************************************************
-   subroutine bcs_mesoscopic_hfields(hfields_in,hfields_out &
+   subroutine bcs_mesoscopic_hfields( &
 #ifdef TWOCOMPONENT	    
-   ,phifields_s &
+   phifields_s, &
 #endif
-   )
+   press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
+   ,press_out,u_out,v_out,w_out,pxx_out,pyy_out,pzz_out,pxy_out,pxz_out,pyz_out)
 
      implicit none
-     real(kind=db), allocatable, dimension(:) :: hfields_in,hfields_out
+     
 #ifdef TWOCOMPONENT	       
      real(kind=db), allocatable, dimension(:) :: phifields_s
 #endif
-
+     real(kind=db), allocatable, dimension(:,:,:) :: &
+       press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
+      ,press_out,u_out,v_out,w_out,pxx_out,pyy_out,pzz_out,pxy_out,pxz_out,pyz_out
+      
      integer :: subchords(3)
      integer :: ii,jj,kk,l,lopp,iii,jjj,kkk
  	 real(kind=db) :: feq, fneq1,presstmp,utmp,vtmp,wtmp,rhophi_loc,fpost
@@ -41,18 +45,20 @@ contains
 	 logical :: found
 #endif
      integer :: xblock,yblock,zblock,myblock
-     real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
+     real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
      real(kind=db) :: opress,ou,ov,ow,opxx,opyy,opzz,opxy,opxz,opyz
 
 
 
 #if defined(INTERNAL_OBSTACLES)
 
-     call LB_int_boundary_cuda(hfields_in,hfields_out &
+     call LB_int_boundary_cuda( &
 #ifdef TWOCOMPONENT	       
-     ,phifields_s &
+     phifields_s, &
 #endif     
-     )
+     press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
+     ,press_out,u_out,v_out,w_out,pxx_out,pyy_out,pzz_out,pxy_out,pxz_out,pyz_out)
+     
      if(openbc==0)return
 !*****************************************
 
@@ -61,13 +67,13 @@ contains
        subchords(1)=(gi-1)/nx
 	   if(subchords(1)==coords(1))then
 #ifdef ACCNOKERNELS
-		 !$acc parallel loop collapse(2) independent present(hfields_in,hfields_out &
+		 !$acc parallel loop collapse(2) independent present(press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif		 
 		 !$acc& ) private(i,j,k,l,gi,gj,gk,ii,jj,kk,xblock,yblock,zblock,myblock)
 #else
-		 !$acc kernels present(hfields_in,hfields_out &
+		 !$acc kernels present(press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif			 
@@ -93,39 +99,25 @@ contains
                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
 				 
-				 press=hfields_in(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 u=hfields_in(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
-				 v=hfields_in(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 w=hfields_in(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pxx=hfields_in(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pyy=hfields_in(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pzz=hfields_in(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pxy=hfields_in(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pxz=hfields_in(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pyz=hfields_in(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxx=pxx_in(i,j,k)
+				 pyy=pyy_in(i,j,k)
+				 pzz=pzz_in(i,j,k)
+				 pxy=pxy_in(i,j,k)
+				 pxz=pxz_in(i,j,k)
+				 pyz=pyz_in(i,j,k)
 				 
-				 opress=hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 ou=hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 ov=hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 ow=hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opxx=hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opyy=hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opzz=hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opxy=hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opxz=hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opyz=hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 				 
 				 presstmp=press
 				 utmp=0.0_db !
 				 vtmp=0.0_db !
 				 wtmp=0.0_db !
 				 
-	             pxx=pxx - cssq*press - u*u 
-	             pyy=pyy - cssq*press - v*v 
-	             pzz=pzz - cssq*press - w*w 
-	             pxy=pxy - u*v
-	             pxz=pxz - u*w
-	             pyz=pyz - v*w
+	             pxx=pxx - cssq*press_in(i,j,k) - u_in(i,j,k)*u_in(i,j,k) 
+	             pyy=pyy - cssq*press_in(i,j,k) - v_in(i,j,k)*v_in(i,j,k) 
+	             pzz=pzz - cssq*press_in(i,j,k) - w_in(i,j,k)*w_in(i,j,k) 
+	             pxy=pxy - u_in(i,j,k)*v_in(i,j,k)
+	             pxz=pxz - u_in(i,j,k)*w_in(i,j,k)
+	             pyz=pyz - v_in(i,j,k)*w_in(i,j,k)
 
 #ifdef TWOCOMPONENT	  
                  phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
@@ -156,7 +148,7 @@ contains
 		           jjj=j+ey(lopp)
 		           kkk=k+ez(lopp)
 		           if(isfluid(iii,jjj,kkk).ne.0) cycle 
-		           feq=p(l)*(press)
+		           feq=p(l)*press_in(i,j,k)
 		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
@@ -165,16 +157,16 @@ contains
                    ! + dey(l)*forcey &
                    ! + dez(l)*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
-		           opress=opress - fpost
-		           ou=ou - fpost*dex(l)
-		           ov=ov - fpost*dey(l)
-		           ow=ow - fpost*dez(l)
-		           opxx=opxx - fpost*dex(l)*dex(l)
-                   opyy=opyy - fpost*dey(l)*dey(l)
-                   opzz=opzz - fpost*dez(l)*dez(l)
-                   opxy=opxy - fpost*dex(l)*dey(l)
-                   opxz=opxz - fpost*dex(l)*dez(l)
-                   opyz=opyz - fpost*dey(l)*dez(l)	
+		           press_out(i,j,k)=press_out(i,j,k) - fpost
+		           u_out(i,j,k)=u_out(i,j,k) - fpost*dex(l)
+		           v_out(i,j,k)=v_out(i,j,k) - fpost*dey(l)
+		           w_out(i,j,k)=w_out(i,j,k) - fpost*dez(l)
+		           pxx_out(i,j,k)=pxx_out(i,j,k) - fpost*dex(l)*dex(l)
+                   pyy_out(i,j,k)=pyy_out(i,j,k) - fpost*dey(l)*dey(l)
+                   pzz_out(i,j,k)=pzz_out(i,j,k) - fpost*dez(l)*dez(l)
+                   pxy_out(i,j,k)=pxy_out(i,j,k) - fpost*dex(l)*dey(l)
+                   pxz_out(i,j,k)=pxz_out(i,j,k) - fpost*dex(l)*dez(l)
+                   pyz_out(i,j,k)=pyz_out(i,j,k) - fpost*dey(l)*dez(l)	
 		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))*invcssq
 		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
 		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
@@ -185,28 +177,19 @@ contains
                    ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
                    ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
-		           opress=opress + fpost
-		           ou=ou + fpost*dex(l)
-	       	       ov=ov + fpost*dey(l)
-		           ow=ow + fpost*dez(l)
-		           opxx=opxx + fpost*dex(l)*dex(l)
-                   opyy=opyy + fpost*dey(l)*dey(l)
-                   opzz=opzz + fpost*dez(l)*dez(l)
-                   opxy=opxy + fpost*dex(l)*dey(l)
-                   opxz=opxz + fpost*dex(l)*dez(l)
-                   opyz=opyz + fpost*dey(l)*dez(l)
+		           press_out(i,j,k)=press_out(i,j,k) + fpost
+		           u_out(i,j,k)=u_out(i,j,k) + fpost*dex(l)
+	       	       v_out(i,j,k)=v_out(i,j,k) + fpost*dey(l)
+		           w_out(i,j,k)=w_out(i,j,k) + fpost*dez(l)
+		           pxx_out(i,j,k)=pxx_out(i,j,k) + fpost*dex(l)*dex(l)
+                   pyy_out(i,j,k)=pyy_out(i,j,k) + fpost*dey(l)*dey(l)
+                   pzz_out(i,j,k)=pzz_out(i,j,k) + fpost*dez(l)*dez(l)
+                   pxy_out(i,j,k)=pxy_out(i,j,k) + fpost*dex(l)*dey(l)
+                   pxz_out(i,j,k)=pxz_out(i,j,k) + fpost*dex(l)*dez(l)
+                   pyz_out(i,j,k)=pyz_out(i,j,k) + fpost*dey(l)*dez(l)
                  enddo
                  
-                 hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
-	             hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
-	             hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
-	             hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
-	             hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
-	             hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
-	             hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
-	             hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
-	             hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
-	             hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
+           
                  
 			 endif
 	       enddo
@@ -222,13 +205,13 @@ contains
        subchords(1)=(gi-1)/nx
 	   if(subchords(1)==coords(1))then
 #ifdef ACCNOKERNELS
-		 !$acc parallel loop collapse(2) independent present(hfields_in,hfields_out &
+		 !$acc parallel loop collapse(2) independent present(press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif			 
 		 !$acc& ) private(i,j,k,l,gi,gj,gk)
 #else
-		 !$acc kernels present(hfields_in,hfields_out &
+		 !$acc kernels present(press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif			 
@@ -252,40 +235,25 @@ contains
                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
 				 
-				 press=hfields_in(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 u=hfields_in(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
-				 v=hfields_in(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 w=hfields_in(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pxx=hfields_in(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pyy=hfields_in(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pzz=hfields_in(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pxy=hfields_in(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pxz=hfields_in(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pyz=hfields_in(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxx=pxx_in(i,j,k)
+				 pyy=pyy_in(i,j,k)
+				 pzz=pzz_in(i,j,k)
+				 pxy=pxy_in(i,j,k)
+				 pxz=pxz_in(i,j,k)
+				 pyz=pyz_in(i,j,k)
 				 
-				 opress=hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 ou=hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 ov=hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 ow=hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opxx=hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opyy=hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opzz=hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opxy=hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opxz=hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opyz=hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 				 
 				 presstmp=press
 				 utmp=0.0_db !
 				 vtmp=0.0_db !
 				 wtmp=0.0_db !
 				 
-	             pxx=pxx - cssq*press - u*u 
-	             pyy=pyy - cssq*press - v*v 
-	             pzz=pzz - cssq*press - w*w 
-	             pxy=pxy - u*v
-	             pxz=pxz - u*w
-	             pyz=pyz - v*w
-
+	             pxx=pxx - cssq*press_in(i,j,k) - u_in(i,j,k)*u_in(i,j,k) 
+	             pyy=pyy - cssq*press_in(i,j,k) - v_in(i,j,k)*v_in(i,j,k) 
+	             pzz=pzz - cssq*press_in(i,j,k) - w_in(i,j,k)*w_in(i,j,k) 
+	             pxy=pxy - u_in(i,j,k)*v_in(i,j,k)
+	             pxz=pxz - u_in(i,j,k)*w_in(i,j,k)
+	             pyz=pyz - v_in(i,j,k)*w_in(i,j,k)
 #ifdef TWOCOMPONENT	 
                  phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
 #endif	           
@@ -315,7 +283,7 @@ contains
 		           jjj=j+ey(lopp)
 		           kkk=k+ez(lopp)
 		           if(isfluid(iii,jjj,kkk).ne.0) cycle 
-		           feq=p(l)*(press)
+		           feq=p(l)*press_in(i,j,k)
 		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
@@ -324,16 +292,16 @@ contains
                    ! + dey(l)*forcey &
                    ! + dez(l)*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
-		           opress=opress - fpost
-		           ou=ou - fpost*dex(l)
-		           ov=ov - fpost*dey(l)
-		           ow=ow - fpost*dez(l)
-		           opxx=opxx - fpost*dex(l)*dex(l)
-                   opyy=opyy - fpost*dey(l)*dey(l)
-                   opzz=opzz - fpost*dez(l)*dez(l)
-                   opxy=opxy - fpost*dex(l)*dey(l)
-                   opxz=opxz - fpost*dex(l)*dez(l)
-                   opyz=opyz - fpost*dey(l)*dez(l)	
+		           press_out(i,j,k)=press_out(i,j,k) - fpost
+		           u_out(i,j,k)=u_out(i,j,k) - fpost*dex(l)
+		           v_out(i,j,k)=v_out(i,j,k) - fpost*dey(l)
+		           w_out(i,j,k)=w_out(i,j,k) - fpost*dez(l)
+		           pxx_out(i,j,k)=pxx_out(i,j,k) - fpost*dex(l)*dex(l)
+                   pyy_out(i,j,k)=pyy_out(i,j,k) - fpost*dey(l)*dey(l)
+                   pzz_out(i,j,k)=pzz_out(i,j,k) - fpost*dez(l)*dez(l)
+                   pxy_out(i,j,k)=pxy_out(i,j,k) - fpost*dex(l)*dey(l)
+                   pxz_out(i,j,k)=pxz_out(i,j,k) - fpost*dex(l)*dez(l)
+                   pyz_out(i,j,k)=pyz_out(i,j,k) - fpost*dey(l)*dez(l)	
 		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))*invcssq
 		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
 		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
@@ -344,28 +312,19 @@ contains
                    ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
                    ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
-		           opress=opress + fpost
-		           ou=ou + fpost*dex(l)
-	       	       ov=ov + fpost*dey(l)
-		           ow=ow + fpost*dez(l)
-		           opxx=opxx + fpost*dex(l)*dex(l)
-                   opyy=opyy + fpost*dey(l)*dey(l)
-                   opzz=opzz + fpost*dez(l)*dez(l)
-                   opxy=opxy + fpost*dex(l)*dey(l)
-                   opxz=opxz + fpost*dex(l)*dez(l)
-                   opyz=opyz + fpost*dey(l)*dez(l)
+		           press_out(i,j,k)=press_out(i,j,k) + fpost
+		           u_out(i,j,k)=u_out(i,j,k) + fpost*dex(l)
+	       	       v_out(i,j,k)=v_out(i,j,k) + fpost*dey(l)
+		           w_out(i,j,k)=w_out(i,j,k) + fpost*dez(l)
+		           pxx_out(i,j,k)=pxx_out(i,j,k) + fpost*dex(l)*dex(l)
+                   pyy_out(i,j,k)=pyy_out(i,j,k) + fpost*dey(l)*dey(l)
+                   pzz_out(i,j,k)=pzz_out(i,j,k) + fpost*dez(l)*dez(l)
+                   pxy_out(i,j,k)=pxy_out(i,j,k) + fpost*dex(l)*dey(l)
+                   pxz_out(i,j,k)=pxz_out(i,j,k) + fpost*dex(l)*dez(l)
+                   pyz_out(i,j,k)=pyz_out(i,j,k) + fpost*dey(l)*dez(l)
                  enddo
                  
-                 hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
-	             hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
-	             hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
-	             hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
-	             hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
-	             hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
-	             hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
-	             hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
-	             hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
-	             hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
+              
                  
 			 endif
 	       enddo
@@ -383,13 +342,13 @@ contains
        subchords(2)=(gj-1)/ny
 	   if(subchords(2)==coords(2))then
 #ifdef ACCNOKERNELS
-	     !$acc parallel loop collapse(2) independent present(hfields_in,hfields_out &
+	     !$acc parallel loop collapse(2) independent present(press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif		
 	     !$acc& )     
 #else
-	     !$acc kernels present(hfields_in,hfields_out &
+	     !$acc kernels present(press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif		     
@@ -413,39 +372,25 @@ contains
                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
 				 
-				 press=hfields_in(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 u=hfields_in(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
-				 v=hfields_in(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 w=hfields_in(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pxx=hfields_in(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pyy=hfields_in(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pzz=hfields_in(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pxy=hfields_in(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pxz=hfields_in(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pyz=hfields_in(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxx=pxx_in(i,j,k)
+				 pyy=pyy_in(i,j,k)
+				 pzz=pzz_in(i,j,k)
+				 pxy=pxy_in(i,j,k)
+				 pxz=pxz_in(i,j,k)
+				 pyz=pyz_in(i,j,k)
 				 
-				 opress=hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 ou=hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 ov=hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 ow=hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opxx=hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opyy=hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opzz=hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opxy=hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opxz=hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opyz=hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 				 
 				 presstmp=press
 				 utmp=0.0_db !
 				 vtmp=0.0_db !
 				 wtmp=0.0_db !
 				 
-	             pxx=pxx - cssq*press - u*u 
-	             pyy=pyy - cssq*press - v*v 
-	             pzz=pzz - cssq*press - w*w 
-	             pxy=pxy - u*v
-	             pxz=pxz - u*w
-	             pyz=pyz - v*w
+	             pxx=pxx - cssq*press_in(i,j,k) - u_in(i,j,k)*u_in(i,j,k) 
+	             pyy=pyy - cssq*press_in(i,j,k) - v_in(i,j,k)*v_in(i,j,k) 
+	             pzz=pzz - cssq*press_in(i,j,k) - w_in(i,j,k)*w_in(i,j,k) 
+	             pxy=pxy - u_in(i,j,k)*v_in(i,j,k)
+	             pxz=pxz - u_in(i,j,k)*w_in(i,j,k)
+	             pyz=pyz - v_in(i,j,k)*w_in(i,j,k)
 
 #ifdef TWOCOMPONENT	 
                  phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
@@ -476,7 +421,7 @@ contains
 		           jjj=j+ey(lopp)
 		           kkk=k+ez(lopp)
 		           if(isfluid(iii,jjj,kkk).ne.0) cycle 
-		           feq=p(l)*(press)
+		           feq=p(l)*press_in(i,j,k)
 		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
@@ -485,16 +430,16 @@ contains
                    ! + dey(l)*forcey &
                    ! + dez(l)*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
-		           opress=opress - fpost
-		           ou=ou - fpost*dex(l)
-		           ov=ov - fpost*dey(l)
-		           ow=ow - fpost*dez(l)
-		           opxx=opxx - fpost*dex(l)*dex(l)
-                   opyy=opyy - fpost*dey(l)*dey(l)
-                   opzz=opzz - fpost*dez(l)*dez(l)
-                   opxy=opxy - fpost*dex(l)*dey(l)
-                   opxz=opxz - fpost*dex(l)*dez(l)
-                   opyz=opyz - fpost*dey(l)*dez(l)	
+		           press_out(i,j,k)=press_out(i,j,k) - fpost
+		           u_out(i,j,k)=u_out(i,j,k) - fpost*dex(l)
+		           v_out(i,j,k)=v_out(i,j,k) - fpost*dey(l)
+		           w_out(i,j,k)=w_out(i,j,k) - fpost*dez(l)
+		           pxx_out(i,j,k)=pxx_out(i,j,k) - fpost*dex(l)*dex(l)
+                   pyy_out(i,j,k)=pyy_out(i,j,k) - fpost*dey(l)*dey(l)
+                   pzz_out(i,j,k)=pzz_out(i,j,k) - fpost*dez(l)*dez(l)
+                   pxy_out(i,j,k)=pxy_out(i,j,k) - fpost*dex(l)*dey(l)
+                   pxz_out(i,j,k)=pxz_out(i,j,k) - fpost*dex(l)*dez(l)
+                   pyz_out(i,j,k)=pyz_out(i,j,k) - fpost*dey(l)*dez(l)	
 		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))*invcssq
 		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
 		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
@@ -505,28 +450,19 @@ contains
                    ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
                    ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
-		           opress=opress + fpost
-		           ou=ou + fpost*dex(l)
-	       	       ov=ov + fpost*dey(l)
-		           ow=ow + fpost*dez(l)
-		           opxx=opxx + fpost*dex(l)*dex(l)
-                   opyy=opyy + fpost*dey(l)*dey(l)
-                   opzz=opzz + fpost*dez(l)*dez(l)
-                   opxy=opxy + fpost*dex(l)*dey(l)
-                   opxz=opxz + fpost*dex(l)*dez(l)
-                   opyz=opyz + fpost*dey(l)*dez(l)
+		           press_out(i,j,k)=press_out(i,j,k) + fpost
+		           u_out(i,j,k)=u_out(i,j,k) + fpost*dex(l)
+	       	       v_out(i,j,k)=v_out(i,j,k) + fpost*dey(l)
+		           w_out(i,j,k)=w_out(i,j,k) + fpost*dez(l)
+		           pxx_out(i,j,k)=pxx_out(i,j,k) + fpost*dex(l)*dex(l)
+                   pyy_out(i,j,k)=pyy_out(i,j,k) + fpost*dey(l)*dey(l)
+                   pzz_out(i,j,k)=pzz_out(i,j,k) + fpost*dez(l)*dez(l)
+                   pxy_out(i,j,k)=pxy_out(i,j,k) + fpost*dex(l)*dey(l)
+                   pxz_out(i,j,k)=pxz_out(i,j,k) + fpost*dex(l)*dez(l)
+                   pyz_out(i,j,k)=pyz_out(i,j,k) + fpost*dey(l)*dez(l)
                  enddo
                  
-                 hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
-	             hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
-	             hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
-	             hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
-	             hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
-	             hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
-	             hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
-	             hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
-	             hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
-	             hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
+            
                  
 			 endif
 	       enddo
@@ -542,13 +478,13 @@ contains
        subchords(2)=(gj-1)/ny
 	   if(subchords(2)==coords(2))then
 #ifdef ACCNOKERNELS
-	     !$acc parallel loop collapse(2) independent present(hfields_in,hfields_out &
+	     !$acc parallel loop collapse(2) independent present(press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif		     
          !$acc& )
 #else
-	     !$acc kernels present(hfields_in,hfields_out &
+	     !$acc kernels present(press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif		     
@@ -572,39 +508,25 @@ contains
                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
 				 
-				 press=hfields_in(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 u=hfields_in(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
-				 v=hfields_in(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 w=hfields_in(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pxx=hfields_in(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pyy=hfields_in(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pzz=hfields_in(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pxy=hfields_in(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pxz=hfields_in(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pyz=hfields_in(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxx=pxx_in(i,j,k)
+				 pyy=pyy_in(i,j,k)
+				 pzz=pzz_in(i,j,k)
+				 pxy=pxy_in(i,j,k)
+				 pxz=pxz_in(i,j,k)
+				 pyz=pyz_in(i,j,k)
 				 
-				 opress=hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 ou=hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 ov=hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 ow=hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opxx=hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opyy=hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opzz=hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opxy=hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opxz=hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opyz=hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 				 
 				 presstmp=press
 				 utmp=0.0_db !
 				 vtmp=0.0_db !
 				 wtmp=0.0_db !
 				 
-	             pxx=pxx - cssq*press - u*u 
-	             pyy=pyy - cssq*press - v*v 
-	             pzz=pzz - cssq*press - w*w 
-	             pxy=pxy - u*v
-	             pxz=pxz - u*w
-	             pyz=pyz - v*w
+	             pxx=pxx - cssq*press_in(i,j,k) - u_in(i,j,k)*u_in(i,j,k) 
+	             pyy=pyy - cssq*press_in(i,j,k) - v_in(i,j,k)*v_in(i,j,k) 
+	             pzz=pzz - cssq*press_in(i,j,k) - w_in(i,j,k)*w_in(i,j,k) 
+	             pxy=pxy - u_in(i,j,k)*v_in(i,j,k)
+	             pxz=pxz - u_in(i,j,k)*w_in(i,j,k)
+	             pyz=pyz - v_in(i,j,k)*w_in(i,j,k)
 	             
 #ifdef TWOCOMPONENT	 
                  phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
@@ -635,7 +557,7 @@ contains
 		           jjj=j+ey(lopp)
 		           kkk=k+ez(lopp)
 		           if(isfluid(iii,jjj,kkk).ne.0) cycle 
-		           feq=p(l)*(press)
+		           feq=p(l)*press_in(i,j,k)
 		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
@@ -644,16 +566,16 @@ contains
                    ! + dey(l)*forcey &
                    ! + dez(l)*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
-		           opress=opress - fpost
-		           ou=ou - fpost*dex(l)
-		           ov=ov - fpost*dey(l)
-		           ow=ow - fpost*dez(l)
-		           opxx=opxx - fpost*dex(l)*dex(l)
-                   opyy=opyy - fpost*dey(l)*dey(l)
-                   opzz=opzz - fpost*dez(l)*dez(l)
-                   opxy=opxy - fpost*dex(l)*dey(l)
-                   opxz=opxz - fpost*dex(l)*dez(l)
-                   opyz=opyz - fpost*dey(l)*dez(l)	
+		           press_out(i,j,k)=press_out(i,j,k) - fpost
+		           u_out(i,j,k)=u_out(i,j,k) - fpost*dex(l)
+		           v_out(i,j,k)=v_out(i,j,k) - fpost*dey(l)
+		           w_out(i,j,k)=w_out(i,j,k) - fpost*dez(l)
+		           pxx_out(i,j,k)=pxx_out(i,j,k) - fpost*dex(l)*dex(l)
+                   pyy_out(i,j,k)=pyy_out(i,j,k) - fpost*dey(l)*dey(l)
+                   pzz_out(i,j,k)=pzz_out(i,j,k) - fpost*dez(l)*dez(l)
+                   pxy_out(i,j,k)=pxy_out(i,j,k) - fpost*dex(l)*dey(l)
+                   pxz_out(i,j,k)=pxz_out(i,j,k) - fpost*dex(l)*dez(l)
+                   pyz_out(i,j,k)=pyz_out(i,j,k) - fpost*dey(l)*dez(l)	
 		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))*invcssq
 		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
 		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
@@ -664,28 +586,19 @@ contains
                    ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
                    ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
-		           opress=opress + fpost
-		           ou=ou + fpost*dex(l)
-	       	       ov=ov + fpost*dey(l)
-		           ow=ow + fpost*dez(l)
-		           opxx=opxx + fpost*dex(l)*dex(l)
-                   opyy=opyy + fpost*dey(l)*dey(l)
-                   opzz=opzz + fpost*dez(l)*dez(l)
-                   opxy=opxy + fpost*dex(l)*dey(l)
-                   opxz=opxz + fpost*dex(l)*dez(l)
-                   opyz=opyz + fpost*dey(l)*dez(l)
+		           press_out(i,j,k)=press_out(i,j,k) + fpost
+		           u_out(i,j,k)=u_out(i,j,k) + fpost*dex(l)
+	       	       v_out(i,j,k)=v_out(i,j,k) + fpost*dey(l)
+		           w_out(i,j,k)=w_out(i,j,k) + fpost*dez(l)
+		           pxx_out(i,j,k)=pxx_out(i,j,k) + fpost*dex(l)*dex(l)
+                   pyy_out(i,j,k)=pyy_out(i,j,k) + fpost*dey(l)*dey(l)
+                   pzz_out(i,j,k)=pzz_out(i,j,k) + fpost*dez(l)*dez(l)
+                   pxy_out(i,j,k)=pxy_out(i,j,k) + fpost*dex(l)*dey(l)
+                   pxz_out(i,j,k)=pxz_out(i,j,k) + fpost*dex(l)*dez(l)
+                   pyz_out(i,j,k)=pyz_out(i,j,k) + fpost*dey(l)*dez(l)
                  enddo
                  
-                 hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
-	             hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
-	             hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
-	             hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
-	             hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
-	             hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
-	             hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
-	             hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
-	             hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
-	             hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
+           
                  
 			 endif
 	       enddo
@@ -703,13 +616,13 @@ contains
        subchords(3)=(gk-1)/nz
 	   if(subchords(3)==coords(3))then
 #ifdef ACCNOKERNELS
-	     !$acc parallel loop collapse(2) independent present(hfields_in,hfields_out &
+	     !$acc parallel loop collapse(2) independent present(press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif		     
 	     !$acc& ) private(i,j,k,l,gi,gj,gk)
 #else
-	     !$acc kernels present(hfields_in,hfields_out &
+	     !$acc kernels present(press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif		     
@@ -733,39 +646,25 @@ contains
                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
 				 
-				 press=hfields_in(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 u=hfields_in(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
-				 v=hfields_in(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 w=hfields_in(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pxx=hfields_in(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pyy=hfields_in(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pzz=hfields_in(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pxy=hfields_in(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pxz=hfields_in(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pyz=hfields_in(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxx=pxx_in(i,j,k)
+				 pyy=pyy_in(i,j,k)
+				 pzz=pzz_in(i,j,k)
+				 pxy=pxy_in(i,j,k)
+				 pxz=pxz_in(i,j,k)
+				 pyz=pyz_in(i,j,k)
 				 
-				 opress=hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 ou=hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 ov=hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 ow=hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opxx=hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opyy=hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opzz=hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opxy=hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opxz=hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opyz=hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 				 
 				 presstmp=press
 				 utmp=0.0_db !
 				 vtmp=0.0_db !
 				 wtmp=0.0_db !
 				 
-	             pxx=pxx - cssq*press - u*u 
-	             pyy=pyy - cssq*press - v*v 
-	             pzz=pzz - cssq*press - w*w 
-	             pxy=pxy - u*v
-	             pxz=pxz - u*w
-	             pyz=pyz - v*w
+	             pxx=pxx - cssq*press_in(i,j,k) - u_in(i,j,k)*u_in(i,j,k) 
+	             pyy=pyy - cssq*press_in(i,j,k) - v_in(i,j,k)*v_in(i,j,k) 
+	             pzz=pzz - cssq*press_in(i,j,k) - w_in(i,j,k)*w_in(i,j,k) 
+	             pxy=pxy - u_in(i,j,k)*v_in(i,j,k)
+	             pxz=pxz - u_in(i,j,k)*w_in(i,j,k)
+	             pyz=pyz - v_in(i,j,k)*w_in(i,j,k)
 
 #ifdef TWOCOMPONENT	 
                  phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
@@ -796,7 +695,7 @@ contains
 		           jjj=j+ey(lopp)
 		           kkk=k+ez(lopp)
 		           if(isfluid(iii,jjj,kkk).ne.0) cycle 
-		           feq=p(l)*(press)
+		           feq=p(l)*press_in(i,j,k)
 		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
@@ -805,16 +704,16 @@ contains
                    ! + dey(l)*forcey &
                    ! + dez(l)*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
-		           opress=opress - fpost
-		           ou=ou - fpost*dex(l)
-		           ov=ov - fpost*dey(l)
-		           ow=ow - fpost*dez(l)
-		           opxx=opxx - fpost*dex(l)*dex(l)
-                   opyy=opyy - fpost*dey(l)*dey(l)
-                   opzz=opzz - fpost*dez(l)*dez(l)
-                   opxy=opxy - fpost*dex(l)*dey(l)
-                   opxz=opxz - fpost*dex(l)*dez(l)
-                   opyz=opyz - fpost*dey(l)*dez(l)	
+		           press_out(i,j,k)=press_out(i,j,k) - fpost
+		           u_out(i,j,k)=u_out(i,j,k) - fpost*dex(l)
+		           v_out(i,j,k)=v_out(i,j,k) - fpost*dey(l)
+		           w_out(i,j,k)=w_out(i,j,k) - fpost*dez(l)
+		           pxx_out(i,j,k)=pxx_out(i,j,k) - fpost*dex(l)*dex(l)
+                   pyy_out(i,j,k)=pyy_out(i,j,k) - fpost*dey(l)*dey(l)
+                   pzz_out(i,j,k)=pzz_out(i,j,k) - fpost*dez(l)*dez(l)
+                   pxy_out(i,j,k)=pxy_out(i,j,k) - fpost*dex(l)*dey(l)
+                   pxz_out(i,j,k)=pxz_out(i,j,k) - fpost*dex(l)*dez(l)
+                   pyz_out(i,j,k)=pyz_out(i,j,k) - fpost*dey(l)*dez(l)	
 		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))*invcssq
 		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
 		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
@@ -825,28 +724,19 @@ contains
                    ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
                    ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
-		           opress=opress + fpost
-		           ou=ou + fpost*dex(l)
-	       	       ov=ov + fpost*dey(l)
-		           ow=ow + fpost*dez(l)
-		           opxx=opxx + fpost*dex(l)*dex(l)
-                   opyy=opyy + fpost*dey(l)*dey(l)
-                   opzz=opzz + fpost*dez(l)*dez(l)
-                   opxy=opxy + fpost*dex(l)*dey(l)
-                   opxz=opxz + fpost*dex(l)*dez(l)
-                   opyz=opyz + fpost*dey(l)*dez(l)
+		           press_out(i,j,k)=press_out(i,j,k) + fpost
+		           u_out(i,j,k)=u_out(i,j,k) + fpost*dex(l)
+	       	       v_out(i,j,k)=v_out(i,j,k) + fpost*dey(l)
+		           w_out(i,j,k)=w_out(i,j,k) + fpost*dez(l)
+		           pxx_out(i,j,k)=pxx_out(i,j,k) + fpost*dex(l)*dex(l)
+                   pyy_out(i,j,k)=pyy_out(i,j,k) + fpost*dey(l)*dey(l)
+                   pzz_out(i,j,k)=pzz_out(i,j,k) + fpost*dez(l)*dez(l)
+                   pxy_out(i,j,k)=pxy_out(i,j,k) + fpost*dex(l)*dey(l)
+                   pxz_out(i,j,k)=pxz_out(i,j,k) + fpost*dex(l)*dez(l)
+                   pyz_out(i,j,k)=pyz_out(i,j,k) + fpost*dey(l)*dez(l)
                  enddo
                  
-                 hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
-	             hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
-	             hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
-	             hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
-	             hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
-	             hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
-	             hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
-	             hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
-	             hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
-	             hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
+    
                  
 			 endif
 	       enddo
@@ -862,13 +752,13 @@ contains
        subchords(3)=(gk-1)/nz
 	   if(subchords(3)==coords(3))then			   
 #ifdef ACCNOKERNELS
-	     !$acc parallel loop collapse(2) independent present(hfields_in,hfields_out &
+	     !$acc parallel loop collapse(2) independent present(press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif		     
 	     !$acc& ) private(i,j,k,l,gi,gj,gk)
 #else
-	     !$acc kernels present(hfields_in,hfields_out &
+	     !$acc kernels present(press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif		     
@@ -892,39 +782,25 @@ contains
                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
 				 
-				 press=hfields_in(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 u=hfields_in(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
-				 v=hfields_in(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 w=hfields_in(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pxx=hfields_in(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pyy=hfields_in(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pzz=hfields_in(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pxy=hfields_in(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pxz=hfields_in(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 pyz=hfields_in(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+				 pxx=pxx_in(i,j,k)
+				 pyy=pyy_in(i,j,k)
+				 pzz=pzz_in(i,j,k)
+				 pxy=pxy_in(i,j,k)
+				 pxz=pxz_in(i,j,k)
+				 pyz=pyz_in(i,j,k)
 				 
-				 opress=hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 ou=hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 ov=hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 ow=hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opxx=hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opyy=hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opzz=hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opxy=hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opxz=hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-				 opyz=hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
 				 
 				 presstmp=press
 				 utmp=0.0_db !
 				 vtmp=0.0_db !
 				 wtmp=0.0_db !
 				 
-	             pxx=pxx - cssq*press - u*u 
-	             pyy=pyy - cssq*press - v*v 
-	             pzz=pzz - cssq*press - w*w 
-	             pxy=pxy - u*v
-	             pxz=pxz - u*w
-	             pyz=pyz - v*w
+	             pxx=pxx - cssq*press_in(i,j,k) - u_in(i,j,k)*u_in(i,j,k) 
+	             pyy=pyy - cssq*press_in(i,j,k) - v_in(i,j,k)*v_in(i,j,k) 
+	             pzz=pzz - cssq*press_in(i,j,k) - w_in(i,j,k)*w_in(i,j,k) 
+	             pxy=pxy - u_in(i,j,k)*v_in(i,j,k)
+	             pxz=pxz - u_in(i,j,k)*w_in(i,j,k)
+	             pyz=pyz - v_in(i,j,k)*w_in(i,j,k)
 
 #ifdef TWOCOMPONENT	 
                  phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
@@ -956,7 +832,7 @@ contains
 		           jjj=j+ey(lopp)
 		           kkk=k+ez(lopp)
 		           if(isfluid(iii,jjj,kkk).ne.0) cycle 
-		           feq=p(l)*(press)
+		           feq=p(l)*press_in(i,j,k)
 		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
@@ -965,16 +841,16 @@ contains
                    ! + dey(l)*forcey &
                    ! + dez(l)*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
-		           opress=opress - fpost
-		           ou=ou - fpost*dex(l)
-		           ov=ov - fpost*dey(l)
-		           ow=ow - fpost*dez(l)
-		           opxx=opxx - fpost*dex(l)*dex(l)
-                   opyy=opyy - fpost*dey(l)*dey(l)
-                   opzz=opzz - fpost*dez(l)*dez(l)
-                   opxy=opxy - fpost*dex(l)*dey(l)
-                   opxz=opxz - fpost*dex(l)*dez(l)
-                   opyz=opyz - fpost*dey(l)*dez(l)	
+		           press_out(i,j,k)=press_out(i,j,k) - fpost
+		           u_out(i,j,k)=u_out(i,j,k) - fpost*dex(l)
+		           v_out(i,j,k)=v_out(i,j,k) - fpost*dey(l)
+		           w_out(i,j,k)=w_out(i,j,k) - fpost*dez(l)
+		           pxx_out(i,j,k)=pxx_out(i,j,k) - fpost*dex(l)*dex(l)
+                   pyy_out(i,j,k)=pyy_out(i,j,k) - fpost*dey(l)*dey(l)
+                   pzz_out(i,j,k)=pzz_out(i,j,k) - fpost*dez(l)*dez(l)
+                   pxy_out(i,j,k)=pxy_out(i,j,k) - fpost*dex(l)*dey(l)
+                   pxz_out(i,j,k)=pxz_out(i,j,k) - fpost*dex(l)*dez(l)
+                   pyz_out(i,j,k)=pyz_out(i,j,k) - fpost*dey(l)*dez(l)	
 		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))*invcssq
 		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
 		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
@@ -985,28 +861,19 @@ contains
                    ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
                    ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/(cssq*rhophi_loc)
 		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
-		           opress=opress + fpost
-		           ou=ou + fpost*dex(l)
-	       	       ov=ov + fpost*dey(l)
-		           ow=ow + fpost*dez(l)
-		           opxx=opxx + fpost*dex(l)*dex(l)
-                   opyy=opyy + fpost*dey(l)*dey(l)
-                   opzz=opzz + fpost*dez(l)*dez(l)
-                   opxy=opxy + fpost*dex(l)*dey(l)
-                   opxz=opxz + fpost*dex(l)*dez(l)
-                   opyz=opyz + fpost*dey(l)*dez(l)
+		           press_out(i,j,k)=press_out(i,j,k) + fpost
+		           u_out(i,j,k)=u_out(i,j,k) + fpost*dex(l)
+	       	       v_out(i,j,k)=v_out(i,j,k) + fpost*dey(l)
+		           w_out(i,j,k)=w_out(i,j,k) + fpost*dez(l)
+		           pxx_out(i,j,k)=pxx_out(i,j,k) + fpost*dex(l)*dex(l)
+                   pyy_out(i,j,k)=pyy_out(i,j,k) + fpost*dey(l)*dey(l)
+                   pzz_out(i,j,k)=pzz_out(i,j,k) + fpost*dez(l)*dez(l)
+                   pxy_out(i,j,k)=pxy_out(i,j,k) + fpost*dex(l)*dey(l)
+                   pxz_out(i,j,k)=pxz_out(i,j,k) + fpost*dex(l)*dez(l)
+                   pyz_out(i,j,k)=pyz_out(i,j,k) + fpost*dey(l)*dez(l)
                  enddo
                  
-                 hfields_out(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
-	             hfields_out(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
-	             hfields_out(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
-	             hfields_out(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
-	             hfields_out(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
-	             hfields_out(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
-	             hfields_out(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
-	             hfields_out(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
-	             hfields_out(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
-	             hfields_out(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
+     
              
 			 endif
 	       enddo
@@ -1023,11 +890,15 @@ contains
 
    endsubroutine bcs_mesoscopic_hfields
 
-   subroutine bcs_mesoscopic_phifields(hfields_s,phifields_s)
+   subroutine bcs_mesoscopic_phifields(phifields_s, &
+    press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s)
 
      implicit none
-     real(kind=db), allocatable, dimension(:) :: hfields_s,phifields_s
-
+     real(kind=db), allocatable, dimension(:) :: phifields_s
+     
+     real(kind=db), allocatable, dimension(:,:,:) :: &
+       press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s
+     
      integer :: subchords(3)
      integer :: ii,jj,kk,l,lopp
 	 real(kind=db) :: feq, fneq1,utmp,vtmp,wtmp,rhophi_loc,phi_loc
@@ -1045,7 +916,7 @@ contains
 #endif
      integer :: xblock,yblock,zblock,myblock
      integer :: oxblock,oyblock,ozblock,omyblock
-     real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
+     real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
      real(kind=db) :: opress,ou,ov,ow,opxx,opyy,opzz,opxy,opxz,opyz
      integer :: oi,oj,ok
      integer :: iii,jjj,kkk
@@ -1058,7 +929,8 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  phase field bcs3D
 #ifdef TWOCOMPONENT
 
-     call PHI_int_boundary_cuda(hfields_s,phifields_s)
+     call PHI_int_boundary_cuda(phifields_s, &
+      press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s)
 	 
 	 if(openbc==1)then
 	 
@@ -1381,7 +1253,7 @@ contains
        subchords(1)=(gi-1)/nx
 	   if(subchords(1)==coords(1))then
 		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(phifields_s &
-		 !$acc& ,hfields_s) private(i,j,k,l,gi,gj,gk &
+		 !$acc& ,u_s,v_s,w_s) private(i,j,k,l,gi,gj,gk &
 		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,u)  
 	     do k=1,nz
 		   do j=1,ny
@@ -1398,7 +1270,7 @@ contains
              jj=j-yblock*TILE_DIMy+2*TILE_DIMy
              kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
 	         phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
-	         u=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	         u=u_s(i,j,k)
 	         
 			 global_phi_change = global_phi_change + u*phi_loc
 	       enddo
@@ -1409,7 +1281,7 @@ contains
        subchords(1)=(gi-1)/nx
 	   if(subchords(1)==coords(1))then
 		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(phifields_s &
-		 !$acc& ,hfields_s) private(i,j,k,l,gi,gj,gk &
+		 !$acc& ,u_s,v_s,w_s) private(i,j,k,l,gi,gj,gk &
 		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,u)   
 	     do k=1,nz
 		   do j=1,ny
@@ -1426,7 +1298,7 @@ contains
              jj=j-yblock*TILE_DIMy+2*TILE_DIMy
              kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
 	         phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
-	         u=hfields_s(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	         u=u_s(i,j,k)
 			 
 			 global_phi_change = global_phi_change - u*phi_loc
 	       enddo
@@ -1440,7 +1312,7 @@ contains
        subchords(2)=(gj-1)/ny
 	   if(subchords(2)==coords(2))then
 		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(phifields_s &
-		 !$acc& ,hfields_s) private(i,j,k,l,gi,gj,gk &
+		 !$acc& ,u_s,v_s,w_s) private(i,j,k,l,gi,gj,gk &
 		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,v)    
 	     do k=1,nz
 		   do i=1,nx
@@ -1457,7 +1329,7 @@ contains
              jj=j-yblock*TILE_DIMy+2*TILE_DIMy
              kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
 	         phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
-	         v=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	         v=v(i,j,k)
 	         
 			 global_phi_change = global_phi_change + v*phi_loc
 	       enddo
@@ -1469,7 +1341,7 @@ contains
        subchords(2)=(gj-1)/ny
 	   if(subchords(2)==coords(2))then
 		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(phifields_s &
-		 !$acc& ,hfields_s) private(i,j,k,l,gi,gj,gk &
+		 !$acc& ,u_s,v_s,w_s) private(i,j,k,l,gi,gj,gk &
 		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,v)	    
 	     do k=1,nz
 		   do i=1,nx
@@ -1486,7 +1358,7 @@ contains
              jj=j-yblock*TILE_DIMy+2*TILE_DIMy
              kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
 	         phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
-	         v=hfields_s(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	         v=v_s(i,j,k)
 	         
 			 global_phi_change = global_phi_change - v*phi_loc
 	       enddo
@@ -1500,7 +1372,7 @@ contains
        subchords(3)=(gk-1)/nz
 	   if(subchords(3)==coords(3))then
 		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(phifields_s &
-		 !$acc& ,hfields_s) private(i,j,k,l,gi,gj,gk &
+		 !$acc& ,u_s,v_s,w_s) private(i,j,k,l,gi,gj,gk &
 		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,w)  
 	     do j=1,ny
 		   do i=1,nx
@@ -1517,7 +1389,7 @@ contains
              jj=j-yblock*TILE_DIMy+2*TILE_DIMy
              kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
 	         phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
-	         w=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	         w=w_s(i,j,k)
 	         
 			 global_phi_change = global_phi_change + w*phi_loc
 	       enddo
@@ -1531,7 +1403,7 @@ contains
 	   if(subchords(3)==coords(3))then
 
 		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(phifields_s &
-		 !$acc& ,hfields_s) private(i,j,k,l,gi,gj,gk &
+		 !$acc& ,u_s,v_s,w_s) private(i,j,k,l,gi,gj,gk &
 		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,wtmp)
   
 	     do j=1,ny
@@ -1549,7 +1421,7 @@ contains
              jj=j-yblock*TILE_DIMy+2*TILE_DIMy
              kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
 	         phi_loc=phifields_s(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
-	         wtmp=hfields_s(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+	         wtmp=w_s(i,j,k)
 	         
 			 global_phi_change = global_phi_change - wtmp*phi_loc
 	       enddo
@@ -1565,7 +1437,8 @@ contains
 	 call sum_world_float(global_phi_change)
 
         
-        call phi_sum_count_cuda(hfields_s,phifields_s)
+        call phi_sum_count_cuda( &
+         press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s)
         
 		!$acc wait
 		!$acc update host(global_phi_sum,global_count)
@@ -1586,7 +1459,8 @@ contains
 		!$acc wait
 		!$acc update device(corr,global_phi_sum,global_count)
 		
-		call apply_lagrangian_phi_cuda(hfields_s,phifields_s)
+		call apply_lagrangian_phi_cuda(phifields_s, &
+         press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s)
 
 	 endif
 #endif

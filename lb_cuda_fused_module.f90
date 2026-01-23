@@ -30,8 +30,10 @@ contains
        ,mu_max,Ks &
 #endif
 #endif   
-       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
-       hfields_in,hfields_out,auxfields_s,locauxfields_s,forces_s)
+       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+       ,auxfields_s,locauxfields_s,forces_s &
+       ,press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
+       ,press_out,u_out,v_out,w_out,pxx_out,pyy_out,pzz_out,pxy_out,pxz_out,pyz_out)
 
       implicit none
       
@@ -55,16 +57,20 @@ contains
 #endif           
       real(kind=db) :: visc1,omega,fx,fy,fz
       
-      real(kind=db), dimension(ntothfields) :: hfields_in,hfields_out
+      
       
       real(kind=db), dimension(ntotauxfields) :: auxfields_s
       real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
       real(kind=db), dimension(ntotforces) :: forces_s
       
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: &
+       press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in, &
+       press_out,u_out,v_out,w_out,pxx_out,pyy_out,pzz_out,pxy_out,pxz_out,pyz_out
+      
       real(kind=db), shared :: f1(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       real(kind=db), shared :: f2(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       
-      real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
+      real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
       real(kind=db) :: opress,ou,ov,ow,opxx,opyy,opzz,opxy,opxz,opyz,feq,fneq1,f_discr
       real(kind=db) :: mytemp,forcex,forcey,forcez,rhophi_loc,uu,udotc
       
@@ -130,42 +136,22 @@ contains
 				  forcey=forces_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))/rhophi_loc
 				  forcez=forces_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))/rhophi_loc
                   
-                  press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
-                  v=hfields_in(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  w=hfields_in(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pxx=hfields_in(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pyy=hfields_in(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pzz=hfields_in(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pxy=hfields_in(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pxz=hfields_in(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pyz=hfields_in(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+
+                  pxx=pxx_in(i,j,k)
+                  pyy=pyy_in(i,j,k)
+                  pzz=pzz_in(i,j,k)
+                  pxy=pxy_in(i,j,k)
+                  pxz=pxz_in(i,j,k)
+                  pyz=pyz_in(i,j,k)
                   
                   
-#ifdef INTERNAL_OBSTACLES
-                  if(isfluid(i,j,k) == 0)then
-                    forcex=ZERO
-                    forcey=ZERO
-                    forcez=ZERO
-                    press=ZERO
-                    u=ZERO
-                    v=ZERO
-                    w=ZERO
-                    pxx=ZERO
-                    pyy=ZERO
-                    pzz=ZERO
-                    pxy=ZERO
-                    pxz=ZERO
-                    pyz=ZERO
-                  endif
-#endif
                   
 
-!				  uu=HALF*(u*u+v*v+w*w)*invcssq
+!				  uu=HALF*(u_in(i,j,k)*u_in(i,j,k)+v_in(i,j,k)*v_in(i,j,k)+w_in(i,j,k)*w_in(i,j,k))*invcssq
 				  
 !                  do lii=1,nlinks
-!                     udotc=(u*dex(lii) + v*dey(lii)+ w*dez(lii))*invcssq
-!		     feq=p(lii)*(press + (udotc+0.5_db*udotc*udotc - uu))
+!                     udotc=(u_in(i,j,k)*dex(lii) + v_in(i,j,k)*dey(lii)+ w_in(i,j,k)*dez(lii))*invcssq
+!		     feq=p(lii)*(press_in(i,j,k) + (udotc+0.5_db*udotc*udotc - uu))
 !                     !fneq1=(HALF/(cssq*cssq))*( (dex(lii)*dex(lii)-cssq)*pxx &
 !		     ! + (dey(lii)*dey(lii)-cssq)*pyy + (dez(lii)*dez(lii)-cssq)*pzz &
 !	             ! + TWO*(dex(lii)*dey(lii))*pxy + TWO*(dex(lii)*dez(lii))*pxz &
@@ -179,12 +165,12 @@ contains
 !                     pyz=pyz - fpost*(dey(lii)*dez(lii))
 !                  enddo
 
-                  pxx=pxx - cssq*press - u*u 
-                  pyy=pyy - cssq*press - v*v 
-                  pzz=pzz - cssq*press - w*w 
-                  pxy=pxy - u*v
-                  pxz=pxz - u*w
-                  pyz=pyz - v*w
+                  pxx=pxx - cssq*press_in(i,j,k) - u_in(i,j,k)*u_in(i,j,k) 
+                  pyy=pyy - cssq*press_in(i,j,k) - v_in(i,j,k)*v_in(i,j,k) 
+                  pzz=pzz - cssq*press_in(i,j,k) - w_in(i,j,k)*w_in(i,j,k) 
+                  pxy=pxy - u_in(i,j,k)*v_in(i,j,k)
+                  pxz=pxz - u_in(i,j,k)*w_in(i,j,k)
+                  pyz=pyz - v_in(i,j,k)*w_in(i,j,k)
 
 #ifdef TWOCOMPONENT
                   !visc_loc it is used to store the local viscosity
@@ -212,35 +198,35 @@ contains
 #endif
 #endif      
       
-                  !opress=ZERO
-                  ou=ZERO
-                  ov=ZERO
-                  ow=ZERO
-                  opxx=ZERO
-                  opyy=ZERO
-                  opzz=ZERO
-                  opxy=ZERO
-                  opxz=ZERO
-                  opyz=ZERO
+                  !press_out(i,j,k)=ZERO
+                  u_out(i,j,k)=ZERO
+                  v_out(i,j,k)=ZERO
+                  w_out(i,j,k)=ZERO
+                  pxx_out(i,j,k)=ZERO
+                  pyy_out(i,j,k)=ZERO
+                  pzz_out(i,j,k)=ZERO
+                  pxy_out(i,j,k)=ZERO
+                  pxz_out(i,j,k)=ZERO
+                  pyz_out(i,j,k)=ZERO
 !!!!!!!!!!!!!!!!!!!!!!!!!!0
-                  uu=HALF*(u*u+v*v+w*w)*invcssq
+                  uu=HALF*(u_in(i,j,k)*u_in(i,j,k)+v_in(i,j,k)*v_in(i,j,k)+w_in(i,j,k)*w_in(i,j,k))*invcssq
 
-			      feq=p(0)*(press - uu)
+			      feq=p(0)*(press_in(i,j,k) - uu)
 				  fneq1=(HALF*invcssq)*(-pxx-pyy-pzz)
-				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)*invcssq
+				  F_discr = p(0)*(- u_in(i,j,k)*forcex - v_in(i,j,k)*forcey - w_in(i,j,k)*forcez)*invcssq
                   
-                  opress=feq + (1.0_db-omega_loc)*fneq1*p(0) + HALF*(F_discr)
+                  press_out(i,j,k)=feq + (1.0_db-omega_loc)*fneq1*p(0) + HALF*(F_discr)
                   
                   do l=1,nlinks,2
-                     udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
-		             feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
+                     udotc=(u_in(i,j,k)*dex(l) + v_in(i,j,k)*dey(l)+ w_in(i,j,k)*dez(l))*invcssq
+		             feq=p(l)*(press_in(i,j,k) + (udotc+0.5_db*udotc*udotc - uu))
                      fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		              + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                  + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		              + TWO*(dey(l)*dez(l))*pyz)
-		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
-                      + ((dey(l) - v) + udotc * dey(l))*forcey &
-                      + ((dez(l) - w) + udotc * dez(l))*forcez)*invcssq
+		             F_discr = p(l)*(((dex(l) - u_in(i,j,k)) + udotc * dex(l))*forcex &
+                      + ((dey(l) - v_in(i,j,k)) + udotc * dey(l))*forcey &
+                      + ((dez(l) - w_in(i,j,k)) + udotc * dez(l))*forcez)*invcssq
                      lii=li+ex(l)
                      ljj=lj+ey(l)
                      lkk=lk+ez(l)
@@ -249,15 +235,15 @@ contains
                      lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
 		             f1(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l)*fneq1 + HALF*F_discr
 		             
-                     udotc=(u*dex(l+1) + v*dey(l+1)+ w*dez(l+1))*invcssq
-		             feq=p(l+1)*(press + (udotc+0.5_db*udotc*udotc - uu))
+                     udotc=(u_in(i,j,k)*dex(l+1) + v_in(i,j,k)*dey(l+1)+ w_in(i,j,k)*dez(l+1))*invcssq
+		             feq=p(l+1)*(press_in(i,j,k) + (udotc+0.5_db*udotc*udotc - uu))
                      fneq1=(HALF/(cssq*cssq))*( (dex(l+1)*dex(l+1)-cssq)*pxx &
 		              + (dey(l+1)*dey(l+1)-cssq)*pyy + (dez(l+1)*dez(l+1)-cssq)*pzz &
 	                  + TWO*(dex(l+1)*dey(l+1))*pxy + TWO*(dex(l+1)*dez(l+1))*pxz &
 		              + TWO*(dey(l+1)*dez(l+1))*pyz)
-		             F_discr = p(l+1)*(((dex(l+1) - u) + udotc * dex(l+1))*forcex &
-                      + ((dey(l+1) - v) + udotc * dey(l+1))*forcey &
-                      + ((dez(l+1) - w) + udotc * dez(l+1))*forcez)*invcssq
+		             F_discr = p(l+1)*(((dex(l+1) - u_in(i,j,k)) + udotc * dex(l+1))*forcex &
+                      + ((dey(l+1) - v_in(i,j,k)) + udotc * dey(l+1))*forcey &
+                      + ((dez(l+1) - w_in(i,j,k)) + udotc * dez(l+1))*forcez)*invcssq
                      lii=li+ex(l+1)
                      ljj=lj+ey(l+1)
                      lkk=lk+ez(l+1)
@@ -267,27 +253,29 @@ contains
 		             f2(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l+1)*fneq1 + HALF*F_discr
 		             
 		             call syncthreads
-		             opress=opress + f1(li,lj,lk)
-		             ou=ou + f1(li,lj,lk)*dex(l)
-                     ov=ov + f1(li,lj,lk)*dey(l)
-                     ow=ow + f1(li,lj,lk)*dez(l)
-                     opxx=opxx + f1(li,lj,lk)*dex(l)*dex(l)
-                     opyy=opyy + f1(li,lj,lk)*dey(l)*dey(l)
-                     opzz=opzz + f1(li,lj,lk)*dez(l)*dez(l)
-                     opxy=opxy + f1(li,lj,lk)*dex(l)*dey(l)
-                     opxz=opxz + f1(li,lj,lk)*dex(l)*dez(l)
-                     opyz=opyz + f1(li,lj,lk)*dey(l)*dez(l)
+		             if(myblock .eq. intblock)then
+		             press_out(i,j,k)=press_out(i,j,k) + f1(li,lj,lk)
+		             u_out(i,j,k)=u_out(i,j,k) + f1(li,lj,lk)*dex(l)
+                     v_out(i,j,k)=v_out(i,j,k) + f1(li,lj,lk)*dey(l)
+                     w_out(i,j,k)=w_out(i,j,k) + f1(li,lj,lk)*dez(l)
+                     pxx_out(i,j,k)=pxx_out(i,j,k) + f1(li,lj,lk)*dex(l)*dex(l)
+                     pyy_out(i,j,k)=pyy_out(i,j,k) + f1(li,lj,lk)*dey(l)*dey(l)
+                     pzz_out(i,j,k)=pzz_out(i,j,k) + f1(li,lj,lk)*dez(l)*dez(l)
+                     pxy_out(i,j,k)=pxy_out(i,j,k) + f1(li,lj,lk)*dex(l)*dey(l)
+                     pxz_out(i,j,k)=pxz_out(i,j,k) + f1(li,lj,lk)*dex(l)*dez(l)
+                     pyz_out(i,j,k)=pyz_out(i,j,k) + f1(li,lj,lk)*dey(l)*dez(l)
                      
-                     opress=opress + f2(li,lj,lk)
-		             ou=ou + f2(li,lj,lk)*dex(l+1)
-                     ov=ov + f2(li,lj,lk)*dey(l+1)
-                     ow=ow + f2(li,lj,lk)*dez(l+1)
-                     opxx=opxx + f2(li,lj,lk)*dex(l+1)*dex(l+1)
-                     opyy=opyy + f2(li,lj,lk)*dey(l+1)*dey(l+1)
-                     opzz=opzz + f2(li,lj,lk)*dez(l+1)*dez(l+1)
-                     opxy=opxy + f2(li,lj,lk)*dex(l+1)*dey(l+1)
-                     opxz=opxz + f2(li,lj,lk)*dex(l+1)*dez(l+1)
-                     opyz=opyz + f2(li,lj,lk)*dey(l+1)*dez(l+1)
+                     press_out(i,j,k)=press_out(i,j,k) + f2(li,lj,lk)
+		             u_out(i,j,k)=u_out(i,j,k) + f2(li,lj,lk)*dex(l+1)
+                     v_out(i,j,k)=v_out(i,j,k) + f2(li,lj,lk)*dey(l+1)
+                     w_out(i,j,k)=w_out(i,j,k) + f2(li,lj,lk)*dez(l+1)
+                     pxx_out(i,j,k)=pxx_out(i,j,k) + f2(li,lj,lk)*dex(l+1)*dex(l+1)
+                     pyy_out(i,j,k)=pyy_out(i,j,k) + f2(li,lj,lk)*dey(l+1)*dey(l+1)
+                     pzz_out(i,j,k)=pzz_out(i,j,k) + f2(li,lj,lk)*dez(l+1)*dez(l+1)
+                     pxy_out(i,j,k)=pxy_out(i,j,k) + f2(li,lj,lk)*dex(l+1)*dey(l+1)
+                     pxz_out(i,j,k)=pxz_out(i,j,k) + f2(li,lj,lk)*dex(l+1)*dez(l+1)
+                     pyz_out(i,j,k)=pyz_out(i,j,k) + f2(li,lj,lk)*dey(l+1)*dez(l+1)
+                     endif
                      call syncthreads
                      
                   enddo
@@ -296,16 +284,7 @@ contains
                   !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
 	              if(myblock .ne. (blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1) )return
 	                 
-	              hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
-                  hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
-                  hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
-                  hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
-                  hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
-                  hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
-                  hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
-                  hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
-                  hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
-                  hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
+
                   
     endsubroutine fused_LB_kernel2     
 
@@ -323,7 +302,9 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
-       hfields_in,hfields_out,auxfields_s,locauxfields_s,forces_s)
+       auxfields_s,locauxfields_s,forces_s &
+       ,press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
+       ,press_out,u_out,v_out,w_out,pxx_out,pyy_out,pzz_out,pxy_out,pxz_out,pyz_out)
 
       implicit none
       
@@ -347,11 +328,15 @@ contains
 #endif           
       real(kind=db) :: visc1,omega,fx,fy,fz
       
-      real(kind=db), dimension(ntothfields) :: hfields_in,hfields_out
+      
       
       real(kind=db), dimension(ntotauxfields) :: auxfields_s
       real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
       real(kind=db), dimension(ntotforces) :: forces_s
+      
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: &
+       press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in, &
+       press_out,u_out,v_out,w_out,pxx_out,pyy_out,pzz_out,pxy_out,pxz_out,pyz_out
       
       real(kind=db), shared :: f1(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       
@@ -421,42 +406,22 @@ contains
 				  forcey=forces_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))/rhophi_loc
 				  forcez=forces_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))/rhophi_loc
                   
-                  press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
-                  v=hfields_in(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  w=hfields_in(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pxx=hfields_in(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pyy=hfields_in(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pzz=hfields_in(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pxy=hfields_in(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pxz=hfields_in(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-                  pyz=hfields_in(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+                  pxx=pxx_in(i,j,k)
+                  pyy=pyy_in(i,j,k)
+                  pzz=pzz_in(i,j,k)
+                  pxy=pxy_in(i,j,k)
+                  pxz=pxz_in(i,j,k)
+                  pyz=pyz_in(i,j,k)
                   
-                  
-#ifdef INTERNAL_OBSTACLES
-                  if(isfluid(i,j,k) == 0)then
-                    forcex=ZERO
-                    forcey=ZERO
-                    forcez=ZERO
-                    press=ZERO
-                    u=ZERO
-                    v=ZERO
-                    w=ZERO
-                    pxx=ZERO
-                    pyy=ZERO
-                    pzz=ZERO
-                    pxy=ZERO
-                    pxz=ZERO
-                    pyz=ZERO
-                  endif
-#endif
                   
 
-!				  uu=HALF*(u*u+v*v+w*w)*invcssq
+                  
+
+!				  uu=HALF*(u_in(i,j,k)*u_in(i,j,k)+v_in(i,j,k)*v_in(i,j,k)+w_in(i,j,k)*w_in(i,j,k))*invcssq
 				  
 !                  do lii=1,nlinks
-!                     udotc=(u*dex(lii) + v*dey(lii)+ w*dez(lii))*invcssq
-!		     feq=p(lii)*(press + (udotc+0.5_db*udotc*udotc - uu))
+!                     udotc=(u_in(i,j,k)*dex(lii) + v_in(i,j,k)*dey(lii)+ w_in(i,j,k)*dez(lii))*invcssq
+!		     feq=p(lii)*(press_in(i,j,k) + (udotc+0.5_db*udotc*udotc - uu))
 !                     !fneq1=(HALF/(cssq*cssq))*( (dex(lii)*dex(lii)-cssq)*pxx &
 !		     ! + (dey(lii)*dey(lii)-cssq)*pyy + (dez(lii)*dez(lii)-cssq)*pzz &
 !	             ! + TWO*(dex(lii)*dey(lii))*pxy + TWO*(dex(lii)*dez(lii))*pxz &
@@ -470,12 +435,12 @@ contains
 !                     pyz=pyz - fpost*(dey(lii)*dez(lii))
 !                  enddo
 
-                  pxx=pxx - cssq*press - u*u 
-                  pyy=pyy - cssq*press - v*v 
-                  pzz=pzz - cssq*press - w*w 
-                  pxy=pxy - u*v
-                  pxz=pxz - u*w
-                  pyz=pyz - v*w
+                  pxx=pxx - cssq*press_in(i,j,k) - u_in(i,j,k)*u_in(i,j,k) 
+                  pyy=pyy - cssq*press_in(i,j,k) - v_in(i,j,k)*v_in(i,j,k) 
+                  pzz=pzz - cssq*press_in(i,j,k) - w_in(i,j,k)*w_in(i,j,k) 
+                  pxy=pxy - u_in(i,j,k)*v_in(i,j,k)
+                  pxz=pxz - u_in(i,j,k)*w_in(i,j,k)
+                  pyz=pyz - v_in(i,j,k)*w_in(i,j,k)
 
 #ifdef TWOCOMPONENT
                   !visc_loc it is used to store the local viscosity
@@ -503,35 +468,35 @@ contains
 #endif
 #endif      
       
-                  !opress=ZERO
-                  ou=ZERO
-                  ov=ZERO
-                  ow=ZERO
-                  opxx=ZERO
-                  opyy=ZERO
-                  opzz=ZERO
-                  opxy=ZERO
-                  opxz=ZERO
-                  opyz=ZERO
+                  !press_out(i,j,k)=ZERO
+                  u_out(i,j,k)=ZERO
+                  v_out(i,j,k)=ZERO
+                  w_out(i,j,k)=ZERO
+                  pxx_out(i,j,k)=ZERO
+                  pyy_out(i,j,k)=ZERO
+                  pzz_out(i,j,k)=ZERO
+                  pxy_out(i,j,k)=ZERO
+                  pxz_out(i,j,k)=ZERO
+                  pyz_out(i,j,k)=ZERO
 !!!!!!!!!!!!!!!!!!!!!!!!!!0
-                  uu=HALF*(u*u+v*v+w*w)*invcssq
+                  uu=HALF*(u_in(i,j,k)*u_in(i,j,k)+v_in(i,j,k)*v_in(i,j,k)+w_in(i,j,k)*w_in(i,j,k))*invcssq
 
-			      feq=p(0)*(press - uu)
+			      feq=p(0)*(press_in(i,j,k) - uu)
 				  fneq1=(HALF*invcssq)*(-pxx-pyy-pzz)
-				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)*invcssq
+				  F_discr = p(0)*(- u_in(i,j,k)*forcex - v_in(i,j,k)*forcey - w_in(i,j,k)*forcez)*invcssq
                   
-                  opress=feq + (1.0_db-omega_loc)*fneq1*p(0) + HALF*(F_discr)
+                  press_out(i,j,k)=feq + (1.0_db-omega_loc)*fneq1*p(0) + HALF*(F_discr)
                   
                   do l=1,nlinks
-                     udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
-		             feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
+                     udotc=(u_in(i,j,k)*dex(l) + v_in(i,j,k)*dey(l)+ w_in(i,j,k)*dez(l))*invcssq
+		             feq=p(l)*(press_in(i,j,k) + (udotc+0.5_db*udotc*udotc - uu))
                      fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		              + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                  + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		              + TWO*(dey(l)*dez(l))*pyz)
-		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
-                      + ((dey(l) - v) + udotc * dey(l))*forcey &
-                      + ((dez(l) - w) + udotc * dez(l))*forcez)*invcssq
+		             F_discr = p(l)*(((dex(l) - u_in(i,j,k)) + udotc * dex(l))*forcex &
+                      + ((dey(l) - v_in(i,j,k)) + udotc * dey(l))*forcey &
+                      + ((dez(l) - w_in(i,j,k)) + udotc * dez(l))*forcez)*invcssq
                      lii=li+ex(l)
                      ljj=lj+ey(l)
                      lkk=lk+ez(l)
@@ -544,18 +509,18 @@ contains
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*p(l)*fneq1
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,HALF*F_discr
 		             call syncthreads
-		             
-		             opress=opress + f1(li,lj,lk)
-		             ou=ou + f1(li,lj,lk)*dex(l)
-                     ov=ov + f1(li,lj,lk)*dey(l)
-                     ow=ow + f1(li,lj,lk)*dez(l)
-                     opxx=opxx + f1(li,lj,lk)*dex(l)*dex(l)
-                     opyy=opyy + f1(li,lj,lk)*dey(l)*dey(l)
-                     opzz=opzz + f1(li,lj,lk)*dez(l)*dez(l)
-                     opxy=opxy + f1(li,lj,lk)*dex(l)*dey(l)
-                     opxz=opxz + f1(li,lj,lk)*dex(l)*dez(l)
-                     opyz=opyz + f1(li,lj,lk)*dey(l)*dez(l)
-                     
+		             if(myblock .eq. intblock)then
+		             press_out(i,j,k)=press_out(i,j,k) + f1(li,lj,lk)
+		             u_out(i,j,k)=u_out(i,j,k) + f1(li,lj,lk)*dex(l)
+                     v_out(i,j,k)=v_out(i,j,k) + f1(li,lj,lk)*dey(l)
+                     w_out(i,j,k)=w_out(i,j,k) + f1(li,lj,lk)*dez(l)
+                     pxx_out(i,j,k)=pxx_out(i,j,k) + f1(li,lj,lk)*dex(l)*dex(l)
+                     pyy_out(i,j,k)=pyy_out(i,j,k) + f1(li,lj,lk)*dey(l)*dey(l)
+                     pzz_out(i,j,k)=pzz_out(i,j,k) + f1(li,lj,lk)*dez(l)*dez(l)
+                     pxy_out(i,j,k)=pxy_out(i,j,k) + f1(li,lj,lk)*dex(l)*dey(l)
+                     pxz_out(i,j,k)=pxz_out(i,j,k) + f1(li,lj,lk)*dex(l)*dez(l)
+                     pyz_out(i,j,k)=pyz_out(i,j,k) + f1(li,lj,lk)*dey(l)*dez(l)
+                     endif
                      call syncthreads
                      
                   enddo
@@ -564,16 +529,7 @@ contains
                   !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
 	              if(myblock .ne. intblock)return
 	                 
-	              hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
-                  hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
-                  hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
-                  hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
-                  hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
-                  hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
-                  hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
-                  hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
-                  hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
-                  hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
+
                    
     endsubroutine fused_LB_kernel1
 

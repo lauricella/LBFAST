@@ -241,12 +241,21 @@ module vars
    real(kind=db), allocatable, dimension(:,:,:) :: arr_3d
 
    !real(kind=db), allocatable, dimension(:,:,:,:) :: f       !pops
-   real(kind=db), allocatable, dimension(:) :: hfields_flip,hfields_flop  !allocate hydro fields flip and flop
+   !real(kind=db), allocatable, dimension(:) :: hfields_flip,hfields_flop  !allocate hydro fields flip and flop
    real(kind=db), allocatable, dimension(:) :: phifields_flip,phifields_flop  !allocate phi fields flip and flop
    real(kind=db), allocatable, dimension(:) :: forces
    real(kind=db), allocatable, dimension(:) :: auxfields !allocate aux fields
    real(kind=db), allocatable, dimension(:) :: locauxfields !allocate aux fields
    
+   real(kind=db), allocatable, dimension(:,:,:) :: press_flip
+   real(kind=db), allocatable, dimension(:,:,:) :: u_flip,v_flip,w_flip
+   real(kind=db), allocatable, dimension(:,:,:) :: pxx_flip,pyy_flip,pzz_flip
+   real(kind=db), allocatable, dimension(:,:,:) :: pxy_flip,pxz_flip,pyz_flip
+   
+   real(kind=db), allocatable, dimension(:,:,:) :: press_flop
+   real(kind=db), allocatable, dimension(:,:,:) :: u_flop,v_flop,w_flop
+   real(kind=db), allocatable, dimension(:,:,:) :: pxx_flop,pyy_flop,pzz_flop
+   real(kind=db), allocatable, dimension(:,:,:) :: pxy_flop,pxz_flop,pyz_flop
    
    integer, parameter :: nhfields=10
    integer, parameter :: nforces=3

@@ -30,7 +30,9 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-       ,hfields_in,hfields_out,auxfields_s,locauxfields_s,forces_s)
+       ,auxfields_s,locauxfields_s,forces_s &
+       ,press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in &
+       ,press_out,u_out,v_out,w_out,pxx_out,pyy_out,pzz_out,pxy_out,pxz_out,pyz_out)
 
       implicit none
       
@@ -53,12 +55,15 @@ contains
 #endif           
       real(kind=db) :: visc1,omega,fx,fy,fz
       
-      real(kind=db), dimension(ntothfields) :: hfields_in,hfields_out
+      
 
       real(kind=db), dimension(ntotauxfields) :: auxfields_s
       real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
       real(kind=db), dimension(ntotforces) :: forces_s
       
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: &
+       press_in,u_in,v_in,w_in,pxx_in,pyy_in,pzz_in,pxy_in,pxz_in,pyz_in, &
+       press_out,u_out,v_out,w_out,pxx_out,pyy_out,pzz_out,pxy_out,pxz_out,pyz_out
 
       real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
       real(kind=db) :: opress,ou,ov,ow,opxx,opyy,opzz,opxy,opxz,opyz
@@ -109,34 +114,16 @@ contains
 !	  forcez=force_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces))
 
 
-	  press=hfields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  u=hfields_in(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) 
-	  v=hfields_in(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  w=hfields_in(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  pxx=hfields_in(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  pyy=hfields_in(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  pzz=hfields_in(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  pxy=hfields_in(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  pxz=hfields_in(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  pyz=hfields_in(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+
 	  
-	  opress=hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  ou=hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  ov=hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  ow=hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  opxx=hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  opyy=hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  opzz=hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  opxy=hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  opxz=hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-	  opyz=hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
+
 	  
-	  pxx=pxx - cssq*press - u*u 
-	  pyy=pyy - cssq*press - v*v 
-	  pzz=pzz - cssq*press - w*w 
-	  pxy=pxy - u*v
-	  pxz=pxz - u*w
-	  pyz=pyz - v*w
+	  pxx=pxx_in(i,j,k) - cssq*press_in(i,j,k) - u_in(i,j,k)*u_in(i,j,k) 
+	  pyy=pyy_in(i,j,k) - cssq*press_in(i,j,k) - v_in(i,j,k)*v_in(i,j,k) 
+	  pzz=pzz_in(i,j,k) - cssq*press_in(i,j,k) - w_in(i,j,k)*w_in(i,j,k) 
+	  pxy=pxy_in(i,j,k) - u_in(i,j,k)*v_in(i,j,k)
+	  pxz=pxz_in(i,j,k) - u_in(i,j,k)*w_in(i,j,k)
+	  pyz=pyz_in(i,j,k) - v_in(i,j,k)*w_in(i,j,k)
 
 #ifdef TWOCOMPONENT
 	  !visc_loc it is used to store the local viscosity
@@ -149,7 +136,7 @@ contains
 
 #ifdef SMAGORINSKI
 	  QQ=pxx*pxx + pyy*pyy + pzz*pzz + &
-	   TWO*(pxy*pxy + pxz*pxz + pyz*pyz)  !QQ i sused to store the double contraction of flux tensor (Frobenius norm) 
+        TWO*(pxy*pxy + pxz*pxz + pyz*pyz)   !QQ i sused to store the double contraction of flux tensor (Frobenius norm) 
 	  !!!smago
 	  omega_loc= 0.5_db + (1.0_db/6.0_db)*(3.0_db*visc_loc + &   !visc_loc it is used to store the local viscosity
 	   sqrt((3.0*visc_loc)**2.0 + 0.053*18.0*sqrt(2.0*QQ)/rhophi_loc)) !it is tau
@@ -172,7 +159,7 @@ contains
 		  jjj=j+ey(lopp)
 		  kkk=k+ez(lopp)
 		  if(isfluid(iii,jjj,kkk).ne.0) cycle 
-		  feq=p(l)*(press)
+		  feq=p(l)*(press_in(i,j,k))
 		  fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		   + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	       + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
@@ -181,29 +168,20 @@ contains
            ! + dey(l)*forcey &
            ! + dez(l)*forcez)*invcssq
 		  fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
-		  opress=opress + fpost
-		  ou=ou + fpost*dex(l)
-		  ov=ov + fpost*dey(l)
-		  ow=ow + fpost*dez(l)
-		  opxx=opxx + fpost*dex(l)*dex(l)
-          opyy=opyy + fpost*dey(l)*dey(l)
-          opzz=opzz + fpost*dez(l)*dez(l)
-          opxy=opxy + fpost*dex(l)*dey(l)
-          opxz=opxz + fpost*dex(l)*dez(l)
-          opyz=opyz + fpost*dey(l)*dez(l)		  
+		  press_out(i,j,k)=press_out(i,j,k) + fpost
+		  u_out(i,j,k)=u_out(i,j,k) + fpost*dex(l)
+		  v_out(i,j,k)=v_out(i,j,k) + fpost*dey(l)
+		  w_out(i,j,k)=w_out(i,j,k) + fpost*dez(l)
+		  pxx_out(i,j,k)=pxx_out(i,j,k) + fpost*dex(l)*dex(l)
+          pyy_out(i,j,k)=pyy_out(i,j,k) + fpost*dey(l)*dey(l)
+          pzz_out(i,j,k)=pzz_out(i,j,k) + fpost*dez(l)*dez(l)
+          pxy_out(i,j,k)=pxy_out(i,j,k) + fpost*dex(l)*dey(l)
+          pxz_out(i,j,k)=pxz_out(i,j,k) + fpost*dex(l)*dez(l)
+          pyz_out(i,j,k)=pyz_out(i,j,k) + fpost*dey(l)*dez(l)		  
       enddo
 
 		 
-	  hfields_out(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opress
-	  hfields_out(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ou
-	  hfields_out(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ov
-	  hfields_out(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ow
-	  hfields_out(idx5d(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxx
-	  hfields_out(idx5d(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyy
-	  hfields_out(idx5d(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opzz
-	  hfields_out(idx5d(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxy
-	  hfields_out(idx5d(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opxz
-	  hfields_out(idx5d(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=opyz
+
 	              
      return
 
@@ -218,7 +196,8 @@ contains
     ,mu_max,Ks &
 #endif
     ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-       ,hfields_s,phifields_s,auxfields_s,locauxfields_s,forces_s)
+       ,phifields_s,auxfields_s,locauxfields_s,forces_s, &
+       press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s)
 
       implicit none
       integer :: flop,nx,ny,nz
@@ -233,11 +212,14 @@ contains
       real(kind=db) :: mu_max,Ks
 #endif
       integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
-      real(kind=db), dimension(ntothfields) :: hfields_s
+      
       real(kind=db), dimension(ntotphifields) :: phifields_s
       real(kind=db), dimension(ntotauxfields) :: auxfields_s
       real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
       real(kind=db), dimension(ntotforces) :: forces_s
+      
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: &
+       press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s
       
       integer :: i,j,k,l
       integer :: gi,gj,gk
@@ -325,10 +307,11 @@ contains
       
    endsubroutine PHI_int_boundary_kernel
    
-   attributes(global) subroutine phi_sum_count_kernel(flop,nx,ny,nz,coords,isfluid &
-    ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
-    ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields, &
-       hfields_s,phifields_s,auxfields_s,locauxfields_s,loc_phi_sum,cnt)
+   attributes(global) subroutine phi_sum_count_kernel( flop,nx,ny,nz,coords,isfluid, &
+     visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma, &
+     ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields, &
+     phifields_s,auxfields_s,locauxfields_s, &
+     press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s,loc_phi_sum,cnt )
 
       implicit none
       integer :: flop,nx,ny,nz
@@ -338,10 +321,14 @@ contains
       real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
 
       integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields
-      real(kind=db), dimension(ntothfields) :: hfields_s
+      
       real(kind=db), dimension(ntotphifields) :: phifields_s
       real(kind=db), dimension(ntotauxfields) :: auxfields_s
       real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
+      
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: &
+       press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s
+      
       real(kind=db) :: loc_phi_sum
       integer :: cnt
       
@@ -384,7 +371,8 @@ contains
    attributes(global) subroutine apply_lagrangian_phi_kernel(flop,nx,ny,nz,coords,isfluid &
     ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
     ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields, &
-       hfields_s,phifields_s,auxfields_s,locauxfields_s,loc_corr)
+       phifields_s,auxfields_s,locauxfields_s, &
+       press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s,loc_corr)
 
       implicit none
       integer :: flop,nx,ny,nz
@@ -394,10 +382,14 @@ contains
       real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
 
       integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields
-      real(kind=db), dimension(ntothfields) :: hfields_s
+      
       real(kind=db), dimension(ntotphifields) :: phifields_s
       real(kind=db), dimension(ntotauxfields) :: auxfields_s
       real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
+      
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: &
+       press_s,u_s,v_s,w_s,pxx_s,pyy_s,pzz_s,pxy_s,pxz_s,pyz_s
+      
       real(kind=db) :: loc_corr
       
       integer :: i,j,k,l

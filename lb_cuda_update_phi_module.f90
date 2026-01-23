@@ -24,7 +24,8 @@ contains
 #endif
 #endif 
     ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-       ,hfields_s,phifields_in,phifields_out,auxfields_s,locauxfields_s,forces_s)
+       ,phifields_in,phifields_out,auxfields_s,locauxfields_s,forces_s &
+       ,u_s,v_s,w_s)
 
       implicit none
       integer :: flop,nx,ny,nz
@@ -40,17 +41,19 @@ contains
 #endif
 #endif 
       integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
-      real(kind=db), dimension(ntothfields) :: hfields_s
+      
       real(kind=db), dimension(ntotphifields) :: phifields_in,phifields_out
       real(kind=db), dimension(ntotauxfields) :: auxfields_s
       real(kind=db), dimension(ntotlocauxfields) :: locauxfields_s
       real(kind=db), dimension(ntotforces) :: forces_s
+      real(kind=db), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: &
+       u_s,v_s,w_s
       
       integer :: i,j,k
       !integer :: gi,gj,gk
       integer :: myblock,ii,jj,kk
       real(kind=db) :: gradfix,gradfiy,gradfiz,phi_loc,phi_out,mytemp
-      real(kind=db) :: loc_u,loc_v,loc_w,lap_phi_loc
+      real(kind=db) :: lap_phi_loc
 #ifdef MONOD
 	  real(kind=db) :: S_mono
 #endif
@@ -85,13 +88,10 @@ contains
       phi_loc=phifields_in(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields))
       lap_phi_loc=locauxfields_s(idx5d(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields))
                   
-      loc_u=hfields_s(idx5d(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields)) !velocity
-      loc_v=hfields_s(idx5d(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
-      loc_w=hfields_s(idx5d(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))
                   
       phi_out = phi_loc &
-        - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
-        - loc_w*0.5_db*(gradfiz) + tau_diff*lap_phi_loc + mytemp 
+        - u_s(i,j,k)*0.5_db*(gradfix) - v_s(i,j,k)*0.5_db*(gradfiy) &
+        - w_s(i,j,k)*0.5_db*(gradfiz) + tau_diff*lap_phi_loc + mytemp 
 #endif	
 
 #ifdef MONOD

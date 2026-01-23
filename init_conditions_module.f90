@@ -53,16 +53,16 @@ contains
                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz               
 
-                 hfields_flip(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
-                 hfields_flip(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
-                 hfields_flip(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
-                 hfields_flip(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
-                 hfields_flip(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
-                 hfields_flip(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
-                 hfields_flip(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
-                 hfields_flip(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
-                 hfields_flip(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
-                 hfields_flip(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
+                 press_flip(i,j,k)= ZERO
+                 u_flip(i,j,k)=ZERO
+                 v_flip(i,j,k)=ZERO
+                 w_flip(i,j,k)=ZERO
+                 pxx_flip(i,j,k)=ZERO
+                 pyy_flip(i,j,k)=ZERO
+                 pzz_flip(i,j,k)=ZERO
+                 pxy_flip(i,j,k)=ZERO
+                 pxz_flip(i,j,k)=ZERO
+                 pyz_flip(i,j,k)=ZERO
                  
 
 #ifdef TWOCOMPONENT
@@ -130,17 +130,17 @@ contains
 			    ! crisp velocity: uniform inside each core (phi~1 region)
 				!if (sel1 > 0.1_db) then 
 				loc_u = 0.02*sel1-0.02*sel2
-				
-                hfields_flip(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= loc_press
-                hfields_flip(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u
-                hfields_flip(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v 
-                hfields_flip(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_w 
-                hfields_flip(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_u+cssq*loc_press
-                hfields_flip(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v*loc_v+cssq*loc_press
-                hfields_flip(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_w*loc_w+cssq*loc_press
-                hfields_flip(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_v
-                hfields_flip(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_w
-                hfields_flip(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v*loc_w    
+				  
+                press_flip(i,j,k)= loc_press
+                u_flip(i,j,k)=loc_u
+                v_flip(i,j,k)=loc_v
+                w_flip(i,j,k)=loc_w
+                pxx_flip(i,j,k)=loc_u*loc_u+cssq*loc_press
+                pyy_flip(i,j,k)=loc_v*loc_v+cssq*loc_press
+                pzz_flip(i,j,k)=loc_w*loc_w+cssq*loc_press
+                pxy_flip(i,j,k)=loc_u*loc_v
+                pxz_flip(i,j,k)=loc_u*loc_w
+                pyz_flip(i,j,k)=loc_v*loc_w
                 
                         
 				!else if (sel2 > 0.1_db) then
@@ -196,16 +196,16 @@ contains
                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz         
                     
 
-                 hfields_flip(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
-                 hfields_flip(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
-                 hfields_flip(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
-                 hfields_flip(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
-                 hfields_flip(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
-                 hfields_flip(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
-                 hfields_flip(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
-                 hfields_flip(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
-                 hfields_flip(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
-                 hfields_flip(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=ZERO
+                 press_flip(i,j,k)= ZERO
+                 u_flip(i,j,k)=ZERO
+                 v_flip(i,j,k)=ZERO
+                 w_flip(i,j,k)=ZERO
+                 pxx_flip(i,j,k)=ZERO
+                 pyy_flip(i,j,k)=ZERO
+                 pzz_flip(i,j,k)=ZERO
+                 pxy_flip(i,j,k)=ZERO
+                 pxz_flip(i,j,k)=ZERO
+                 pyz_flip(i,j,k)=ZERO
                  
                  
 #ifdef TWOCOMPONENT
@@ -276,16 +276,16 @@ contains
                   loc_w=ZERO!fcut(dist,radius-width*0.5,radius+width*0.5)*uwall !   - fcut(dist2,radius-width*0.5,radius+width*0.5)*HALF*uwall
 
 #endif               
-                 hfields_flip(idx5(ii,jj,kk,1,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))= loc_press
-                 hfields_flip(idx5(ii,jj,kk,2,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u
-                 hfields_flip(idx5(ii,jj,kk,3,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v
-                 hfields_flip(idx5(ii,jj,kk,4,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_w
-                 hfields_flip(idx5(ii,jj,kk,5,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_u+cssq*loc_press
-                 hfields_flip(idx5(ii,jj,kk,6,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v*loc_v+cssq*loc_press
-                 hfields_flip(idx5(ii,jj,kk,7,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_w*loc_w+cssq*loc_press
-                 hfields_flip(idx5(ii,jj,kk,8,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_v
-                 hfields_flip(idx5(ii,jj,kk,9,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_u*loc_w
-                 hfields_flip(idx5(ii,jj,kk,10,myblock,TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields))=loc_v*loc_w
+                 press_flip(i,j,k)= loc_press
+                 u_flip(i,j,k)=loc_u
+                 v_flip(i,j,k)=loc_v
+                 w_flip(i,j,k)=loc_w
+                 pxx_flip(i,j,k)=loc_u*loc_u+cssq*loc_press
+                 pyy_flip(i,j,k)=loc_v*loc_v+cssq*loc_press
+                 pzz_flip(i,j,k)=loc_w*loc_w+cssq*loc_press
+                 pxy_flip(i,j,k)=loc_u*loc_v
+                 pxz_flip(i,j,k)=loc_u*loc_w
+                 pyz_flip(i,j,k)=loc_v*loc_w
                       
                 endif
              enddo
@@ -335,7 +335,16 @@ contains
 ! #endif
 
 
-     hfields_flop=hfields_flip
+     press_flop=press_flip
+     u_flop=u_flip
+     v_flop=v_flip
+     w_flop=w_flip
+     pxx_flop=pxx_flip
+     pyy_flop=pyy_flip
+     pzz_flop=pzz_flip
+     pxy_flop=pxy_flip
+     pxz_flop=pxz_flip
+     pyz_flop=pyz_flip
 #ifdef TWOCOMPONENT     
      phifields_flop=phifields_flip
 #endif     
