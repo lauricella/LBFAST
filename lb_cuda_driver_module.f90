@@ -28,6 +28,8 @@ contains
    subroutine setup_cuda
       implicit none
       
+      integer :: nxb,nyb,nzb
+      
       istat = cudaSetDevice(mydev)
       if (istat/=0) then
         if(myrank==0)write(6,*) 'status after cudaSetDevice:', cudaGetErrorString(istat)
@@ -53,9 +55,7 @@ contains
         endif
         call doerror(6,'TILE_DIM product exceeds 1024')
       endif
-
-      dimGrid  = dim3((nx+TILE_DIMx-1)/TILE_DIMx,(ny+TILE_DIMy-1)/TILE_DIMy,(nz+TILE_DIMz-1)/TILE_DIMz)
-      dimBlock = dim3(TILE_DIMx, TILE_DIMy, TILE_DIMz)
+      
       lx_d=lx
       ly_d=ly
       lz_d=lz
@@ -76,16 +76,29 @@ contains
         call dostop
       end if
       
-      dimGridInt = dim3((nx+TILE_DIMx-1)/TILE_DIMx -2,(ny+TILE_DIMy-1)/TILE_DIMy -2,(nz+TILE_DIMz-1)/TILE_DIMz -2)
-      dimGridhalo  = dim3((nx+TILE_DIMx-1)/TILE_DIMx +2,(ny+TILE_DIMy-1)/TILE_DIMy +2,(nz+TILE_DIMz-1)/TILE_DIMz +2)
+      nxb = nx / TILE_DIMx
+      nyb = ny / TILE_DIMy
+      nzb = nz / TILE_DIMz
+      
+      dimGrid  = dim3(nxb,nyb,nzb)
+      dimBlock = dim3(TILE_DIMx, TILE_DIMy, TILE_DIMz)
+      
+      dimGridInt = dim3(nxb -2,nyb -2,nzb -2)
+      dimGridhalo  = dim3(nxb +2,nyb +2,nzb +2)
       dimBlockhalo = dim3(TILE_DIMx, TILE_DIMy, TILE_DIMz)
       
       dimBlockshared = dim3(TILE_DIMx +2, TILE_DIMy +2, TILE_DIMz +2)
       
-      dimGridx  = dim3(1,(ny+TILE_DIMy-1)/TILE_DIMy -2, (nz+TILE_DIMz-1)/TILE_DIMz -2) !only yz faces
-      dimGridy  = dim3((nx+TILE_DIMx-1)/TILE_DIMx -2, 1, (nz+TILE_DIMz-1)/TILE_DIMz)  !xz faces also doing edge xy
-      dimGridz  = dim3((nx+TILE_DIMx-1)/TILE_DIMx, (ny+TILE_DIMy-1)/TILE_DIMy, 1)    !xy faces also doing edges xz yz and corners
+      dimGridz  = dim3(nxb,nyb,1)    !xy faces also doing edges xz yz and corners
       
+      dimGridy  = dim3(nxb-2,1,nzb)  !xz faces also doing edge xy
+      ldodimGridy=.true.
+      if(nxb-2<=0)ldodimGridy=.false.
+      
+      dimGridx  = dim3(1,nyb-2,nzb-2) !only yz faces
+      ldodimGridx=.true.
+      if(nyb-2<=0)ldodimGridx=.false.
+      if(nzb-2<=0)ldodimGridx=.false.
       
       dimBlock2 = dim3(TILE_DIM, TILE_DIM, 1)
       !plus 2 for the halo forward and backward
@@ -844,74 +857,7 @@ contains
 #endif   
        !$acc& ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
        !$acc& ,hfields_in,hfields_out,auxfields,locauxfields,forces)
-      call fused_LB_kernel_x<<<dimGridx,dimBlockshared>>>(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
-#ifdef MULTIHIT
-	   ,ABCx,ABCy,ABCz &
-#endif 
-#ifdef WETTABILITY
-       ,wettab_r,wettab_b &
-#endif  
-#ifdef TWOCOMPONENT 
-       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
-#ifdef MONOD
-	   ,mu_max,Ks &
-#endif
-#endif   
-       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
-	   
-      istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
-      if (istat /= cudaSuccess) then
-        if(myrank==0) then
-          write(6,*) 'launch error at ', __LINE__, ' file ', __FILE__
-          write(6,*) cudaGetErrorString(istat)
-        endif
-        call doerror(6,'ERROR in fused_LB_cuda_x (launch)')
-      endif
-
-      istat = cudaDeviceSynchronize()
-      if (istat /= cudaSuccess) then
-       if(myrank==0) then
-         write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
-         write(6,*) cudaGetErrorString(istat)
-       endif
-       call doerror(6,'ERROR in fused_LB_cuda_x (sync)')
-      endif
-	   
-      call fused_LB_kernel_y<<<dimGridy,dimBlockshared>>>(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
-#ifdef MULTIHIT
-	   ,ABCx,ABCy,ABCz &
-#endif 
-#ifdef WETTABILITY
-       ,wettab_r,wettab_b &
-#endif  
-#ifdef TWOCOMPONENT 
-       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
-#ifdef MONOD
-	   ,mu_max,Ks &
-#endif
-#endif   
-       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
-	   
-      istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
-      if (istat /= cudaSuccess) then
-        if(myrank==0) then
-          write(6,*) 'launch error at ', __LINE__, ' file ', __FILE__
-          write(6,*) cudaGetErrorString(istat)
-        endif
-        call doerror(6,'ERROR in fused_LB_cuda_y (launch)')
-      endif
-
-      istat = cudaDeviceSynchronize()
-      if (istat /= cudaSuccess) then
-       if(myrank==0) then
-         write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
-         write(6,*) cudaGetErrorString(istat)
-       endif
-       call doerror(6,'ERROR in fused_LB_cuda_y (sync)')
-      endif
-	   
+       
       call fused_LB_kernel_z<<<dimGridz,dimBlockshared>>>(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
@@ -944,6 +890,76 @@ contains
          write(6,*) cudaGetErrorString(istat)
        endif
        call doerror(6,'ERROR in fused_LB_cuda_z (sync)')
+      endif
+	   
+      if(ldodimGridy)call fused_LB_kernel_y<<<dimGridy,dimBlockshared>>>(step &
+       ,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
+#ifdef MULTIHIT
+	   ,ABCx,ABCy,ABCz &
+#endif 
+#ifdef WETTABILITY
+       ,wettab_r,wettab_b &
+#endif  
+#ifdef TWOCOMPONENT 
+       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
+#ifdef MONOD
+	   ,mu_max,Ks &
+#endif
+#endif   
+       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+	   
+      istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
+      if (istat /= cudaSuccess) then
+        if(myrank==0) then
+          write(6,*) 'launch error at ', __LINE__, ' file ', __FILE__
+          write(6,*) cudaGetErrorString(istat)
+        endif
+        call doerror(6,'ERROR in fused_LB_cuda_y (launch)')
+      endif
+
+      istat = cudaDeviceSynchronize()
+      if (istat /= cudaSuccess) then
+       if(myrank==0) then
+         write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+         write(6,*) cudaGetErrorString(istat)
+       endif
+       call doerror(6,'ERROR in fused_LB_cuda_y (sync)')
+      endif
+       
+      if(ldodimGridx)call fused_LB_kernel_x<<<dimGridx,dimBlockshared>>>(step &
+       ,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
+#ifdef MULTIHIT
+	   ,ABCx,ABCy,ABCz &
+#endif 
+#ifdef WETTABILITY
+       ,wettab_r,wettab_b &
+#endif  
+#ifdef TWOCOMPONENT 
+       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
+#ifdef MONOD
+	   ,mu_max,Ks &
+#endif
+#endif   
+       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+	   
+      istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
+      if (istat /= cudaSuccess) then
+        if(myrank==0) then
+          write(6,*) 'launch error at ', __LINE__, ' file ', __FILE__
+          write(6,*) cudaGetErrorString(istat)
+        endif
+        call doerror(6,'ERROR in fused_LB_cuda_x (launch)')
+      endif
+
+      istat = cudaDeviceSynchronize()
+      if (istat /= cudaSuccess) then
+       if(myrank==0) then
+         write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+         write(6,*) cudaGetErrorString(istat)
+       endif
+       call doerror(6,'ERROR in fused_LB_cuda_x (sync)')
       endif
 	   
 !$acc end host_data
