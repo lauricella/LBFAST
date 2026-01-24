@@ -914,6 +914,9 @@ contains
 	  xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
 
       !i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
       !j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
@@ -1093,6 +1096,7 @@ contains
 	  xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
       
       intblock=(nxblock_d-2)+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1
 
@@ -1340,6 +1344,9 @@ contains
       yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
 
       !i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
       !j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
@@ -1513,6 +1520,7 @@ contains
       yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
 
       !i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
       !j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
@@ -1763,6 +1771,9 @@ contains
 	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
 
       !i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
       !j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
@@ -1937,6 +1948,7 @@ contains
 	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
 
       !i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
       !j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
