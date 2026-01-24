@@ -26,7 +26,7 @@ module lb_cuda_vars
    type(cudaDeviceProp) :: prop
    integer(8) :: mshared
    
-   logical, save :: ldodimGridx,ldodimGridy
+   logical, save :: ldodimGridInt,ldodimGridx,ldodimGridy
    
    contains
    

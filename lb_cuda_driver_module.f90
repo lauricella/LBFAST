@@ -83,7 +83,13 @@ contains
       dimGrid  = dim3(nxb,nyb,nzb)
       dimBlock = dim3(TILE_DIMx, TILE_DIMy, TILE_DIMz)
       
+      
       dimGridInt = dim3(nxb -2,nyb -2,nzb -2)
+      ldodimGridInt=.true.
+      if(nxb-2<=0)ldodimGridInt=.false.
+      if(nyb-2<=0)ldodimGridInt=.false.
+      if(nzb-2<=0)ldodimGridInt=.false.
+      
       dimGridhalo  = dim3(nxb +2,nyb +2,nzb +2)
       dimBlockhalo = dim3(TILE_DIMx, TILE_DIMy, TILE_DIMz)
       
