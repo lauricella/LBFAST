@@ -355,9 +355,9 @@ contains
       
       real(kind=db), shared :: f1(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       
-      real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
-      real(kind=db) :: feq,fneq1,f_discr
-      real(kind=db) :: mytemp,invrhophi_loc,uu,udotc
+      real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
+      real(kind=db) :: opress,ou,ov,ow,opxx,opyy,opzz,opxy,opxz,opyz,feq,fneq1,f_discr
+      real(kind=db) :: mytemp,forcex,forcey,forcez,rhophi_loc,uu,udotc
       
       real(kind=db) :: omega_loc,phi_loc,visc_loc
 #ifdef SMAGORINSKI
@@ -412,14 +412,19 @@ contains
 #endif                  
 #ifdef DENSRATIO
                   
-                  invrhophi_loc = 1.0_db/(rho_r*phi_loc+(ONE-phi_loc)*rho_b)
+                  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
 #else
-                  invrhophi_loc = 1.0_db !press_loc
+                  rhophi_loc = 1.0_db !press_loc
 #endif	
 
-				  
+				  forcex=forces_s(ii,jj,kk,1,myblock)/rhophi_loc
+				  forcey=forces_s(ii,jj,kk,2,myblock)/rhophi_loc
+				  forcez=forces_s(ii,jj,kk,3,myblock)/rhophi_loc
                   
-          
+                  press=hfields_in(ii,jj,kk,1,myblock)
+                  u=hfields_in(ii,jj,kk,2,myblock) 
+                  v=hfields_in(ii,jj,kk,3,myblock)
+                  w=hfields_in(ii,jj,kk,4,myblock)
                   pxx=hfields_in(ii,jj,kk,5,myblock)
                   pyy=hfields_in(ii,jj,kk,6,myblock)
                   pzz=hfields_in(ii,jj,kk,7,myblock)
@@ -428,23 +433,23 @@ contains
                   pyz=hfields_in(ii,jj,kk,10,myblock)
                   
                   
-!#ifdef INTERNAL_OBSTACLES
-!                  if(isfluid(i,j,k) == 0)then
-!                    forcex=ZERO
-!                    forcey=ZERO
-!                    forcez=ZERO
-!                    press=ZERO
-!                    u=ZERO
-!                    v=ZERO
-!                    w=ZERO
-!                    pxx=ZERO
-!                    pyy=ZERO
-!                    pzz=ZERO
-!                    pxy=ZERO
-!                    pxz=ZERO
-!                    pyz=ZERO
-!                  endif
-!#endif
+#ifdef INTERNAL_OBSTACLES
+                  if(isfluid(i,j,k) == 0)then
+                    forcex=ZERO
+                    forcey=ZERO
+                    forcez=ZERO
+                    press=ZERO
+                    u=ZERO
+                    v=ZERO
+                    w=ZERO
+                    pxx=ZERO
+                    pyy=ZERO
+                    pzz=ZERO
+                    pxy=ZERO
+                    pxz=ZERO
+                    pyz=ZERO
+                  endif
+#endif
                   
 
 !				  uu=HALF*(u*u+v*v+w*w)*invcssq
@@ -465,16 +470,16 @@ contains
 !                     pyz=pyz - fpost*(dey(lii)*dez(lii))
 !                  enddo
 
-                  pxx=pxx - cssq*hfields_in(ii,jj,kk,1,myblock)  - hfields_in(ii,jj,kk,2,myblock) *hfields_in(ii,jj,kk,2,myblock)  
-                  pyy=pyy - cssq*hfields_in(ii,jj,kk,1,myblock)  - hfields_in(ii,jj,kk,3,myblock) *hfields_in(ii,jj,kk,3,myblock)  
-                  pzz=pzz - cssq*hfields_in(ii,jj,kk,1,myblock)  - hfields_in(ii,jj,kk,4,myblock) *hfields_in(ii,jj,kk,4,myblock)  
-                  pxy=pxy - hfields_in(ii,jj,kk,2,myblock) *hfields_in(ii,jj,kk,3,myblock) 
-                  pxz=pxz - hfields_in(ii,jj,kk,2,myblock) *hfields_in(ii,jj,kk,4,myblock) 
-                  pyz=pyz - hfields_in(ii,jj,kk,3,myblock) *hfields_in(ii,jj,kk,4,myblock) 
+                  pxx=pxx - cssq*press - u*u 
+                  pyy=pyy - cssq*press - v*v 
+                  pzz=pzz - cssq*press - w*w 
+                  pxy=pxy - u*v
+                  pxz=pxz - u*w
+                  pyz=pyz - v*w
 
 #ifdef TWOCOMPONENT
                   !visc_loc it is used to store the local viscosity
-                  visc_loc=(rho_r*visc1*phi_loc+(ONE-phi_loc)*visc2*rho_b)*invrhophi_loc
+                  visc_loc=(rho_r*visc1*phi_loc+(ONE-phi_loc)*visc2*rho_b)/rhophi_loc
 #else
 #ifdef SMAGORINSKI
                   visc_loc=visc1
@@ -486,7 +491,7 @@ contains
                    TWO*(pxy*pxy + pxz*pxz + pyz*pyz)  !QQ i sused to store the double contraction of flux tensor (Frobenius norm) 
                   !!!smago
                   omega_loc= 0.5_db + (1.0_db/6.0_db)*(3.0_db*visc_loc + &   !visc_loc it is used to store the local viscosity
-                   sqrt((3.0*visc_loc)**2.0 + 0.053*18.0*sqrt(2.0*QQ)*invrhophi_loc)) !it is tau
+                   sqrt((3.0*visc_loc)**2.0 + 0.053*18.0*sqrt(2.0*QQ)/rhophi_loc)) !it is tau
                   omega_loc=1.0_db/omega_loc !it is omega
 
 #else
@@ -499,43 +504,34 @@ contains
 #endif      
       
                   !opress=ZERO
-                  hfields_out(ii,jj,kk,2,myblock) =ZERO
-                  hfields_out(ii,jj,kk,3,myblock) =ZERO
-                  hfields_out(ii,jj,kk,4,myblock) =ZERO
-                  hfields_out(ii,jj,kk,5,myblock) =ZERO
-                  hfields_out(ii,jj,kk,6,myblock) =ZERO
-                  hfields_out(ii,jj,kk,7,myblock) =ZERO
-                  hfields_out(ii,jj,kk,8,myblock) =ZERO
-                  hfields_out(ii,jj,kk,9,myblock) =ZERO
-                  hfields_out(ii,jj,kk,10,myblock) =ZERO
+                  ou=ZERO
+                  ov=ZERO
+                  ow=ZERO
+                  opxx=ZERO
+                  opyy=ZERO
+                  opzz=ZERO
+                  opxy=ZERO
+                  opxz=ZERO
+                  opyz=ZERO
 !!!!!!!!!!!!!!!!!!!!!!!!!!0
-                  uu=HALF*(hfields_in(ii,jj,kk,2,myblock) *hfields_in(ii,jj,kk,2,myblock) +&
-                   hfields_in(ii,jj,kk,3,myblock) *hfields_in(ii,jj,kk,3,myblock) +&
-                   hfields_in(ii,jj,kk,4,myblock) *hfields_in(ii,jj,kk,4,myblock) )*invcssq
+                  uu=HALF*(u*u+v*v+w*w)*invcssq
 
-			      feq=p(0)*(hfields_in(ii,jj,kk,1,myblock)  - uu)
+			      feq=p(0)*(press - uu)
 				  fneq1=(HALF*invcssq)*(-pxx-pyy-pzz)
-				  F_discr = p(0)*(- hfields_in(ii,jj,kk,2,myblock) *forces_s(ii,jj,kk,1,myblock)*invrhophi_loc - &
-				  hfields_in(ii,jj,kk,3,myblock) *forces_s(ii,jj,kk,2,myblock)*invrhophi_loc - &
-				  hfields_in(ii,jj,kk,4,myblock) *forces_s(ii,jj,kk,3,myblock)*invrhophi_loc)*invcssq
+				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)*invcssq
                   
-                  hfields_out(ii,jj,kk,1,myblock) =feq + (1.0_db-omega_loc)*fneq1*p(0) + HALF*(F_discr)
+                  opress=feq + (1.0_db-omega_loc)*fneq1*p(0) + HALF*(F_discr)
                   
                   do l=1,nlinks
-                     udotc=(hfields_in(ii,jj,kk,2,myblock) *dex(l) + &
-                     hfields_in(ii,jj,kk,3,myblock) *dey(l)+ &
-                     hfields_in(ii,jj,kk,4,myblock) *dez(l))*invcssq
-		             feq=p(l)*(hfields_in(ii,jj,kk,1,myblock)  + (udotc+0.5_db*udotc*udotc - uu))
+                     udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
+		             feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
                      fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		              + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                  + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		              + TWO*(dey(l)*dez(l))*pyz)
-		             F_discr = p(l)*(((dex(l) - hfields_in(ii,jj,kk,2,myblock) ) &
-		              + udotc * dex(l))*forces_s(ii,jj,kk,1,myblock)*invrhophi_loc &
-                      + ((dey(l) - hfields_in(ii,jj,kk,3,myblock) ) &
-                      + udotc * dey(l))*forces_s(ii,jj,kk,2,myblock)*invrhophi_loc &
-                      + ((dez(l) - hfields_in(ii,jj,kk,4,myblock) ) &
-                      + udotc * dez(l))*forces_s(ii,jj,kk,3,myblock)*invrhophi_loc)*invcssq
+		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
+                      + ((dey(l) - v) + udotc * dey(l))*forcey &
+                      + ((dez(l) - w) + udotc * dez(l))*forcez)*invcssq
                      lii=li+ex(l)
                      ljj=lj+ey(l)
                      lkk=lk+ez(l)
@@ -548,24 +544,36 @@ contains
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*p(l)*fneq1
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,HALF*F_discr
 		             call syncthreads
-		             if(myblock .eq. intblock)then
-		             hfields_out(ii,jj,kk,1,myblock) =hfields_out(ii,jj,kk,1,myblock)  + f1(li,lj,lk)
-		             hfields_out(ii,jj,kk,2,myblock) =hfields_out(ii,jj,kk,2,myblock)  + f1(li,lj,lk)*dex(l)
-                     hfields_out(ii,jj,kk,3,myblock) =hfields_out(ii,jj,kk,3,myblock)  + f1(li,lj,lk)*dey(l)
-                     hfields_out(ii,jj,kk,4,myblock) =hfields_out(ii,jj,kk,4,myblock)  + f1(li,lj,lk)*dez(l)
-                     hfields_out(ii,jj,kk,5,myblock) =hfields_out(ii,jj,kk,5,myblock)  + f1(li,lj,lk)*dex(l)*dex(l)
-                     hfields_out(ii,jj,kk,6,myblock) =hfields_out(ii,jj,kk,6,myblock)  + f1(li,lj,lk)*dey(l)*dey(l)
-                     hfields_out(ii,jj,kk,7,myblock) =hfields_out(ii,jj,kk,7,myblock)  + f1(li,lj,lk)*dez(l)*dez(l)
-                     hfields_out(ii,jj,kk,8,myblock) =hfields_out(ii,jj,kk,8,myblock)  + f1(li,lj,lk)*dex(l)*dey(l)
-                     hfields_out(ii,jj,kk,9,myblock) =hfields_out(ii,jj,kk,9,myblock)  + f1(li,lj,lk)*dex(l)*dez(l)
-                     hfields_out(ii,jj,kk,10,myblock) =hfields_out(ii,jj,kk,10,myblock)  + f1(li,lj,lk)*dey(l)*dez(l)
-                     endif
+		             
+		             opress=opress + f1(li,lj,lk)
+		             ou=ou + f1(li,lj,lk)*dex(l)
+                     ov=ov + f1(li,lj,lk)*dey(l)
+                     ow=ow + f1(li,lj,lk)*dez(l)
+                     opxx=opxx + f1(li,lj,lk)*dex(l)*dex(l)
+                     opyy=opyy + f1(li,lj,lk)*dey(l)*dey(l)
+                     opzz=opzz + f1(li,lj,lk)*dez(l)*dez(l)
+                     opxy=opxy + f1(li,lj,lk)*dex(l)*dey(l)
+                     opxz=opxz + f1(li,lj,lk)*dex(l)*dez(l)
+                     opyz=opyz + f1(li,lj,lk)*dey(l)*dez(l)
+                     
                      call syncthreads
                      
                   enddo
                   
                   
-
+                  !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
+	              if(myblock .ne. intblock)return
+	                 
+	              hfields_out(ii,jj,kk,1,myblock)=opress
+                  hfields_out(ii,jj,kk,2,myblock)=ou
+                  hfields_out(ii,jj,kk,3,myblock)=ov
+                  hfields_out(ii,jj,kk,4,myblock)=ow
+                  hfields_out(ii,jj,kk,5,myblock)=opxx
+                  hfields_out(ii,jj,kk,6,myblock)=opyy
+                  hfields_out(ii,jj,kk,7,myblock)=opzz
+                  hfields_out(ii,jj,kk,8,myblock)=opxy
+                  hfields_out(ii,jj,kk,9,myblock)=opxz
+                  hfields_out(ii,jj,kk,10,myblock)=opyz
                    
     endsubroutine fused_LB_kernel1
 
