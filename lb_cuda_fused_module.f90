@@ -889,16 +889,22 @@ contains
       integer :: li,lj,lk
       integer :: lii,ljj,lkk
       integer :: xblock,yblock,zblock
-      integer :: intblockx
-!      integer :: gi,gj,gk
+      integer :: myblocky,myblockz
+      integer :: gi,gj,gk
 
       
       li = threadIdx%x-1
       lj = threadIdx%y-1
       lk = threadIdx%z-1
       
-      j = (blockIdx%y-1) * TILE_DIMy + lj + TILE_DIMy
-      k = (blockIdx%z-1) * TILE_DIMz + lk + TILE_DIMz
+      myblocky=blockIdx%y +1
+      myblockz=blockIdx%z +1
+      
+      j = (blockIdx%y+1) * TILE_DIMy + lj 
+      k = (blockIdx%z+1) * TILE_DIMz + lk 
+
+!      gj=ny*coords(2)+j
+!      gk=nz*coords(3)+k
       
 	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
 	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -913,14 +919,18 @@ contains
       !j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
       !k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
       
-!      gi=nx*coords(1)+i
-!      gj=ny*coords(2)+j
-!      gk=nz*coords(3)+k
-      intblockx=(1+2*TILE_DIMx-1)/TILE_DIMx
+      gi=nx*coords(1)+i
+      gj=ny*coords(2)+j
+      gk=nz*coords(3)+k
       
-      intblock=(intblockx-1)+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
-
-
+      !if(gi==iprobe)write(*,*)'cazzo',xblock,blockIdx%y,blockIdx%z
+      
+      
+      intblock=1+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1
+      
+!      if(gi==1 .and. gk==8)then
+!      write(*,*)gj,lj,myblock,intblock
+!      endif
                !if (abs(isfluid(i,j,k)) /= 1) return
        
      
@@ -1076,23 +1086,21 @@ contains
                   hfields_out(ii,jj,kk,10,myblock)=opyz
                   
                   endif
-                  
+          
+             
       i = ((nxblock_d-2)-1) * TILE_DIMx + li
 	  !gi=nx*coords(1)+i
 	  xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
       
       myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+      
+      intblock=(nxblock_d-2)+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1
 
-      !i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
-      !j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
-      !k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
       
 !      gi=nx*coords(1)+i
 !      gj=ny*coords(2)+j
 !      gk=nz*coords(3)+k
-      intblockx=(((nxblock_d-2)-1) * TILE_DIMx +1+2*TILE_DIMx-1)/TILE_DIMx
       
-      intblock=(intblockx-1)+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
       
                !if (abs(isfluid(i,j,k)) /= 1) return
        
@@ -1310,7 +1318,7 @@ contains
       integer :: li,lj,lk
       integer :: lii,ljj,lkk
       integer :: xblock,yblock,zblock
-      integer :: intblocky
+      
 !      integer :: gi,gj,gk
 
       
@@ -1318,7 +1326,7 @@ contains
       lj = threadIdx%y-1
       lk = threadIdx%z-1
 
-      i = (blockIdx%x-1) * TILE_DIMx + li + TILE_DIMx
+      i = (blockIdx%x) * TILE_DIMx + li 
       k = (blockIdx%z-1) * TILE_DIMz + lk
       
       !gi=nx*coords(1)+i
@@ -1340,9 +1348,8 @@ contains
 !      gi=nx*coords(1)+i
 !      gj=ny*coords(2)+j
 !      gk=nz*coords(3)+k
-      intblocky=(1+2*TILE_DIMy-1)/TILE_DIMy
       
-      intblock=blockIdx%x+(intblocky-1)*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
+      intblock=(blockIdx%x+1)+1*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
 
 
                !if (abs(isfluid(i,j,k)) /= 1) return
@@ -1514,10 +1521,9 @@ contains
 !      gi=nx*coords(1)+i
 !      gj=ny*coords(2)+j
 !      gk=nz*coords(3)+k
-      intblocky=(((nyblock_d-2)-1) * TILE_DIMy +1+2*TILE_DIMy-1)/TILE_DIMy
       
-      intblock=blockIdx%x+(intblocky-1)*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
-      
+      intblock=(blockIdx%x+1)+(nyblock_d-2)*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
+     
                !if (abs(isfluid(i,j,k)) /= 1) return
        
      
@@ -1734,7 +1740,7 @@ contains
       integer :: li,lj,lk
       integer :: lii,ljj,lkk
       integer :: xblock,yblock,zblock
-      integer :: intblockz
+      
 !      integer :: gi,gj,gk
 
       
@@ -1765,9 +1771,8 @@ contains
 !      gi=nx*coords(1)+i
 !      gj=ny*coords(2)+j
 !      gk=nz*coords(3)+k
-      intblockz=(1+2*TILE_DIMz-1)/TILE_DIMz
       
-      intblock=blockIdx%x+threadIdx%y*nxblock_d+(intblockz-1)*nxyblock_d+1 !internal-node block
+      intblock=blockIdx%x+threadIdx%y*nxblock_d+1*nxyblock_d+1 !internal-node block
 
 
                !if (abs(isfluid(i,j,k)) /= 1) return
@@ -1926,6 +1931,7 @@ contains
                   
                   endif
                   
+                  
       k = ((nzblock_d-2)-1) * TILE_DIMz + lk
 	  !gk=nz*coords(3)+k
 	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -1939,9 +1945,8 @@ contains
 !      gi=nx*coords(1)+i
 !      gj=ny*coords(2)+j
 !      gk=nz*coords(3)+k
-      intblockz=(((nzblock_d-2)-1) * TILE_DIMz +1+2*TILE_DIMz-1)/TILE_DIMz
       
-      intblock=blockIdx%x+threadIdx%y*nxblock_d+(intblockz-1)*nxyblock_d+1 !internal-node block
+      intblock=blockIdx%x+threadIdx%y*nxblock_d+(nzblock_d-2)*nxyblock_d+1 !internal-node block
       
                !if (abs(isfluid(i,j,k)) /= 1) return
        

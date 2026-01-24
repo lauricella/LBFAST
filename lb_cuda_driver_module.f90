@@ -82,9 +82,9 @@ contains
       
       dimBlockshared = dim3(TILE_DIMx +2, TILE_DIMy +2, TILE_DIMz +2)
       
-      dimGridx  = dim3(1,(ny+TILE_DIM-1)/TILE_DIM -2, (nz+TILE_DIM-1)/TILE_DIM -2) !only yz faces
-      dimGridy  = dim3((nx+TILE_DIM-1)/TILE_DIM -2, 1, (nz+TILE_DIM-1)/TILE_DIM)  !xz faces also doing edge xy
-      dimGridz  = dim3((nx+TILE_DIM-1)/TILE_DIM, (ny+TILE_DIM-1)/TILE_DIM, 1)    !xy faces also doing edges xz yz and corners
+      dimGridx  = dim3(1,(ny+TILE_DIMy-1)/TILE_DIMy -2, (nz+TILE_DIMz-1)/TILE_DIMz -2) !only yz faces
+      dimGridy  = dim3((nx+TILE_DIMx-1)/TILE_DIMx -2, 1, (nz+TILE_DIMz-1)/TILE_DIMz)  !xz faces also doing edge xy
+      dimGridz  = dim3((nx+TILE_DIMx-1)/TILE_DIMx, (ny+TILE_DIMy-1)/TILE_DIMy, 1)    !xy faces also doing edges xz yz and corners
       
       
       dimBlock2 = dim3(TILE_DIM, TILE_DIM, 1)
@@ -795,7 +795,7 @@ contains
           write(6,*) 'launch error at ', __LINE__, ' file ', __FILE__
           write(6,*) cudaGetErrorString(istat)
         endif
-        call doerror(6,'ERROR in fused_LB_cuda (launch)')
+        call doerror(6,'ERROR in fused_LB_cuda_int (launch)')
       endif
 
       istat = cudaDeviceSynchronize()
@@ -804,7 +804,7 @@ contains
          write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
          write(6,*) cudaGetErrorString(istat)
        endif
-       call doerror(6,'ERROR in fused_LB_cuda (sync)')
+       call doerror(6,'ERROR in fused_LB_cuda_int (sync)')
       endif
       
       !$acc wait
@@ -860,6 +860,24 @@ contains
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
 	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
 	   
+      istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
+      if (istat /= cudaSuccess) then
+        if(myrank==0) then
+          write(6,*) 'launch error at ', __LINE__, ' file ', __FILE__
+          write(6,*) cudaGetErrorString(istat)
+        endif
+        call doerror(6,'ERROR in fused_LB_cuda_x (launch)')
+      endif
+
+      istat = cudaDeviceSynchronize()
+      if (istat /= cudaSuccess) then
+       if(myrank==0) then
+         write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+         write(6,*) cudaGetErrorString(istat)
+       endif
+       call doerror(6,'ERROR in fused_LB_cuda_x (sync)')
+      endif
+	   
       call fused_LB_kernel_y<<<dimGridy,dimBlockshared>>>(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
@@ -875,6 +893,24 @@ contains
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
 	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+	   
+      istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
+      if (istat /= cudaSuccess) then
+        if(myrank==0) then
+          write(6,*) 'launch error at ', __LINE__, ' file ', __FILE__
+          write(6,*) cudaGetErrorString(istat)
+        endif
+        call doerror(6,'ERROR in fused_LB_cuda_y (launch)')
+      endif
+
+      istat = cudaDeviceSynchronize()
+      if (istat /= cudaSuccess) then
+       if(myrank==0) then
+         write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+         write(6,*) cudaGetErrorString(istat)
+       endif
+       call doerror(6,'ERROR in fused_LB_cuda_y (sync)')
+      endif
 	   
       call fused_LB_kernel_z<<<dimGridz,dimBlockshared>>>(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
 #ifdef MULTIHIT
@@ -892,15 +928,13 @@ contains
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
 	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
 	   
-!$acc end host_data
-      
       istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
       if (istat /= cudaSuccess) then
         if(myrank==0) then
           write(6,*) 'launch error at ', __LINE__, ' file ', __FILE__
           write(6,*) cudaGetErrorString(istat)
         endif
-        call doerror(6,'ERROR in fused_LB_cuda (launch)')
+        call doerror(6,'ERROR in fused_LB_cuda_z (launch)')
       endif
 
       istat = cudaDeviceSynchronize()
@@ -909,8 +943,11 @@ contains
          write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
          write(6,*) cudaGetErrorString(istat)
        endif
-       call doerror(6,'ERROR in fused_LB_cuda (sync)')
+       call doerror(6,'ERROR in fused_LB_cuda_z (sync)')
       endif
+	   
+!$acc end host_data
+      
       
       !$acc wait
 
