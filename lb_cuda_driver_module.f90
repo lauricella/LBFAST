@@ -14,7 +14,8 @@ module lb_cuda_driver
    use lb_cuda_auxfields, only: compute_norm_interface_kernel,compute_div_theta_n_kernel
    use lb_cuda_repulsive, only: thinfilm_scan_mark_kernel,repulsive_flux_normal_kernel
    use lb_cuda_moments, only: moments_LB_kernel
-   use lb_cuda_fused, only: fused_LB_kernel2,fused_LB_kernel1
+   use lb_cuda_fused, only: fused_LB_kernel2,fused_LB_kernel1,fused_LB_kernel_int, &
+    fused_LB_kernel_x,fused_LB_kernel_y,fused_LB_kernel_z
    use lb_cuda_update_phi, only: update_phifields_kernel
    use lb_cuda_boundary, only: LB_int_boundary_kernel,PHI_int_boundary_kernel, &
     phi_sum_count_kernel,apply_lagrangian_phi_kernel
@@ -738,7 +739,183 @@ contains
 
       
    end subroutine fused_LB_cuda
+   
+   subroutine fused_LB_cuda_int(hfields_in,hfields_out &
+#ifdef TWOCOMPONENT    
+   ,phifields_s &
+#endif   
+   )
 
+      implicit none
+      
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_in,hfields_out
+#ifdef TWOCOMPONENT       
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
+#endif
+      
+!      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
+      !$acc wait
+      istat = cudaDeviceSynchronize
+
+!$acc host_data use_device(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid & 
+#ifdef MULTIHIT
+	   !$acc& ,ABCx,ABCy,ABCz &
+#endif 
+#ifdef WETTABILITY
+       !$acc& ,wettab_r,wettab_b &
+#endif  
+#ifdef TWOCOMPONENT 
+       !$acc& ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
+#ifdef MONOD
+	   !$acc& ,mu_max,Ks &
+#endif
+#endif   
+       !$acc& ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+       !$acc& ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+      call fused_LB_kernel_int<<<dimGridInt,dimBlockshared>>>(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
+#ifdef MULTIHIT
+	   ,ABCx,ABCy,ABCz &
+#endif 
+#ifdef WETTABILITY
+       ,wettab_r,wettab_b &
+#endif  
+#ifdef TWOCOMPONENT 
+       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
+#ifdef MONOD
+	   ,mu_max,Ks &
+#endif
+#endif   
+       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+!$acc end host_data
+      
+      istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
+      if (istat /= cudaSuccess) then
+        if(myrank==0) then
+          write(6,*) 'launch error at ', __LINE__, ' file ', __FILE__
+          write(6,*) cudaGetErrorString(istat)
+        endif
+        call doerror(6,'ERROR in fused_LB_cuda (launch)')
+      endif
+
+      istat = cudaDeviceSynchronize()
+      if (istat /= cudaSuccess) then
+       if(myrank==0) then
+         write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+         write(6,*) cudaGetErrorString(istat)
+       endif
+       call doerror(6,'ERROR in fused_LB_cuda (sync)')
+      endif
+      
+      !$acc wait
+
+      
+   end subroutine fused_LB_cuda_int
+   
+   subroutine fused_LB_cuda_ext(hfields_in,hfields_out &
+#ifdef TWOCOMPONENT    
+   ,phifields_s &
+#endif   
+   )
+
+      implicit none
+      
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_in,hfields_out
+#ifdef TWOCOMPONENT       
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
+#endif
+      
+!      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
+      !$acc wait
+      istat = cudaDeviceSynchronize
+
+!$acc host_data use_device(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid & 
+#ifdef MULTIHIT
+	   !$acc& ,ABCx,ABCy,ABCz &
+#endif 
+#ifdef WETTABILITY
+       !$acc& ,wettab_r,wettab_b &
+#endif  
+#ifdef TWOCOMPONENT 
+       !$acc& ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
+#ifdef MONOD
+	   !$acc& ,mu_max,Ks &
+#endif
+#endif   
+       !$acc& ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+       !$acc& ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+      call fused_LB_kernel_x<<<dimGridx,dimBlockshared>>>(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
+#ifdef MULTIHIT
+	   ,ABCx,ABCy,ABCz &
+#endif 
+#ifdef WETTABILITY
+       ,wettab_r,wettab_b &
+#endif  
+#ifdef TWOCOMPONENT 
+       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
+#ifdef MONOD
+	   ,mu_max,Ks &
+#endif
+#endif   
+       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+	   
+      call fused_LB_kernel_y<<<dimGridy,dimBlockshared>>>(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
+#ifdef MULTIHIT
+	   ,ABCx,ABCy,ABCz &
+#endif 
+#ifdef WETTABILITY
+       ,wettab_r,wettab_b &
+#endif  
+#ifdef TWOCOMPONENT 
+       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
+#ifdef MONOD
+	   ,mu_max,Ks &
+#endif
+#endif   
+       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+	   
+      call fused_LB_kernel_z<<<dimGridz,dimBlockshared>>>(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
+#ifdef MULTIHIT
+	   ,ABCx,ABCy,ABCz &
+#endif 
+#ifdef WETTABILITY
+       ,wettab_r,wettab_b &
+#endif  
+#ifdef TWOCOMPONENT 
+       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
+#ifdef MONOD
+	   ,mu_max,Ks &
+#endif
+#endif   
+       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+	   
+!$acc end host_data
+      
+      istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
+      if (istat /= cudaSuccess) then
+        if(myrank==0) then
+          write(6,*) 'launch error at ', __LINE__, ' file ', __FILE__
+          write(6,*) cudaGetErrorString(istat)
+        endif
+        call doerror(6,'ERROR in fused_LB_cuda (launch)')
+      endif
+
+      istat = cudaDeviceSynchronize()
+      if (istat /= cudaSuccess) then
+       if(myrank==0) then
+         write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+         write(6,*) cudaGetErrorString(istat)
+       endif
+       call doerror(6,'ERROR in fused_LB_cuda (sync)')
+      endif
+      
+      !$acc wait
+
+      
+   end subroutine fused_LB_cuda_ext
    
    subroutine update_phifields(hfields_s,phifields_in,phifields_out)
 

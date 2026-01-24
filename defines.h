@@ -15,3 +15,5 @@
 #define GPUTILEX 8
 #define GPUTILEY 8
 #define GPUTILEZ 8
+
+#define FUDEDSPLIT

@@ -80,6 +80,9 @@
 #warning "SMAGORINSKI LES: activated"
 #endif
 
+#ifdef FUDEDSPLIT
+#warning "FUDEDSPLIT: activated"
+#endif
 module vars
 #ifdef _OPENACC
    use openacc
