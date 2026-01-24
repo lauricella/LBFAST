@@ -465,9 +465,9 @@ contains
 !                     pyz=pyz - fpost*(dey(lii)*dez(lii))
 !                  enddo
 
-                  pxx=pxx - cssq*press - hfields_in(ii,jj,kk,2,myblock) *hfields_in(ii,jj,kk,2,myblock)  
-                  pyy=pyy - cssq*press - hfields_in(ii,jj,kk,3,myblock) *hfields_in(ii,jj,kk,3,myblock)  
-                  pzz=pzz - cssq*press - hfields_in(ii,jj,kk,4,myblock) *hfields_in(ii,jj,kk,4,myblock)  
+                  pxx=pxx - cssq*hfields_in(ii,jj,kk,1,myblock)  - hfields_in(ii,jj,kk,2,myblock) *hfields_in(ii,jj,kk,2,myblock)  
+                  pyy=pyy - cssq*hfields_in(ii,jj,kk,1,myblock)  - hfields_in(ii,jj,kk,3,myblock) *hfields_in(ii,jj,kk,3,myblock)  
+                  pzz=pzz - cssq*hfields_in(ii,jj,kk,1,myblock)  - hfields_in(ii,jj,kk,4,myblock) *hfields_in(ii,jj,kk,4,myblock)  
                   pxy=pxy - hfields_in(ii,jj,kk,2,myblock) *hfields_in(ii,jj,kk,3,myblock) 
                   pxz=pxz - hfields_in(ii,jj,kk,2,myblock) *hfields_in(ii,jj,kk,4,myblock) 
                   pyz=pyz - hfields_in(ii,jj,kk,3,myblock) *hfields_in(ii,jj,kk,4,myblock) 
@@ -513,7 +513,7 @@ contains
                    hfields_in(ii,jj,kk,3,myblock) *hfields_in(ii,jj,kk,3,myblock) +&
                    hfields_in(ii,jj,kk,4,myblock) *hfields_in(ii,jj,kk,4,myblock) )*invcssq
 
-			      feq=p(0)*(press - uu)
+			      feq=p(0)*(hfields_in(ii,jj,kk,1,myblock)  - uu)
 				  fneq1=(HALF*invcssq)*(-pxx-pyy-pzz)
 				  F_discr = p(0)*(- hfields_in(ii,jj,kk,2,myblock) *forces_s(ii,jj,kk,1,myblock)*invrhophi_loc - &
 				  hfields_in(ii,jj,kk,3,myblock) *forces_s(ii,jj,kk,2,myblock)*invrhophi_loc - &
@@ -525,7 +525,7 @@ contains
                      udotc=(hfields_in(ii,jj,kk,2,myblock) *dex(l) + &
                      hfields_in(ii,jj,kk,3,myblock) *dey(l)+ &
                      hfields_in(ii,jj,kk,4,myblock) *dez(l))*invcssq
-		             feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
+		             feq=p(l)*(hfields_in(ii,jj,kk,1,myblock)  + (udotc+0.5_db*udotc*udotc - uu))
                      fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		              + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                  + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
