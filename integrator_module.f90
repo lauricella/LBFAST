@@ -250,18 +250,6 @@ contains
          !$acc wait
 
 #ifdef TWOCOMPONENT	 
-!****************scambio phi: boundary condition periodiche su phi************************
-		 if(ldiagnostic)call start_timing2("LB","ex_phifields_sendrecv")
-		 call exchange_phifields_sendrecv(phifields_flip)
-		 if(ldiagnostic)call end_timing2("LB","ex_phifields_sendrecv")
-		 
-         if(ldiagnostic)call start_timing2("LB","ex_phifields_intpbc")
-		 call exchange_phifields_intpbc(phifields_flip)
-		 if(ldiagnostic)call end_timing2("LB","ex_phifields_intpbc")
-		 
-         if(ldiagnostic)call start_timing2("LB","ex_phifields_wait")
-		 call exchange_phifields_wait(phifields_flip)
-		 if(ldiagnostic)call end_timing2("LB","ex_phifields_wait")
          !***********************************ora che ho phi in cornice calcolo normx normy normz************************
          if(ldiagnostic)call start_timing2("LB","compute_norm")
          call compute_norm_interface_cuda(phifields_flip)
@@ -392,6 +380,19 @@ contains
          if(ldiagnostic)call start_timing2("LB","update_phifields")       
          call update_phifields(hfields_flip,phifields_flip,phifields_flop)
          if(ldiagnostic)call end_timing2("LB","update_phifields")
+         
+!****************scambio phi: boundary condition periodiche su phi************************
+		 if(ldiagnostic)call start_timing2("LB","ex_phifields_sendrecv")
+		 call exchange_phifields_sendrecv(phifields_flop)
+		 if(ldiagnostic)call end_timing2("LB","ex_phifields_sendrecv")
+		 
+         if(ldiagnostic)call start_timing2("LB","ex_phifields_intpbc")
+		 call exchange_phifields_intpbc(phifields_flop)
+		 if(ldiagnostic)call end_timing2("LB","ex_phifields_intpbc")
+		 
+         if(ldiagnostic)call start_timing2("LB","ex_phifields_wait")
+		 call exchange_phifields_wait(phifields_flop)
+		 if(ldiagnostic)call end_timing2("LB","ex_phifields_wait")
 #endif
          
          !************ thread-safe boundary condition setup
@@ -436,18 +437,6 @@ contains
          !$acc wait
          
 #ifdef TWOCOMPONENT	 
-!****************scambio phi: boundary condition periodiche su phi************************
-		 if(ldiagnostic)call start_timing2("LB","ex_phifields_sendrecv")
-		 call exchange_phifields_sendrecv(phifields_flop)
-		 if(ldiagnostic)call end_timing2("LB","ex_phifields_sendrecv")
-		 
-         if(ldiagnostic)call start_timing2("LB","ex_phifields_intpbc")
-		 call exchange_phifields_intpbc(phifields_flop)
-		 if(ldiagnostic)call end_timing2("LB","ex_phifields_intpbc")
-		 
-         if(ldiagnostic)call start_timing2("LB","ex_phifields_wait")
-		 call exchange_phifields_wait(phifields_flop)
-		 if(ldiagnostic)call end_timing2("LB","ex_phifields_wait")
          !***********************************ora che ho phi in cornice calcolo normx normy normz************************
          if(ldiagnostic)call start_timing2("LB","compute_norm")
          call compute_norm_interface_cuda(phifields_flop)
@@ -577,6 +566,19 @@ contains
          if(ldiagnostic)call start_timing2("LB","update_phifields")  
          call update_phifields(hfields_flop,phifields_flop,phifields_flip)
          if(ldiagnostic)call end_timing2("LB","update_phifields")
+         
+!****************scambio phi: boundary condition periodiche su phi************************
+		 if(ldiagnostic)call start_timing2("LB","ex_phifields_sendrecv")
+		 call exchange_phifields_sendrecv(phifields_flip)
+		 if(ldiagnostic)call end_timing2("LB","ex_phifields_sendrecv")
+		 
+         if(ldiagnostic)call start_timing2("LB","ex_phifields_intpbc")
+		 call exchange_phifields_intpbc(phifields_flip)
+		 if(ldiagnostic)call end_timing2("LB","ex_phifields_intpbc")
+		 
+         if(ldiagnostic)call start_timing2("LB","ex_phifields_wait")
+		 call exchange_phifields_wait(phifields_flip)
+		 if(ldiagnostic)call end_timing2("LB","ex_phifields_wait")
 #endif
          
          
