@@ -386,19 +386,6 @@ contains
           ,phifields_flip &
 #endif
          )
-
-         call fused_LB_cuda_ext(hfields_flip,hfields_flop &
-#ifdef TWOCOMPONENT	   
-          ,phifields_flip &
-#endif
-         )
-
-         
-         call fused_LB_cuda_int(hfields_flip,hfields_flop &
-#ifdef TWOCOMPONENT	   
-          ,phifields_flip &
-#endif
-         )
          
 #endif
          if(ldiagnostic)call end_timing2("LB","fused")
