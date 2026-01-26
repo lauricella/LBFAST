@@ -15,7 +15,9 @@ module lb_cuda_driver
    use lb_cuda_repulsive, only: thinfilm_scan_mark_kernel,repulsive_flux_normal_kernel
    use lb_cuda_moments, only: moments_LB_kernel
    use lb_cuda_fused, only: fused_LB_kernel2,fused_LB_kernel1,fused_LB_kernel_int, &
-    fused_LB_kernel_x,fused_LB_kernel_y,fused_LB_kernel_z
+    fused_LB_kernel_xminus,fused_LB_kernel_xplus, &
+    fused_LB_kernel_yminus,fused_LB_kernel_yplus, &
+    fused_LB_kernel_zminus,fused_LB_kernel_zplus
    use lb_cuda_update_phi, only: update_phifields_kernel
    use lb_cuda_boundary, only: LB_int_boundary_kernel,PHI_int_boundary_kernel, &
     phi_sum_count_kernel,apply_lagrangian_phi_kernel
@@ -864,7 +866,7 @@ contains
        !$acc& ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
        !$acc& ,hfields_in,hfields_out,auxfields,locauxfields,forces)
        
-      call fused_LB_kernel_z<<<dimGridz,dimBlockshared>>>(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
+      call fused_LB_kernel_zminus<<<dimGridz,dimBlockshared>>>(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
 #endif 
@@ -886,7 +888,7 @@ contains
           write(6,*) 'launch error at ', __LINE__, ' file ', __FILE__
           write(6,*) cudaGetErrorString(istat)
         endif
-        call doerror(6,'ERROR in fused_LB_cuda_z (launch)')
+        call doerror(6,'ERROR in fused_LB_kernel_zminus (launch)')
       endif
 
       istat = cudaDeviceSynchronize()
@@ -895,10 +897,44 @@ contains
          write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
          write(6,*) cudaGetErrorString(istat)
        endif
-       call doerror(6,'ERROR in fused_LB_cuda_z (sync)')
+       call doerror(6,'ERROR in fused_LB_kernel_zminus (sync)')
       endif
+      
+      call fused_LB_kernel_zplus<<<dimGridz,dimBlockshared>>>(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
+#ifdef MULTIHIT
+	   ,ABCx,ABCy,ABCz &
+#endif 
+#ifdef WETTABILITY
+       ,wettab_r,wettab_b &
+#endif  
+#ifdef TWOCOMPONENT 
+       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
+#ifdef MONOD
+	   ,mu_max,Ks &
+#endif
+#endif   
+       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
 	   
-      if(ldodimGridy)call fused_LB_kernel_y<<<dimGridy,dimBlockshared>>>(step &
+      istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
+      if (istat /= cudaSuccess) then
+        if(myrank==0) then
+          write(6,*) 'launch error at ', __LINE__, ' file ', __FILE__
+          write(6,*) cudaGetErrorString(istat)
+        endif
+        call doerror(6,'ERROR in fused_LB_kernel_zplus (launch)')
+      endif
+
+      istat = cudaDeviceSynchronize()
+      if (istat /= cudaSuccess) then
+       if(myrank==0) then
+         write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+         write(6,*) cudaGetErrorString(istat)
+       endif
+       call doerror(6,'ERROR in fused_LB_kernel_zplus (sync)')
+      endif
+	  
+      if(ldodimGridy)call fused_LB_kernel_yminus<<<dimGridy,dimBlockshared>>>(step &
        ,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
@@ -921,7 +957,7 @@ contains
           write(6,*) 'launch error at ', __LINE__, ' file ', __FILE__
           write(6,*) cudaGetErrorString(istat)
         endif
-        call doerror(6,'ERROR in fused_LB_cuda_y (launch)')
+        call doerror(6,'ERROR in fused_LB_kernel_yminus (launch)')
       endif
 
       istat = cudaDeviceSynchronize()
@@ -930,10 +966,45 @@ contains
          write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
          write(6,*) cudaGetErrorString(istat)
        endif
-       call doerror(6,'ERROR in fused_LB_cuda_y (sync)')
+       call doerror(6,'ERROR in fused_LB_kernel_yminus (sync)')
+      endif
+      
+      if(ldodimGridy)call fused_LB_kernel_yplus<<<dimGridy,dimBlockshared>>>(step &
+       ,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
+#ifdef MULTIHIT
+	   ,ABCx,ABCy,ABCz &
+#endif 
+#ifdef WETTABILITY
+       ,wettab_r,wettab_b &
+#endif  
+#ifdef TWOCOMPONENT 
+       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
+#ifdef MONOD
+	   ,mu_max,Ks &
+#endif
+#endif   
+       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+	   
+      istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
+      if (istat /= cudaSuccess) then
+        if(myrank==0) then
+          write(6,*) 'launch error at ', __LINE__, ' file ', __FILE__
+          write(6,*) cudaGetErrorString(istat)
+        endif
+        call doerror(6,'ERROR in fused_LB_kernel_yplus (launch)')
+      endif
+
+      istat = cudaDeviceSynchronize()
+      if (istat /= cudaSuccess) then
+       if(myrank==0) then
+         write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+         write(6,*) cudaGetErrorString(istat)
+       endif
+       call doerror(6,'ERROR in fused_LB_kernel_yplus (sync)')
       endif
        
-      if(ldodimGridx)call fused_LB_kernel_x<<<dimGridx,dimBlockshared>>>(step &
+      if(ldodimGridx)call fused_LB_kernel_xminus<<<dimGridx,dimBlockshared>>>(step &
        ,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
@@ -956,7 +1027,7 @@ contains
           write(6,*) 'launch error at ', __LINE__, ' file ', __FILE__
           write(6,*) cudaGetErrorString(istat)
         endif
-        call doerror(6,'ERROR in fused_LB_cuda_x (launch)')
+        call doerror(6,'ERROR in fused_LB_kernel_xminus (launch)')
       endif
 
       istat = cudaDeviceSynchronize()
@@ -965,7 +1036,42 @@ contains
          write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
          write(6,*) cudaGetErrorString(istat)
        endif
-       call doerror(6,'ERROR in fused_LB_cuda_x (sync)')
+       call doerror(6,'ERROR in fused_LB_kernel_xminus (sync)')
+      endif
+      
+      if(ldodimGridx)call fused_LB_kernel_xplus<<<dimGridx,dimBlockshared>>>(step &
+       ,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
+#ifdef MULTIHIT
+	   ,ABCx,ABCy,ABCz &
+#endif 
+#ifdef WETTABILITY
+       ,wettab_r,wettab_b &
+#endif  
+#ifdef TWOCOMPONENT 
+       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
+#ifdef MONOD
+	   ,mu_max,Ks &
+#endif
+#endif   
+       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+	   
+      istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
+      if (istat /= cudaSuccess) then
+        if(myrank==0) then
+          write(6,*) 'launch error at ', __LINE__, ' file ', __FILE__
+          write(6,*) cudaGetErrorString(istat)
+        endif
+        call doerror(6,'ERROR in fused_LB_kernel_xplus (launch)')
+      endif
+
+      istat = cudaDeviceSynchronize()
+      if (istat /= cudaSuccess) then
+       if(myrank==0) then
+         write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+         write(6,*) cudaGetErrorString(istat)
+       endif
+       call doerror(6,'ERROR in fused_LB_kernel_xplus (sync)')
       endif
 	   
 !$acc end host_data

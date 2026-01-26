@@ -370,6 +370,13 @@ contains
          !***********************************collision + no slip + forcing: fused implementation*********
 		 if(ldiagnostic)call start_timing2("LB","fused")
 #ifdef FUDEDSPLIT
+
+         call fused_LB_cuda(hfields_flip,hfields_flop &
+#ifdef TWOCOMPONENT	   
+          ,phifields_flip &
+#endif
+         )
+
          call fused_LB_cuda_ext(hfields_flip,hfields_flop &
 #ifdef TWOCOMPONENT	   
           ,phifields_flip &
@@ -570,6 +577,13 @@ contains
          !***********************************collision + no slip + forcing: fused implementation*********
 		 if(ldiagnostic)call start_timing2("LB","fused")  
 #ifdef FUDEDSPLIT
+
+         call fused_LB_cuda(hfields_flop,hfields_flip &
+#ifdef TWOCOMPONENT	            
+         ,phifields_flop &
+#endif
+         )
+
          call fused_LB_cuda_ext(hfields_flop,hfields_flip &
 #ifdef TWOCOMPONENT	            
          ,phifields_flop &
