@@ -36,7 +36,9 @@ module integrator_module
 #if defined(_OPENACC)        
    use lb_cuda_driver, only : moments_LB_cuda,fused_lb_cuda,test_LB_cuda, &
     compute_norm_interface_cuda,thinfilm_scan_mark_cuda,repulsive_flux_normal_cuda, &
-    compute_div_theta_n,update_phifields,fused_LB_cuda_int,fused_LB_cuda_ext
+    compute_div_theta_n,update_phifields,fused_LB_cuda_int,fused_LB_cuda_ext, &
+    moments_LB_cuda,moments_LB_cuda_int,moments_LB_cuda_ext, &
+    update_phifields_int,update_phifields_ext
 #endif
    use profiling_m,   only : timer_init,itime_start, &
       startPreprocessingTime,print_timing_partial, &
@@ -369,13 +371,7 @@ contains
        
          !***********************************collision + no slip + forcing: fused implementation*********
 		 if(ldiagnostic)call start_timing2("LB","fused")
-#ifdef FUDEDSPLIT
-
-         call fused_LB_cuda(hfields_flip,hfields_flop &
-#ifdef TWOCOMPONENT	   
-          ,phifields_flip &
-#endif
-         )
+#ifdef ASYNCMPI
 
          call fused_LB_cuda_ext(hfields_flip,hfields_flop &
 #ifdef TWOCOMPONENT	   
@@ -576,13 +572,7 @@ contains
          
          !***********************************collision + no slip + forcing: fused implementation*********
 		 if(ldiagnostic)call start_timing2("LB","fused")  
-#ifdef FUDEDSPLIT
-
-         call fused_LB_cuda(hfields_flop,hfields_flip &
-#ifdef TWOCOMPONENT	            
-         ,phifields_flop &
-#endif
-         )
+#ifdef ASYNCMPI
 
          call fused_LB_cuda_ext(hfields_flop,hfields_flip &
 #ifdef TWOCOMPONENT	            

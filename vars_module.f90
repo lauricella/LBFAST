@@ -80,8 +80,8 @@
 #warning "SMAGORINSKI LES: activated"
 #endif
 
-#ifdef FUDEDSPLIT
-#warning "FUDEDSPLIT: activated"
+#ifdef ASYNCMPI
+#warning "ASYNCMPI: activated"
 #endif
 module vars
 #ifdef _OPENACC

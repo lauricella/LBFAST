@@ -16,7 +16,7 @@ module lb_cuda_update_phi
 
 contains
    
-   attributes(global) subroutine update_phifields_kernel(flop,nx,ny,nz,coords,isfluid &
+   attributes(global) subroutine update_phifields_kernel(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
 #ifdef TWOCOMPONENT    
     ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
 #ifdef MONOD	
@@ -27,7 +27,7 @@ contains
        ,hfields_s,phifields_in,phifields_out,auxfields_s,locauxfields_s,forces_s)
 
       implicit none
-      integer :: flop,nx,ny,nz
+      integer :: step,iprobe,jprobe,kprobe,flop,nx,ny,nz
       integer, dimension(3) :: coords
       integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
      
@@ -104,5 +104,637 @@ contains
       return
       
    endsubroutine update_phifields_kernel
+   
+      attributes(global) subroutine update_phifields_kernel_int(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
+#ifdef TWOCOMPONENT    
+    ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+#ifdef MONOD	
+    ,mu_max,Ks &
+#endif
+#endif 
+    ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+       ,hfields_s,phifields_in,phifields_out,auxfields_s,locauxfields_s,forces_s)
+
+      implicit none
+      integer :: step,iprobe,jprobe,kprobe,flop,nx,ny,nz
+      integer, dimension(3) :: coords
+      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
+     
+ 
+#ifdef TWOCOMPONENT 
+      real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta, &
+       kapp,tau_diff,sigma,modgrad 
+#ifdef MONOD
+      real(kind=db) :: mu_max,Ks
+#endif
+#endif 
+      integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      
+      integer :: i,j,k
+      !integer :: gi,gj,gk
+      integer :: myblock,ii,jj,kk
+      real(kind=db) :: gradfix,gradfiy,gradfiz,phi_loc,phi_out,mytemp
+      real(kind=db) :: loc_u,loc_v,loc_w,lap_phi_loc
+#ifdef MONOD
+	  real(kind=db) :: S_mono
+#endif
+      
+      ii=threadIdx%x
+      jj=threadIdx%y
+      kk=threadIdx%z
+      
+      i = (blockIdx%x) * TILE_DIMx + ii
+      j = (blockIdx%y) * TILE_DIMy + jj
+      k = (blockIdx%z) * TILE_DIMz + kk
+      
+      if(abs(isfluid(i,j,k)) .ne. 1)return
+      
+      !gi=nx*coords(1)+i
+      !gj=ny*coords(2)+j
+      !gk=nz*coords(3)+k
+      
+      myblock=(blockIdx%x+1)+(blockIdx%y+1)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1
+      
+      
+	   
+#ifdef TWOCOMPONENT
+				  
+	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+	  			  
+	  !reuse gradrhox,gradrhoy,gradrhoz as local velocity (reusing variables is saving register memory)
+	  !reuse gradfix,gradfiy,gradfiz
+      modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
+	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
+	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
+	  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*modgrad !normz*modgrad
+                  
+      phi_loc=phifields_in(ii,jj,kk,1,myblock)
+      lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
+                  
+      loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
+      loc_v=hfields_s(ii,jj,kk,3,myblock)
+      loc_w=hfields_s(ii,jj,kk,4,myblock)
+                  
+      phi_out = phi_loc &
+        - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
+        - loc_w*0.5_db*(gradfiz) + tau_diff*lap_phi_loc + mytemp 
+#endif	
+
+#ifdef MONOD
+      S_mono = mu_max * phi_loc)/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
+      phi_out=phi_out + S_mono
+	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
+#endif
+      phifields_out(ii,jj,kk,1,myblock)=phi_out
+      
+      return
+      
+   endsubroutine update_phifields_kernel_int
+   
+   attributes(global) subroutine update_phifields_kernel_xplus(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
+#ifdef TWOCOMPONENT    
+    ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+#ifdef MONOD	
+    ,mu_max,Ks &
+#endif
+#endif 
+    ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+       ,hfields_s,phifields_in,phifields_out,auxfields_s,locauxfields_s,forces_s)
+
+      implicit none
+      integer :: step,iprobe,jprobe,kprobe,flop,nx,ny,nz
+      integer, dimension(3) :: coords
+      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
+     
+ 
+#ifdef TWOCOMPONENT 
+      real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta, &
+       kapp,tau_diff,sigma,modgrad 
+#ifdef MONOD
+      real(kind=db) :: mu_max,Ks
+#endif
+#endif 
+      integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      
+      integer :: i,j,k
+      !integer :: gi,gj,gk
+      integer :: myblock,ii,jj,kk
+      real(kind=db) :: gradfix,gradfiy,gradfiz,phi_loc,phi_out,mytemp
+      real(kind=db) :: loc_u,loc_v,loc_w,lap_phi_loc
+#ifdef MONOD
+	  real(kind=db) :: S_mono
+#endif
+      
+      ii=threadIdx%x
+      jj=threadIdx%y
+      kk=threadIdx%z
+      
+      i = ((nxblock_d-2)-1) * TILE_DIMx + ii
+      j = (blockIdx%y) * TILE_DIMy + jj 
+      k = (blockIdx%z) * TILE_DIMz + kk 
+      
+      if(abs(isfluid(i,j,k)) .ne. 1)return
+      
+      !gi=nx*coords(1)+i
+      !gj=ny*coords(2)+j
+      !gk=nz*coords(3)+k
+      
+      myblock=(nxblock_d-2)+(blockIdx%y+1)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1
+      
+      
+	   
+#ifdef TWOCOMPONENT
+				  
+	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+	  			  
+	  !reuse gradrhox,gradrhoy,gradrhoz as local velocity (reusing variables is saving register memory)
+	  !reuse gradfix,gradfiy,gradfiz
+      modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
+	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
+	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
+	  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*modgrad !normz*modgrad
+                  
+      phi_loc=phifields_in(ii,jj,kk,1,myblock)
+      lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
+                  
+      loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
+      loc_v=hfields_s(ii,jj,kk,3,myblock)
+      loc_w=hfields_s(ii,jj,kk,4,myblock)
+                  
+      phi_out = phi_loc &
+        - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
+        - loc_w*0.5_db*(gradfiz) + tau_diff*lap_phi_loc + mytemp 
+#endif	
+
+#ifdef MONOD
+      S_mono = mu_max * phi_loc)/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
+      phi_out=phi_out + S_mono
+	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
+#endif
+      phifields_out(ii,jj,kk,1,myblock)=phi_out
+      
+      return
+      
+   endsubroutine update_phifields_kernel_xplus
+   
+   attributes(global) subroutine update_phifields_kernel_xminus(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
+#ifdef TWOCOMPONENT    
+    ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+#ifdef MONOD	
+    ,mu_max,Ks &
+#endif
+#endif 
+    ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+       ,hfields_s,phifields_in,phifields_out,auxfields_s,locauxfields_s,forces_s)
+
+      implicit none
+      integer :: step,iprobe,jprobe,kprobe,flop,nx,ny,nz
+      integer, dimension(3) :: coords
+      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
+     
+ 
+#ifdef TWOCOMPONENT 
+      real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta, &
+       kapp,tau_diff,sigma,modgrad 
+#ifdef MONOD
+      real(kind=db) :: mu_max,Ks
+#endif
+#endif 
+      integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      
+      integer :: i,j,k
+      !integer :: gi,gj,gk
+      integer :: myblock,ii,jj,kk
+      real(kind=db) :: gradfix,gradfiy,gradfiz,phi_loc,phi_out,mytemp
+      real(kind=db) :: loc_u,loc_v,loc_w,lap_phi_loc
+#ifdef MONOD
+	  real(kind=db) :: S_mono
+#endif
+      
+      ii=threadIdx%x
+      jj=threadIdx%y
+      kk=threadIdx%z
+      
+      i = ii
+      j = (blockIdx%y) * TILE_DIMy + jj 
+      k = (blockIdx%z) * TILE_DIMz + kk 
+      
+      if(abs(isfluid(i,j,k)) .ne. 1)return
+      
+      !gi=nx*coords(1)+i
+      !gj=ny*coords(2)+j
+      !gk=nz*coords(3)+k
+      
+      myblock=1+(blockIdx%y+1)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1
+      
+	   
+#ifdef TWOCOMPONENT
+				  
+	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+	  			  
+	  !reuse gradrhox,gradrhoy,gradrhoz as local velocity (reusing variables is saving register memory)
+	  !reuse gradfix,gradfiy,gradfiz
+      modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
+	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
+	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
+	  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*modgrad !normz*modgrad
+                  
+      phi_loc=phifields_in(ii,jj,kk,1,myblock)
+      lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
+                  
+      loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
+      loc_v=hfields_s(ii,jj,kk,3,myblock)
+      loc_w=hfields_s(ii,jj,kk,4,myblock)
+                  
+      phi_out = phi_loc &
+        - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
+        - loc_w*0.5_db*(gradfiz) + tau_diff*lap_phi_loc + mytemp 
+#endif	
+
+#ifdef MONOD
+      S_mono = mu_max * phi_loc)/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
+      phi_out=phi_out + S_mono
+	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
+#endif
+      phifields_out(ii,jj,kk,1,myblock)=phi_out
+      
+      return
+      
+   endsubroutine update_phifields_kernel_xminus
+   
+   attributes(global) subroutine update_phifields_kernel_yplus(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
+#ifdef TWOCOMPONENT    
+    ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+#ifdef MONOD	
+    ,mu_max,Ks &
+#endif
+#endif 
+    ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+       ,hfields_s,phifields_in,phifields_out,auxfields_s,locauxfields_s,forces_s)
+
+      implicit none
+      integer :: step,iprobe,jprobe,kprobe,flop,nx,ny,nz
+      integer, dimension(3) :: coords
+      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
+     
+ 
+#ifdef TWOCOMPONENT 
+      real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta, &
+       kapp,tau_diff,sigma,modgrad 
+#ifdef MONOD
+      real(kind=db) :: mu_max,Ks
+#endif
+#endif 
+      integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      
+      integer :: i,j,k
+      !integer :: gi,gj,gk
+      integer :: myblock,ii,jj,kk
+      real(kind=db) :: gradfix,gradfiy,gradfiz,phi_loc,phi_out,mytemp
+      real(kind=db) :: loc_u,loc_v,loc_w,lap_phi_loc
+#ifdef MONOD
+	  real(kind=db) :: S_mono
+#endif
+      
+      ii=threadIdx%x
+      jj=threadIdx%y
+      kk=threadIdx%z
+      
+      i = (blockIdx%x) * TILE_DIMx + ii
+      j = ((nyblock_d-2)-1) * TILE_DIMy + jj
+      k = (blockIdx%z-1) * TILE_DIMz + kk
+      
+      if(abs(isfluid(i,j,k)) .ne. 1)return
+      
+      !gi=nx*coords(1)+i
+      !gj=ny*coords(2)+j
+      !gk=nz*coords(3)+k
+      
+      myblock=(blockIdx%x+1)+(nyblock_d-2)*nxblock_d+blockIdx%z*nxyblock_d+1
+      
+       
+#ifdef TWOCOMPONENT
+				  
+	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+	  			  
+	  !reuse gradrhox,gradrhoy,gradrhoz as local velocity (reusing variables is saving register memory)
+	  !reuse gradfix,gradfiy,gradfiz
+      modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
+	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
+	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
+	  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*modgrad !normz*modgrad
+                  
+      phi_loc=phifields_in(ii,jj,kk,1,myblock)
+      lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
+                  
+      loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
+      loc_v=hfields_s(ii,jj,kk,3,myblock)
+      loc_w=hfields_s(ii,jj,kk,4,myblock)
+                  
+      phi_out = phi_loc &
+        - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
+        - loc_w*0.5_db*(gradfiz) + tau_diff*lap_phi_loc + mytemp 
+#endif	
+
+#ifdef MONOD
+      S_mono = mu_max * phi_loc)/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
+      phi_out=phi_out + S_mono
+	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
+#endif
+      phifields_out(ii,jj,kk,1,myblock)=phi_out
+      
+      return
+      
+   endsubroutine update_phifields_kernel_yplus
+   
+   attributes(global) subroutine update_phifields_kernel_yminus(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
+#ifdef TWOCOMPONENT    
+    ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+#ifdef MONOD	
+    ,mu_max,Ks &
+#endif
+#endif 
+    ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+       ,hfields_s,phifields_in,phifields_out,auxfields_s,locauxfields_s,forces_s)
+
+      implicit none
+      integer :: step,iprobe,jprobe,kprobe,flop,nx,ny,nz
+      integer, dimension(3) :: coords
+      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
+     
+ 
+#ifdef TWOCOMPONENT 
+      real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta, &
+       kapp,tau_diff,sigma,modgrad 
+#ifdef MONOD
+      real(kind=db) :: mu_max,Ks
+#endif
+#endif 
+      integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      
+      integer :: i,j,k
+      !integer :: gi,gj,gk
+      integer :: myblock,ii,jj,kk
+      real(kind=db) :: gradfix,gradfiy,gradfiz,phi_loc,phi_out,mytemp
+      real(kind=db) :: loc_u,loc_v,loc_w,lap_phi_loc
+#ifdef MONOD
+	  real(kind=db) :: S_mono
+#endif
+      
+      ii=threadIdx%x
+      jj=threadIdx%y
+      kk=threadIdx%z
+      
+      i = (blockIdx%x) * TILE_DIMx + ii 
+      j = jj
+      k = (blockIdx%z-1) * TILE_DIMz + kk
+      
+      if(abs(isfluid(i,j,k)) .ne. 1)return
+      
+      !gi=nx*coords(1)+i
+      !gj=ny*coords(2)+j
+      !gk=nz*coords(3)+k
+      
+      myblock=(blockIdx%x+1)+1*nxblock_d+blockIdx%z*nxyblock_d+1
+      
+	   
+#ifdef TWOCOMPONENT
+				  
+	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+	  			  
+	  !reuse gradrhox,gradrhoy,gradrhoz as local velocity (reusing variables is saving register memory)
+	  !reuse gradfix,gradfiy,gradfiz
+      modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
+	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
+	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
+	  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*modgrad !normz*modgrad
+                  
+      phi_loc=phifields_in(ii,jj,kk,1,myblock)
+      lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
+                  
+      loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
+      loc_v=hfields_s(ii,jj,kk,3,myblock)
+      loc_w=hfields_s(ii,jj,kk,4,myblock)
+                  
+      phi_out = phi_loc &
+        - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
+        - loc_w*0.5_db*(gradfiz) + tau_diff*lap_phi_loc + mytemp 
+#endif	
+
+#ifdef MONOD
+      S_mono = mu_max * phi_loc)/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
+      phi_out=phi_out + S_mono
+	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
+#endif
+      phifields_out(ii,jj,kk,1,myblock)=phi_out
+      
+      return
+      
+   endsubroutine update_phifields_kernel_yminus
+   
+   attributes(global) subroutine update_phifields_kernel_zplus(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
+#ifdef TWOCOMPONENT    
+    ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+#ifdef MONOD	
+    ,mu_max,Ks &
+#endif
+#endif 
+    ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+       ,hfields_s,phifields_in,phifields_out,auxfields_s,locauxfields_s,forces_s)
+
+      implicit none
+      integer :: step,iprobe,jprobe,kprobe,flop,nx,ny,nz
+      integer, dimension(3) :: coords
+      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
+     
+ 
+#ifdef TWOCOMPONENT 
+      real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta, &
+       kapp,tau_diff,sigma,modgrad 
+#ifdef MONOD
+      real(kind=db) :: mu_max,Ks
+#endif
+#endif 
+      integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      
+      integer :: i,j,k
+      !integer :: gi,gj,gk
+      integer :: myblock,ii,jj,kk
+      real(kind=db) :: gradfix,gradfiy,gradfiz,phi_loc,phi_out,mytemp
+      real(kind=db) :: loc_u,loc_v,loc_w,lap_phi_loc
+#ifdef MONOD
+	  real(kind=db) :: S_mono
+#endif
+      
+      ii=threadIdx%x
+      jj=threadIdx%y
+      kk=threadIdx%z
+      
+      i = (blockIdx%x-1) * TILE_DIMx + ii
+      j = (blockIdx%y-1) * TILE_DIMy + jj
+      k = ((nzblock_d-2)-1) * TILE_DIMz + kk
+      
+      if(abs(isfluid(i,j,k)) .ne. 1)return
+      
+      !gi=nx*coords(1)+i
+      !gj=ny*coords(2)+j
+      !gk=nz*coords(3)+k
+      
+      myblock=blockIdx%x+blockIdx%y*nxblock_d+(nzblock_d-2)*nxyblock_d+1
+      
+       
+#ifdef TWOCOMPONENT
+				  
+	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+	  			  
+	  !reuse gradrhox,gradrhoy,gradrhoz as local velocity (reusing variables is saving register memory)
+	  !reuse gradfix,gradfiy,gradfiz
+      modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
+	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
+	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
+	  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*modgrad !normz*modgrad
+                  
+      phi_loc=phifields_in(ii,jj,kk,1,myblock)
+      lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
+                  
+      loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
+      loc_v=hfields_s(ii,jj,kk,3,myblock)
+      loc_w=hfields_s(ii,jj,kk,4,myblock)
+                  
+      phi_out = phi_loc &
+        - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
+        - loc_w*0.5_db*(gradfiz) + tau_diff*lap_phi_loc + mytemp 
+#endif	
+
+#ifdef MONOD
+      S_mono = mu_max * phi_loc)/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
+      phi_out=phi_out + S_mono
+	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
+#endif
+      phifields_out(ii,jj,kk,1,myblock)=phi_out
+      
+      return
+      
+   endsubroutine update_phifields_kernel_zplus
+   
+   attributes(global) subroutine update_phifields_kernel_zminus(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
+#ifdef TWOCOMPONENT    
+    ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+#ifdef MONOD	
+    ,mu_max,Ks &
+#endif
+#endif 
+    ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+       ,hfields_s,phifields_in,phifields_out,auxfields_s,locauxfields_s,forces_s)
+
+      implicit none
+      integer :: step,iprobe,jprobe,kprobe,flop,nx,ny,nz
+      integer, dimension(3) :: coords
+      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
+     
+ 
+#ifdef TWOCOMPONENT 
+      real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta, &
+       kapp,tau_diff,sigma,modgrad 
+#ifdef MONOD
+      real(kind=db) :: mu_max,Ks
+#endif
+#endif 
+      integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      
+      integer :: i,j,k
+      !integer :: gi,gj,gk
+      integer :: myblock,ii,jj,kk
+      real(kind=db) :: gradfix,gradfiy,gradfiz,phi_loc,phi_out,mytemp
+      real(kind=db) :: loc_u,loc_v,loc_w,lap_phi_loc
+#ifdef MONOD
+	  real(kind=db) :: S_mono
+#endif
+      
+      ii=threadIdx%x
+      jj=threadIdx%y
+      kk=threadIdx%z
+      
+      i = (blockIdx%x-1) * TILE_DIMx + ii
+      j = (blockIdx%y-1) * TILE_DIMy + jj
+      k = kk
+      
+      if(abs(isfluid(i,j,k)) .ne. 1)return
+      
+      !gi=nx*coords(1)+i
+      !gj=ny*coords(2)+j
+      !gk=nz*coords(3)+k
+      
+      myblock=blockIdx%x+blockIdx%y*nxblock_d+1*nxyblock_d+1
+      
+	   
+#ifdef TWOCOMPONENT
+				  
+	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+	  			  
+	  !reuse gradrhox,gradrhoy,gradrhoz as local velocity (reusing variables is saving register memory)
+	  !reuse gradfix,gradfiy,gradfiz
+      modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
+	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
+	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
+	  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*modgrad !normz*modgrad
+                  
+      phi_loc=phifields_in(ii,jj,kk,1,myblock)
+      lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
+                  
+      loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
+      loc_v=hfields_s(ii,jj,kk,3,myblock)
+      loc_w=hfields_s(ii,jj,kk,4,myblock)
+                  
+      phi_out = phi_loc &
+        - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
+        - loc_w*0.5_db*(gradfiz) + tau_diff*lap_phi_loc + mytemp 
+#endif	
+
+#ifdef MONOD
+      S_mono = mu_max * phi_loc)/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
+      phi_out=phi_out + S_mono
+	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
+#endif
+      phifields_out(ii,jj,kk,1,myblock)=phi_out
+      
+      return
+      
+   endsubroutine update_phifields_kernel_zminus
 
 endmodule lb_cuda_update_phi
