@@ -157,7 +157,9 @@ program threadsafeLB
    stepskip=1
    lreadisfluid=.false.
    lreadinit=.false.
+#ifndef MYSIDE
 #define MYSIDE 512
+#endif
    lx=MYSIDE
    ly=MYSIDE
    lz=MYSIDE
