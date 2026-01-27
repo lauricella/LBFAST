@@ -11,7 +11,11 @@ module lb_cuda_driver
    use cudafor
    use mpi_template, only: coords,dostop,doerror,mydev,myrank,nprocs,nbuff,nbuffbvec
    use lb_cuda_vars
-   use lb_cuda_auxfields, only: compute_norm_interface_kernel,compute_div_theta_n_kernel
+   use lb_cuda_auxfields, only: compute_norm_interface_kernel,compute_div_theta_n_kernel, &
+    compute_norm_interface_kernel_int,compute_norm_interface_kernel_ext, &
+    compute_norm_interface_kernel_xminus,compute_norm_interface_kernel_xplus, &
+    compute_norm_interface_kernel_yminus,compute_norm_interface_kernel_yplus, &
+    compute_norm_interface_kernel_zminus,compute_norm_interface_kernel_zplus
    use lb_cuda_repulsive, only: thinfilm_scan_mark_kernel,repulsive_flux_normal_kernel
    use lb_cuda_moments, only: moments_LB_kernel,moments_LB_kernel_int, &
     moments_LB_kernel_xminus,moments_LB_kernel_xplus, &
@@ -531,24 +535,231 @@ contains
       !$acc wait
       istat = cudaDeviceSynchronize
 
-!$acc host_data use_device(flop,nx,ny,nz,coords,isfluid &
-       !$acc& ,rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-       call compute_norm_interface_kernel<<<dimGrid, dimBlockshared>>>(flop,nx,ny,nz,coords,isfluid, &
-        rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-!$acc end host_data
-      istat = cudaDeviceSynchronize
-      istat = cudaGetLastError()
-      if (istat/= cudaSuccess) then
-        if(myrank==0)write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
-        if(myrank==0)write(6,*) cudaGetErrorString(istat)
-        call doerror(6,'ERROR in compute_norm_interface_cuda')
-      endif
+!$acc host_data use_device(step &
+       !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
+       !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+       call compute_norm_interface_kernel<<<dimGrid, dimBlockshared>>>(step, &
+        iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
+        ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+
+       istat = cudaGetLastError()
+       if (istat/= cudaSuccess) then
+         if(myrank==0) then
+           write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
+           write(6,*) cudaGetErrorString(istat)
+         endif
+         call doerror(6,'ERROR in compute_norm_interface_cuda (launch)')
+       endif
+      
+       istat = cudaDeviceSynchronize()
+       if (istat /= cudaSuccess) then
+        if(myrank==0) then
+          write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+          write(6,*) cudaGetErrorString(istat)
+        endif
+        call doerror(6,'ERROR in compute_norm_interface_cuda (sync)')
+       endif
+      !$acc end host_data
       !$acc wait        
 #endif
       
       return
       
  endsubroutine compute_norm_interface_cuda
+ 
+ subroutine compute_norm_interface_cuda_int(phifields_s)
+
+      implicit none
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
+      
+#ifdef TWOCOMPONENT
+      !$acc wait
+      istat = cudaDeviceSynchronize
+
+!$acc host_data use_device(step &
+       !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
+       !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+	   if(ldodimGridInt)call compute_norm_interface_kernel_int<<<dimGridInt, dimBlockshared>>>(step, &
+        iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
+        ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+
+       istat = cudaGetLastError()
+       if (istat/= cudaSuccess) then
+         if(myrank==0) then
+           write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
+           write(6,*) cudaGetErrorString(istat)
+         endif
+         call doerror(6,'ERROR in compute_norm_interface_cuda_int (launch)')
+       endif
+      
+       istat = cudaDeviceSynchronize()
+       if (istat /= cudaSuccess) then
+        if(myrank==0) then
+          write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+          write(6,*) cudaGetErrorString(istat)
+        endif
+        call doerror(6,'ERROR in compute_norm_interface_cuda_int (sync)')
+       endif
+      !$acc end host_data
+      !$acc wait        
+#endif
+      
+      return
+      
+ endsubroutine compute_norm_interface_cuda_int
+ 
+ subroutine compute_norm_interface_cuda_ext(phifields_s)
+
+      implicit none
+      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
+      
+#ifdef TWOCOMPONENT
+      !$acc wait
+      istat = cudaDeviceSynchronize
+
+!$acc host_data use_device(step &
+       !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
+       !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+       
+	   call compute_norm_interface_kernel_zminus<<<dimGridz, dimBlockshared>>>(step, &
+        iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
+        ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+
+       istat = cudaGetLastError()
+       if (istat/= cudaSuccess) then
+         if(myrank==0) then
+           write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
+           write(6,*) cudaGetErrorString(istat)
+         endif
+         call doerror(6,'ERROR in compute_norm_interface_kernel_zminus (launch)')
+       endif
+      
+       istat = cudaDeviceSynchronize()
+       if (istat /= cudaSuccess) then
+        if(myrank==0) then
+          write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+          write(6,*) cudaGetErrorString(istat)
+        endif
+        call doerror(6,'ERROR in compute_norm_interface_kernel_zminus (sync)')
+       endif
+       
+       call compute_norm_interface_kernel_zplus<<<dimGridz, dimBlockshared>>>(step, &
+        iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
+        ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+
+       istat = cudaGetLastError()
+       if (istat/= cudaSuccess) then
+         if(myrank==0) then
+           write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
+           write(6,*) cudaGetErrorString(istat)
+         endif
+         call doerror(6,'ERROR in compute_norm_interface_kernel_zplus (launch)')
+       endif
+      
+       istat = cudaDeviceSynchronize()
+       if (istat /= cudaSuccess) then
+        if(myrank==0) then
+          write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+          write(6,*) cudaGetErrorString(istat)
+        endif
+        call doerror(6,'ERROR in compute_norm_interface_kernel_zplus (sync)')
+       endif
+       
+	   if(ldodimGridy)call compute_norm_interface_kernel_yminus<<<dimGridy, dimBlockshared>>>(step, &
+        iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
+        ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+
+       istat = cudaGetLastError()
+       if (istat/= cudaSuccess) then
+         if(myrank==0) then
+           write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
+           write(6,*) cudaGetErrorString(istat)
+         endif
+         call doerror(6,'ERROR in compute_norm_interface_kernel_yminus (launch)')
+       endif
+      
+       istat = cudaDeviceSynchronize()
+       if (istat /= cudaSuccess) then
+        if(myrank==0) then
+          write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+          write(6,*) cudaGetErrorString(istat)
+        endif
+        call doerror(6,'ERROR in compute_norm_interface_kernel_yminus (sync)')
+       endif
+       
+       if(ldodimGridy)call compute_norm_interface_kernel_yplus<<<dimGridy, dimBlockshared>>>(step, &
+        iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
+        ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+
+       istat = cudaGetLastError()
+       if (istat/= cudaSuccess) then
+         if(myrank==0) then
+           write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
+           write(6,*) cudaGetErrorString(istat)
+         endif
+         call doerror(6,'ERROR in compute_norm_interface_kernel_yplus (launch)')
+       endif
+      
+       istat = cudaDeviceSynchronize()
+       if (istat /= cudaSuccess) then
+        if(myrank==0) then
+          write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+          write(6,*) cudaGetErrorString(istat)
+        endif
+        call doerror(6,'ERROR in compute_norm_interface_kernel_yplus (sync)')
+       endif
+       
+	   if(ldodimGridx)call compute_norm_interface_kernel_xminus<<<dimGridx, dimBlockshared>>>(step, &
+        iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
+        ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+
+       istat = cudaGetLastError()
+       if (istat/= cudaSuccess) then
+         if(myrank==0) then
+           write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
+           write(6,*) cudaGetErrorString(istat)
+         endif
+         call doerror(6,'ERROR in compute_norm_interface_kernel_xminus (launch)')
+       endif
+      
+       istat = cudaDeviceSynchronize()
+       if (istat /= cudaSuccess) then
+        if(myrank==0) then
+          write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+          write(6,*) cudaGetErrorString(istat)
+        endif
+        call doerror(6,'ERROR in compute_norm_interface_kernel_xminus (sync)')
+       endif
+       
+       if(ldodimGridx)call compute_norm_interface_kernel_xplus<<<dimGridx, dimBlockshared>>>(step, &
+        iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
+        ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+
+       istat = cudaGetLastError()
+       if (istat/= cudaSuccess) then
+         if(myrank==0) then
+           write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
+           write(6,*) cudaGetErrorString(istat)
+         endif
+         call doerror(6,'ERROR in compute_norm_interface_kernel_xplus (launch)')
+       endif
+      
+       istat = cudaDeviceSynchronize()
+       if (istat /= cudaSuccess) then
+        if(myrank==0) then
+          write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+          write(6,*) cudaGetErrorString(istat)
+        endif
+        call doerror(6,'ERROR in compute_norm_interface_kernel_xplus (sync)')
+       endif
+       
+      !$acc end host_data
+      !$acc wait        
+#endif
+      
+      return
+      
+ endsubroutine compute_norm_interface_cuda_ext
    
  subroutine compute_div_theta_n(phifields_s)
 

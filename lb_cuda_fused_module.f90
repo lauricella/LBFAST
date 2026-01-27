@@ -579,7 +579,8 @@ contains
     endsubroutine fused_LB_kernel1
     
     
-    attributes(global) subroutine fused_LB_kernel_int(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &  
+    attributes(global) subroutine fused_LB_kernel_int(step &
+       ,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &  
 #ifdef MULTIHIT
        ,ABCx,ABCy,ABCz &
 #endif 

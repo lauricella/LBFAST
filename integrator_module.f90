@@ -38,7 +38,8 @@ module integrator_module
     compute_norm_interface_cuda,thinfilm_scan_mark_cuda,repulsive_flux_normal_cuda, &
     compute_div_theta_n,update_phifields,fused_LB_cuda_int,fused_LB_cuda_ext, &
     moments_LB_cuda,moments_LB_cuda_int,moments_LB_cuda_ext, &
-    update_phifields_int,update_phifields_ext
+    update_phifields_int,update_phifields_ext, &
+    compute_norm_interface_cuda_int,compute_norm_interface_cuda_ext
 #endif
    use profiling_m,   only : timer_init,itime_start, &
       startPreprocessingTime,print_timing_partial, &
@@ -172,29 +173,12 @@ contains
       if(ldiagnostic)call start_timing2("LB","ex_phifields_sendrecv")
 	  call exchange_phifields_sendrecv(phifields_flip)
 	  if(ldiagnostic)call end_timing2("LB","ex_phifields_sendrecv")
-		 
       if(ldiagnostic)call start_timing2("LB","ex_phifields_intpbc")
 	  call exchange_phifields_intpbc(phifields_flip)
 	  if(ldiagnostic)call end_timing2("LB","ex_phifields_intpbc")
-		 
       if(ldiagnostic)call start_timing2("LB","ex_phifields_wait")
 	  call exchange_phifields_wait(phifields_flip)
 	  if(ldiagnostic)call end_timing2("LB","ex_phifields_wait")
-      !***********************************ora che ho phi in cornice calcolo normx normy normz************************
-      if(ldiagnostic)call start_timing2("LB","compute_norm")
-      call compute_norm_interface_cuda(phifields_flip)
-      if(ldiagnostic)call end_timing2("LB","compute_norm")
-      !***********************************scambio normx normy normz************************
-      if(ldiagnostic)call start_timing2("LB","ex_auxfields_sendrecv")
-	  call exchange_auxfields_sendrecv
-	  if(ldiagnostic)call end_timing2("LB","ex_auxfields_sendrecv")
-	  if(ldiagnostic)call start_timing2("LB","ex_auxfields_intpbc")
-	  call exchange_auxfields_intpbc
-	  if(ldiagnostic)call end_timing2("LB","ex_auxfields_intpbc")
-	  if(ldiagnostic)call start_timing2("LB","ex_auxfields_wait")
-	  call exchange_auxfields_wait
-	  if(ldiagnostic)call end_timing2("LB","ex_auxfields_wait")
-         
 #endif
  
 	  !***********************************pbcs boundary conditions ********************************!
@@ -252,6 +236,23 @@ contains
          !$acc wait
 
 #ifdef TWOCOMPONENT	 
+#ifdef ASYNCMPI
+         if(ldiagnostic)call start_timing2("LB","compute_norm_ext")
+         call compute_norm_interface_cuda_ext(phifields_flip)
+         if(ldiagnostic)call end_timing2("LB","compute_norm_ext")
+         if(ldiagnostic)call start_timing2("LB","ex_auxfields_sendrecv")
+		 call exchange_auxfields_sendrecv
+		 if(ldiagnostic)call end_timing2("LB","ex_auxfields_sendrecv")
+		 if(ldiagnostic)call start_timing2("LB","ex_auxfields_intpbc")
+		 call exchange_auxfields_intpbc
+		 if(ldiagnostic)call end_timing2("LB","ex_auxfields_intpbc")
+		 if(ldiagnostic)call start_timing2("LB","compute_norm_int")
+         call compute_norm_interface_cuda_int(phifields_flip)
+         if(ldiagnostic)call end_timing2("LB","compute_norm_int")
+         if(ldiagnostic)call start_timing2("LB","ex_auxfields_wait")
+		 call exchange_auxfields_wait
+		 if(ldiagnostic)call end_timing2("LB","ex_auxfields_wait")
+#else
          !***********************************ora che ho phi in cornice calcolo normx normy normz************************
          if(ldiagnostic)call start_timing2("LB","compute_norm")
          call compute_norm_interface_cuda(phifields_flip)
@@ -266,7 +267,7 @@ contains
 		 if(ldiagnostic)call start_timing2("LB","ex_auxfields_wait")
 		 call exchange_auxfields_wait
 		 if(ldiagnostic)call end_timing2("LB","ex_auxfields_wait")
-         
+#endif         
 #endif
 
          !************ thread-safe boundary condition setup
@@ -498,6 +499,23 @@ contains
          !$acc wait
          
 #ifdef TWOCOMPONENT	 
+#ifdef ASYNCMPI
+         if(ldiagnostic)call start_timing2("LB","compute_norm_ext")
+         call compute_norm_interface_cuda_ext(phifields_flop)
+         if(ldiagnostic)call end_timing2("LB","compute_norm_ext")
+         if(ldiagnostic)call start_timing2("LB","ex_auxfields_sendrecv")
+		 call exchange_auxfields_sendrecv
+		 if(ldiagnostic)call end_timing2("LB","ex_auxfields_sendrecv")
+		 if(ldiagnostic)call start_timing2("LB","ex_auxfields_intpbc")
+		 call exchange_auxfields_intpbc
+		 if(ldiagnostic)call end_timing2("LB","ex_auxfields_intpbc")
+		 if(ldiagnostic)call start_timing2("LB","compute_norm_int")
+         call compute_norm_interface_cuda_int(phifields_flop)
+         if(ldiagnostic)call end_timing2("LB","compute_norm_int")
+         if(ldiagnostic)call start_timing2("LB","ex_auxfields_wait")
+		 call exchange_auxfields_wait
+		 if(ldiagnostic)call end_timing2("LB","ex_auxfields_wait")
+#else
          !***********************************ora che ho phi in cornice calcolo normx normy normz************************
          if(ldiagnostic)call start_timing2("LB","compute_norm")
          call compute_norm_interface_cuda(phifields_flop)
@@ -512,7 +530,7 @@ contains
 		 if(ldiagnostic)call start_timing2("LB","ex_auxfields_wait")
 		 call exchange_auxfields_wait
 		 if(ldiagnostic)call end_timing2("LB","ex_auxfields_wait")
-         
+#endif         
 #endif
  
          !************ thread-safe boundary condition setup
