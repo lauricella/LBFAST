@@ -160,10 +160,12 @@ program threadsafeLB
 #define MYSIDE 512
    lx=MYSIDE
    ly=MYSIDE
+   lz=MYSIDE
    if(lweakscaling)then
-     lz=MYSIDE*proc_x*proc_y*proc_z
-   else
-     lz=MYSIDE
+     !lz=MYSIDE*proc_x*proc_y*proc_z !weakscaling 1D
+     lx = MYSIDE * proc_x
+     ly = MYSIDE * proc_y
+     lz = MYSIDE * proc_z
    endif
    radius=lx/4
    uwall=-0.0e0
