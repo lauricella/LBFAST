@@ -420,9 +420,9 @@ contains
       jj=threadIdx%y
       kk=threadIdx%z
       
-      i = (blockIdx%x) * TILE_DIMx + ii
+      i = (blockIdx%x-1) * TILE_DIMx + ii
       j = ((nyblock_d-2)-1) * TILE_DIMy + jj
-      k = (blockIdx%z-1) * TILE_DIMz + kk
+      k = (blockIdx%z) * TILE_DIMz + kk
       
       if(abs(isfluid(i,j,k)) .ne. 1)return
       
@@ -430,7 +430,7 @@ contains
       !gj=ny*coords(2)+j
       !gk=nz*coords(3)+k
       
-      myblock=(blockIdx%x+1)+(nyblock_d-2)*nxblock_d+blockIdx%z*nxyblock_d+1
+      myblock=blockIdx%x+(nyblock_d-2)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1
       
        
 #ifdef TWOCOMPONENT
@@ -510,9 +510,9 @@ contains
       jj=threadIdx%y
       kk=threadIdx%z
       
-      i = (blockIdx%x) * TILE_DIMx + ii 
+      i = (blockIdx%x-1) * TILE_DIMx + ii 
       j = jj
-      k = (blockIdx%z-1) * TILE_DIMz + kk
+      k = (blockIdx%z) * TILE_DIMz + kk
       
       if(abs(isfluid(i,j,k)) .ne. 1)return
       
@@ -520,7 +520,7 @@ contains
       !gj=ny*coords(2)+j
       !gk=nz*coords(3)+k
       
-      myblock=(blockIdx%x+1)+1*nxblock_d+blockIdx%z*nxyblock_d+1
+      myblock=blockIdx%x+1*nxblock_d+(blockIdx%z+1)*nxyblock_d+1
       
 	   
 #ifdef TWOCOMPONENT

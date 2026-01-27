@@ -1423,9 +1423,9 @@ contains
       lj = threadIdx%y-1
       lk = threadIdx%z-1
 
-      i = (blockIdx%x) * TILE_DIMx + li 
+      i = (blockIdx%x-1) * TILE_DIMx + li 
       j = ((nyblock_d-2)-1) * TILE_DIMy + lj
-      k = (blockIdx%z-1) * TILE_DIMz + lk
+      k = (blockIdx%z) * TILE_DIMz + lk
       
       !gi=nx*coords(1)+i
       !gk=nz*coords(3)+k
@@ -1449,7 +1449,7 @@ contains
 !      gj=ny*coords(2)+j
 !      gk=nz*coords(3)+k
       
-      intblock=(blockIdx%x+1)+(nyblock_d-2)*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
+      intblock=blockIdx%x+(nyblock_d-2)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1 !internal-node block
       !if(li==1 .and. lj==1 .and. lk==1 .and. step==1 .and. blockIdx%x==1 .and. blockIdx%z==1)write(*,*)blockIdx%y,gj,myblock,intblock
 
      
@@ -1677,9 +1677,9 @@ contains
       lj = threadIdx%y-1
       lk = threadIdx%z-1
 
-      i = (blockIdx%x) * TILE_DIMx + li 
+      i = (blockIdx%x-1) * TILE_DIMx + li 
       j = lj
-      k = (blockIdx%z-1) * TILE_DIMz + lk
+      k = (blockIdx%z) * TILE_DIMz + lk
       
       !gi=nx*coords(1)+i
       !gk=nz*coords(3)+k
@@ -1703,7 +1703,7 @@ contains
 !      gj=ny*coords(2)+j
 !      gk=nz*coords(3)+k
       
-      intblock=(blockIdx%x+1)+1*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
+      intblock=blockIdx%x+1*nxblock_d+(blockIdx%z+1)*nxyblock_d+1 !internal-node block
       !if(li==1 .and. lj==1 .and. lk==1 .and. step==1 .and. blockIdx%x==1 .and. blockIdx%y==1)write(*,*)blockIdx%z,gk,myblock,intblock
 
                !if (abs(isfluid(i,j,k)) /= 1) return

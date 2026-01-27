@@ -105,9 +105,9 @@ contains
       
       dimGridz  = dim3(nxb,nyb,1)    !xy faces also doing edges xz yz and corners
       
-      dimGridy  = dim3(nxb-2,1,nzb)  !xz faces also doing edge xy
+      dimGridy  = dim3(nxb,1,nzb-2)  !xz faces also doing edge xy
       ldodimGridy=.true.
-      if(nxb-2<=0)ldodimGridy=.false.
+      if(nzb-2<=0)ldodimGridy=.false.
       
       dimGridx  = dim3(1,nyb-2,nzb-2) !only yz faces
       ldodimGridx=.true.
@@ -136,6 +136,11 @@ contains
         write(6,*)'TILE_DIMx,TILE_DIMy,TILE_DIMz',TILE_DIMx,TILE_DIMy,TILE_DIMz
         write(6,*)'nxblock,nyblock,nzblock',nxblock,nyblock,nzblock
         write(6,*)'nblocks',nblocks
+#ifdef ASYNCMPI
+        write(6,*)'ldodimGridInt',ldodimGridInt
+        write(6,*)'ldodimGridx',ldodimGridx
+        write(6,*)'ldodimGridy',ldodimGridy
+#endif
       endif
 #endif
       
