@@ -61,13 +61,13 @@ contains
        subchords(1)=(gi-1)/nx
 	   if(subchords(1)==coords(1))then
 #ifdef ACCNOKERNELS
-		 !$acc parallel loop collapse(2) independent present(hfields_in,hfields_out &
+		 !$acc parallel loop collapse(2) independent present(openbc_type_x,hfields_in,hfields_out &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif		 
 		 !$acc& ) private(i,j,k,l,gi,gj,gk,ii,jj,kk,xblock,yblock,zblock,myblock)
 #else
-		 !$acc kernels present(hfields_in,hfields_out &
+		 !$acc kernels present(openbc_type_x,hfields_in,hfields_out &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif			 
@@ -115,11 +115,27 @@ contains
 				 opxz=hfields_out(ii,jj,kk,9,myblock)
 				 opyz=hfields_out(ii,jj,kk,10,myblock)
 				 
-				 presstmp=press
-				 utmp=0.0_db !
-				 vtmp=0.0_db !
-				 wtmp=0.0_db !
-				 
+				 if(openbc_type_x(1)==3)then
+				   presstmp=press
+				   utmp=u
+				   vtmp=v
+				   wtmp=w
+				 elseif(openbc_type_x(1)==2)then
+				   presstmp=openbc_press_x(1)
+				   utmp=openbc_u_x(1) 
+				   vtmp=openbc_v_x(1) 
+				   wtmp=openbc_w_x(1)
+				 elseif(openbc_type_x(1)==1)then
+				   presstmp=openbc_press_x(1)
+				   utmp=u
+				   vtmp=v
+				   wtmp=w
+				 else
+				   presstmp=press
+				   utmp=openbc_u_x(1) 
+				   vtmp=openbc_v_x(1) 
+				   wtmp=openbc_w_x(1) 
+				 endif
 	             pxx=pxx - cssq*press - u*u 
 	             pyy=pyy - cssq*press - v*v 
 	             pzz=pzz - cssq*press - w*w 
@@ -222,13 +238,13 @@ contains
        subchords(1)=(gi-1)/nx
 	   if(subchords(1)==coords(1))then
 #ifdef ACCNOKERNELS
-		 !$acc parallel loop collapse(2) independent present(hfields_in,hfields_out &
+		 !$acc parallel loop collapse(2) independent present(openbc_type_x,hfields_in,hfields_out &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif			 
 		 !$acc& ) private(i,j,k,l,gi,gj,gk)
 #else
-		 !$acc kernels present(hfields_in,hfields_out &
+		 !$acc kernels present(openbc_type_x,hfields_in,hfields_out &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif			 
@@ -273,12 +289,27 @@ contains
 				 opxy=hfields_out(ii,jj,kk,8,myblock)
 				 opxz=hfields_out(ii,jj,kk,9,myblock)
 				 opyz=hfields_out(ii,jj,kk,10,myblock)
-				 
-				 presstmp=press
-				 utmp=0.0_db !
-				 vtmp=0.0_db !
-				 wtmp=0.0_db !
-				 
+				 if(openbc_type_x(2)==3)then
+				   presstmp=press
+				   utmp=u
+				   vtmp=v
+				   wtmp=w
+				 elseif(openbc_type_x(2)==2)then
+				   presstmp=openbc_press_x(2)
+				   utmp=openbc_u_x(2) 
+				   vtmp=openbc_v_x(2) 
+				   wtmp=openbc_w_x(2)
+				 elseif(openbc_type_x(2)==1)then
+				   presstmp=openbc_press_x(2)
+				   utmp=u
+				   vtmp=v
+				   wtmp=w
+				 else
+				   presstmp=press
+				   utmp=openbc_u_x(2)
+				   vtmp=openbc_v_x(2)
+				   wtmp=openbc_w_x(2)
+				 endif
 	             pxx=pxx - cssq*press - u*u 
 	             pyy=pyy - cssq*press - v*v 
 	             pzz=pzz - cssq*press - w*w 
@@ -383,13 +414,13 @@ contains
        subchords(2)=(gj-1)/ny
 	   if(subchords(2)==coords(2))then
 #ifdef ACCNOKERNELS
-	     !$acc parallel loop collapse(2) independent present(hfields_in,hfields_out &
+	     !$acc parallel loop collapse(2) independent present(openbc_type_y,hfields_in,hfields_out &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif		
 	     !$acc& )     
 #else
-	     !$acc kernels present(hfields_in,hfields_out &
+	     !$acc kernels present(openbc_type_y,hfields_in,hfields_out &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif		     
@@ -434,12 +465,27 @@ contains
 				 opxy=hfields_out(ii,jj,kk,8,myblock)
 				 opxz=hfields_out(ii,jj,kk,9,myblock)
 				 opyz=hfields_out(ii,jj,kk,10,myblock)
-				 
-				 presstmp=press
-				 utmp=0.0_db !
-				 vtmp=0.0_db !
-				 wtmp=0.0_db !
-				 
+				 if(openbc_type_y(1)==3)then
+				   presstmp=press
+				   utmp=u
+				   vtmp=v
+				   wtmp=w
+				 elseif(openbc_type_y(1)==2)then
+				   presstmp=openbc_press_y(1)
+				   utmp=openbc_u_y(1) 
+				   vtmp=openbc_v_y(1) 
+				   wtmp=openbc_w_y(1)
+				 elseif(openbc_type_y(1)==1)then
+				   presstmp=openbc_press_y(1)
+				   utmp=u
+				   vtmp=v
+				   wtmp=w
+				 else
+				   presstmp=press
+				   utmp=openbc_u_y(1)
+				   vtmp=openbc_v_y(1)
+				   wtmp=openbc_w_y(1)
+				 endif
 	             pxx=pxx - cssq*press - u*u 
 	             pyy=pyy - cssq*press - v*v 
 	             pzz=pzz - cssq*press - w*w 
@@ -542,13 +588,13 @@ contains
        subchords(2)=(gj-1)/ny
 	   if(subchords(2)==coords(2))then
 #ifdef ACCNOKERNELS
-	     !$acc parallel loop collapse(2) independent present(hfields_in,hfields_out &
+	     !$acc parallel loop collapse(2) independent present(openbc_type_y,hfields_in,hfields_out &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif		     
          !$acc& )
 #else
-	     !$acc kernels present(hfields_in,hfields_out &
+	     !$acc kernels present(openbc_type_y,hfields_in,hfields_out &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif		     
@@ -593,12 +639,27 @@ contains
 				 opxy=hfields_out(ii,jj,kk,8,myblock)
 				 opxz=hfields_out(ii,jj,kk,9,myblock)
 				 opyz=hfields_out(ii,jj,kk,10,myblock)
-				 
-				 presstmp=press
-				 utmp=0.0_db !
-				 vtmp=0.0_db !
-				 wtmp=0.0_db !
-				 
+				 if(openbc_type_y(2)==3)then
+				   presstmp=press
+				   utmp=u
+				   vtmp=v
+				   wtmp=w
+				 elseif(openbc_type_y(2)==2)then
+				   presstmp=openbc_press_y(2)
+				   utmp=openbc_u_y(2) 
+				   vtmp=openbc_v_y(2) 
+				   wtmp=openbc_w_y(2)
+				 elseif(openbc_type_y(2)==1)then
+				   presstmp=openbc_press_y(2)
+				   utmp=u
+				   vtmp=v
+				   wtmp=w
+				 else
+				   presstmp=press
+				   utmp=openbc_u_y(2)
+				   vtmp=openbc_v_y(2)
+				   wtmp=openbc_w_y(2)
+				 endif
 	             pxx=pxx - cssq*press - u*u 
 	             pyy=pyy - cssq*press - v*v 
 	             pzz=pzz - cssq*press - w*w 
@@ -703,13 +764,13 @@ contains
        subchords(3)=(gk-1)/nz
 	   if(subchords(3)==coords(3))then
 #ifdef ACCNOKERNELS
-	     !$acc parallel loop collapse(2) independent present(hfields_in,hfields_out &
+	     !$acc parallel loop collapse(2) independent present(openbc_type_z,hfields_in,hfields_out &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif		     
 	     !$acc& ) private(i,j,k,l,gi,gj,gk)
 #else
-	     !$acc kernels present(hfields_in,hfields_out &
+	     !$acc kernels present(openbc_type_z,hfields_in,hfields_out &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif		     
@@ -754,12 +815,27 @@ contains
 				 opxy=hfields_out(ii,jj,kk,8,myblock)
 				 opxz=hfields_out(ii,jj,kk,9,myblock)
 				 opyz=hfields_out(ii,jj,kk,10,myblock)
-				 
-				 presstmp=press
-				 utmp=0.0_db !
-				 vtmp=0.0_db !
-				 wtmp=0.0_db !
-				 
+				 if(openbc_type_z(1)==3)then
+				   presstmp=press
+				   utmp=u
+				   vtmp=v
+				   wtmp=w
+				 elseif(openbc_type_z(1)==2)then
+				   presstmp=openbc_press_z(1)
+				   utmp=openbc_u_z(1) 
+				   vtmp=openbc_v_z(1) 
+				   wtmp=openbc_w_z(1)
+				 elseif(openbc_type_z(1)==1)then
+				   presstmp=openbc_press_z(1)
+				   utmp=u
+				   vtmp=v
+				   wtmp=w
+				 else
+				   presstmp=press
+				   utmp=openbc_u_z(1)
+				   vtmp=openbc_v_z(1)
+				   wtmp=openbc_w_z(1)
+				 endif
 	             pxx=pxx - cssq*press - u*u 
 	             pyy=pyy - cssq*press - v*v 
 	             pzz=pzz - cssq*press - w*w 
@@ -862,13 +938,13 @@ contains
        subchords(3)=(gk-1)/nz
 	   if(subchords(3)==coords(3))then			   
 #ifdef ACCNOKERNELS
-	     !$acc parallel loop collapse(2) independent present(hfields_in,hfields_out &
+	     !$acc parallel loop collapse(2) independent present(openbc_type_z,hfields_in,hfields_out &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif		     
 	     !$acc& ) private(i,j,k,l,gi,gj,gk)
 #else
-	     !$acc kernels present(hfields_in,hfields_out &
+	     !$acc kernels present(openbc_type_z,hfields_in,hfields_out &
 #ifdef TWOCOMPONENT	
          !$acc& ,phifields_s &
 #endif		     
@@ -913,12 +989,27 @@ contains
 				 opxy=hfields_out(ii,jj,kk,8,myblock)
 				 opxz=hfields_out(ii,jj,kk,9,myblock)
 				 opyz=hfields_out(ii,jj,kk,10,myblock)
-				 
-				 presstmp=press
-				 utmp=0.0_db !
-				 vtmp=0.0_db !
-				 wtmp=0.0_db !
-				 
+				 if(openbc_type_z(2)==3)then
+				   presstmp=press
+				   utmp=u
+				   vtmp=v
+				   wtmp=w
+				 elseif(openbc_type_z(2)==2)then
+				   presstmp=openbc_press_z(2)
+				   utmp=openbc_u_z(2) 
+				   vtmp=openbc_v_z(2) 
+				   wtmp=openbc_w_z(2)
+				 elseif(openbc_type_z(2)==1)then
+				   presstmp=openbc_press_z(2)
+				   utmp=u
+				   vtmp=v
+				   wtmp=w
+				 else
+				   presstmp=press
+				   utmp=openbc_u_z(2)
+				   vtmp=openbc_v_z(2)
+				   wtmp=openbc_w_z(2)
+				 endif
 	             pxx=pxx - cssq*press - u*u 
 	             pyy=pyy - cssq*press - v*v 
 	             pzz=pzz - cssq*press - w*w 
@@ -1060,7 +1151,7 @@ contains
 
      call PHI_int_boundary_cuda(hfields_s,phifields_s)
 	 
-	 if(openbc==1)then
+  if(openbc==1)then
 	 
 	 if(pbc_x.eq.0)then
 	   gi=1
@@ -1371,11 +1462,11 @@ contains
 #endif
 	   endif
 	 endif	
-	    			
+  endif      			
 
 !******************lagrange multiplier
 #ifdef BCPHIFLUX
-
+  if(openbc==1)then
 	 if(pbc_x.eq.0)then
 	   gi=2
        subchords(1)=(gi-1)/nx
@@ -1563,7 +1654,7 @@ contains
 	 !$acc update host(global_phi_change)
 	 !$acc wait
 	 call sum_world_float(global_phi_change)
-
+  endif
         
         call phi_sum_count_cuda(hfields_s,phifields_s)
         
@@ -1590,6 +1681,8 @@ contains
 
 	 endif
 #endif
+
+	
 
 #endif
 #endif

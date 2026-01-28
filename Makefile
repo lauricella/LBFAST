@@ -58,9 +58,9 @@ nvfortran:
 	$(MAKE) CC=nvcc \
 	FC=nvfortran \
 	CFLAGS="-O3 -I $(CURDIR) " \
-	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
-	FCUDAFLAGSRID="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
-	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
+	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=4 -D_KERNELCUDA -I $(CURDIR) " \
+	FCUDAFLAGSRID="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=4 -D_KERNELCUDA -I $(CURDIR) " \
+	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=4 -D_KERNELCUDA -I $(CURDIR) " \
 	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=4 -I $(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EXP) BINROOT=$(BINROOT) seq
@@ -69,9 +69,9 @@ nvfortran-debug:
 	$(MAKE) CC=nvcc \
 	FC=nvfortran \
 	CFLAGS="-O1 -g -I $(CURDIR) " \
-	FCUDAFLAGS="-O1 -g -cpp -acc -cuda -gpu=cc$(GPUCC),debug,keep,ptxinfo,lineinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
-	FCUDAFLAGSRID="-O1 -g -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
-	FFLAGS="-O1 -g -cpp -acc -gpu=cc$(GPUCC),debug,keep,ptxinfo,lineinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
+	FCUDAFLAGS="-O1 -g -cpp -acc -cuda -gpu=cc$(GPUCC),debug,keep,ptxinfo,lineinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -D_KERNELCUDA -I $(CURDIR) " \
+	FCUDAFLAGSRID="-O1 -g -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -D_KERNELCUDA -I $(CURDIR) " \
+	FFLAGS="-O1 -g -cpp -acc -gpu=cc$(GPUCC),debug,keep,ptxinfo,lineinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -D_KERNELCUDA -I $(CURDIR) " \
 	LDFLAGS="-O1 -acc -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=4 -I $(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EX) BINROOT=$(BINROOT) seq
@@ -80,9 +80,9 @@ nvfortran-mpi:
 	$(MAKE) CC=mpicc \
 	FC=mpif90 \
 	CFLAGS="-O3 -I $(CURDIR) " \
-	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
-	FCUDAFLAGSRID="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
-	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -DMPI -I $(CURDIR) " \
+	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=4 -D_KERNELCUDA -I $(CURDIR) " \
+	FCUDAFLAGSRID="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=4 -D_KERNELCUDA -I $(CURDIR) " \
+	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=4 -D_KERNELCUDA -DMPI -I $(CURDIR) " \
 	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=4 -DMPI -I $(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EXP) BINROOT=$(BINROOT) seq
@@ -91,9 +91,9 @@ nvfortran-mpi-debug:
 	$(MAKE) CC=mpicc \
 	FC=mpif90 \
 	CFLAGS="-O1 -g -I $(CURDIR) " \
-	FCUDAFLAGS="-O1 -g -cpp -acc -cuda -gpu=cc$(GPUCC),debug,keep,ptxinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
-	FCUDAFLAGSRID="-O1 -g -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
-	FFLAGS="-O1 -g -cpp -acc -gpu=cc$(GPUCC),debug,keep,ptxinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -DLATTICE=D3Q27 -D_KERNELCUDA -DMPI -I $(CURDIR) " \
+	FCUDAFLAGS="-O1 -g -cpp -acc -cuda -gpu=cc$(GPUCC),debug,keep,ptxinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -D_KERNELCUDA -I $(CURDIR) " \
+	FCUDAFLAGSRID="-O1 -g -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -D_KERNELCUDA -I $(CURDIR) " \
+	FFLAGS="-O1 -g -cpp -acc -gpu=cc$(GPUCC),debug,keep,ptxinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -DPRC=4 -D_KERNELCUDA -DMPI -I $(CURDIR) " \
 	LDFLAGS="-O1 -acc -cuda -gpu=cc$(GPUCC) -Minfo=accel -DPRC=4 -DMPI -I $(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EXP) BINROOT=$(BINROOT) seq
@@ -102,9 +102,9 @@ nvfortran-dble:
 	$(MAKE) CC=nvcc \
 	FC=nvfortran \
 	CFLAGS="-O3 -I $(CURDIR) " \
-	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=8 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
-	FCUDAFLAGSRID="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=8 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
-	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=8 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
+	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=8 -D_KERNELCUDA -I $(CURDIR) " \
+	FCUDAFLAGSRID="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=8 -D_KERNELCUDA -I $(CURDIR) " \
+	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=8 -D_KERNELCUDA -I $(CURDIR) " \
 	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=8 -I $(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EXP) BINROOT=$(BINROOT) seq
@@ -113,9 +113,9 @@ nvfortran-mpi-dble:
 	$(MAKE) CC=mpicc \
 	FC=mpif90 \
 	CFLAGS="-O3 -I $(CURDIR) " \
-	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=8 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
-	FCUDAFLAGSRID="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=8 -DLATTICE=D3Q27 -D_KERNELCUDA -I $(CURDIR) " \
-	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=8 -DLATTICE=D3Q27 -DMPI -D_KERNELCUDA -I $(CURDIR) " \
+	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=8 -D_KERNELCUDA -I $(CURDIR) " \
+	FCUDAFLAGSRID="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=8 -D_KERNELCUDA -I $(CURDIR) " \
+	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DPRC=8 -DMPI -D_KERNELCUDA -I $(CURDIR) " \
 	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DPRC=8 -DMPI -I $(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EXP) BINROOT=$(BINROOT) seq

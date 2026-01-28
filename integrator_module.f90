@@ -69,15 +69,17 @@ contains
 
       flip=mod(step,2)+1     
       flop = 3 - flip
-      
+ 
       !$acc data copy(step,lx,ly,lz,nx,ny,nz,coords,myoffset,isfluid,myrank, &
       !$acc& rhoprint,velprint,radius,iprobe,jprobe,kprobe, &
 	  !$acc& tau1,visc1,rho_r,rho_b,invrho_r,invrho_b,omega,arr_3d, &
       !$acc& intpbc_dir,num_links_pops,links_pops,f_datampi,uwall,udotc,uu, &
-      !$acc& f_send_extr,f_recv_extr, &
+      !$acc& f_send_extr,f_recv_extr,openbc,openbc_type_x,openbc_type_y,openbc_type_z, &
       !$acc& ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
       !$acc& hfields_flip,hfields_flop,auxfields,locauxfields,forces, &
-      !$acc& nblocks,nxblock,nxyblock, &
+      !$acc& nblocks,nxblock,nxyblock,openbc_press_x,openbc_press_y,openbc_press_z, &
+      !$acc& openbc_u_x,openbc_u_y,openbc_u_z,openbc_v_x,openbc_v_y,openbc_v_z, &
+      !$acc& openbc_w_x,openbc_w_y,openbc_w_z, &
 #ifdef TWOCOMPONENT
       !$acc& phifields_flip,phifields_flop, &
       !$acc& sharp_c,beta,tau2,visc2, kapp, sigma,width,tau_diff,corr,global_phi_sum_ini,global_count,global_phi_sum,&

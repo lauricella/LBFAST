@@ -83,6 +83,11 @@
 #ifdef ASYNCMPI
 #warning "ASYNCMPI: activated"
 #endif
+
+#ifndef LATTICE
+#error "LATTICE not defined. Use -DLATTICE=27 or #define LATTICE 27 (or 19 or 15)"
+#endif
+
 module vars
 #ifdef _OPENACC
    use openacc
@@ -150,6 +155,23 @@ module vars
    integer :: physic_type
    integer :: openbc=0
    
+   integer, dimension(2) :: openbc_type_x=0
+   integer, dimension(2) :: openbc_type_y=0
+   integer, dimension(2) :: openbc_type_z=0
+   
+   real(kind=db), dimension(2) :: openbc_press_x=ZERO
+   real(kind=db), dimension(2) :: openbc_press_y=ZERO
+   real(kind=db), dimension(2) :: openbc_press_z=ZERO
+   real(kind=db), dimension(2) :: openbc_u_x=ZERO
+   real(kind=db), dimension(2) :: openbc_u_y=ZERO
+   real(kind=db), dimension(2) :: openbc_u_z=ZERO
+   real(kind=db), dimension(2) :: openbc_v_x=ZERO
+   real(kind=db), dimension(2) :: openbc_v_y=ZERO
+   real(kind=db), dimension(2) :: openbc_v_z=ZERO
+   real(kind=db), dimension(2) :: openbc_w_x=ZERO
+   real(kind=db), dimension(2) :: openbc_w_y=ZERO
+   real(kind=db), dimension(2) :: openbc_w_z=ZERO
+   
    logical, save :: lprint,lvtk,lasync,lraw,lrestart
    logical, save :: lreadisfluid=.false.
    logical, save :: lreadinit=.false.
@@ -207,6 +229,9 @@ module vars
 #ifdef IMPOSED_PRESSURE_GRADIENT
    real(kind=db) :: rhoIN,rhoOUT
 #endif
+
+#if LATTICE == 27
+#warning "LATTICE 27: the lattice D3Q27 is adopted"
    integer, parameter :: nlinks=26
    !lattice vectors
    integer, dimension(0:nlinks), parameter :: &
@@ -225,12 +250,55 @@ module vars
    real(kind=db), parameter :: p3=real(1.d0/216.d0,kind=db)
    real(kind=db), dimension(0:nlinks), parameter :: &
       p=(/p0,p1,p1,p1,p1,p1,p1,p2,p2,p2,p2,p2,p2,p2,p2,p2,p2,p2,p2,p3,p3,p3,p3,p3,p3,p3,p3/)
+#elif LATTICE == 19
+#warning "LATTICE 19: the lattice D3Q19 is adopted"
+   integer, parameter :: nlinks=18
+   !lattice vectors
+   integer, dimension(0:nlinks), parameter :: &
+   !          0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18
+      ex=   (/0, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1, 0, 0, 0, 0, 1,-1,-1, 1/)
+   integer, dimension(0:nlinks), parameter:: &
+      ey=  (/ 0, 0, 0, 1,-1, 0, 0, 1,-1,-1, 1, 1,-1, 1,-1, 0, 0, 0, 0/)
+   integer, dimension(0:nlinks), parameter:: &
+      ez=  (/ 0, 0, 0, 0, 0, 1,-1, 0, 0, 0, 0, 1,-1,-1, 1, 1,-1, 1,-1/)
+   integer, dimension(0:nlinks), parameter:: &
+      opp =(/ 0, 2, 1, 4, 3, 6, 5, 8, 7,10, 9,12,11,14,13,16,15,18,17/)
+
+   real(kind=db), parameter :: p0 = real(1.d0/3.d0 , kind=db)
+   real(kind=db), parameter :: p1 = real(1.d0/18.d0, kind=db)  
+   real(kind=db), parameter :: p2 = real(1.d0/36.d0, kind=db) 
+   real(kind=db), dimension(0:nlinks), parameter :: &
+      p=(/p0,p1,p1,p1,p1,p1,p1,p2,p2,p2,p2,p2,p2,p2,p2,p2,p2,p2,p2/)
+#elif LATTICE == 15
+#warning "LATTICE 15: the lattice D3Q15 is adopted"
+   integer, parameter :: nlinks=14
+      !lattice vectors
+   integer, dimension(0:nlinks), parameter :: &
+   !          0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14
+      ex=   (/0, 1,-1, 0, 0, 0, 0, 1,-1, 1,-1,-1, 1, 1,-1/)
+   integer, dimension(0:nlinks), parameter:: &
+      ey=  (/ 0, 0, 0, 1,-1, 0, 0, 1,-1,-1, 1,-1, 1,-1, 1/)
+   integer, dimension(0:nlinks), parameter:: &
+      ez=  (/ 0, 0, 0, 0, 0, 1,-1, 1,-1, 1,-1, 1,-1,-1, 1/)
+   integer, dimension(0:nlinks), parameter:: &
+      opp =(/ 0, 2, 1, 4, 3, 6, 5, 8, 7,10, 9,12,11,14,13/)
+      
+   real(kind=db), parameter :: p0 = real(2.d0/9.d0 , kind=db)
+   real(kind=db), parameter :: p1 = real(1.d0/9.d0 , kind=db)
+   real(kind=db), parameter :: p2 = real(1.d0/72.d0, kind=db)
+   real(kind=db), dimension(0:nlinks), parameter :: &
+      p=(/p0,p1,p1,p1,p1,p1,p1,p2,p2,p2,p2,p2,p2,p2,p2/)
+#else
+#error "LATTICE not supported"
+#endif
 
    real(kind=db), parameter :: cssq=real(1.d0/3.d0,kind=db)
    real(kind=db), parameter :: invcssq=real(3.d0,kind=db)
-   real(kind=db), parameter :: p1dcssq=p1*invcssq
-   real(kind=db), parameter :: p2dcssq=p2*invcssq
-   real(kind=db), parameter :: p3dcssq=p3*invcssq
+   
+   real(kind=db), parameter :: p0d3q27=real(8.d0/27.d0,kind=db)
+   real(kind=db), parameter :: p1d3q27=real(2.d0/27.d0,kind=db)
+   real(kind=db), parameter :: p2d3q27=real(1.d0/54.d0,kind=db)
+   real(kind=db), parameter :: p3d3q27=real(1.d0/216.d0,kind=db)
 
    real(kind=db), dimension(0:nlinks), parameter :: dex=real(ex,kind=db)
    real(kind=db), dimension(0:nlinks), parameter :: dey=real(ey,kind=db)

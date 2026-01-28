@@ -61,8 +61,8 @@ contains
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
-      real(kind=db), shared :: f1(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
-      real(kind=db), shared :: f2(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
+      real(kind=db), shared :: f_front(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
+      real(kind=db), shared :: f_rear(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       
       real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
       real(kind=db) :: opress,ou,ov,ow,opxx,opyy,opzz,opxy,opxz,opyz,feq,fneq1,f_discr
@@ -247,7 +247,7 @@ contains
                      lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
                      ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
                      lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
-		             f1(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l)*fneq1 + HALF*F_discr
+		             f_front(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l)*fneq1 + HALF*F_discr
 		             
                      udotc=(u*dex(l+1) + v*dey(l+1)+ w*dez(l+1))*invcssq
 		             feq=p(l+1)*(press + (udotc+0.5_db*udotc*udotc - uu))
@@ -264,30 +264,30 @@ contains
                      lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
                      ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
                      lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
-		             f2(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l+1)*fneq1 + HALF*F_discr
+		             f_rear(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l+1)*fneq1 + HALF*F_discr
 		             
 		             call syncthreads
-		             opress=opress + f1(li,lj,lk)
-		             ou=ou + f1(li,lj,lk)*dex(l)
-                     ov=ov + f1(li,lj,lk)*dey(l)
-                     ow=ow + f1(li,lj,lk)*dez(l)
-                     opxx=opxx + f1(li,lj,lk)*dex(l)*dex(l)
-                     opyy=opyy + f1(li,lj,lk)*dey(l)*dey(l)
-                     opzz=opzz + f1(li,lj,lk)*dez(l)*dez(l)
-                     opxy=opxy + f1(li,lj,lk)*dex(l)*dey(l)
-                     opxz=opxz + f1(li,lj,lk)*dex(l)*dez(l)
-                     opyz=opyz + f1(li,lj,lk)*dey(l)*dez(l)
+		             opress=opress + f_front(li,lj,lk)
+		             ou=ou + f_front(li,lj,lk)*dex(l)
+                     ov=ov + f_front(li,lj,lk)*dey(l)
+                     ow=ow + f_front(li,lj,lk)*dez(l)
+                     opxx=opxx + f_front(li,lj,lk)*dex(l)*dex(l)
+                     opyy=opyy + f_front(li,lj,lk)*dey(l)*dey(l)
+                     opzz=opzz + f_front(li,lj,lk)*dez(l)*dez(l)
+                     opxy=opxy + f_front(li,lj,lk)*dex(l)*dey(l)
+                     opxz=opxz + f_front(li,lj,lk)*dex(l)*dez(l)
+                     opyz=opyz + f_front(li,lj,lk)*dey(l)*dez(l)
                      
-                     opress=opress + f2(li,lj,lk)
-		             ou=ou + f2(li,lj,lk)*dex(l+1)
-                     ov=ov + f2(li,lj,lk)*dey(l+1)
-                     ow=ow + f2(li,lj,lk)*dez(l+1)
-                     opxx=opxx + f2(li,lj,lk)*dex(l+1)*dex(l+1)
-                     opyy=opyy + f2(li,lj,lk)*dey(l+1)*dey(l+1)
-                     opzz=opzz + f2(li,lj,lk)*dez(l+1)*dez(l+1)
-                     opxy=opxy + f2(li,lj,lk)*dex(l+1)*dey(l+1)
-                     opxz=opxz + f2(li,lj,lk)*dex(l+1)*dez(l+1)
-                     opyz=opyz + f2(li,lj,lk)*dey(l+1)*dez(l+1)
+                     opress=opress + f_rear(li,lj,lk)
+		             ou=ou + f_rear(li,lj,lk)*dex(l+1)
+                     ov=ov + f_rear(li,lj,lk)*dey(l+1)
+                     ow=ow + f_rear(li,lj,lk)*dez(l+1)
+                     opxx=opxx + f_rear(li,lj,lk)*dex(l+1)*dex(l+1)
+                     opyy=opyy + f_rear(li,lj,lk)*dey(l+1)*dey(l+1)
+                     opzz=opzz + f_rear(li,lj,lk)*dez(l+1)*dez(l+1)
+                     opxy=opxy + f_rear(li,lj,lk)*dex(l+1)*dey(l+1)
+                     opxz=opxz + f_rear(li,lj,lk)*dex(l+1)*dez(l+1)
+                     opyz=opyz + f_rear(li,lj,lk)*dey(l+1)*dez(l+1)
                      call syncthreads
                      
                   enddo

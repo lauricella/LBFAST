@@ -1,3 +1,5 @@
+#define LATTICE 15
+
 #define TWOCOMPONENT
 #define DENSRATIO
 
@@ -10,7 +12,7 @@
 
 #define noSMAGORINSKI
 
-#define noINTERNAL_OBSTACLES
+#define INTERNAL_OBSTACLES
 
 #define GPUTILEX 8
 #define GPUTILEY 8

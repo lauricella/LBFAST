@@ -28,7 +28,10 @@ program threadsafeLB
    
    namelist /simulation/ nsteps,stamp,stamp2D,stepskip,lreadisfluid, &
     lreadinit,lx,ly,lz,lprint,lvtk,lraw,lrestart,pbc_x,pbc_y,pbc_z,openbc,lasync, &
-    iprobe,jprobe,kprobe, &   
+    iprobe,jprobe,kprobe,openbc_type_x,openbc_type_y,openbc_type_z, &
+    openbc_press_x,openbc_press_y,openbc_press_z, &
+    openbc_u_x,openbc_u_y,openbc_u_z,openbc_v_x,openbc_v_y,openbc_v_z, &
+    openbc_w_x,openbc_w_y,openbc_w_z,&
     nplanes,stamp_term,time_limit,every_time_check,lwriterestart,lweakscaling
     
    namelist /fluid/ fx,fy,fz,visc1, &
@@ -372,6 +375,21 @@ program threadsafeLB
       write(6,'(a,i8)') 'lz',lz
       write(6,'(a,3i4)') 'pbc',pbc_x,pbc_y,pbc_z
       write(6,'(a,i4)') 'openbc',openbc
+      write(6,'(a,2i4)') 'openbc_type_x',openbc_type_x
+      write(6,'(a,2i4)') 'openbc_type_y',openbc_type_y
+      write(6,'(a,2i4)') 'openbc_type_z',openbc_type_z
+      write(6,'(a,2g16.8)') 'openbc_press_x',openbc_press_x
+      write(6,'(a,2g16.8)') 'openbc_press_y',openbc_press_y
+      write(6,'(a,2g16.8)') 'openbc_press_z',openbc_press_z
+      write(6,'(a,2g16.8)') 'openbc_u_x',openbc_u_x
+      write(6,'(a,2g16.8)') 'openbc_u_y',openbc_u_y
+      write(6,'(a,2g16.8)') 'openbc_u_z',openbc_u_z
+      write(6,'(a,2g16.8)') 'openbc_v_x',openbc_v_x
+      write(6,'(a,2g16.8)') 'openbc_v_y',openbc_v_y
+      write(6,'(a,2g16.8)') 'openbc_v_z',openbc_v_z
+      write(6,'(a,2g16.8)') 'openbc_w_x',openbc_w_x
+      write(6,'(a,2g16.8)') 'openbc_w_y',openbc_w_y
+      write(6,'(a,2g16.8)') 'openbc_w_z',openbc_w_z
       write(6,'(a,3i4)') 'probe',iprobe,jprobe,kprobe
       write(6,'(a,l8)') 'lprint',lprint
       write(6,'(a,l8)') 'lvtk',lvtk

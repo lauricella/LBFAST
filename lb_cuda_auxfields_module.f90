@@ -70,32 +70,32 @@ contains
 	  !If my block index does not match the index of the internal-node block, it means my thread is on the outer halo and must exit.
 	  if(myblock .ne. intblock)return
 
-	  grad_fix=3.0_db*(p1*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
-		 p2*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
+	  grad_fix=3.0_db*(p1d3q27*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
+		 p2d3q27*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
 		 (myphi(li+1,lj-1,lk)-myphi(li-1,lj+1,lk))+ &
 		 (myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
 		 (myphi(li+1,lj,lk-1)-myphi(li-1,lj,lk+1)) )  + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
 		 (myphi(li+1,lj-1,lk-1)-myphi(li-1,lj+1,lk+1))+ &
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li+1,lj+1,lk-1)-myphi(li-1,lj-1,lk+1))))
 
-	  grad_fiy=3.0_db*(p1*(myphi(li,lj+1,lk)-myphi(li,lj-1,lk)) + &
-		 p2*((myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
+	  grad_fiy=3.0_db*(p1d3q27*(myphi(li,lj+1,lk)-myphi(li,lj-1,lk)) + &
+		 p2d3q27*((myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
 		 (myphi(li-1,lj+1,lk)-myphi(li+1,lj-1,lk))+ &
 		 (myphi(li,lj+1,lk+1)-myphi(li,lj-1,lk-1))+ &
 		 (myphi(li,lj+1,lk-1)-myphi(li,lj-1,lk+1)) ) + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk-1)-myphi(li+1,lj-1,lk+1))+ &
 		 (myphi(li+1,lj+1,lk-1)-myphi(li-1,lj-1,lk+1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
 
-	  grad_fiz=3.0_db*(p1*(myphi(li,lj,lk+1)-myphi(li,lj,lk-1)) + &
-		 p2*((myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
+	  grad_fiz=3.0_db*(p1d3q27*(myphi(li,lj,lk+1)-myphi(li,lj,lk-1)) + &
+		 p2d3q27*((myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
 		 (myphi(li-1,lj,lk+1)-myphi(li+1,lj,lk-1))+ &
 		 (myphi(li,lj+1,lk+1)-myphi(li,lj-1,lk-1))+ &
 		 (myphi(li,lj-1,lk+1)-myphi(li,lj+1,lk-1)) ) + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1)) &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1)) &
 		 +(myphi(li-1,lj-1,lk+1)-myphi(li+1,lj+1,lk-1))+ &
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
@@ -120,17 +120,17 @@ contains
 	   
       !lap_phi here
       locauxfields_s(ii,jj,kk,1,myblock)= &
-                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0-1.0_db) + &
-                   ( p1*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
+                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0d3q27-1.0_db) + &
+                   ( p1d3q27*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
                    myphi(li,lj+1,lk)+myphi(li,lj-1,lk) + &
                    myphi(li,lj,lk+1)+myphi(li,lj,lk-1)) + &
-                   p2*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
+                   p2d3q27*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
                    (myphi(li+1,lj-1,lk)+myphi(li-1,lj+1,lk))+ &
                    (myphi(li+1,lj,lk+1)+myphi(li-1,lj,lk-1))+ &
                    (myphi(li+1,lj,lk-1)+myphi(li-1,lj,lk+1)) + &
                    (myphi(li,lj+1,lk+1)+myphi(li,lj-1,lk-1))+ &
                    (myphi(li,lj+1,lk-1)+myphi(li,lj-1,lk+1)) )  + &
-                   p3*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
+                   p3d3q27*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
                    (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
                    (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
                    (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1)))))
@@ -202,32 +202,32 @@ contains
 	  !If my block index does not match the index of the internal-node block, it means my thread is on the outer halo and must exit.
 	  if(myblock .ne. intblock)return
 
-	  grad_fix=3.0_db*(p1*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
-		 p2*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
+	  grad_fix=3.0_db*(p1d3q27*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
+		 p2d3q27*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
 		 (myphi(li+1,lj-1,lk)-myphi(li-1,lj+1,lk))+ &
 		 (myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
 		 (myphi(li+1,lj,lk-1)-myphi(li-1,lj,lk+1)) )  + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
 		 (myphi(li+1,lj-1,lk-1)-myphi(li-1,lj+1,lk+1))+ &
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li+1,lj+1,lk-1)-myphi(li-1,lj-1,lk+1))))
 
-	  grad_fiy=3.0_db*(p1*(myphi(li,lj+1,lk)-myphi(li,lj-1,lk)) + &
-		 p2*((myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
+	  grad_fiy=3.0_db*(p1d3q27*(myphi(li,lj+1,lk)-myphi(li,lj-1,lk)) + &
+		 p2d3q27*((myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
 		 (myphi(li-1,lj+1,lk)-myphi(li+1,lj-1,lk))+ &
 		 (myphi(li,lj+1,lk+1)-myphi(li,lj-1,lk-1))+ &
 		 (myphi(li,lj+1,lk-1)-myphi(li,lj-1,lk+1)) ) + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk-1)-myphi(li+1,lj-1,lk+1))+ &
 		 (myphi(li+1,lj+1,lk-1)-myphi(li-1,lj-1,lk+1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
 
-	  grad_fiz=3.0_db*(p1*(myphi(li,lj,lk+1)-myphi(li,lj,lk-1)) + &
-		 p2*((myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
+	  grad_fiz=3.0_db*(p1d3q27*(myphi(li,lj,lk+1)-myphi(li,lj,lk-1)) + &
+		 p2d3q27*((myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
 		 (myphi(li-1,lj,lk+1)-myphi(li+1,lj,lk-1))+ &
 		 (myphi(li,lj+1,lk+1)-myphi(li,lj-1,lk-1))+ &
 		 (myphi(li,lj-1,lk+1)-myphi(li,lj+1,lk-1)) ) + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1)) &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1)) &
 		 +(myphi(li-1,lj-1,lk+1)-myphi(li+1,lj+1,lk-1))+ &
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
@@ -252,17 +252,17 @@ contains
 	   
       !lap_phi here
       locauxfields_s(ii,jj,kk,1,myblock)= &
-                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0-1.0_db) + &
-                   ( p1*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
+                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0d3q27-1.0_db) + &
+                   ( p1d3q27*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
                    myphi(li,lj+1,lk)+myphi(li,lj-1,lk) + &
                    myphi(li,lj,lk+1)+myphi(li,lj,lk-1)) + &
-                   p2*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
+                   p2d3q27*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
                    (myphi(li+1,lj-1,lk)+myphi(li-1,lj+1,lk))+ &
                    (myphi(li+1,lj,lk+1)+myphi(li-1,lj,lk-1))+ &
                    (myphi(li+1,lj,lk-1)+myphi(li-1,lj,lk+1)) + &
                    (myphi(li,lj+1,lk+1)+myphi(li,lj-1,lk-1))+ &
                    (myphi(li,lj+1,lk-1)+myphi(li,lj-1,lk+1)) )  + &
-                   p3*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
+                   p3d3q27*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
                    (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
                    (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
                    (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1)))))
@@ -341,32 +341,32 @@ contains
 	  !If my block index does not match the index of the internal-node block, it means my thread is on the outer halo and must exit.
 	  if(myblock .ne. intblock)return
 
-	  grad_fix=3.0_db*(p1*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
-		 p2*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
+	  grad_fix=3.0_db*(p1d3q27*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
+		 p2d3q27*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
 		 (myphi(li+1,lj-1,lk)-myphi(li-1,lj+1,lk))+ &
 		 (myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
 		 (myphi(li+1,lj,lk-1)-myphi(li-1,lj,lk+1)) )  + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
 		 (myphi(li+1,lj-1,lk-1)-myphi(li-1,lj+1,lk+1))+ &
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li+1,lj+1,lk-1)-myphi(li-1,lj-1,lk+1))))
 
-	  grad_fiy=3.0_db*(p1*(myphi(li,lj+1,lk)-myphi(li,lj-1,lk)) + &
-		 p2*((myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
+	  grad_fiy=3.0_db*(p1d3q27*(myphi(li,lj+1,lk)-myphi(li,lj-1,lk)) + &
+		 p2d3q27*((myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
 		 (myphi(li-1,lj+1,lk)-myphi(li+1,lj-1,lk))+ &
 		 (myphi(li,lj+1,lk+1)-myphi(li,lj-1,lk-1))+ &
 		 (myphi(li,lj+1,lk-1)-myphi(li,lj-1,lk+1)) ) + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk-1)-myphi(li+1,lj-1,lk+1))+ &
 		 (myphi(li+1,lj+1,lk-1)-myphi(li-1,lj-1,lk+1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
 
-	  grad_fiz=3.0_db*(p1*(myphi(li,lj,lk+1)-myphi(li,lj,lk-1)) + &
-		 p2*((myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
+	  grad_fiz=3.0_db*(p1d3q27*(myphi(li,lj,lk+1)-myphi(li,lj,lk-1)) + &
+		 p2d3q27*((myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
 		 (myphi(li-1,lj,lk+1)-myphi(li+1,lj,lk-1))+ &
 		 (myphi(li,lj+1,lk+1)-myphi(li,lj-1,lk-1))+ &
 		 (myphi(li,lj-1,lk+1)-myphi(li,lj+1,lk-1)) ) + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1)) &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1)) &
 		 +(myphi(li-1,lj-1,lk+1)-myphi(li+1,lj+1,lk-1))+ &
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
@@ -391,17 +391,17 @@ contains
 	   
       !lap_phi here
       locauxfields_s(ii,jj,kk,1,myblock)= &
-                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0-1.0_db) + &
-                   ( p1*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
+                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0d3q27-1.0_db) + &
+                   ( p1d3q27*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
                    myphi(li,lj+1,lk)+myphi(li,lj-1,lk) + &
                    myphi(li,lj,lk+1)+myphi(li,lj,lk-1)) + &
-                   p2*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
+                   p2d3q27*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
                    (myphi(li+1,lj-1,lk)+myphi(li-1,lj+1,lk))+ &
                    (myphi(li+1,lj,lk+1)+myphi(li-1,lj,lk-1))+ &
                    (myphi(li+1,lj,lk-1)+myphi(li-1,lj,lk+1)) + &
                    (myphi(li,lj+1,lk+1)+myphi(li,lj-1,lk-1))+ &
                    (myphi(li,lj+1,lk-1)+myphi(li,lj-1,lk+1)) )  + &
-                   p3*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
+                   p3d3q27*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
                    (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
                    (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
                    (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1)))))
@@ -480,32 +480,32 @@ contains
 	  !If my block index does not match the index of the internal-node block, it means my thread is on the outer halo and must exit.
 	  if(myblock .ne. intblock)return
 
-	  grad_fix=3.0_db*(p1*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
-		 p2*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
+	  grad_fix=3.0_db*(p1d3q27*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
+		 p2d3q27*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
 		 (myphi(li+1,lj-1,lk)-myphi(li-1,lj+1,lk))+ &
 		 (myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
 		 (myphi(li+1,lj,lk-1)-myphi(li-1,lj,lk+1)) )  + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
 		 (myphi(li+1,lj-1,lk-1)-myphi(li-1,lj+1,lk+1))+ &
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li+1,lj+1,lk-1)-myphi(li-1,lj-1,lk+1))))
 
-	  grad_fiy=3.0_db*(p1*(myphi(li,lj+1,lk)-myphi(li,lj-1,lk)) + &
-		 p2*((myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
+	  grad_fiy=3.0_db*(p1d3q27*(myphi(li,lj+1,lk)-myphi(li,lj-1,lk)) + &
+		 p2d3q27*((myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
 		 (myphi(li-1,lj+1,lk)-myphi(li+1,lj-1,lk))+ &
 		 (myphi(li,lj+1,lk+1)-myphi(li,lj-1,lk-1))+ &
 		 (myphi(li,lj+1,lk-1)-myphi(li,lj-1,lk+1)) ) + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk-1)-myphi(li+1,lj-1,lk+1))+ &
 		 (myphi(li+1,lj+1,lk-1)-myphi(li-1,lj-1,lk+1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
 
-	  grad_fiz=3.0_db*(p1*(myphi(li,lj,lk+1)-myphi(li,lj,lk-1)) + &
-		 p2*((myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
+	  grad_fiz=3.0_db*(p1d3q27*(myphi(li,lj,lk+1)-myphi(li,lj,lk-1)) + &
+		 p2d3q27*((myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
 		 (myphi(li-1,lj,lk+1)-myphi(li+1,lj,lk-1))+ &
 		 (myphi(li,lj+1,lk+1)-myphi(li,lj-1,lk-1))+ &
 		 (myphi(li,lj-1,lk+1)-myphi(li,lj+1,lk-1)) ) + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1)) &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1)) &
 		 +(myphi(li-1,lj-1,lk+1)-myphi(li+1,lj+1,lk-1))+ &
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
@@ -530,17 +530,17 @@ contains
 	   
       !lap_phi here
       locauxfields_s(ii,jj,kk,1,myblock)= &
-                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0-1.0_db) + &
-                   ( p1*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
+                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0d3q27-1.0_db) + &
+                   ( p1d3q27*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
                    myphi(li,lj+1,lk)+myphi(li,lj-1,lk) + &
                    myphi(li,lj,lk+1)+myphi(li,lj,lk-1)) + &
-                   p2*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
+                   p2d3q27*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
                    (myphi(li+1,lj-1,lk)+myphi(li-1,lj+1,lk))+ &
                    (myphi(li+1,lj,lk+1)+myphi(li-1,lj,lk-1))+ &
                    (myphi(li+1,lj,lk-1)+myphi(li-1,lj,lk+1)) + &
                    (myphi(li,lj+1,lk+1)+myphi(li,lj-1,lk-1))+ &
                    (myphi(li,lj+1,lk-1)+myphi(li,lj-1,lk+1)) )  + &
-                   p3*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
+                   p3d3q27*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
                    (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
                    (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
                    (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1)))))
@@ -614,32 +614,32 @@ contains
 	  !If my block index does not match the index of the internal-node block, it means my thread is on the outer halo and must exit.
 	  if(myblock .ne. intblock)return
 
-	  grad_fix=3.0_db*(p1*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
-		 p2*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
+	  grad_fix=3.0_db*(p1d3q27*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
+		 p2d3q27*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
 		 (myphi(li+1,lj-1,lk)-myphi(li-1,lj+1,lk))+ &
 		 (myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
 		 (myphi(li+1,lj,lk-1)-myphi(li-1,lj,lk+1)) )  + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
 		 (myphi(li+1,lj-1,lk-1)-myphi(li-1,lj+1,lk+1))+ &
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li+1,lj+1,lk-1)-myphi(li-1,lj-1,lk+1))))
 
-	  grad_fiy=3.0_db*(p1*(myphi(li,lj+1,lk)-myphi(li,lj-1,lk)) + &
-		 p2*((myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
+	  grad_fiy=3.0_db*(p1d3q27*(myphi(li,lj+1,lk)-myphi(li,lj-1,lk)) + &
+		 p2d3q27*((myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
 		 (myphi(li-1,lj+1,lk)-myphi(li+1,lj-1,lk))+ &
 		 (myphi(li,lj+1,lk+1)-myphi(li,lj-1,lk-1))+ &
 		 (myphi(li,lj+1,lk-1)-myphi(li,lj-1,lk+1)) ) + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk-1)-myphi(li+1,lj-1,lk+1))+ &
 		 (myphi(li+1,lj+1,lk-1)-myphi(li-1,lj-1,lk+1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
 
-	  grad_fiz=3.0_db*(p1*(myphi(li,lj,lk+1)-myphi(li,lj,lk-1)) + &
-		 p2*((myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
+	  grad_fiz=3.0_db*(p1d3q27*(myphi(li,lj,lk+1)-myphi(li,lj,lk-1)) + &
+		 p2d3q27*((myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
 		 (myphi(li-1,lj,lk+1)-myphi(li+1,lj,lk-1))+ &
 		 (myphi(li,lj+1,lk+1)-myphi(li,lj-1,lk-1))+ &
 		 (myphi(li,lj-1,lk+1)-myphi(li,lj+1,lk-1)) ) + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1)) &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1)) &
 		 +(myphi(li-1,lj-1,lk+1)-myphi(li+1,lj+1,lk-1))+ &
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
@@ -664,17 +664,17 @@ contains
 	   
       !lap_phi here
       locauxfields_s(ii,jj,kk,1,myblock)= &
-                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0-1.0_db) + &
-                   ( p1*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
+                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0d3q27-1.0_db) + &
+                   ( p1d3q27*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
                    myphi(li,lj+1,lk)+myphi(li,lj-1,lk) + &
                    myphi(li,lj,lk+1)+myphi(li,lj,lk-1)) + &
-                   p2*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
+                   p2d3q27*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
                    (myphi(li+1,lj-1,lk)+myphi(li-1,lj+1,lk))+ &
                    (myphi(li+1,lj,lk+1)+myphi(li-1,lj,lk-1))+ &
                    (myphi(li+1,lj,lk-1)+myphi(li-1,lj,lk+1)) + &
                    (myphi(li,lj+1,lk+1)+myphi(li,lj-1,lk-1))+ &
                    (myphi(li,lj+1,lk-1)+myphi(li,lj-1,lk+1)) )  + &
-                   p3*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
+                   p3d3q27*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
                    (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
                    (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
                    (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1)))))
@@ -748,32 +748,32 @@ contains
 	  !If my block index does not match the index of the internal-node block, it means my thread is on the outer halo and must exit.
 	  if(myblock .ne. intblock)return
 
-	  grad_fix=3.0_db*(p1*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
-		 p2*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
+	  grad_fix=3.0_db*(p1d3q27*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
+		 p2d3q27*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
 		 (myphi(li+1,lj-1,lk)-myphi(li-1,lj+1,lk))+ &
 		 (myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
 		 (myphi(li+1,lj,lk-1)-myphi(li-1,lj,lk+1)) )  + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
 		 (myphi(li+1,lj-1,lk-1)-myphi(li-1,lj+1,lk+1))+ &
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li+1,lj+1,lk-1)-myphi(li-1,lj-1,lk+1))))
 
-	  grad_fiy=3.0_db*(p1*(myphi(li,lj+1,lk)-myphi(li,lj-1,lk)) + &
-		 p2*((myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
+	  grad_fiy=3.0_db*(p1d3q27*(myphi(li,lj+1,lk)-myphi(li,lj-1,lk)) + &
+		 p2d3q27*((myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
 		 (myphi(li-1,lj+1,lk)-myphi(li+1,lj-1,lk))+ &
 		 (myphi(li,lj+1,lk+1)-myphi(li,lj-1,lk-1))+ &
 		 (myphi(li,lj+1,lk-1)-myphi(li,lj-1,lk+1)) ) + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk-1)-myphi(li+1,lj-1,lk+1))+ &
 		 (myphi(li+1,lj+1,lk-1)-myphi(li-1,lj-1,lk+1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
 
-	  grad_fiz=3.0_db*(p1*(myphi(li,lj,lk+1)-myphi(li,lj,lk-1)) + &
-		 p2*((myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
+	  grad_fiz=3.0_db*(p1d3q27*(myphi(li,lj,lk+1)-myphi(li,lj,lk-1)) + &
+		 p2d3q27*((myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
 		 (myphi(li-1,lj,lk+1)-myphi(li+1,lj,lk-1))+ &
 		 (myphi(li,lj+1,lk+1)-myphi(li,lj-1,lk-1))+ &
 		 (myphi(li,lj-1,lk+1)-myphi(li,lj+1,lk-1)) ) + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1)) &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1)) &
 		 +(myphi(li-1,lj-1,lk+1)-myphi(li+1,lj+1,lk-1))+ &
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
@@ -798,17 +798,17 @@ contains
 	   
       !lap_phi here
       locauxfields_s(ii,jj,kk,1,myblock)= &
-                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0-1.0_db) + &
-                   ( p1*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
+                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0d3q27-1.0_db) + &
+                   ( p1d3q27*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
                    myphi(li,lj+1,lk)+myphi(li,lj-1,lk) + &
                    myphi(li,lj,lk+1)+myphi(li,lj,lk-1)) + &
-                   p2*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
+                   p2d3q27*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
                    (myphi(li+1,lj-1,lk)+myphi(li-1,lj+1,lk))+ &
                    (myphi(li+1,lj,lk+1)+myphi(li-1,lj,lk-1))+ &
                    (myphi(li+1,lj,lk-1)+myphi(li-1,lj,lk+1)) + &
                    (myphi(li,lj+1,lk+1)+myphi(li,lj-1,lk-1))+ &
                    (myphi(li,lj+1,lk-1)+myphi(li,lj-1,lk+1)) )  + &
-                   p3*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
+                   p3d3q27*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
                    (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
                    (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
                    (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1)))))
@@ -881,32 +881,32 @@ contains
 	  !If my block index does not match the index of the internal-node block, it means my thread is on the outer halo and must exit.
 	  if(myblock .ne. intblock)return
 
-	  grad_fix=3.0_db*(p1*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
-		 p2*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
+	  grad_fix=3.0_db*(p1d3q27*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
+		 p2d3q27*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
 		 (myphi(li+1,lj-1,lk)-myphi(li-1,lj+1,lk))+ &
 		 (myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
 		 (myphi(li+1,lj,lk-1)-myphi(li-1,lj,lk+1)) )  + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
 		 (myphi(li+1,lj-1,lk-1)-myphi(li-1,lj+1,lk+1))+ &
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li+1,lj+1,lk-1)-myphi(li-1,lj-1,lk+1))))
 
-	  grad_fiy=3.0_db*(p1*(myphi(li,lj+1,lk)-myphi(li,lj-1,lk)) + &
-		 p2*((myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
+	  grad_fiy=3.0_db*(p1d3q27*(myphi(li,lj+1,lk)-myphi(li,lj-1,lk)) + &
+		 p2d3q27*((myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
 		 (myphi(li-1,lj+1,lk)-myphi(li+1,lj-1,lk))+ &
 		 (myphi(li,lj+1,lk+1)-myphi(li,lj-1,lk-1))+ &
 		 (myphi(li,lj+1,lk-1)-myphi(li,lj-1,lk+1)) ) + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk-1)-myphi(li+1,lj-1,lk+1))+ &
 		 (myphi(li+1,lj+1,lk-1)-myphi(li-1,lj-1,lk+1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
 
-	  grad_fiz=3.0_db*(p1*(myphi(li,lj,lk+1)-myphi(li,lj,lk-1)) + &
-		 p2*((myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
+	  grad_fiz=3.0_db*(p1d3q27*(myphi(li,lj,lk+1)-myphi(li,lj,lk-1)) + &
+		 p2d3q27*((myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
 		 (myphi(li-1,lj,lk+1)-myphi(li+1,lj,lk-1))+ &
 		 (myphi(li,lj+1,lk+1)-myphi(li,lj-1,lk-1))+ &
 		 (myphi(li,lj-1,lk+1)-myphi(li,lj+1,lk-1)) ) + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1)) &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1)) &
 		 +(myphi(li-1,lj-1,lk+1)-myphi(li+1,lj+1,lk-1))+ &
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
@@ -931,17 +931,17 @@ contains
 	   
       !lap_phi here
       locauxfields_s(ii,jj,kk,1,myblock)= &
-                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0-1.0_db) + &
-                   ( p1*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
+                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0d3q27-1.0_db) + &
+                   ( p1d3q27*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
                    myphi(li,lj+1,lk)+myphi(li,lj-1,lk) + &
                    myphi(li,lj,lk+1)+myphi(li,lj,lk-1)) + &
-                   p2*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
+                   p2d3q27*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
                    (myphi(li+1,lj-1,lk)+myphi(li-1,lj+1,lk))+ &
                    (myphi(li+1,lj,lk+1)+myphi(li-1,lj,lk-1))+ &
                    (myphi(li+1,lj,lk-1)+myphi(li-1,lj,lk+1)) + &
                    (myphi(li,lj+1,lk+1)+myphi(li,lj-1,lk-1))+ &
                    (myphi(li,lj+1,lk-1)+myphi(li,lj-1,lk+1)) )  + &
-                   p3*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
+                   p3d3q27*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
                    (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
                    (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
                    (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1)))))
@@ -1014,32 +1014,32 @@ contains
 	  !If my block index does not match the index of the internal-node block, it means my thread is on the outer halo and must exit.
 	  if(myblock .ne. intblock)return
 
-	  grad_fix=3.0_db*(p1*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
-		 p2*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
+	  grad_fix=3.0_db*(p1d3q27*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
+		 p2d3q27*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
 		 (myphi(li+1,lj-1,lk)-myphi(li-1,lj+1,lk))+ &
 		 (myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
 		 (myphi(li+1,lj,lk-1)-myphi(li-1,lj,lk+1)) )  + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
 		 (myphi(li+1,lj-1,lk-1)-myphi(li-1,lj+1,lk+1))+ &
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li+1,lj+1,lk-1)-myphi(li-1,lj-1,lk+1))))
 
-	  grad_fiy=3.0_db*(p1*(myphi(li,lj+1,lk)-myphi(li,lj-1,lk)) + &
-		 p2*((myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
+	  grad_fiy=3.0_db*(p1d3q27*(myphi(li,lj+1,lk)-myphi(li,lj-1,lk)) + &
+		 p2d3q27*((myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
 		 (myphi(li-1,lj+1,lk)-myphi(li+1,lj-1,lk))+ &
 		 (myphi(li,lj+1,lk+1)-myphi(li,lj-1,lk-1))+ &
 		 (myphi(li,lj+1,lk-1)-myphi(li,lj-1,lk+1)) ) + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk-1)-myphi(li+1,lj-1,lk+1))+ &
 		 (myphi(li+1,lj+1,lk-1)-myphi(li-1,lj-1,lk+1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
 
-	  grad_fiz=3.0_db*(p1*(myphi(li,lj,lk+1)-myphi(li,lj,lk-1)) + &
-		 p2*((myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
+	  grad_fiz=3.0_db*(p1d3q27*(myphi(li,lj,lk+1)-myphi(li,lj,lk-1)) + &
+		 p2d3q27*((myphi(li+1,lj,lk+1)-myphi(li-1,lj,lk-1))+ &
 		 (myphi(li-1,lj,lk+1)-myphi(li+1,lj,lk-1))+ &
 		 (myphi(li,lj+1,lk+1)-myphi(li,lj-1,lk-1))+ &
 		 (myphi(li,lj-1,lk+1)-myphi(li,lj+1,lk-1)) ) + &
-		 p3*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1)) &
+		 p3d3q27*((myphi(li+1,lj+1,lk+1)-myphi(li-1,lj-1,lk-1)) &
 		 +(myphi(li-1,lj-1,lk+1)-myphi(li+1,lj+1,lk-1))+ &
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
@@ -1064,17 +1064,17 @@ contains
 	   
       !lap_phi here
       locauxfields_s(ii,jj,kk,1,myblock)= &
-                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0-1.0_db) + &
-                   ( p1*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
+                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0d3q27-1.0_db) + &
+                   ( p1d3q27*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
                    myphi(li,lj+1,lk)+myphi(li,lj-1,lk) + &
                    myphi(li,lj,lk+1)+myphi(li,lj,lk-1)) + &
-                   p2*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
+                   p2d3q27*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
                    (myphi(li+1,lj-1,lk)+myphi(li-1,lj+1,lk))+ &
                    (myphi(li+1,lj,lk+1)+myphi(li-1,lj,lk-1))+ &
                    (myphi(li+1,lj,lk-1)+myphi(li-1,lj,lk+1)) + &
                    (myphi(li,lj+1,lk+1)+myphi(li,lj-1,lk-1))+ &
                    (myphi(li,lj+1,lk-1)+myphi(li,lj-1,lk+1)) )  + &
-                   p3*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
+                   p3d3q27*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
                    (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
                    (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
                    (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1)))))
@@ -1143,20 +1143,20 @@ contains
 	   
       !div_thetan here
       locauxfields_s(ii,jj,kk,2,myblock)= &
-       (( p1*(myarrx(li+1,lj,lk)-myarrx(li-1,lj,lk)) + &
-       p2*((myarrx(li+1,lj+1,lk)-myarrx(li-1,lj-1,lk))+(myarrx(li+1,lj-1,lk)-myarrx(li-1,lj+1,lk))+ &
+       (( p1d3q27*(myarrx(li+1,lj,lk)-myarrx(li-1,lj,lk)) + &
+       p2d3q27*((myarrx(li+1,lj+1,lk)-myarrx(li-1,lj-1,lk))+(myarrx(li+1,lj-1,lk)-myarrx(li-1,lj+1,lk))+ &
        (myarrx(li+1,lj,lk+1)-myarrx(li-1,lj,lk-1))+(myarrx(li+1,lj,lk-1)-myarrx(li-1,lj,lk+1)))+ &
-       p3*((myarrx(li+1,lj+1,lk+1)-myarrx(li-1,lj-1,lk-1))+(myarrx(li+1,lj-1,lk-1)-myarrx(li-1,lj+1,lk+1))+ &
+       p3d3q27*((myarrx(li+1,lj+1,lk+1)-myarrx(li-1,lj-1,lk-1))+(myarrx(li+1,lj-1,lk-1)-myarrx(li-1,lj+1,lk+1))+ &
        (myarrx(li+1,lj-1,lk+1)-myarrx(li-1,lj+1,lk-1))+(myarrx(li+1,lj+1,lk-1)-myarrx(li-1,lj-1,lk+1))))+ &
-       (p1*(myarry(li,lj+1,lk)-myarry(li,lj-1,lk)) + &
-       p2*((myarry(li+1,lj+1,lk)-myarry(li-1,lj-1,lk))+(myarry(li-1,lj+1,lk)-myarry(li+1,lj-1,lk))+ &
+       (p1d3q27*(myarry(li,lj+1,lk)-myarry(li,lj-1,lk)) + &
+       p2d3q27*((myarry(li+1,lj+1,lk)-myarry(li-1,lj-1,lk))+(myarry(li-1,lj+1,lk)-myarry(li+1,lj-1,lk))+ &
        (myarry(li,lj+1,lk+1)-myarry(li,lj-1,lk-1))+(myarry(li,lj+1,lk-1)-myarry(li,lj-1,lk+1)))+ &
-       p3*((myarry(li+1,lj+1,lk+1)-myarry(li-1,lj-1,lk-1))+(myarry(li-1,lj+1,lk-1)-myarry(li+1,lj-1,lk+1))+ &
+       p3d3q27*((myarry(li+1,lj+1,lk+1)-myarry(li-1,lj-1,lk-1))+(myarry(li-1,lj+1,lk-1)-myarry(li+1,lj-1,lk+1))+ &
        (myarry(li+1,lj+1,lk-1)-myarry(li-1,lj-1,lk+1))+(myarry(li-1,lj+1,lk+1)-myarry(li+1,lj-1,lk-1))))+ &
-       (p1*(myarrz(li,lj,lk+1)-myarrz(li,lj,lk-1)) + &
-       p2*((myarrz(li+1,lj,lk+1)-myarrz(li-1,lj,lk-1))+(myarrz(li-1,lj,lk+1)-myarrz(li+1,lj,lk-1))+ &
+       (p1d3q27*(myarrz(li,lj,lk+1)-myarrz(li,lj,lk-1)) + &
+       p2d3q27*((myarrz(li+1,lj,lk+1)-myarrz(li-1,lj,lk-1))+(myarrz(li-1,lj,lk+1)-myarrz(li+1,lj,lk-1))+ &
        (myarrz(li,lj+1,lk+1)-myarrz(li,lj-1,lk-1))+(myarrz(li,lj-1,lk+1)-myarrz(li,lj+1,lk-1)))+ &
-       p3*((myarrz(li+1,lj+1,lk+1)-myarrz(li-1,lj-1,lk-1))+(myarrz(li-1,lj-1,lk+1)-myarrz(li+1,lj+1,lk-1))+ &
+       p3d3q27*((myarrz(li+1,lj+1,lk+1)-myarrz(li-1,lj-1,lk-1))+(myarrz(li-1,lj-1,lk+1)-myarrz(li+1,lj+1,lk-1))+ &
        (myarrz(li+1,lj-1,lk+1)-myarrz(li-1,lj+1,lk-1))+(myarrz(li-1,lj+1,lk+1)-myarrz(li+1,lj-1,lk-1)))))*invcssq
       
       return
