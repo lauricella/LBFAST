@@ -342,7 +342,11 @@ program threadsafeLB
 #endif
       write(6,'(a)') '*******************LB type*****************'
 #if LATTICE == 27
+#ifdef HIGHORDER
+      write(6,'(a)') 'Using D3Q27 lattice with HIGH-ORDER'
+#else
       write(6,'(a)') 'Using D3Q27 lattice'
+#endif
 #elif LATTICE == 19
       write(6,'(a)') 'Using D3Q19 lattice'
 #elif LATTICE == 15
