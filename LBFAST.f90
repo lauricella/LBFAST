@@ -340,6 +340,14 @@ program threadsafeLB
 #if defined(_OPENACC)
       write(6,'(a)') 'GPU VERSION COMPILED'
 #endif
+      write(6,'(a)') '*******************LB type*****************'
+#if LATTICE == 27
+      write(6,'(a)') 'Using D3Q27 lattice'
+#elif LATTICE == 19
+      write(6,'(a)') 'Using D3Q19 lattice'
+#elif LATTICE == 15
+      write(6,'(a)') 'Using D3Q15 lattice'
+#endif
       write(6,'(a)') '*******************LB data*****************'
       write(6,'(a,g16.8)') 'tau1',tau1
 	  write(6,'(a,g16.8)') 'visc',visc1
