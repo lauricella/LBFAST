@@ -221,7 +221,10 @@ program threadsafeLB
 #endif 
 #endif    
       if(lweakscaling)then
-        lz=lz*proc_x*proc_y*proc_z
+        !lz=lz*proc_x*proc_y*proc_z
+        lx = MYSIDE * proc_x
+        ly = MYSIDE * proc_y
+        lz = MYSIDE * proc_z
       endif  
    endif
      
@@ -351,6 +354,11 @@ program threadsafeLB
       write(6,'(a)') 'Using D3Q19 lattice'
 #elif LATTICE == 15
       write(6,'(a)') 'Using D3Q15 lattice'
+#endif
+#ifdef TWOCOMPONENT
+      write(6,'(a)') 'Compiled for two components'
+#else
+      write(6,'(a)') 'Compiled for single component'
 #endif
       write(6,'(a)') '*******************LB data*****************'
       write(6,'(a,g16.8)') 'tau1',tau1
