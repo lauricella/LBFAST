@@ -173,14 +173,14 @@ contains
 		           kkk=k+ez(lopp)
 		           if(isfluid(iii,jjj,kkk).ne.0) cycle 
 		           feq=p(l)*(press)
-		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		           fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		            + TWO*(dey(l)*dez(l))*pyz)
                    !F_discr = p(l)*(dex(l)*forcex &
                    ! + dey(l)*forcey &
                    ! + dez(l)*forcez)/(cssq*rhophi_loc)
-		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           fpost=feq + (ONE-omega_loc)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress - fpost
 		           ou=ou - fpost*dex(l)
 		           ov=ov - fpost*dey(l)
@@ -193,14 +193,51 @@ contains
                    opyz=opyz - fpost*dey(l)*dez(l)	
 		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))*invcssq
 		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
-		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		           fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		            + TWO*(dey(l)*dez(l))*pyz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                     feq=feq+Minv_mrt(10,l)*utmp*utmp*vtmp + &
+                             Minv_mrt(11,l)*utmp*utmp*wtmp + &
+                             Minv_mrt(12,l)*utmp*vtmp*vtmp + &
+                             Minv_mrt(13,l)*utmp*wtmp*wtmp + &
+                             Minv_mrt(14,l)*vtmp*wtmp*wtmp + &
+                             Minv_mrt(15,l)*vtmp*vtmp*wtmp + &
+                             Minv_mrt(16,l)*utmp*vtmp*wtmp + &
+                             Minv_mrt(17,l)*utmp*utmp*vtmp*vtmp + &
+                             Minv_mrt(18,l)*utmp*utmp*wtmp*wtmp + &
+                             Minv_mrt(19,l)*vtmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(20,l)*utmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(21,l)*utmp*vtmp*vtmp*wtmp + &
+                             Minv_mrt(22,l)*utmp*utmp*vtmp*wtmp + &
+                             Minv_mrt(23,l)*utmp*utmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(24,l)*utmp*utmp*vtmp*vtmp*wtmp + &
+                             Minv_mrt(25,l)*utmp*vtmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(26,l)*utmp*utmp*vtmp*vtmp*wtmp*wtmp
+                     fneq1=fneq1+Minv_mrt(10,l)*(TWO*pxy*utmp + pxx*vtmp) + &
+                             Minv_mrt(11,l)*(TWO*pxz*utmp + pxx*wtmp) + &
+                             Minv_mrt(12,l)*(pyy*utmp + TWO*pxy*vtmp) + &
+                             Minv_mrt(13,l)*(pzz*utmp + TWO*pxz*wtmp)+ &
+                             Minv_mrt(14,l)*(pzz*vtmp + TWO*pyz*wtmp) + &
+                             Minv_mrt(15,l)*(TWO*pyz*vtmp + pyy*wtmp) + &
+                             Minv_mrt(16,l)*(pyz*utmp + pxz*vtmp + pxy*wtmp) + &
+                             Minv_mrt(17,l)*(pyy*utmp**TWO + TWO*vtmp*(THREE*pxy*utmp + pxx*vtmp)) + &
+                             Minv_mrt(18,l)*(pzz*utmp**TWO + TWO*wtmp*(THREE*pxz*utmp + pxx*wtmp)) + &
+                             Minv_mrt(19,l)*(pzz*vtmp**TWO + TWO*wtmp*(THREE*pyz*vtmp + pyy*wtmp)) + &
+                             Minv_mrt(20,l)*(pzz*utmp*vtmp + wtmp*(THREE*pyz*utmp + THREE*pxz*vtmp + TWO*pxy*wtmp)) + &
+                             Minv_mrt(21,l)*(TWO*pyz*utmp*vtmp + pxz*vtmp**TWO + TWO*pyy*utmp*wtmp + FOUR*pxy*vtmp*wtmp) + &
+                             Minv_mrt(22,l)*(pyz*utmp**TWO + TWO*pxz*utmp*vtmp + FOUR*pxy*utmp*wtmp + TWO*pxx*vtmp*wtmp) + &
+                             Minv_mrt(23,l)*(pzz*utmp**TWO*vtmp + THREE*wtmp*(pyz*utmp**TWO + TWO*pxz*utmp*vtmp + TWO*pxy*utmp*wtmp + pxx*vtmp*wtmp)) + &
+                             Minv_mrt(24,l)*(TWO*utmp*vtmp*(pyz*utmp + pxz*vtmp) + TWO*pyy*utmp**TWO*wtmp + vtmp*(TEN*pxy*utmp + THREE*pxx*vtmp)*wtmp) + &
+                             Minv_mrt(25,l)*(pzz*utmp*vtmp**TWO + THREE*wtmp*(TWO*pyz*utmp*vtmp + pxz*vtmp**TWO + pyy*utmp*wtmp + TWO*pxy*vtmp*wtmp)) + &
+                             Minv_mrt(26,l)*(pzz*utmp**TWO*vtmp**TWO + &
+                              wtmp*(SIX*utmp*vtmp*(pyz*utmp + pxz*vtmp) + THREE*pyy*utmp**TWO*wtmp + TWO*vtmp*(SEVEN*pxy*utmp + TWO*pxx*vtmp)*wtmp))
+#endif
                    ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*forcex &
                    ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
                    ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/(cssq*rhophi_loc)
-		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           fpost=feq + (ONE-omega_loc)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress + fpost
 		           ou=ou + fpost*dex(l)
 	       	       ov=ov + fpost*dey(l)
@@ -347,14 +384,14 @@ contains
 		           kkk=k+ez(lopp)
 		           if(isfluid(iii,jjj,kkk).ne.0) cycle 
 		           feq=p(l)*(press)
-		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		           fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		            + TWO*(dey(l)*dez(l))*pyz)
                    !F_discr = p(l)*(dex(l)*forcex &
                    ! + dey(l)*forcey &
                    ! + dez(l)*forcez)/(cssq*rhophi_loc)
-		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           fpost=feq + (ONE-omega_loc)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress - fpost
 		           ou=ou - fpost*dex(l)
 		           ov=ov - fpost*dey(l)
@@ -367,14 +404,51 @@ contains
                    opyz=opyz - fpost*dey(l)*dez(l)	
 		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))*invcssq
 		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
-		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		           fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		            + TWO*(dey(l)*dez(l))*pyz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                     feq=feq+Minv_mrt(10,l)*utmp*utmp*vtmp + &
+                             Minv_mrt(11,l)*utmp*utmp*wtmp + &
+                             Minv_mrt(12,l)*utmp*vtmp*vtmp + &
+                             Minv_mrt(13,l)*utmp*wtmp*wtmp + &
+                             Minv_mrt(14,l)*vtmp*wtmp*wtmp + &
+                             Minv_mrt(15,l)*vtmp*vtmp*wtmp + &
+                             Minv_mrt(16,l)*utmp*vtmp*wtmp + &
+                             Minv_mrt(17,l)*utmp*utmp*vtmp*vtmp + &
+                             Minv_mrt(18,l)*utmp*utmp*wtmp*wtmp + &
+                             Minv_mrt(19,l)*vtmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(20,l)*utmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(21,l)*utmp*vtmp*vtmp*wtmp + &
+                             Minv_mrt(22,l)*utmp*utmp*vtmp*wtmp + &
+                             Minv_mrt(23,l)*utmp*utmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(24,l)*utmp*utmp*vtmp*vtmp*wtmp + &
+                             Minv_mrt(25,l)*utmp*vtmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(26,l)*utmp*utmp*vtmp*vtmp*wtmp*wtmp
+                     fneq1=fneq1+Minv_mrt(10,l)*(TWO*pxy*utmp + pxx*vtmp) + &
+                             Minv_mrt(11,l)*(TWO*pxz*utmp + pxx*wtmp) + &
+                             Minv_mrt(12,l)*(pyy*utmp + TWO*pxy*vtmp) + &
+                             Minv_mrt(13,l)*(pzz*utmp + TWO*pxz*wtmp)+ &
+                             Minv_mrt(14,l)*(pzz*vtmp + TWO*pyz*wtmp) + &
+                             Minv_mrt(15,l)*(TWO*pyz*vtmp + pyy*wtmp) + &
+                             Minv_mrt(16,l)*(pyz*utmp + pxz*vtmp + pxy*wtmp) + &
+                             Minv_mrt(17,l)*(pyy*utmp**TWO + TWO*vtmp*(THREE*pxy*utmp + pxx*vtmp)) + &
+                             Minv_mrt(18,l)*(pzz*utmp**TWO + TWO*wtmp*(THREE*pxz*utmp + pxx*wtmp)) + &
+                             Minv_mrt(19,l)*(pzz*vtmp**TWO + TWO*wtmp*(THREE*pyz*vtmp + pyy*wtmp)) + &
+                             Minv_mrt(20,l)*(pzz*utmp*vtmp + wtmp*(THREE*pyz*utmp + THREE*pxz*vtmp + TWO*pxy*wtmp)) + &
+                             Minv_mrt(21,l)*(TWO*pyz*utmp*vtmp + pxz*vtmp**TWO + TWO*pyy*utmp*wtmp + FOUR*pxy*vtmp*wtmp) + &
+                             Minv_mrt(22,l)*(pyz*utmp**TWO + TWO*pxz*utmp*vtmp + FOUR*pxy*utmp*wtmp + TWO*pxx*vtmp*wtmp) + &
+                             Minv_mrt(23,l)*(pzz*utmp**TWO*vtmp + THREE*wtmp*(pyz*utmp**TWO + TWO*pxz*utmp*vtmp + TWO*pxy*utmp*wtmp + pxx*vtmp*wtmp)) + &
+                             Minv_mrt(24,l)*(TWO*utmp*vtmp*(pyz*utmp + pxz*vtmp) + TWO*pyy*utmp**TWO*wtmp + vtmp*(TEN*pxy*utmp + THREE*pxx*vtmp)*wtmp) + &
+                             Minv_mrt(25,l)*(pzz*utmp*vtmp**TWO + THREE*wtmp*(TWO*pyz*utmp*vtmp + pxz*vtmp**TWO + pyy*utmp*wtmp + TWO*pxy*vtmp*wtmp)) + &
+                             Minv_mrt(26,l)*(pzz*utmp**TWO*vtmp**TWO + &
+                              wtmp*(SIX*utmp*vtmp*(pyz*utmp + pxz*vtmp) + THREE*pyy*utmp**TWO*wtmp + TWO*vtmp*(SEVEN*pxy*utmp + TWO*pxx*vtmp)*wtmp))
+#endif
                    ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*forcex &
                    ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
                    ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/(cssq*rhophi_loc)
-		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           fpost=feq + (ONE-omega_loc)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress + fpost
 		           ou=ou + fpost*dex(l)
 	       	       ov=ov + fpost*dey(l)
@@ -523,14 +597,14 @@ contains
 		           kkk=k+ez(lopp)
 		           if(isfluid(iii,jjj,kkk).ne.0) cycle 
 		           feq=p(l)*(press)
-		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		           fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		            + TWO*(dey(l)*dez(l))*pyz)
                    !F_discr = p(l)*(dex(l)*forcex &
                    ! + dey(l)*forcey &
                    ! + dez(l)*forcez)/(cssq*rhophi_loc)
-		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           fpost=feq + (ONE-omega_loc)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress - fpost
 		           ou=ou - fpost*dex(l)
 		           ov=ov - fpost*dey(l)
@@ -543,14 +617,51 @@ contains
                    opyz=opyz - fpost*dey(l)*dez(l)	
 		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))*invcssq
 		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
-		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		           fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		            + TWO*(dey(l)*dez(l))*pyz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                     feq=feq+Minv_mrt(10,l)*utmp*utmp*vtmp + &
+                             Minv_mrt(11,l)*utmp*utmp*wtmp + &
+                             Minv_mrt(12,l)*utmp*vtmp*vtmp + &
+                             Minv_mrt(13,l)*utmp*wtmp*wtmp + &
+                             Minv_mrt(14,l)*vtmp*wtmp*wtmp + &
+                             Minv_mrt(15,l)*vtmp*vtmp*wtmp + &
+                             Minv_mrt(16,l)*utmp*vtmp*wtmp + &
+                             Minv_mrt(17,l)*utmp*utmp*vtmp*vtmp + &
+                             Minv_mrt(18,l)*utmp*utmp*wtmp*wtmp + &
+                             Minv_mrt(19,l)*vtmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(20,l)*utmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(21,l)*utmp*vtmp*vtmp*wtmp + &
+                             Minv_mrt(22,l)*utmp*utmp*vtmp*wtmp + &
+                             Minv_mrt(23,l)*utmp*utmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(24,l)*utmp*utmp*vtmp*vtmp*wtmp + &
+                             Minv_mrt(25,l)*utmp*vtmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(26,l)*utmp*utmp*vtmp*vtmp*wtmp*wtmp
+                     fneq1=fneq1+Minv_mrt(10,l)*(TWO*pxy*utmp + pxx*vtmp) + &
+                             Minv_mrt(11,l)*(TWO*pxz*utmp + pxx*wtmp) + &
+                             Minv_mrt(12,l)*(pyy*utmp + TWO*pxy*vtmp) + &
+                             Minv_mrt(13,l)*(pzz*utmp + TWO*pxz*wtmp)+ &
+                             Minv_mrt(14,l)*(pzz*vtmp + TWO*pyz*wtmp) + &
+                             Minv_mrt(15,l)*(TWO*pyz*vtmp + pyy*wtmp) + &
+                             Minv_mrt(16,l)*(pyz*utmp + pxz*vtmp + pxy*wtmp) + &
+                             Minv_mrt(17,l)*(pyy*utmp**TWO + TWO*vtmp*(THREE*pxy*utmp + pxx*vtmp)) + &
+                             Minv_mrt(18,l)*(pzz*utmp**TWO + TWO*wtmp*(THREE*pxz*utmp + pxx*wtmp)) + &
+                             Minv_mrt(19,l)*(pzz*vtmp**TWO + TWO*wtmp*(THREE*pyz*vtmp + pyy*wtmp)) + &
+                             Minv_mrt(20,l)*(pzz*utmp*vtmp + wtmp*(THREE*pyz*utmp + THREE*pxz*vtmp + TWO*pxy*wtmp)) + &
+                             Minv_mrt(21,l)*(TWO*pyz*utmp*vtmp + pxz*vtmp**TWO + TWO*pyy*utmp*wtmp + FOUR*pxy*vtmp*wtmp) + &
+                             Minv_mrt(22,l)*(pyz*utmp**TWO + TWO*pxz*utmp*vtmp + FOUR*pxy*utmp*wtmp + TWO*pxx*vtmp*wtmp) + &
+                             Minv_mrt(23,l)*(pzz*utmp**TWO*vtmp + THREE*wtmp*(pyz*utmp**TWO + TWO*pxz*utmp*vtmp + TWO*pxy*utmp*wtmp + pxx*vtmp*wtmp)) + &
+                             Minv_mrt(24,l)*(TWO*utmp*vtmp*(pyz*utmp + pxz*vtmp) + TWO*pyy*utmp**TWO*wtmp + vtmp*(TEN*pxy*utmp + THREE*pxx*vtmp)*wtmp) + &
+                             Minv_mrt(25,l)*(pzz*utmp*vtmp**TWO + THREE*wtmp*(TWO*pyz*utmp*vtmp + pxz*vtmp**TWO + pyy*utmp*wtmp + TWO*pxy*vtmp*wtmp)) + &
+                             Minv_mrt(26,l)*(pzz*utmp**TWO*vtmp**TWO + &
+                              wtmp*(SIX*utmp*vtmp*(pyz*utmp + pxz*vtmp) + THREE*pyy*utmp**TWO*wtmp + TWO*vtmp*(SEVEN*pxy*utmp + TWO*pxx*vtmp)*wtmp))
+#endif
                    ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*forcex &
                    ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
                    ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/(cssq*rhophi_loc)
-		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           fpost=feq + (ONE-omega_loc)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress + fpost
 		           ou=ou + fpost*dex(l)
 	       	       ov=ov + fpost*dey(l)
@@ -697,14 +808,14 @@ contains
 		           kkk=k+ez(lopp)
 		           if(isfluid(iii,jjj,kkk).ne.0) cycle 
 		           feq=p(l)*(press)
-		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		           fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		            + TWO*(dey(l)*dez(l))*pyz)
                    !F_discr = p(l)*(dex(l)*forcex &
                    ! + dey(l)*forcey &
                    ! + dez(l)*forcez)/(cssq*rhophi_loc)
-		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           fpost=feq + (ONE-omega_loc)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress - fpost
 		           ou=ou - fpost*dex(l)
 		           ov=ov - fpost*dey(l)
@@ -717,14 +828,51 @@ contains
                    opyz=opyz - fpost*dey(l)*dez(l)	
 		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))*invcssq
 		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
-		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		           fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		            + TWO*(dey(l)*dez(l))*pyz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                     feq=feq+Minv_mrt(10,l)*utmp*utmp*vtmp + &
+                             Minv_mrt(11,l)*utmp*utmp*wtmp + &
+                             Minv_mrt(12,l)*utmp*vtmp*vtmp + &
+                             Minv_mrt(13,l)*utmp*wtmp*wtmp + &
+                             Minv_mrt(14,l)*vtmp*wtmp*wtmp + &
+                             Minv_mrt(15,l)*vtmp*vtmp*wtmp + &
+                             Minv_mrt(16,l)*utmp*vtmp*wtmp + &
+                             Minv_mrt(17,l)*utmp*utmp*vtmp*vtmp + &
+                             Minv_mrt(18,l)*utmp*utmp*wtmp*wtmp + &
+                             Minv_mrt(19,l)*vtmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(20,l)*utmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(21,l)*utmp*vtmp*vtmp*wtmp + &
+                             Minv_mrt(22,l)*utmp*utmp*vtmp*wtmp + &
+                             Minv_mrt(23,l)*utmp*utmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(24,l)*utmp*utmp*vtmp*vtmp*wtmp + &
+                             Minv_mrt(25,l)*utmp*vtmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(26,l)*utmp*utmp*vtmp*vtmp*wtmp*wtmp
+                     fneq1=fneq1+Minv_mrt(10,l)*(TWO*pxy*utmp + pxx*vtmp) + &
+                             Minv_mrt(11,l)*(TWO*pxz*utmp + pxx*wtmp) + &
+                             Minv_mrt(12,l)*(pyy*utmp + TWO*pxy*vtmp) + &
+                             Minv_mrt(13,l)*(pzz*utmp + TWO*pxz*wtmp)+ &
+                             Minv_mrt(14,l)*(pzz*vtmp + TWO*pyz*wtmp) + &
+                             Minv_mrt(15,l)*(TWO*pyz*vtmp + pyy*wtmp) + &
+                             Minv_mrt(16,l)*(pyz*utmp + pxz*vtmp + pxy*wtmp) + &
+                             Minv_mrt(17,l)*(pyy*utmp**TWO + TWO*vtmp*(THREE*pxy*utmp + pxx*vtmp)) + &
+                             Minv_mrt(18,l)*(pzz*utmp**TWO + TWO*wtmp*(THREE*pxz*utmp + pxx*wtmp)) + &
+                             Minv_mrt(19,l)*(pzz*vtmp**TWO + TWO*wtmp*(THREE*pyz*vtmp + pyy*wtmp)) + &
+                             Minv_mrt(20,l)*(pzz*utmp*vtmp + wtmp*(THREE*pyz*utmp + THREE*pxz*vtmp + TWO*pxy*wtmp)) + &
+                             Minv_mrt(21,l)*(TWO*pyz*utmp*vtmp + pxz*vtmp**TWO + TWO*pyy*utmp*wtmp + FOUR*pxy*vtmp*wtmp) + &
+                             Minv_mrt(22,l)*(pyz*utmp**TWO + TWO*pxz*utmp*vtmp + FOUR*pxy*utmp*wtmp + TWO*pxx*vtmp*wtmp) + &
+                             Minv_mrt(23,l)*(pzz*utmp**TWO*vtmp + THREE*wtmp*(pyz*utmp**TWO + TWO*pxz*utmp*vtmp + TWO*pxy*utmp*wtmp + pxx*vtmp*wtmp)) + &
+                             Minv_mrt(24,l)*(TWO*utmp*vtmp*(pyz*utmp + pxz*vtmp) + TWO*pyy*utmp**TWO*wtmp + vtmp*(TEN*pxy*utmp + THREE*pxx*vtmp)*wtmp) + &
+                             Minv_mrt(25,l)*(pzz*utmp*vtmp**TWO + THREE*wtmp*(TWO*pyz*utmp*vtmp + pxz*vtmp**TWO + pyy*utmp*wtmp + TWO*pxy*vtmp*wtmp)) + &
+                             Minv_mrt(26,l)*(pzz*utmp**TWO*vtmp**TWO + &
+                              wtmp*(SIX*utmp*vtmp*(pyz*utmp + pxz*vtmp) + THREE*pyy*utmp**TWO*wtmp + TWO*vtmp*(SEVEN*pxy*utmp + TWO*pxx*vtmp)*wtmp))
+#endif
                    ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*forcex &
                    ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
                    ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/(cssq*rhophi_loc)
-		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           fpost=feq + (ONE-omega_loc)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress + fpost
 		           ou=ou + fpost*dex(l)
 	       	       ov=ov + fpost*dey(l)
@@ -873,14 +1021,14 @@ contains
 		           kkk=k+ez(lopp)
 		           if(isfluid(iii,jjj,kkk).ne.0) cycle 
 		           feq=p(l)*(press)
-		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		           fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		            + TWO*(dey(l)*dez(l))*pyz)
                    !F_discr = p(l)*(dex(l)*forcex &
                    ! + dey(l)*forcey &
                    ! + dez(l)*forcez)/(cssq*rhophi_loc)
-		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           fpost=feq + (ONE-omega_loc)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress - fpost
 		           ou=ou - fpost*dex(l)
 		           ov=ov - fpost*dey(l)
@@ -893,14 +1041,51 @@ contains
                    opyz=opyz - fpost*dey(l)*dez(l)	
 		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))*invcssq
 		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
-		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		           fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		            + TWO*(dey(l)*dez(l))*pyz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                     feq=feq+Minv_mrt(10,l)*utmp*utmp*vtmp + &
+                             Minv_mrt(11,l)*utmp*utmp*wtmp + &
+                             Minv_mrt(12,l)*utmp*vtmp*vtmp + &
+                             Minv_mrt(13,l)*utmp*wtmp*wtmp + &
+                             Minv_mrt(14,l)*vtmp*wtmp*wtmp + &
+                             Minv_mrt(15,l)*vtmp*vtmp*wtmp + &
+                             Minv_mrt(16,l)*utmp*vtmp*wtmp + &
+                             Minv_mrt(17,l)*utmp*utmp*vtmp*vtmp + &
+                             Minv_mrt(18,l)*utmp*utmp*wtmp*wtmp + &
+                             Minv_mrt(19,l)*vtmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(20,l)*utmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(21,l)*utmp*vtmp*vtmp*wtmp + &
+                             Minv_mrt(22,l)*utmp*utmp*vtmp*wtmp + &
+                             Minv_mrt(23,l)*utmp*utmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(24,l)*utmp*utmp*vtmp*vtmp*wtmp + &
+                             Minv_mrt(25,l)*utmp*vtmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(26,l)*utmp*utmp*vtmp*vtmp*wtmp*wtmp
+                     fneq1=fneq1+Minv_mrt(10,l)*(TWO*pxy*utmp + pxx*vtmp) + &
+                             Minv_mrt(11,l)*(TWO*pxz*utmp + pxx*wtmp) + &
+                             Minv_mrt(12,l)*(pyy*utmp + TWO*pxy*vtmp) + &
+                             Minv_mrt(13,l)*(pzz*utmp + TWO*pxz*wtmp)+ &
+                             Minv_mrt(14,l)*(pzz*vtmp + TWO*pyz*wtmp) + &
+                             Minv_mrt(15,l)*(TWO*pyz*vtmp + pyy*wtmp) + &
+                             Minv_mrt(16,l)*(pyz*utmp + pxz*vtmp + pxy*wtmp) + &
+                             Minv_mrt(17,l)*(pyy*utmp**TWO + TWO*vtmp*(THREE*pxy*utmp + pxx*vtmp)) + &
+                             Minv_mrt(18,l)*(pzz*utmp**TWO + TWO*wtmp*(THREE*pxz*utmp + pxx*wtmp)) + &
+                             Minv_mrt(19,l)*(pzz*vtmp**TWO + TWO*wtmp*(THREE*pyz*vtmp + pyy*wtmp)) + &
+                             Minv_mrt(20,l)*(pzz*utmp*vtmp + wtmp*(THREE*pyz*utmp + THREE*pxz*vtmp + TWO*pxy*wtmp)) + &
+                             Minv_mrt(21,l)*(TWO*pyz*utmp*vtmp + pxz*vtmp**TWO + TWO*pyy*utmp*wtmp + FOUR*pxy*vtmp*wtmp) + &
+                             Minv_mrt(22,l)*(pyz*utmp**TWO + TWO*pxz*utmp*vtmp + FOUR*pxy*utmp*wtmp + TWO*pxx*vtmp*wtmp) + &
+                             Minv_mrt(23,l)*(pzz*utmp**TWO*vtmp + THREE*wtmp*(pyz*utmp**TWO + TWO*pxz*utmp*vtmp + TWO*pxy*utmp*wtmp + pxx*vtmp*wtmp)) + &
+                             Minv_mrt(24,l)*(TWO*utmp*vtmp*(pyz*utmp + pxz*vtmp) + TWO*pyy*utmp**TWO*wtmp + vtmp*(TEN*pxy*utmp + THREE*pxx*vtmp)*wtmp) + &
+                             Minv_mrt(25,l)*(pzz*utmp*vtmp**TWO + THREE*wtmp*(TWO*pyz*utmp*vtmp + pxz*vtmp**TWO + pyy*utmp*wtmp + TWO*pxy*vtmp*wtmp)) + &
+                             Minv_mrt(26,l)*(pzz*utmp**TWO*vtmp**TWO + &
+                              wtmp*(SIX*utmp*vtmp*(pyz*utmp + pxz*vtmp) + THREE*pyy*utmp**TWO*wtmp + TWO*vtmp*(SEVEN*pxy*utmp + TWO*pxx*vtmp)*wtmp))
+#endif
                    ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*forcex &
                    ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
                    ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/(cssq*rhophi_loc)
-		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           fpost=feq + (ONE-omega_loc)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress + fpost
 		           ou=ou + fpost*dex(l)
 	       	       ov=ov + fpost*dey(l)
@@ -1048,14 +1233,14 @@ contains
 		           kkk=k+ez(lopp)
 		           if(isfluid(iii,jjj,kkk).ne.0) cycle 
 		           feq=p(l)*(press)
-		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		           fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		            + TWO*(dey(l)*dez(l))*pyz)
                    !F_discr = p(l)*(dex(l)*forcex &
                    ! + dey(l)*forcey &
                    ! + dez(l)*forcez)/(cssq*rhophi_loc)
-		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           fpost=feq + (ONE-omega_loc)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress - fpost
 		           ou=ou - fpost*dex(l)
 		           ov=ov - fpost*dey(l)
@@ -1068,14 +1253,51 @@ contains
                    opyz=opyz - fpost*dey(l)*dez(l)	
 		           udotc=(utmp*dex(l) + vtmp*dey(l)+ wtmp*dez(l))*invcssq
 		           feq=p(l)*(presstmp + udotc+ HALF*udotc*udotc - uu)
-		           fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		           fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		            + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		            + TWO*(dey(l)*dez(l))*pyz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                     feq=feq+Minv_mrt(10,l)*utmp*utmp*vtmp + &
+                             Minv_mrt(11,l)*utmp*utmp*wtmp + &
+                             Minv_mrt(12,l)*utmp*vtmp*vtmp + &
+                             Minv_mrt(13,l)*utmp*wtmp*wtmp + &
+                             Minv_mrt(14,l)*vtmp*wtmp*wtmp + &
+                             Minv_mrt(15,l)*vtmp*vtmp*wtmp + &
+                             Minv_mrt(16,l)*utmp*vtmp*wtmp + &
+                             Minv_mrt(17,l)*utmp*utmp*vtmp*vtmp + &
+                             Minv_mrt(18,l)*utmp*utmp*wtmp*wtmp + &
+                             Minv_mrt(19,l)*vtmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(20,l)*utmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(21,l)*utmp*vtmp*vtmp*wtmp + &
+                             Minv_mrt(22,l)*utmp*utmp*vtmp*wtmp + &
+                             Minv_mrt(23,l)*utmp*utmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(24,l)*utmp*utmp*vtmp*vtmp*wtmp + &
+                             Minv_mrt(25,l)*utmp*vtmp*vtmp*wtmp*wtmp + &
+                             Minv_mrt(26,l)*utmp*utmp*vtmp*vtmp*wtmp*wtmp
+                     fneq1=fneq1+Minv_mrt(10,l)*(TWO*pxy*utmp + pxx*vtmp) + &
+                             Minv_mrt(11,l)*(TWO*pxz*utmp + pxx*wtmp) + &
+                             Minv_mrt(12,l)*(pyy*utmp + TWO*pxy*vtmp) + &
+                             Minv_mrt(13,l)*(pzz*utmp + TWO*pxz*wtmp)+ &
+                             Minv_mrt(14,l)*(pzz*vtmp + TWO*pyz*wtmp) + &
+                             Minv_mrt(15,l)*(TWO*pyz*vtmp + pyy*wtmp) + &
+                             Minv_mrt(16,l)*(pyz*utmp + pxz*vtmp + pxy*wtmp) + &
+                             Minv_mrt(17,l)*(pyy*utmp**TWO + TWO*vtmp*(THREE*pxy*utmp + pxx*vtmp)) + &
+                             Minv_mrt(18,l)*(pzz*utmp**TWO + TWO*wtmp*(THREE*pxz*utmp + pxx*wtmp)) + &
+                             Minv_mrt(19,l)*(pzz*vtmp**TWO + TWO*wtmp*(THREE*pyz*vtmp + pyy*wtmp)) + &
+                             Minv_mrt(20,l)*(pzz*utmp*vtmp + wtmp*(THREE*pyz*utmp + THREE*pxz*vtmp + TWO*pxy*wtmp)) + &
+                             Minv_mrt(21,l)*(TWO*pyz*utmp*vtmp + pxz*vtmp**TWO + TWO*pyy*utmp*wtmp + FOUR*pxy*vtmp*wtmp) + &
+                             Minv_mrt(22,l)*(pyz*utmp**TWO + TWO*pxz*utmp*vtmp + FOUR*pxy*utmp*wtmp + TWO*pxx*vtmp*wtmp) + &
+                             Minv_mrt(23,l)*(pzz*utmp**TWO*vtmp + THREE*wtmp*(pyz*utmp**TWO + TWO*pxz*utmp*vtmp + TWO*pxy*utmp*wtmp + pxx*vtmp*wtmp)) + &
+                             Minv_mrt(24,l)*(TWO*utmp*vtmp*(pyz*utmp + pxz*vtmp) + TWO*pyy*utmp**TWO*wtmp + vtmp*(TEN*pxy*utmp + THREE*pxx*vtmp)*wtmp) + &
+                             Minv_mrt(25,l)*(pzz*utmp*vtmp**TWO + THREE*wtmp*(TWO*pyz*utmp*vtmp + pxz*vtmp**TWO + pyy*utmp*wtmp + TWO*pxy*vtmp*wtmp)) + &
+                             Minv_mrt(26,l)*(pzz*utmp**TWO*vtmp**TWO + &
+                              wtmp*(SIX*utmp*vtmp*(pyz*utmp + pxz*vtmp) + THREE*pyy*utmp**TWO*wtmp + TWO*vtmp*(SEVEN*pxy*utmp + TWO*pxx*vtmp)*wtmp))
+#endif
                    ! F_discr = p(l)*(((dex(l) - utmp) + udotc * dex(l))*forcex &
                    ! + ((dey(l) - vtmp) + udotc * dey(l))*forcey &
                    ! + ((dez(l) - wtmp) + udotc * dez(l))*forcez)/(cssq*rhophi_loc)
-		           fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		           fpost=feq + (ONE-omega_loc)*fneq1 !+ HALF*(F_discr)	
 		           opress=opress + fpost
 		           ou=ou + fpost*dex(l)
 	       	       ov=ov + fpost*dey(l)

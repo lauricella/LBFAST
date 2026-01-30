@@ -1,13 +1,14 @@
 #define LATTICE 27
+#define HIGHORDER
 
-#define noTWOCOMPONENT
-#define noDENSRATIO
+#define TWOCOMPONENT
+#define DENSRATIO
 
 #define DOBENCHMARK
 #define DOXDMF
 #define noWRITEPRESS
 
-#define noINTERFACE_INCOMP
+#define INTERFACE_INCOMP
 #define noREPULSIVE_FLUX
 
 #define noSMAGORINSKI

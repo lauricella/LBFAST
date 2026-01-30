@@ -88,6 +88,10 @@
 #error "LATTICE not defined. Use -DLATTICE=27 or #define LATTICE 27 (or 19 or 15)"
 #endif
 
+#if defined(HIGHORDER) && (!defined(LATTICE) || (LATTICE != 27))
+#error "HIGHORDER: if the macro HIGHORDER is defined you MUST USE -DLATTICE=27 or #define LATTICE 27"
+#endif
+
 module vars
 #ifdef _OPENACC
    use openacc
@@ -118,6 +122,7 @@ module vars
    real(kind=db), parameter :: FOUR=real(4.d0,kind=db)
    real(kind=db), parameter :: FIVE=real(5.d0,kind=db)
    real(kind=db), parameter :: SIX=real(6.d0,kind=db)
+   real(kind=db), parameter :: SEVEN=real(7.d0,kind=db)
    real(kind=db), parameter :: EIGHT=real(8.d0,kind=db)
    real(kind=db), parameter :: NINE=real(9.d0,kind=db)
    real(kind=db), parameter :: TEN=real(10.d0,kind=db)
@@ -230,8 +235,11 @@ module vars
    real(kind=db) :: rhoIN,rhoOUT
 #endif
 
+   real(kind=db), parameter :: cssq=real(1.d0/3.d0,kind=db)
+   real(kind=db), parameter :: invcssq=real(3.d0,kind=db)
+
 #if LATTICE == 27
-#warning "LATTICE 27: the lattice D3Q27 is adopted"
+#warning "LATTICE 27: the lattice D3Q27 is utilized"
    integer, parameter :: nlinks=26
    !lattice vectors
    integer, dimension(0:nlinks), parameter :: &
@@ -250,8 +258,335 @@ module vars
    real(kind=db), parameter :: p3=real(1.d0/216.d0,kind=db)
    real(kind=db), dimension(0:nlinks), parameter :: &
       p=(/p0,p1,p1,p1,p1,p1,p1,p2,p2,p2,p2,p2,p2,p2,p2,p2,p2,p2,p2,p3,p3,p3,p3,p3,p3,p3,p3/)
+      
+#ifdef HIGHORDER
+#warning "HIGHORDER: the lattice D3Q27 is utilized with high-order"
+   real(kind=db), dimension(0:nlinks), parameter :: &   !eq. 37 Malaspinas 2015 !equivalent to b_k^-1 in 2.60 dissertation shiller
+      Hermite_prefact=(/ONE,ONE/cssq,ONE/cssq,ONE/cssq, &
+       ONE/(TWO*cssq**TWO),ONE/(TWO*cssq**TWO),ONE/(TWO*cssq**TWO), &
+       TWO/(TWO*cssq**TWO),TWO/(TWO*cssq**TWO),TWO/(TWO*cssq**TWO), &
+       ONE/(TWO*cssq**THREE),ONE/(TWO*cssq**THREE),ONE/(TWO*cssq**THREE), &
+       ONE/(TWO*cssq**THREE),ONE/(TWO*cssq**THREE),ONE/(TWO*cssq**THREE), &
+       TWO/(TWO*cssq**THREE), &
+       ONE/(FOUR*cssq**FOUR),ONE/(FOUR*cssq**FOUR),ONE/(FOUR*cssq**FOUR), &
+       TWO/(FOUR*cssq**FOUR),TWO/(FOUR*cssq**FOUR),TWO/(FOUR*cssq**FOUR), &
+       ONE/(FOUR*cssq**FIVE),ONE/(FOUR*cssq**FIVE),ONE/(FOUR*cssq**FIVE), &
+       ONE/(EIGHT*cssq**SIX)/)
+       
+   real(kind=db), dimension(0:nlinks), parameter :: &  
+      Hermite_norm=ONE/Hermite_prefact   !equivalent to b_k in 2.60 dissertation shiller
+      
+   real(kind=db), dimension(0:nlinks), parameter :: &  
+      sqrtHermite_norm=sqrt(Hermite_norm)  !equivalent to sqrt(b_k) in 2.60 dissertation shiller   
+   
+   real(kind=db), parameter :: Minv_mrt(0:nlinks,0:nlinks) = reshape([ & !first index i-th pop, second index k-th basis !it is trasposed to be column major compliant!
+    [8.0_db/27.0_db, 0.0_db, 0.0_db, 0.0_db, -4.0_db/9.0_db, &
+	-4.0_db/9.0_db, -4.0_db/9.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 2.0_db/3.0_db, &
+	2.0_db/3.0_db, 2.0_db/3.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	0.0_db, -1.0_db], [2.0_db/27.0_db, 2.0_db/9.0_db, 0.0_db, 0.0_db, &
+	2.0_db/9.0_db, -1.0_db/9.0_db, -1.0_db/9.0_db, 0.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 0.0_db, -1.0_db/3.0_db, -1.0_db/3.0_db, 0.0_db, &
+	0.0_db, 0.0_db, -1.0_db/3.0_db, -1.0_db/3.0_db, 1.0_db/6.0_db, &
+	0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 1.0_db/2.0_db, &
+	1.0_db/2.0_db], [2.0_db/27.0_db, -2.0_db/9.0_db, 0.0_db, 0.0_db, &
+	2.0_db/9.0_db, -1.0_db/9.0_db, -1.0_db/9.0_db, 0.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 0.0_db, 1.0_db/3.0_db, 1.0_db/3.0_db, 0.0_db, 0.0_db, &
+	0.0_db, -1.0_db/3.0_db, -1.0_db/3.0_db, 1.0_db/6.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 0.0_db, 0.0_db, -1.0_db/2.0_db, 1.0_db/2.0_db], &
+	[2.0_db/27.0_db, 0.0_db, 2.0_db/9.0_db, 0.0_db, -1.0_db/9.0_db, &
+	2.0_db/9.0_db, -1.0_db/9.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	-1.0_db/3.0_db, 0.0_db, 0.0_db, 0.0_db, -1.0_db/3.0_db, 0.0_db, &
+	0.0_db, -1.0_db/3.0_db, 1.0_db/6.0_db, -1.0_db/3.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 1.0_db/2.0_db, 0.0_db, 0.0_db, 1.0_db/2.0_db], &
+	[2.0_db/27.0_db, 0.0_db, -2.0_db/9.0_db, 0.0_db, -1.0_db/9.0_db, &
+	2.0_db/9.0_db, -1.0_db/9.0_db, 0.0_db, 0.0_db, 0.0_db, 1.0_db/3.0_db, &
+	0.0_db, 0.0_db, 0.0_db, 1.0_db/3.0_db, 0.0_db, 0.0_db, &
+	-1.0_db/3.0_db, 1.0_db/6.0_db, -1.0_db/3.0_db, 0.0_db, 0.0_db, &
+	0.0_db, -1.0_db/2.0_db, 0.0_db, 0.0_db, 1.0_db/2.0_db], &
+	[2.0_db/27.0_db, 0.0_db, 0.0_db, 2.0_db/9.0_db, -1.0_db/9.0_db, &
+	-1.0_db/9.0_db, 2.0_db/9.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	-1.0_db/3.0_db, 0.0_db, 0.0_db, 0.0_db, -1.0_db/3.0_db, 0.0_db, &
+	1.0_db/6.0_db, -1.0_db/3.0_db, -1.0_db/3.0_db, 0.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 1.0_db/2.0_db, 0.0_db, 1.0_db/2.0_db], &
+	[2.0_db/27.0_db, 0.0_db, 0.0_db, -2.0_db/9.0_db, -1.0_db/9.0_db, &
+	-1.0_db/9.0_db, 2.0_db/9.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	1.0_db/3.0_db, 0.0_db, 0.0_db, 0.0_db, 1.0_db/3.0_db, 0.0_db, &
+	1.0_db/6.0_db, -1.0_db/3.0_db, -1.0_db/3.0_db, 0.0_db, 0.0_db, &
+	0.0_db, 0.0_db, -1.0_db/2.0_db, 0.0_db, 1.0_db/2.0_db], &
+	[1.0_db/54.0_db, 1.0_db/18.0_db, 1.0_db/18.0_db, 0.0_db, &
+	1.0_db/18.0_db, 1.0_db/18.0_db, -1.0_db/36.0_db, 1.0_db/6.0_db, &
+	0.0_db, 0.0_db, 1.0_db/6.0_db, 0.0_db, 1.0_db/6.0_db, &
+	-1.0_db/12.0_db, -1.0_db/12.0_db, 0.0_db, 0.0_db, 1.0_db/6.0_db, &
+	-1.0_db/12.0_db, -1.0_db/12.0_db, -1.0_db/4.0_db, 0.0_db, 0.0_db, &
+	-1.0_db/4.0_db, 0.0_db, -1.0_db/4.0_db, -1.0_db/4.0_db], &
+	[1.0_db/54.0_db, -1.0_db/18.0_db, -1.0_db/18.0_db, 0.0_db, &
+	1.0_db/18.0_db, 1.0_db/18.0_db, -1.0_db/36.0_db, 1.0_db/6.0_db, &
+	0.0_db, 0.0_db, -1.0_db/6.0_db, 0.0_db, -1.0_db/6.0_db, &
+	1.0_db/12.0_db, 1.0_db/12.0_db, 0.0_db, 0.0_db, 1.0_db/6.0_db, &
+	-1.0_db/12.0_db, -1.0_db/12.0_db, -1.0_db/4.0_db, 0.0_db, 0.0_db, &
+	1.0_db/4.0_db, 0.0_db, 1.0_db/4.0_db, -1.0_db/4.0_db], &
+	[1.0_db/54.0_db, 1.0_db/18.0_db, -1.0_db/18.0_db, 0.0_db, &
+	1.0_db/18.0_db, 1.0_db/18.0_db, -1.0_db/36.0_db, -1.0_db/6.0_db, &
+	0.0_db, 0.0_db, -1.0_db/6.0_db, 0.0_db, 1.0_db/6.0_db, &
+	-1.0_db/12.0_db, 1.0_db/12.0_db, 0.0_db, 0.0_db, 1.0_db/6.0_db, &
+	-1.0_db/12.0_db, -1.0_db/12.0_db, 1.0_db/4.0_db, 0.0_db, 0.0_db, &
+	1.0_db/4.0_db, 0.0_db, -1.0_db/4.0_db, -1.0_db/4.0_db], &
+	[1.0_db/54.0_db, -1.0_db/18.0_db, 1.0_db/18.0_db, 0.0_db, &
+	1.0_db/18.0_db, 1.0_db/18.0_db, -1.0_db/36.0_db, -1.0_db/6.0_db, &
+	0.0_db, 0.0_db, 1.0_db/6.0_db, 0.0_db, -1.0_db/6.0_db, &
+	1.0_db/12.0_db, -1.0_db/12.0_db, 0.0_db, 0.0_db, 1.0_db/6.0_db, &
+	-1.0_db/12.0_db, -1.0_db/12.0_db, 1.0_db/4.0_db, 0.0_db, 0.0_db, &
+	-1.0_db/4.0_db, 0.0_db, 1.0_db/4.0_db, -1.0_db/4.0_db], &
+	[1.0_db/54.0_db, 0.0_db, 1.0_db/18.0_db, 1.0_db/18.0_db, &
+	-1.0_db/36.0_db, 1.0_db/18.0_db, 1.0_db/18.0_db, 0.0_db, 0.0_db, &
+	1.0_db/6.0_db, -1.0_db/12.0_db, -1.0_db/12.0_db, 0.0_db, 0.0_db, &
+	1.0_db/6.0_db, 1.0_db/6.0_db, 0.0_db, -1.0_db/12.0_db, &
+	-1.0_db/12.0_db, 1.0_db/6.0_db, 0.0_db, 0.0_db, -1.0_db/4.0_db, &
+	-1.0_db/4.0_db, -1.0_db/4.0_db, 0.0_db, -1.0_db/4.0_db], &
+	[1.0_db/54.0_db, 0.0_db, -1.0_db/18.0_db, -1.0_db/18.0_db, &
+	-1.0_db/36.0_db, 1.0_db/18.0_db, 1.0_db/18.0_db, 0.0_db, 0.0_db, &
+	1.0_db/6.0_db, 1.0_db/12.0_db, 1.0_db/12.0_db, 0.0_db, 0.0_db, &
+	-1.0_db/6.0_db, -1.0_db/6.0_db, 0.0_db, -1.0_db/12.0_db, &
+	-1.0_db/12.0_db, 1.0_db/6.0_db, 0.0_db, 0.0_db, -1.0_db/4.0_db, &
+	1.0_db/4.0_db, 1.0_db/4.0_db, 0.0_db, -1.0_db/4.0_db], &
+	[1.0_db/54.0_db, 0.0_db, 1.0_db/18.0_db, -1.0_db/18.0_db, &
+	-1.0_db/36.0_db, 1.0_db/18.0_db, 1.0_db/18.0_db, 0.0_db, 0.0_db, &
+	-1.0_db/6.0_db, -1.0_db/12.0_db, 1.0_db/12.0_db, 0.0_db, 0.0_db, &
+	1.0_db/6.0_db, -1.0_db/6.0_db, 0.0_db, -1.0_db/12.0_db, &
+	-1.0_db/12.0_db, 1.0_db/6.0_db, 0.0_db, 0.0_db, 1.0_db/4.0_db, &
+	-1.0_db/4.0_db, 1.0_db/4.0_db, 0.0_db, -1.0_db/4.0_db], &
+	[1.0_db/54.0_db, 0.0_db, -1.0_db/18.0_db, 1.0_db/18.0_db, &
+	-1.0_db/36.0_db, 1.0_db/18.0_db, 1.0_db/18.0_db, 0.0_db, 0.0_db, &
+	-1.0_db/6.0_db, 1.0_db/12.0_db, -1.0_db/12.0_db, 0.0_db, 0.0_db, &
+	-1.0_db/6.0_db, 1.0_db/6.0_db, 0.0_db, -1.0_db/12.0_db, &
+	-1.0_db/12.0_db, 1.0_db/6.0_db, 0.0_db, 0.0_db, 1.0_db/4.0_db, &
+	1.0_db/4.0_db, -1.0_db/4.0_db, 0.0_db, -1.0_db/4.0_db], &
+	[1.0_db/54.0_db, 1.0_db/18.0_db, 0.0_db, 1.0_db/18.0_db, &
+	1.0_db/18.0_db, -1.0_db/36.0_db, 1.0_db/18.0_db, 0.0_db, &
+	1.0_db/6.0_db, 0.0_db, 0.0_db, 1.0_db/6.0_db, -1.0_db/12.0_db, &
+	1.0_db/6.0_db, 0.0_db, -1.0_db/12.0_db, 0.0_db, -1.0_db/12.0_db, &
+	1.0_db/6.0_db, -1.0_db/12.0_db, 0.0_db, -1.0_db/4.0_db, 0.0_db, &
+	0.0_db, -1.0_db/4.0_db, -1.0_db/4.0_db, -1.0_db/4.0_db], &
+	[1.0_db/54.0_db, -1.0_db/18.0_db, 0.0_db, -1.0_db/18.0_db, &
+	1.0_db/18.0_db, -1.0_db/36.0_db, 1.0_db/18.0_db, 0.0_db, &
+	1.0_db/6.0_db, 0.0_db, 0.0_db, -1.0_db/6.0_db, 1.0_db/12.0_db, &
+	-1.0_db/6.0_db, 0.0_db, 1.0_db/12.0_db, 0.0_db, -1.0_db/12.0_db, &
+	1.0_db/6.0_db, -1.0_db/12.0_db, 0.0_db, -1.0_db/4.0_db, 0.0_db, &
+	0.0_db, 1.0_db/4.0_db, 1.0_db/4.0_db, -1.0_db/4.0_db], &
+	[1.0_db/54.0_db, -1.0_db/18.0_db, 0.0_db, 1.0_db/18.0_db, &
+	1.0_db/18.0_db, -1.0_db/36.0_db, 1.0_db/18.0_db, 0.0_db, &
+	-1.0_db/6.0_db, 0.0_db, 0.0_db, 1.0_db/6.0_db, 1.0_db/12.0_db, &
+	-1.0_db/6.0_db, 0.0_db, -1.0_db/12.0_db, 0.0_db, -1.0_db/12.0_db, &
+	1.0_db/6.0_db, -1.0_db/12.0_db, 0.0_db, 1.0_db/4.0_db, 0.0_db, &
+	0.0_db, -1.0_db/4.0_db, 1.0_db/4.0_db, -1.0_db/4.0_db], &
+	[1.0_db/54.0_db, 1.0_db/18.0_db, 0.0_db, -1.0_db/18.0_db, &
+	1.0_db/18.0_db, -1.0_db/36.0_db, 1.0_db/18.0_db, 0.0_db, &
+	-1.0_db/6.0_db, 0.0_db, 0.0_db, -1.0_db/6.0_db, -1.0_db/12.0_db, &
+	1.0_db/6.0_db, 0.0_db, 1.0_db/12.0_db, 0.0_db, -1.0_db/12.0_db, &
+	1.0_db/6.0_db, -1.0_db/12.0_db, 0.0_db, 1.0_db/4.0_db, 0.0_db, &
+	0.0_db, 1.0_db/4.0_db, -1.0_db/4.0_db, -1.0_db/4.0_db], &
+	[1.0_db/216.0_db, 1.0_db/72.0_db, 1.0_db/72.0_db, 1.0_db/72.0_db, &
+	1.0_db/72.0_db, 1.0_db/72.0_db, 1.0_db/72.0_db, 1.0_db/24.0_db, &
+	1.0_db/24.0_db, 1.0_db/24.0_db, 1.0_db/24.0_db, 1.0_db/24.0_db, &
+	1.0_db/24.0_db, 1.0_db/24.0_db, 1.0_db/24.0_db, 1.0_db/24.0_db, &
+	1.0_db/8.0_db, 1.0_db/24.0_db, 1.0_db/24.0_db, 1.0_db/24.0_db, &
+	1.0_db/8.0_db, 1.0_db/8.0_db, 1.0_db/8.0_db, 1.0_db/8.0_db, &
+	1.0_db/8.0_db, 1.0_db/8.0_db, 1.0_db/8.0_db], [1.0_db/216.0_db, &
+	-1.0_db/72.0_db, -1.0_db/72.0_db, -1.0_db/72.0_db, 1.0_db/72.0_db, &
+	1.0_db/72.0_db, 1.0_db/72.0_db, 1.0_db/24.0_db, 1.0_db/24.0_db, &
+	1.0_db/24.0_db, -1.0_db/24.0_db, -1.0_db/24.0_db, -1.0_db/24.0_db, &
+	-1.0_db/24.0_db, -1.0_db/24.0_db, -1.0_db/24.0_db, -1.0_db/8.0_db, &
+	1.0_db/24.0_db, 1.0_db/24.0_db, 1.0_db/24.0_db, 1.0_db/8.0_db, &
+	1.0_db/8.0_db, 1.0_db/8.0_db, -1.0_db/8.0_db, -1.0_db/8.0_db, &
+	-1.0_db/8.0_db, 1.0_db/8.0_db], [1.0_db/216.0_db, 1.0_db/72.0_db, &
+	-1.0_db/72.0_db, 1.0_db/72.0_db, 1.0_db/72.0_db, 1.0_db/72.0_db, &
+	1.0_db/72.0_db, -1.0_db/24.0_db, 1.0_db/24.0_db, -1.0_db/24.0_db, &
+	-1.0_db/24.0_db, 1.0_db/24.0_db, 1.0_db/24.0_db, 1.0_db/24.0_db, &
+	-1.0_db/24.0_db, 1.0_db/24.0_db, -1.0_db/8.0_db, 1.0_db/24.0_db, &
+	1.0_db/24.0_db, 1.0_db/24.0_db, -1.0_db/8.0_db, 1.0_db/8.0_db, &
+	-1.0_db/8.0_db, -1.0_db/8.0_db, 1.0_db/8.0_db, 1.0_db/8.0_db, &
+	1.0_db/8.0_db], [1.0_db/216.0_db, -1.0_db/72.0_db, 1.0_db/72.0_db, &
+	-1.0_db/72.0_db, 1.0_db/72.0_db, 1.0_db/72.0_db, 1.0_db/72.0_db, &
+	-1.0_db/24.0_db, 1.0_db/24.0_db, -1.0_db/24.0_db, 1.0_db/24.0_db, &
+	-1.0_db/24.0_db, -1.0_db/24.0_db, -1.0_db/24.0_db, 1.0_db/24.0_db, &
+	-1.0_db/24.0_db, 1.0_db/8.0_db, 1.0_db/24.0_db, 1.0_db/24.0_db, &
+	1.0_db/24.0_db, -1.0_db/8.0_db, 1.0_db/8.0_db, -1.0_db/8.0_db, &
+	1.0_db/8.0_db, -1.0_db/8.0_db, -1.0_db/8.0_db, 1.0_db/8.0_db], &
+	[1.0_db/216.0_db, -1.0_db/72.0_db, -1.0_db/72.0_db, 1.0_db/72.0_db, &
+	1.0_db/72.0_db, 1.0_db/72.0_db, 1.0_db/72.0_db, 1.0_db/24.0_db, &
+	-1.0_db/24.0_db, -1.0_db/24.0_db, -1.0_db/24.0_db, 1.0_db/24.0_db, &
+	-1.0_db/24.0_db, -1.0_db/24.0_db, -1.0_db/24.0_db, 1.0_db/24.0_db, &
+	1.0_db/8.0_db, 1.0_db/24.0_db, 1.0_db/24.0_db, 1.0_db/24.0_db, &
+	1.0_db/8.0_db, -1.0_db/8.0_db, -1.0_db/8.0_db, -1.0_db/8.0_db, &
+	1.0_db/8.0_db, -1.0_db/8.0_db, 1.0_db/8.0_db], [1.0_db/216.0_db, &
+	1.0_db/72.0_db, 1.0_db/72.0_db, -1.0_db/72.0_db, 1.0_db/72.0_db, &
+	1.0_db/72.0_db, 1.0_db/72.0_db, 1.0_db/24.0_db, -1.0_db/24.0_db, &
+	-1.0_db/24.0_db, 1.0_db/24.0_db, -1.0_db/24.0_db, 1.0_db/24.0_db, &
+	1.0_db/24.0_db, 1.0_db/24.0_db, -1.0_db/24.0_db, -1.0_db/8.0_db, &
+	1.0_db/24.0_db, 1.0_db/24.0_db, 1.0_db/24.0_db, 1.0_db/8.0_db, &
+	-1.0_db/8.0_db, -1.0_db/8.0_db, 1.0_db/8.0_db, -1.0_db/8.0_db, &
+	1.0_db/8.0_db, 1.0_db/8.0_db], [1.0_db/216.0_db, 1.0_db/72.0_db, &
+	-1.0_db/72.0_db, -1.0_db/72.0_db, 1.0_db/72.0_db, 1.0_db/72.0_db, &
+	1.0_db/72.0_db, -1.0_db/24.0_db, -1.0_db/24.0_db, 1.0_db/24.0_db, &
+	-1.0_db/24.0_db, -1.0_db/24.0_db, 1.0_db/24.0_db, 1.0_db/24.0_db, &
+	-1.0_db/24.0_db, -1.0_db/24.0_db, 1.0_db/8.0_db, 1.0_db/24.0_db, &
+	1.0_db/24.0_db, 1.0_db/24.0_db, -1.0_db/8.0_db, -1.0_db/8.0_db, &
+	1.0_db/8.0_db, -1.0_db/8.0_db, -1.0_db/8.0_db, 1.0_db/8.0_db, &
+	1.0_db/8.0_db], [1.0_db/216.0_db, -1.0_db/72.0_db, 1.0_db/72.0_db, &
+	1.0_db/72.0_db, 1.0_db/72.0_db, 1.0_db/72.0_db, 1.0_db/72.0_db, &
+	-1.0_db/24.0_db, -1.0_db/24.0_db, 1.0_db/24.0_db, 1.0_db/24.0_db, &
+	1.0_db/24.0_db, -1.0_db/24.0_db, -1.0_db/24.0_db, 1.0_db/24.0_db, &
+	1.0_db/24.0_db, -1.0_db/8.0_db, 1.0_db/24.0_db, 1.0_db/24.0_db, &
+	1.0_db/24.0_db, -1.0_db/8.0_db, -1.0_db/8.0_db, 1.0_db/8.0_db, &
+	1.0_db/8.0_db, 1.0_db/8.0_db, -1.0_db/8.0_db, 1.0_db/8.0_db]  &
+    ], shape=[nlinks+1,nlinks+1])
+   
+   real(kind=db), parameter :: M_mrt(0:nlinks,0:nlinks) = reshape([ &
+    [1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, &
+	1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, &
+	1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, &
+	1.0_db, 1.0_db, 1.0_db], [0.0_db, 1.0_db, -1.0_db, 0.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 1.0_db, -1.0_db, 1.0_db, -1.0_db, 0.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 1.0_db, -1.0_db, -1.0_db, 1.0_db, 1.0_db, -1.0_db, &
+	1.0_db, -1.0_db, -1.0_db, 1.0_db, 1.0_db, -1.0_db], [0.0_db, 0.0_db, &
+	0.0_db, 1.0_db, -1.0_db, 0.0_db, 0.0_db, 1.0_db, -1.0_db, -1.0_db, &
+	1.0_db, 1.0_db, -1.0_db, 1.0_db, -1.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	0.0_db, 1.0_db, -1.0_db, -1.0_db, 1.0_db, -1.0_db, 1.0_db, -1.0_db, &
+	1.0_db], [0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 1.0_db, -1.0_db, &
+	0.0_db, 0.0_db, 0.0_db, 0.0_db, 1.0_db, -1.0_db, -1.0_db, 1.0_db, &
+	1.0_db, -1.0_db, 1.0_db, -1.0_db, 1.0_db, -1.0_db, 1.0_db, -1.0_db, &
+	1.0_db, -1.0_db, -1.0_db, 1.0_db], [-1.0_db/3.0_db, 2.0_db/3.0_db, &
+	2.0_db/3.0_db, -1.0_db/3.0_db, -1.0_db/3.0_db, -1.0_db/3.0_db, &
+	-1.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, &
+	2.0_db/3.0_db, -1.0_db/3.0_db, -1.0_db/3.0_db, -1.0_db/3.0_db, &
+	-1.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, &
+	2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, &
+	2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, &
+	2.0_db/3.0_db], [-1.0_db/3.0_db, -1.0_db/3.0_db, -1.0_db/3.0_db, &
+	2.0_db/3.0_db, 2.0_db/3.0_db, -1.0_db/3.0_db, -1.0_db/3.0_db, &
+	2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, &
+	2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, &
+	-1.0_db/3.0_db, -1.0_db/3.0_db, -1.0_db/3.0_db, -1.0_db/3.0_db, &
+	2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, &
+	2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db], &
+	[-1.0_db/3.0_db, -1.0_db/3.0_db, -1.0_db/3.0_db, -1.0_db/3.0_db, &
+	-1.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, -1.0_db/3.0_db, &
+	-1.0_db/3.0_db, -1.0_db/3.0_db, -1.0_db/3.0_db, 2.0_db/3.0_db, &
+	2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, &
+	2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, &
+	2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, &
+	2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db], [0.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 1.0_db, 1.0_db, -1.0_db, &
+	-1.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	0.0_db, 1.0_db, 1.0_db, -1.0_db, -1.0_db, 1.0_db, 1.0_db, -1.0_db, &
+	-1.0_db], [0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	1.0_db, 1.0_db, -1.0_db, -1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, &
+	-1.0_db, -1.0_db, -1.0_db, -1.0_db], [0.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 1.0_db, &
+	1.0_db, -1.0_db, -1.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 1.0_db, &
+	1.0_db, -1.0_db, -1.0_db, -1.0_db, -1.0_db, 1.0_db, 1.0_db], [0.0_db, &
+	0.0_db, 0.0_db, -1.0_db/3.0_db, 1.0_db/3.0_db, 0.0_db, 0.0_db, &
+	2.0_db/3.0_db, -2.0_db/3.0_db, -2.0_db/3.0_db, 2.0_db/3.0_db, &
+	-1.0_db/3.0_db, 1.0_db/3.0_db, -1.0_db/3.0_db, 1.0_db/3.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 0.0_db, 2.0_db/3.0_db, -2.0_db/3.0_db, &
+	-2.0_db/3.0_db, 2.0_db/3.0_db, -2.0_db/3.0_db, 2.0_db/3.0_db, &
+	-2.0_db/3.0_db, 2.0_db/3.0_db], [0.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	0.0_db, -1.0_db/3.0_db, 1.0_db/3.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	0.0_db, -1.0_db/3.0_db, 1.0_db/3.0_db, 1.0_db/3.0_db, -1.0_db/3.0_db, &
+	2.0_db/3.0_db, -2.0_db/3.0_db, 2.0_db/3.0_db, -2.0_db/3.0_db, &
+	2.0_db/3.0_db, -2.0_db/3.0_db, 2.0_db/3.0_db, -2.0_db/3.0_db, &
+	2.0_db/3.0_db, -2.0_db/3.0_db, -2.0_db/3.0_db, 2.0_db/3.0_db], &
+	[0.0_db, -1.0_db/3.0_db, 1.0_db/3.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	0.0_db, 2.0_db/3.0_db, -2.0_db/3.0_db, 2.0_db/3.0_db, -2.0_db/3.0_db, &
+	0.0_db, 0.0_db, 0.0_db, 0.0_db, -1.0_db/3.0_db, 1.0_db/3.0_db, &
+	1.0_db/3.0_db, -1.0_db/3.0_db, 2.0_db/3.0_db, -2.0_db/3.0_db, &
+	2.0_db/3.0_db, -2.0_db/3.0_db, -2.0_db/3.0_db, 2.0_db/3.0_db, &
+	2.0_db/3.0_db, -2.0_db/3.0_db], [0.0_db, -1.0_db/3.0_db, &
+	1.0_db/3.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, -1.0_db/3.0_db, &
+	1.0_db/3.0_db, -1.0_db/3.0_db, 1.0_db/3.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	0.0_db, 2.0_db/3.0_db, -2.0_db/3.0_db, -2.0_db/3.0_db, 2.0_db/3.0_db, &
+	2.0_db/3.0_db, -2.0_db/3.0_db, 2.0_db/3.0_db, -2.0_db/3.0_db, &
+	-2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, -2.0_db/3.0_db], &
+	[0.0_db, 0.0_db, 0.0_db, -1.0_db/3.0_db, 1.0_db/3.0_db, 0.0_db, &
+	0.0_db, -1.0_db/3.0_db, 1.0_db/3.0_db, 1.0_db/3.0_db, -1.0_db/3.0_db, &
+	2.0_db/3.0_db, -2.0_db/3.0_db, 2.0_db/3.0_db, -2.0_db/3.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 0.0_db, 2.0_db/3.0_db, -2.0_db/3.0_db, &
+	-2.0_db/3.0_db, 2.0_db/3.0_db, -2.0_db/3.0_db, 2.0_db/3.0_db, &
+	-2.0_db/3.0_db, 2.0_db/3.0_db], [0.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	0.0_db, -1.0_db/3.0_db, 1.0_db/3.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	0.0_db, 2.0_db/3.0_db, -2.0_db/3.0_db, -2.0_db/3.0_db, 2.0_db/3.0_db, &
+	-1.0_db/3.0_db, 1.0_db/3.0_db, -1.0_db/3.0_db, 1.0_db/3.0_db, &
+	2.0_db/3.0_db, -2.0_db/3.0_db, 2.0_db/3.0_db, -2.0_db/3.0_db, &
+	2.0_db/3.0_db, -2.0_db/3.0_db, -2.0_db/3.0_db, 2.0_db/3.0_db], &
+	[0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 0.0_db, 1.0_db, -1.0_db, -1.0_db, 1.0_db, 1.0_db, &
+	-1.0_db, 1.0_db, -1.0_db], [1.0_db/9.0_db, -2.0_db/9.0_db, &
+	-2.0_db/9.0_db, -2.0_db/9.0_db, -2.0_db/9.0_db, 1.0_db/9.0_db, &
+	1.0_db/9.0_db, 4.0_db/9.0_db, 4.0_db/9.0_db, 4.0_db/9.0_db, &
+	4.0_db/9.0_db, -2.0_db/9.0_db, -2.0_db/9.0_db, -2.0_db/9.0_db, &
+	-2.0_db/9.0_db, -2.0_db/9.0_db, -2.0_db/9.0_db, -2.0_db/9.0_db, &
+	-2.0_db/9.0_db, 4.0_db/9.0_db, 4.0_db/9.0_db, 4.0_db/9.0_db, &
+	4.0_db/9.0_db, 4.0_db/9.0_db, 4.0_db/9.0_db, 4.0_db/9.0_db, &
+	4.0_db/9.0_db], [1.0_db/9.0_db, -2.0_db/9.0_db, -2.0_db/9.0_db, &
+	1.0_db/9.0_db, 1.0_db/9.0_db, -2.0_db/9.0_db, -2.0_db/9.0_db, &
+	-2.0_db/9.0_db, -2.0_db/9.0_db, -2.0_db/9.0_db, -2.0_db/9.0_db, &
+	-2.0_db/9.0_db, -2.0_db/9.0_db, -2.0_db/9.0_db, -2.0_db/9.0_db, &
+	4.0_db/9.0_db, 4.0_db/9.0_db, 4.0_db/9.0_db, 4.0_db/9.0_db, &
+	4.0_db/9.0_db, 4.0_db/9.0_db, 4.0_db/9.0_db, 4.0_db/9.0_db, &
+	4.0_db/9.0_db, 4.0_db/9.0_db, 4.0_db/9.0_db, 4.0_db/9.0_db], &
+	[1.0_db/9.0_db, 1.0_db/9.0_db, 1.0_db/9.0_db, -2.0_db/9.0_db, &
+	-2.0_db/9.0_db, -2.0_db/9.0_db, -2.0_db/9.0_db, -2.0_db/9.0_db, &
+	-2.0_db/9.0_db, -2.0_db/9.0_db, -2.0_db/9.0_db, 4.0_db/9.0_db, &
+	4.0_db/9.0_db, 4.0_db/9.0_db, 4.0_db/9.0_db, -2.0_db/9.0_db, &
+	-2.0_db/9.0_db, -2.0_db/9.0_db, -2.0_db/9.0_db, 4.0_db/9.0_db, &
+	4.0_db/9.0_db, 4.0_db/9.0_db, 4.0_db/9.0_db, 4.0_db/9.0_db, &
+	4.0_db/9.0_db, 4.0_db/9.0_db, 4.0_db/9.0_db], [0.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, -1.0_db/3.0_db, &
+	-1.0_db/3.0_db, 1.0_db/3.0_db, 1.0_db/3.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, &
+	-2.0_db/3.0_db, -2.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, &
+	-2.0_db/3.0_db, -2.0_db/3.0_db], [0.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 0.0_db, -1.0_db/3.0_db, -1.0_db/3.0_db, &
+	1.0_db/3.0_db, 1.0_db/3.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, &
+	2.0_db/3.0_db, 2.0_db/3.0_db, -2.0_db/3.0_db, -2.0_db/3.0_db, &
+	-2.0_db/3.0_db, -2.0_db/3.0_db], [0.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	-1.0_db/3.0_db, -1.0_db/3.0_db, 1.0_db/3.0_db, 1.0_db/3.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 0.0_db, 2.0_db/3.0_db, 2.0_db/3.0_db, -2.0_db/3.0_db, &
+	-2.0_db/3.0_db, -2.0_db/3.0_db, -2.0_db/3.0_db, 2.0_db/3.0_db, &
+	2.0_db/3.0_db], [0.0_db, 0.0_db, 0.0_db, 1.0_db/9.0_db, &
+	-1.0_db/9.0_db, 0.0_db, 0.0_db, -2.0_db/9.0_db, 2.0_db/9.0_db, &
+	2.0_db/9.0_db, -2.0_db/9.0_db, -2.0_db/9.0_db, 2.0_db/9.0_db, &
+	-2.0_db/9.0_db, 2.0_db/9.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	4.0_db/9.0_db, -4.0_db/9.0_db, -4.0_db/9.0_db, 4.0_db/9.0_db, &
+	-4.0_db/9.0_db, 4.0_db/9.0_db, -4.0_db/9.0_db, 4.0_db/9.0_db], &
+	[0.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, 1.0_db/9.0_db, &
+	-1.0_db/9.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, -2.0_db/9.0_db, &
+	2.0_db/9.0_db, 2.0_db/9.0_db, -2.0_db/9.0_db, -2.0_db/9.0_db, &
+	2.0_db/9.0_db, -2.0_db/9.0_db, 2.0_db/9.0_db, 4.0_db/9.0_db, &
+	-4.0_db/9.0_db, 4.0_db/9.0_db, -4.0_db/9.0_db, 4.0_db/9.0_db, &
+	-4.0_db/9.0_db, -4.0_db/9.0_db, 4.0_db/9.0_db], [0.0_db, &
+	1.0_db/9.0_db, -1.0_db/9.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, &
+	-2.0_db/9.0_db, 2.0_db/9.0_db, -2.0_db/9.0_db, 2.0_db/9.0_db, 0.0_db, &
+	0.0_db, 0.0_db, 0.0_db, -2.0_db/9.0_db, 2.0_db/9.0_db, 2.0_db/9.0_db, &
+	-2.0_db/9.0_db, 4.0_db/9.0_db, -4.0_db/9.0_db, 4.0_db/9.0_db, &
+	-4.0_db/9.0_db, -4.0_db/9.0_db, 4.0_db/9.0_db, 4.0_db/9.0_db, &
+	-4.0_db/9.0_db], [-1.0_db/27.0_db, 2.0_db/27.0_db, 2.0_db/27.0_db, &
+	2.0_db/27.0_db, 2.0_db/27.0_db, 2.0_db/27.0_db, 2.0_db/27.0_db, &
+	-4.0_db/27.0_db, -4.0_db/27.0_db, -4.0_db/27.0_db, -4.0_db/27.0_db, &
+	-4.0_db/27.0_db, -4.0_db/27.0_db, -4.0_db/27.0_db, -4.0_db/27.0_db, &
+	-4.0_db/27.0_db, -4.0_db/27.0_db, -4.0_db/27.0_db, -4.0_db/27.0_db, &
+	8.0_db/27.0_db, 8.0_db/27.0_db, 8.0_db/27.0_db, 8.0_db/27.0_db, &
+	8.0_db/27.0_db, 8.0_db/27.0_db, 8.0_db/27.0_db, 8.0_db/27.0_db] &
+    ], shape=[nlinks+1,nlinks+1])
+#endif
+      
 #elif LATTICE == 19
-#warning "LATTICE 19: the lattice D3Q19 is adopted"
+#warning "LATTICE 19: the lattice D3Q19 is utilized"
    integer, parameter :: nlinks=18
    !lattice vectors
    integer, dimension(0:nlinks), parameter :: &
@@ -270,7 +605,7 @@ module vars
    real(kind=db), dimension(0:nlinks), parameter :: &
       p=(/p0,p1,p1,p1,p1,p1,p1,p2,p2,p2,p2,p2,p2,p2,p2,p2,p2,p2,p2/)
 #elif LATTICE == 15
-#warning "LATTICE 15: the lattice D3Q15 is adopted"
+#warning "LATTICE 15: the lattice D3Q15 is utilized"
    integer, parameter :: nlinks=14
       !lattice vectors
    integer, dimension(0:nlinks), parameter :: &
@@ -291,9 +626,6 @@ module vars
 #else
 #error "LATTICE not supported"
 #endif
-
-   real(kind=db), parameter :: cssq=real(1.d0/3.d0,kind=db)
-   real(kind=db), parameter :: invcssq=real(3.d0,kind=db)
    
    real(kind=db), parameter :: p0d3q27=real(8.d0/27.d0,kind=db)
    real(kind=db), parameter :: p1d3q27=real(2.d0/27.d0,kind=db)

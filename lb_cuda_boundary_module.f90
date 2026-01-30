@@ -178,14 +178,14 @@ contains
 		  kkk=k+ez(lopp)
 		  if(isfluid(iii,jjj,kkk).ne.0) cycle 
 		  feq=p(l)*(press)
-		  fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+		  fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		   + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	       + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		   + TWO*(dey(l)*dez(l))*pyz)
           ! F_discr = p(l)*(dex(l)*forcex &
            ! + dey(l)*forcey &
            ! + dez(l)*forcez)*invcssq
-		  fpost=feq + (ONE-omega_loc)*p(l)*fneq1 !+ HALF*(F_discr)	
+		  fpost=feq + (ONE-omega_loc)*fneq1 !+ HALF*(F_discr)	
 		  opress=opress + fpost
 		  ou=ou + fpost*dex(l)
 		  ov=ov + fpost*dey(l)

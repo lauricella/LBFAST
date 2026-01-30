@@ -171,7 +171,7 @@ contains
 !                  do lii=1,nlinks
 !                     udotc=(u*dex(lii) + v*dey(lii)+ w*dez(lii))*invcssq
 !		     feq=p(lii)*(press + (udotc+0.5_db*udotc*udotc - uu))
-!                     !fneq1=(HALF/(cssq*cssq))*( (dex(lii)*dex(lii)-cssq)*pxx &
+!                     !fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(lii)*dex(lii)-cssq)*pxx &
 !		     ! + (dey(lii)*dey(lii)-cssq)*pyy + (dez(lii)*dez(lii)-cssq)*pzz &
 !	             ! + TWO*(dex(lii)*dey(lii))*pxy + TWO*(dex(lii)*dez(lii))*pxz &
 !		     ! + TWO*(dey(lii)*dez(lii))*pyz)
@@ -231,18 +231,68 @@ contains
                   uu=HALF*(u*u+v*v+w*w)*invcssq
 
 			      feq=p(0)*(press - uu)
-				  fneq1=(HALF*invcssq)*(-pxx-pyy-pzz)
+				  fneq1=p(0)*(HALF*invcssq)*(-pxx-pyy-pzz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                  feq=feq + &
+                    Minv_mrt(17,0)*u*u*v*v + &
+                    Minv_mrt(18,0)*u*u*w*w + &
+                    Minv_mrt(19,0)*v*v*w*w + &
+                    Minv_mrt(26,0)*u*u*v*v*w*w
+                  fneq1=fneq1 + &
+                    Minv_mrt(17,0)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
+                    Minv_mrt(18,0)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
+                    Minv_mrt(19,0)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
+                    Minv_mrt(26,0)*(pzz*u**TWO*v**TWO + &
+                    w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+#endif
 				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)*invcssq
                   
-                  opress=feq + (1.0_db-omega_loc)*fneq1*p(0) + HALF*(F_discr)
+                  opress=feq + (1.0_db-omega_loc)*fneq1 + HALF*(F_discr)
                   
                   do l=1,nlinks,2
                      udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
 		             feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-                     fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+                     fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		              + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                  + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		              + TWO*(dey(l)*dez(l))*pyz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                     feq=feq+Minv_mrt(10,l)*u*u*v + &
+                             Minv_mrt(11,l)*u*u*w + &
+                             Minv_mrt(12,l)*u*v*v + &
+                             Minv_mrt(13,l)*u*w*w + &
+                             Minv_mrt(14,l)*v*w*w + &
+                             Minv_mrt(15,l)*v*v*w + &
+                             Minv_mrt(16,l)*u*v*w + &
+                             Minv_mrt(17,l)*u*u*v*v + &
+                             Minv_mrt(18,l)*u*u*w*w + &
+                             Minv_mrt(19,l)*v*v*w*w + &
+                             Minv_mrt(20,l)*u*v*w*w + &
+                             Minv_mrt(21,l)*u*v*v*w + &
+                             Minv_mrt(22,l)*u*u*v*w + &
+                             Minv_mrt(23,l)*u*u*v*w*w + &
+                             Minv_mrt(24,l)*u*u*v*v*w + &
+                             Minv_mrt(25,l)*u*v*v*w*w + &
+                             Minv_mrt(26,l)*u*u*v*v*w*w
+                     fneq1=fneq1+Minv_mrt(10,l)*(TWO*pxy*u + pxx*v) + &
+                             Minv_mrt(11,l)*(TWO*pxz*u + pxx*w) + &
+                             Minv_mrt(12,l)*(pyy*u + TWO*pxy*v) + &
+                             Minv_mrt(13,l)*(pzz*u + TWO*pxz*w)+ &
+                             Minv_mrt(14,l)*(pzz*v + TWO*pyz*w) + &
+                             Minv_mrt(15,l)*(TWO*pyz*v + pyy*w) + &
+                             Minv_mrt(16,l)*(pyz*u + pxz*v + pxy*w) + &
+                             Minv_mrt(17,l)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
+                             Minv_mrt(18,l)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
+                             Minv_mrt(19,l)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
+                             Minv_mrt(20,l)*(pzz*u*v + w*(THREE*pyz*u + THREE*pxz*v + TWO*pxy*w)) + &
+                             Minv_mrt(21,l)*(TWO*pyz*u*v + pxz*v**TWO + TWO*pyy*u*w + FOUR*pxy*v*w) + &
+                             Minv_mrt(22,l)*(pyz*u**TWO + TWO*pxz*u*v + FOUR*pxy*u*w + TWO*pxx*v*w) + &
+                             Minv_mrt(23,l)*(pzz*u**TWO*v + THREE*w*(pyz*u**TWO + TWO*pxz*u*v + TWO*pxy*u*w + pxx*v*w)) + &
+                             Minv_mrt(24,l)*(TWO*u*v*(pyz*u + pxz*v) + TWO*pyy*u**TWO*w + v*(TEN*pxy*u + THREE*pxx*v)*w) + &
+                             Minv_mrt(25,l)*(pzz*u*v**TWO + THREE*w*(TWO*pyz*u*v + pxz*v**TWO + pyy*u*w + TWO*pxy*v*w)) + &
+                             Minv_mrt(26,l)*(pzz*u**TWO*v**TWO + &
+                              w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+#endif
 		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
                       + ((dey(l) - v) + udotc * dey(l))*forcey &
                       + ((dez(l) - w) + udotc * dez(l))*forcez)*invcssq
@@ -252,14 +302,51 @@ contains
                      lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
                      ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
                      lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
-		             f_front(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l)*fneq1 + HALF*F_discr
+		             f_front(lii,ljj,lkk)=feq + (ONE-omega_loc)*fneq1 + HALF*F_discr
 		             
                      udotc=(u*dex(l+1) + v*dey(l+1)+ w*dez(l+1))*invcssq
 		             feq=p(l+1)*(press + (udotc+0.5_db*udotc*udotc - uu))
-                     fneq1=(HALF/(cssq*cssq))*( (dex(l+1)*dex(l+1)-cssq)*pxx &
+                     fneq1=p(l+1)*(HALF/(cssq*cssq))*( (dex(l+1)*dex(l+1)-cssq)*pxx &
 		              + (dey(l+1)*dey(l+1)-cssq)*pyy + (dez(l+1)*dez(l+1)-cssq)*pzz &
 	                  + TWO*(dex(l+1)*dey(l+1))*pxy + TWO*(dex(l+1)*dez(l+1))*pxz &
 		              + TWO*(dey(l+1)*dez(l+1))*pyz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                     feq=feq+Minv_mrt(10,l+1)*u*u*v + &
+                             Minv_mrt(11,l+1)*u*u*w + &
+                             Minv_mrt(12,l+1)*u*v*v + &
+                             Minv_mrt(13,l+1)*u*w*w + &
+                             Minv_mrt(14,l+1)*v*w*w + &
+                             Minv_mrt(15,l+1)*v*v*w + &
+                             Minv_mrt(16,l+1)*u*v*w + &
+                             Minv_mrt(17,l+1)*u*u*v*v + &
+                             Minv_mrt(18,l+1)*u*u*w*w + &
+                             Minv_mrt(19,l+1)*v*v*w*w + &
+                             Minv_mrt(20,l+1)*u*v*w*w + &
+                             Minv_mrt(21,l+1)*u*v*v*w + &
+                             Minv_mrt(22,l+1)*u*u*v*w + &
+                             Minv_mrt(23,l+1)*u*u*v*w*w + &
+                             Minv_mrt(24,l+1)*u*u*v*v*w + &
+                             Minv_mrt(25,l+1)*u*v*v*w*w + &
+                             Minv_mrt(26,l+1)*u*u*v*v*w*w
+                     fneq1=fneq1+Minv_mrt(10,l+1)*(TWO*pxy*u + pxx*v) + &
+                             Minv_mrt(11,l+1)*(TWO*pxz*u + pxx*w) + &
+                             Minv_mrt(12,l+1)*(pyy*u + TWO*pxy*v) + &
+                             Minv_mrt(13,l+1)*(pzz*u + TWO*pxz*w)+ &
+                             Minv_mrt(14,l+1)*(pzz*v + TWO*pyz*w) + &
+                             Minv_mrt(15,l+1)*(TWO*pyz*v + pyy*w) + &
+                             Minv_mrt(16,l+1)*(pyz*u + pxz*v + pxy*w) + &
+                             Minv_mrt(17,l+1)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
+                             Minv_mrt(18,l+1)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
+                             Minv_mrt(19,l+1)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
+                             Minv_mrt(20,l+1)*(pzz*u*v + w*(THREE*pyz*u + THREE*pxz*v + TWO*pxy*w)) + &
+                             Minv_mrt(21,l+1)*(TWO*pyz*u*v + pxz*v**TWO + TWO*pyy*u*w + FOUR*pxy*v*w) + &
+                             Minv_mrt(22,l+1)*(pyz*u**TWO + TWO*pxz*u*v + FOUR*pxy*u*w + TWO*pxx*v*w) + &
+                             Minv_mrt(23,l+1)*(pzz*u**TWO*v + THREE*w*(pyz*u**TWO + TWO*pxz*u*v + TWO*pxy*u*w + pxx*v*w)) + &
+                             Minv_mrt(24,l+1)*(TWO*u*v*(pyz*u + pxz*v) + TWO*pyy*u**TWO*w + v*(TEN*pxy*u + THREE*pxx*v)*w) + &
+                             Minv_mrt(25,l+1)*(pzz*u*v**TWO + THREE*w*(TWO*pyz*u*v + pxz*v**TWO + pyy*u*w + TWO*pxy*v*w)) + &
+                             Minv_mrt(26,l+1)*(pzz*u**TWO*v**TWO + &
+                              w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+#endif
 		             F_discr = p(l+1)*(((dex(l+1) - u) + udotc * dex(l+1))*forcex &
                       + ((dey(l+1) - v) + udotc * dey(l+1))*forcey &
                       + ((dez(l+1) - w) + udotc * dez(l+1))*forcez)*invcssq
@@ -269,7 +356,7 @@ contains
                      lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
                      ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
                      lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
-		             f_rear(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l+1)*fneq1 + HALF*F_discr
+		             f_rear(lii,ljj,lkk)=feq + (ONE-omega_loc)*fneq1 + HALF*F_discr
 		             
 		             call syncthreads
 		             opress=opress + f_front(li,lj,lk)
@@ -468,7 +555,7 @@ contains
 !                  do lii=1,nlinks
 !                     udotc=(u*dex(lii) + v*dey(lii)+ w*dez(lii))*invcssq
 !		     feq=p(lii)*(press + (udotc+0.5_db*udotc*udotc - uu))
-!                     !fneq1=(HALF/(cssq*cssq))*( (dex(lii)*dex(lii)-cssq)*pxx &
+!                     !fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(lii)*dex(lii)-cssq)*pxx &
 !		     ! + (dey(lii)*dey(lii)-cssq)*pyy + (dez(lii)*dez(lii)-cssq)*pzz &
 !	             ! + TWO*(dex(lii)*dey(lii))*pxy + TWO*(dex(lii)*dez(lii))*pxz &
 !		     ! + TWO*(dey(lii)*dez(lii))*pyz)
@@ -528,18 +615,68 @@ contains
                   uu=HALF*(u*u+v*v+w*w)*invcssq
 
 			      feq=p(0)*(press - uu)
-				  fneq1=(HALF*invcssq)*(-pxx-pyy-pzz)
+				  fneq1=p(0)*(HALF*invcssq)*(-pxx-pyy-pzz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                  feq=feq + &
+                    Minv_mrt(17,0)*u*u*v*v + &
+                    Minv_mrt(18,0)*u*u*w*w + &
+                    Minv_mrt(19,0)*v*v*w*w + &
+                    Minv_mrt(26,0)*u*u*v*v*w*w
+                  fneq1=fneq1 + &
+                    Minv_mrt(17,0)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
+                    Minv_mrt(18,0)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
+                    Minv_mrt(19,0)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
+                    Minv_mrt(26,0)*(pzz*u**TWO*v**TWO + &
+                    w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+#endif
 				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)*invcssq
                   
-                  opress=feq + (1.0_db-omega_loc)*fneq1*p(0) + HALF*(F_discr)
+                  opress=feq + (1.0_db-omega_loc)*fneq1 + HALF*(F_discr)
                   
                   do l=1,nlinks
                      udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
 		             feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-                     fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+                     fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		              + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                  + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		              + TWO*(dey(l)*dez(l))*pyz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                     feq=feq+Minv_mrt(10,l)*u*u*v + &
+                             Minv_mrt(11,l)*u*u*w + &
+                             Minv_mrt(12,l)*u*v*v + &
+                             Minv_mrt(13,l)*u*w*w + &
+                             Minv_mrt(14,l)*v*w*w + &
+                             Minv_mrt(15,l)*v*v*w + &
+                             Minv_mrt(16,l)*u*v*w + &
+                             Minv_mrt(17,l)*u*u*v*v + &
+                             Minv_mrt(18,l)*u*u*w*w + &
+                             Minv_mrt(19,l)*v*v*w*w + &
+                             Minv_mrt(20,l)*u*v*w*w + &
+                             Minv_mrt(21,l)*u*v*v*w + &
+                             Minv_mrt(22,l)*u*u*v*w + &
+                             Minv_mrt(23,l)*u*u*v*w*w + &
+                             Minv_mrt(24,l)*u*u*v*v*w + &
+                             Minv_mrt(25,l)*u*v*v*w*w + &
+                             Minv_mrt(26,l)*u*u*v*v*w*w
+                     fneq1=fneq1+Minv_mrt(10,l)*(TWO*pxy*u + pxx*v) + &
+                             Minv_mrt(11,l)*(TWO*pxz*u + pxx*w) + &
+                             Minv_mrt(12,l)*(pyy*u + TWO*pxy*v) + &
+                             Minv_mrt(13,l)*(pzz*u + TWO*pxz*w)+ &
+                             Minv_mrt(14,l)*(pzz*v + TWO*pyz*w) + &
+                             Minv_mrt(15,l)*(TWO*pyz*v + pyy*w) + &
+                             Minv_mrt(16,l)*(pyz*u + pxz*v + pxy*w) + &
+                             Minv_mrt(17,l)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
+                             Minv_mrt(18,l)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
+                             Minv_mrt(19,l)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
+                             Minv_mrt(20,l)*(pzz*u*v + w*(THREE*pyz*u + THREE*pxz*v + TWO*pxy*w)) + &
+                             Minv_mrt(21,l)*(TWO*pyz*u*v + pxz*v**TWO + TWO*pyy*u*w + FOUR*pxy*v*w) + &
+                             Minv_mrt(22,l)*(pyz*u**TWO + TWO*pxz*u*v + FOUR*pxy*u*w + TWO*pxx*v*w) + &
+                             Minv_mrt(23,l)*(pzz*u**TWO*v + THREE*w*(pyz*u**TWO + TWO*pxz*u*v + TWO*pxy*u*w + pxx*v*w)) + &
+                             Minv_mrt(24,l)*(TWO*u*v*(pyz*u + pxz*v) + TWO*pyy*u**TWO*w + v*(TEN*pxy*u + THREE*pxx*v)*w) + &
+                             Minv_mrt(25,l)*(pzz*u*v**TWO + THREE*w*(TWO*pyz*u*v + pxz*v**TWO + pyy*u*w + TWO*pxy*v*w)) + &
+                             Minv_mrt(26,l)*(pzz*u**TWO*v**TWO + &
+                              w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+#endif
 		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
                       + ((dey(l) - v) + udotc * dey(l))*forcey &
                       + ((dez(l) - w) + udotc * dez(l))*forcez)*invcssq
@@ -549,10 +686,10 @@ contains
                      lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
                      ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
                      lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
-		             ftemp(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l)*fneq1 + HALF*F_discr
+		             ftemp(lii,ljj,lkk)=feq + (ONE-omega_loc)*fneq1 + HALF*F_discr
 		             !if(gi==32 .and. gj==32 .and. gk==2 .and. myblock==intblock)write(*,*)'a',l,ftemp(lii,ljj,lkk)
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,feq
-!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*p(l)*fneq1
+!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*fneq1
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,HALF*F_discr
 		             call syncthreads
 		             
@@ -786,18 +923,68 @@ contains
                   uu=HALF*(u*u+v*v+w*w)*invcssq
 
 			      feq=p(0)*(press - uu)
-				  fneq1=(HALF*invcssq)*(-pxx-pyy-pzz)
+				  fneq1=p(0)*(HALF*invcssq)*(-pxx-pyy-pzz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                  feq=feq + &
+                    Minv_mrt(17,0)*u*u*v*v + &
+                    Minv_mrt(18,0)*u*u*w*w + &
+                    Minv_mrt(19,0)*v*v*w*w + &
+                    Minv_mrt(26,0)*u*u*v*v*w*w
+                  fneq1=fneq1 + &
+                    Minv_mrt(17,0)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
+                    Minv_mrt(18,0)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
+                    Minv_mrt(19,0)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
+                    Minv_mrt(26,0)*(pzz*u**TWO*v**TWO + &
+                    w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+#endif
 				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)*invcssq
                   
-                  opress=feq + (1.0_db-omega_loc)*fneq1*p(0) + HALF*(F_discr)
+                  opress=feq + (1.0_db-omega_loc)*fneq1 + HALF*(F_discr)
                   
                   do l=1,nlinks
                      udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
 		             feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-                     fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+                     fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		              + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                  + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		              + TWO*(dey(l)*dez(l))*pyz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                     feq=feq+Minv_mrt(10,l)*u*u*v + &
+                             Minv_mrt(11,l)*u*u*w + &
+                             Minv_mrt(12,l)*u*v*v + &
+                             Minv_mrt(13,l)*u*w*w + &
+                             Minv_mrt(14,l)*v*w*w + &
+                             Minv_mrt(15,l)*v*v*w + &
+                             Minv_mrt(16,l)*u*v*w + &
+                             Minv_mrt(17,l)*u*u*v*v + &
+                             Minv_mrt(18,l)*u*u*w*w + &
+                             Minv_mrt(19,l)*v*v*w*w + &
+                             Minv_mrt(20,l)*u*v*w*w + &
+                             Minv_mrt(21,l)*u*v*v*w + &
+                             Minv_mrt(22,l)*u*u*v*w + &
+                             Minv_mrt(23,l)*u*u*v*w*w + &
+                             Minv_mrt(24,l)*u*u*v*v*w + &
+                             Minv_mrt(25,l)*u*v*v*w*w + &
+                             Minv_mrt(26,l)*u*u*v*v*w*w
+                     fneq1=fneq1+Minv_mrt(10,l)*(TWO*pxy*u + pxx*v) + &
+                             Minv_mrt(11,l)*(TWO*pxz*u + pxx*w) + &
+                             Minv_mrt(12,l)*(pyy*u + TWO*pxy*v) + &
+                             Minv_mrt(13,l)*(pzz*u + TWO*pxz*w)+ &
+                             Minv_mrt(14,l)*(pzz*v + TWO*pyz*w) + &
+                             Minv_mrt(15,l)*(TWO*pyz*v + pyy*w) + &
+                             Minv_mrt(16,l)*(pyz*u + pxz*v + pxy*w) + &
+                             Minv_mrt(17,l)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
+                             Minv_mrt(18,l)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
+                             Minv_mrt(19,l)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
+                             Minv_mrt(20,l)*(pzz*u*v + w*(THREE*pyz*u + THREE*pxz*v + TWO*pxy*w)) + &
+                             Minv_mrt(21,l)*(TWO*pyz*u*v + pxz*v**TWO + TWO*pyy*u*w + FOUR*pxy*v*w) + &
+                             Minv_mrt(22,l)*(pyz*u**TWO + TWO*pxz*u*v + FOUR*pxy*u*w + TWO*pxx*v*w) + &
+                             Minv_mrt(23,l)*(pzz*u**TWO*v + THREE*w*(pyz*u**TWO + TWO*pxz*u*v + TWO*pxy*u*w + pxx*v*w)) + &
+                             Minv_mrt(24,l)*(TWO*u*v*(pyz*u + pxz*v) + TWO*pyy*u**TWO*w + v*(TEN*pxy*u + THREE*pxx*v)*w) + &
+                             Minv_mrt(25,l)*(pzz*u*v**TWO + THREE*w*(TWO*pyz*u*v + pxz*v**TWO + pyy*u*w + TWO*pxy*v*w)) + &
+                             Minv_mrt(26,l)*(pzz*u**TWO*v**TWO + &
+                              w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+#endif
 		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
                       + ((dey(l) - v) + udotc * dey(l))*forcey &
                       + ((dez(l) - w) + udotc * dez(l))*forcez)*invcssq
@@ -807,10 +994,10 @@ contains
                      lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
                      ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
                      lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
-		             ftemp(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l)*fneq1 + HALF*F_discr
+		             ftemp(lii,ljj,lkk)=feq + (ONE-omega_loc)*fneq1 + HALF*F_discr
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,ftemp(lii,ljj,lkk)
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,feq
-!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*p(l)*fneq1
+!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*fneq1
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,HALF*F_discr
 		             call syncthreads
 		             
@@ -1053,18 +1240,68 @@ contains
                   uu=HALF*(u*u+v*v+w*w)*invcssq
 
 			      feq=p(0)*(press - uu)
-				  fneq1=(HALF*invcssq)*(-pxx-pyy-pzz)
+				  fneq1=p(0)*(HALF*invcssq)*(-pxx-pyy-pzz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                  feq=feq + &
+                    Minv_mrt(17,0)*u*u*v*v + &
+                    Minv_mrt(18,0)*u*u*w*w + &
+                    Minv_mrt(19,0)*v*v*w*w + &
+                    Minv_mrt(26,0)*u*u*v*v*w*w
+                  fneq1=fneq1 + &
+                    Minv_mrt(17,0)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
+                    Minv_mrt(18,0)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
+                    Minv_mrt(19,0)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
+                    Minv_mrt(26,0)*(pzz*u**TWO*v**TWO + &
+                    w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+#endif
 				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)*invcssq
                   
-                  opress=feq + (1.0_db-omega_loc)*fneq1*p(0) + HALF*(F_discr)
+                  opress=feq + (1.0_db-omega_loc)*fneq1 + HALF*(F_discr)
                   
                   do l=1,nlinks
                      udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
 		             feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-                     fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+                     fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		              + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                  + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		              + TWO*(dey(l)*dez(l))*pyz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                     feq=feq+Minv_mrt(10,l)*u*u*v + &
+                             Minv_mrt(11,l)*u*u*w + &
+                             Minv_mrt(12,l)*u*v*v + &
+                             Minv_mrt(13,l)*u*w*w + &
+                             Minv_mrt(14,l)*v*w*w + &
+                             Minv_mrt(15,l)*v*v*w + &
+                             Minv_mrt(16,l)*u*v*w + &
+                             Minv_mrt(17,l)*u*u*v*v + &
+                             Minv_mrt(18,l)*u*u*w*w + &
+                             Minv_mrt(19,l)*v*v*w*w + &
+                             Minv_mrt(20,l)*u*v*w*w + &
+                             Minv_mrt(21,l)*u*v*v*w + &
+                             Minv_mrt(22,l)*u*u*v*w + &
+                             Minv_mrt(23,l)*u*u*v*w*w + &
+                             Minv_mrt(24,l)*u*u*v*v*w + &
+                             Minv_mrt(25,l)*u*v*v*w*w + &
+                             Minv_mrt(26,l)*u*u*v*v*w*w
+                     fneq1=fneq1+Minv_mrt(10,l)*(TWO*pxy*u + pxx*v) + &
+                             Minv_mrt(11,l)*(TWO*pxz*u + pxx*w) + &
+                             Minv_mrt(12,l)*(pyy*u + TWO*pxy*v) + &
+                             Minv_mrt(13,l)*(pzz*u + TWO*pxz*w)+ &
+                             Minv_mrt(14,l)*(pzz*v + TWO*pyz*w) + &
+                             Minv_mrt(15,l)*(TWO*pyz*v + pyy*w) + &
+                             Minv_mrt(16,l)*(pyz*u + pxz*v + pxy*w) + &
+                             Minv_mrt(17,l)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
+                             Minv_mrt(18,l)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
+                             Minv_mrt(19,l)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
+                             Minv_mrt(20,l)*(pzz*u*v + w*(THREE*pyz*u + THREE*pxz*v + TWO*pxy*w)) + &
+                             Minv_mrt(21,l)*(TWO*pyz*u*v + pxz*v**TWO + TWO*pyy*u*w + FOUR*pxy*v*w) + &
+                             Minv_mrt(22,l)*(pyz*u**TWO + TWO*pxz*u*v + FOUR*pxy*u*w + TWO*pxx*v*w) + &
+                             Minv_mrt(23,l)*(pzz*u**TWO*v + THREE*w*(pyz*u**TWO + TWO*pxz*u*v + TWO*pxy*u*w + pxx*v*w)) + &
+                             Minv_mrt(24,l)*(TWO*u*v*(pyz*u + pxz*v) + TWO*pyy*u**TWO*w + v*(TEN*pxy*u + THREE*pxx*v)*w) + &
+                             Minv_mrt(25,l)*(pzz*u*v**TWO + THREE*w*(TWO*pyz*u*v + pxz*v**TWO + pyy*u*w + TWO*pxy*v*w)) + &
+                             Minv_mrt(26,l)*(pzz*u**TWO*v**TWO + &
+                              w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+#endif
 		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
                       + ((dey(l) - v) + udotc * dey(l))*forcey &
                       + ((dez(l) - w) + udotc * dez(l))*forcez)*invcssq
@@ -1074,10 +1311,10 @@ contains
                      lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
                      ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
                      lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
-		             ftemp(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l)*fneq1 + HALF*F_discr
+		             ftemp(lii,ljj,lkk)=feq + (ONE-omega_loc)*fneq1 + HALF*F_discr
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,ftemp(lii,ljj,lkk)
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,feq
-!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*p(l)*fneq1
+!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*fneq1
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,HALF*F_discr
 		             call syncthreads
 		             
@@ -1321,18 +1558,68 @@ contains
                   uu=HALF*(u*u+v*v+w*w)*invcssq
 
 			      feq=p(0)*(press - uu)
-				  fneq1=(HALF*invcssq)*(-pxx-pyy-pzz)
+				  fneq1=p(0)*(HALF*invcssq)*(-pxx-pyy-pzz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                  feq=feq + &
+                    Minv_mrt(17,0)*u*u*v*v + &
+                    Minv_mrt(18,0)*u*u*w*w + &
+                    Minv_mrt(19,0)*v*v*w*w + &
+                    Minv_mrt(26,0)*u*u*v*v*w*w
+                  fneq1=fneq1 + &
+                    Minv_mrt(17,0)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
+                    Minv_mrt(18,0)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
+                    Minv_mrt(19,0)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
+                    Minv_mrt(26,0)*(pzz*u**TWO*v**TWO + &
+                    w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+#endif
 				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)*invcssq
                   
-                  opress=feq + (1.0_db-omega_loc)*fneq1*p(0) + HALF*(F_discr)
+                  opress=feq + (1.0_db-omega_loc)*fneq1 + HALF*(F_discr)
                   
                   do l=1,nlinks
                      udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
 		             feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-                     fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+                     fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		              + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                  + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		              + TWO*(dey(l)*dez(l))*pyz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                     feq=feq+Minv_mrt(10,l)*u*u*v + &
+                             Minv_mrt(11,l)*u*u*w + &
+                             Minv_mrt(12,l)*u*v*v + &
+                             Minv_mrt(13,l)*u*w*w + &
+                             Minv_mrt(14,l)*v*w*w + &
+                             Minv_mrt(15,l)*v*v*w + &
+                             Minv_mrt(16,l)*u*v*w + &
+                             Minv_mrt(17,l)*u*u*v*v + &
+                             Minv_mrt(18,l)*u*u*w*w + &
+                             Minv_mrt(19,l)*v*v*w*w + &
+                             Minv_mrt(20,l)*u*v*w*w + &
+                             Minv_mrt(21,l)*u*v*v*w + &
+                             Minv_mrt(22,l)*u*u*v*w + &
+                             Minv_mrt(23,l)*u*u*v*w*w + &
+                             Minv_mrt(24,l)*u*u*v*v*w + &
+                             Minv_mrt(25,l)*u*v*v*w*w + &
+                             Minv_mrt(26,l)*u*u*v*v*w*w
+                     fneq1=fneq1+Minv_mrt(10,l)*(TWO*pxy*u + pxx*v) + &
+                             Minv_mrt(11,l)*(TWO*pxz*u + pxx*w) + &
+                             Minv_mrt(12,l)*(pyy*u + TWO*pxy*v) + &
+                             Minv_mrt(13,l)*(pzz*u + TWO*pxz*w)+ &
+                             Minv_mrt(14,l)*(pzz*v + TWO*pyz*w) + &
+                             Minv_mrt(15,l)*(TWO*pyz*v + pyy*w) + &
+                             Minv_mrt(16,l)*(pyz*u + pxz*v + pxy*w) + &
+                             Minv_mrt(17,l)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
+                             Minv_mrt(18,l)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
+                             Minv_mrt(19,l)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
+                             Minv_mrt(20,l)*(pzz*u*v + w*(THREE*pyz*u + THREE*pxz*v + TWO*pxy*w)) + &
+                             Minv_mrt(21,l)*(TWO*pyz*u*v + pxz*v**TWO + TWO*pyy*u*w + FOUR*pxy*v*w) + &
+                             Minv_mrt(22,l)*(pyz*u**TWO + TWO*pxz*u*v + FOUR*pxy*u*w + TWO*pxx*v*w) + &
+                             Minv_mrt(23,l)*(pzz*u**TWO*v + THREE*w*(pyz*u**TWO + TWO*pxz*u*v + TWO*pxy*u*w + pxx*v*w)) + &
+                             Minv_mrt(24,l)*(TWO*u*v*(pyz*u + pxz*v) + TWO*pyy*u**TWO*w + v*(TEN*pxy*u + THREE*pxx*v)*w) + &
+                             Minv_mrt(25,l)*(pzz*u*v**TWO + THREE*w*(TWO*pyz*u*v + pxz*v**TWO + pyy*u*w + TWO*pxy*v*w)) + &
+                             Minv_mrt(26,l)*(pzz*u**TWO*v**TWO + &
+                              w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+#endif
 		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
                       + ((dey(l) - v) + udotc * dey(l))*forcey &
                       + ((dez(l) - w) + udotc * dez(l))*forcez)*invcssq
@@ -1342,10 +1629,10 @@ contains
                      lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
                      ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
                      lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
-		             ftemp(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l)*fneq1 + HALF*F_discr
+		             ftemp(lii,ljj,lkk)=feq + (ONE-omega_loc)*fneq1 + HALF*F_discr
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,ftemp(lii,ljj,lkk)
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,feq
-!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*p(l)*fneq1
+!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*fneq1
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,HALF*F_discr
 		             call syncthreads
 		             
@@ -1580,18 +1867,68 @@ contains
                   uu=HALF*(u*u+v*v+w*w)*invcssq
 
 			      feq=p(0)*(press - uu)
-				  fneq1=(HALF*invcssq)*(-pxx-pyy-pzz)
+				  fneq1=p(0)*(HALF*invcssq)*(-pxx-pyy-pzz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                  feq=feq + &
+                    Minv_mrt(17,0)*u*u*v*v + &
+                    Minv_mrt(18,0)*u*u*w*w + &
+                    Minv_mrt(19,0)*v*v*w*w + &
+                    Minv_mrt(26,0)*u*u*v*v*w*w
+                  fneq1=fneq1 + &
+                    Minv_mrt(17,0)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
+                    Minv_mrt(18,0)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
+                    Minv_mrt(19,0)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
+                    Minv_mrt(26,0)*(pzz*u**TWO*v**TWO + &
+                    w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+#endif
 				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)*invcssq
                   
-                  opress=feq + (1.0_db-omega_loc)*fneq1*p(0) + HALF*(F_discr)
+                  opress=feq + (1.0_db-omega_loc)*fneq1 + HALF*(F_discr)
                   
                   do l=1,nlinks
                      udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
 		             feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-                     fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+                     fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		              + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                  + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		              + TWO*(dey(l)*dez(l))*pyz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                     feq=feq+Minv_mrt(10,l)*u*u*v + &
+                             Minv_mrt(11,l)*u*u*w + &
+                             Minv_mrt(12,l)*u*v*v + &
+                             Minv_mrt(13,l)*u*w*w + &
+                             Minv_mrt(14,l)*v*w*w + &
+                             Minv_mrt(15,l)*v*v*w + &
+                             Minv_mrt(16,l)*u*v*w + &
+                             Minv_mrt(17,l)*u*u*v*v + &
+                             Minv_mrt(18,l)*u*u*w*w + &
+                             Minv_mrt(19,l)*v*v*w*w + &
+                             Minv_mrt(20,l)*u*v*w*w + &
+                             Minv_mrt(21,l)*u*v*v*w + &
+                             Minv_mrt(22,l)*u*u*v*w + &
+                             Minv_mrt(23,l)*u*u*v*w*w + &
+                             Minv_mrt(24,l)*u*u*v*v*w + &
+                             Minv_mrt(25,l)*u*v*v*w*w + &
+                             Minv_mrt(26,l)*u*u*v*v*w*w
+                     fneq1=fneq1+Minv_mrt(10,l)*(TWO*pxy*u + pxx*v) + &
+                             Minv_mrt(11,l)*(TWO*pxz*u + pxx*w) + &
+                             Minv_mrt(12,l)*(pyy*u + TWO*pxy*v) + &
+                             Minv_mrt(13,l)*(pzz*u + TWO*pxz*w)+ &
+                             Minv_mrt(14,l)*(pzz*v + TWO*pyz*w) + &
+                             Minv_mrt(15,l)*(TWO*pyz*v + pyy*w) + &
+                             Minv_mrt(16,l)*(pyz*u + pxz*v + pxy*w) + &
+                             Minv_mrt(17,l)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
+                             Minv_mrt(18,l)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
+                             Minv_mrt(19,l)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
+                             Minv_mrt(20,l)*(pzz*u*v + w*(THREE*pyz*u + THREE*pxz*v + TWO*pxy*w)) + &
+                             Minv_mrt(21,l)*(TWO*pyz*u*v + pxz*v**TWO + TWO*pyy*u*w + FOUR*pxy*v*w) + &
+                             Minv_mrt(22,l)*(pyz*u**TWO + TWO*pxz*u*v + FOUR*pxy*u*w + TWO*pxx*v*w) + &
+                             Minv_mrt(23,l)*(pzz*u**TWO*v + THREE*w*(pyz*u**TWO + TWO*pxz*u*v + TWO*pxy*u*w + pxx*v*w)) + &
+                             Minv_mrt(24,l)*(TWO*u*v*(pyz*u + pxz*v) + TWO*pyy*u**TWO*w + v*(TEN*pxy*u + THREE*pxx*v)*w) + &
+                             Minv_mrt(25,l)*(pzz*u*v**TWO + THREE*w*(TWO*pyz*u*v + pxz*v**TWO + pyy*u*w + TWO*pxy*v*w)) + &
+                             Minv_mrt(26,l)*(pzz*u**TWO*v**TWO + &
+                              w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+#endif
 		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
                       + ((dey(l) - v) + udotc * dey(l))*forcey &
                       + ((dez(l) - w) + udotc * dez(l))*forcez)*invcssq
@@ -1601,10 +1938,10 @@ contains
                      lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
                      ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
                      lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
-		             ftemp(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l)*fneq1 + HALF*F_discr
+		             ftemp(lii,ljj,lkk)=feq + (ONE-omega_loc)*fneq1 + HALF*F_discr
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,ftemp(lii,ljj,lkk)
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,feq
-!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*p(l)*fneq1
+!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*fneq1
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,HALF*F_discr
 		             call syncthreads
 		             
@@ -1838,18 +2175,68 @@ contains
                   uu=HALF*(u*u+v*v+w*w)*invcssq
 
 			      feq=p(0)*(press - uu)
-				  fneq1=(HALF*invcssq)*(-pxx-pyy-pzz)
+				  fneq1=p(0)*(HALF*invcssq)*(-pxx-pyy-pzz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                  feq=feq + &
+                    Minv_mrt(17,0)*u*u*v*v + &
+                    Minv_mrt(18,0)*u*u*w*w + &
+                    Minv_mrt(19,0)*v*v*w*w + &
+                    Minv_mrt(26,0)*u*u*v*v*w*w
+                  fneq1=fneq1 + &
+                    Minv_mrt(17,0)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
+                    Minv_mrt(18,0)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
+                    Minv_mrt(19,0)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
+                    Minv_mrt(26,0)*(pzz*u**TWO*v**TWO + &
+                    w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+#endif
 				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)*invcssq
                   
-                  opress=feq + (1.0_db-omega_loc)*fneq1*p(0) + HALF*(F_discr)
+                  opress=feq + (1.0_db-omega_loc)*fneq1 + HALF*(F_discr)
                   
                   do l=1,nlinks
                      udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
 		             feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-                     fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+                     fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		              + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                  + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		              + TWO*(dey(l)*dez(l))*pyz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                     feq=feq+Minv_mrt(10,l)*u*u*v + &
+                             Minv_mrt(11,l)*u*u*w + &
+                             Minv_mrt(12,l)*u*v*v + &
+                             Minv_mrt(13,l)*u*w*w + &
+                             Minv_mrt(14,l)*v*w*w + &
+                             Minv_mrt(15,l)*v*v*w + &
+                             Minv_mrt(16,l)*u*v*w + &
+                             Minv_mrt(17,l)*u*u*v*v + &
+                             Minv_mrt(18,l)*u*u*w*w + &
+                             Minv_mrt(19,l)*v*v*w*w + &
+                             Minv_mrt(20,l)*u*v*w*w + &
+                             Minv_mrt(21,l)*u*v*v*w + &
+                             Minv_mrt(22,l)*u*u*v*w + &
+                             Minv_mrt(23,l)*u*u*v*w*w + &
+                             Minv_mrt(24,l)*u*u*v*v*w + &
+                             Minv_mrt(25,l)*u*v*v*w*w + &
+                             Minv_mrt(26,l)*u*u*v*v*w*w
+                     fneq1=fneq1+Minv_mrt(10,l)*(TWO*pxy*u + pxx*v) + &
+                             Minv_mrt(11,l)*(TWO*pxz*u + pxx*w) + &
+                             Minv_mrt(12,l)*(pyy*u + TWO*pxy*v) + &
+                             Minv_mrt(13,l)*(pzz*u + TWO*pxz*w)+ &
+                             Minv_mrt(14,l)*(pzz*v + TWO*pyz*w) + &
+                             Minv_mrt(15,l)*(TWO*pyz*v + pyy*w) + &
+                             Minv_mrt(16,l)*(pyz*u + pxz*v + pxy*w) + &
+                             Minv_mrt(17,l)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
+                             Minv_mrt(18,l)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
+                             Minv_mrt(19,l)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
+                             Minv_mrt(20,l)*(pzz*u*v + w*(THREE*pyz*u + THREE*pxz*v + TWO*pxy*w)) + &
+                             Minv_mrt(21,l)*(TWO*pyz*u*v + pxz*v**TWO + TWO*pyy*u*w + FOUR*pxy*v*w) + &
+                             Minv_mrt(22,l)*(pyz*u**TWO + TWO*pxz*u*v + FOUR*pxy*u*w + TWO*pxx*v*w) + &
+                             Minv_mrt(23,l)*(pzz*u**TWO*v + THREE*w*(pyz*u**TWO + TWO*pxz*u*v + TWO*pxy*u*w + pxx*v*w)) + &
+                             Minv_mrt(24,l)*(TWO*u*v*(pyz*u + pxz*v) + TWO*pyy*u**TWO*w + v*(TEN*pxy*u + THREE*pxx*v)*w) + &
+                             Minv_mrt(25,l)*(pzz*u*v**TWO + THREE*w*(TWO*pyz*u*v + pxz*v**TWO + pyy*u*w + TWO*pxy*v*w)) + &
+                             Minv_mrt(26,l)*(pzz*u**TWO*v**TWO + &
+                              w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+#endif
 		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
                       + ((dey(l) - v) + udotc * dey(l))*forcey &
                       + ((dez(l) - w) + udotc * dez(l))*forcez)*invcssq
@@ -1859,10 +2246,10 @@ contains
                      lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
                      ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
                      lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
-		             ftemp(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l)*fneq1 + HALF*F_discr
+		             ftemp(lii,ljj,lkk)=feq + (ONE-omega_loc)*fneq1 + HALF*F_discr
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,ftemp(lii,ljj,lkk)
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,feq
-!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*p(l)*fneq1
+!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*fneq1
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,HALF*F_discr
 		             call syncthreads
 		             
@@ -2096,18 +2483,68 @@ contains
                   uu=HALF*(u*u+v*v+w*w)*invcssq
 
 			      feq=p(0)*(press - uu)
-				  fneq1=(HALF*invcssq)*(-pxx-pyy-pzz)
+				  fneq1=p(0)*(HALF*invcssq)*(-pxx-pyy-pzz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                  feq=feq + &
+                    Minv_mrt(17,0)*u*u*v*v + &
+                    Minv_mrt(18,0)*u*u*w*w + &
+                    Minv_mrt(19,0)*v*v*w*w + &
+                    Minv_mrt(26,0)*u*u*v*v*w*w
+                  fneq1=fneq1 + &
+                    Minv_mrt(17,0)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
+                    Minv_mrt(18,0)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
+                    Minv_mrt(19,0)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
+                    Minv_mrt(26,0)*(pzz*u**TWO*v**TWO + &
+                    w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+#endif
 				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)*invcssq
                   
-                  opress=feq + (1.0_db-omega_loc)*fneq1*p(0) + HALF*(F_discr)
+                  opress=feq + (1.0_db-omega_loc)*fneq1 + HALF*(F_discr)
                   
                   do l=1,nlinks
                      udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
 		             feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-                     fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+                     fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		              + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                  + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		              + TWO*(dey(l)*dez(l))*pyz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                     feq=feq+Minv_mrt(10,l)*u*u*v + &
+                             Minv_mrt(11,l)*u*u*w + &
+                             Minv_mrt(12,l)*u*v*v + &
+                             Minv_mrt(13,l)*u*w*w + &
+                             Minv_mrt(14,l)*v*w*w + &
+                             Minv_mrt(15,l)*v*v*w + &
+                             Minv_mrt(16,l)*u*v*w + &
+                             Minv_mrt(17,l)*u*u*v*v + &
+                             Minv_mrt(18,l)*u*u*w*w + &
+                             Minv_mrt(19,l)*v*v*w*w + &
+                             Minv_mrt(20,l)*u*v*w*w + &
+                             Minv_mrt(21,l)*u*v*v*w + &
+                             Minv_mrt(22,l)*u*u*v*w + &
+                             Minv_mrt(23,l)*u*u*v*w*w + &
+                             Minv_mrt(24,l)*u*u*v*v*w + &
+                             Minv_mrt(25,l)*u*v*v*w*w + &
+                             Minv_mrt(26,l)*u*u*v*v*w*w
+                     fneq1=fneq1+Minv_mrt(10,l)*(TWO*pxy*u + pxx*v) + &
+                             Minv_mrt(11,l)*(TWO*pxz*u + pxx*w) + &
+                             Minv_mrt(12,l)*(pyy*u + TWO*pxy*v) + &
+                             Minv_mrt(13,l)*(pzz*u + TWO*pxz*w)+ &
+                             Minv_mrt(14,l)*(pzz*v + TWO*pyz*w) + &
+                             Minv_mrt(15,l)*(TWO*pyz*v + pyy*w) + &
+                             Minv_mrt(16,l)*(pyz*u + pxz*v + pxy*w) + &
+                             Minv_mrt(17,l)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
+                             Minv_mrt(18,l)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
+                             Minv_mrt(19,l)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
+                             Minv_mrt(20,l)*(pzz*u*v + w*(THREE*pyz*u + THREE*pxz*v + TWO*pxy*w)) + &
+                             Minv_mrt(21,l)*(TWO*pyz*u*v + pxz*v**TWO + TWO*pyy*u*w + FOUR*pxy*v*w) + &
+                             Minv_mrt(22,l)*(pyz*u**TWO + TWO*pxz*u*v + FOUR*pxy*u*w + TWO*pxx*v*w) + &
+                             Minv_mrt(23,l)*(pzz*u**TWO*v + THREE*w*(pyz*u**TWO + TWO*pxz*u*v + TWO*pxy*u*w + pxx*v*w)) + &
+                             Minv_mrt(24,l)*(TWO*u*v*(pyz*u + pxz*v) + TWO*pyy*u**TWO*w + v*(TEN*pxy*u + THREE*pxx*v)*w) + &
+                             Minv_mrt(25,l)*(pzz*u*v**TWO + THREE*w*(TWO*pyz*u*v + pxz*v**TWO + pyy*u*w + TWO*pxy*v*w)) + &
+                             Minv_mrt(26,l)*(pzz*u**TWO*v**TWO + &
+                              w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+#endif
 		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
                       + ((dey(l) - v) + udotc * dey(l))*forcey &
                       + ((dez(l) - w) + udotc * dez(l))*forcez)*invcssq
@@ -2117,10 +2554,10 @@ contains
                      lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
                      ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
                      lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
-		             ftemp(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l)*fneq1 + HALF*F_discr
+		             ftemp(lii,ljj,lkk)=feq + (ONE-omega_loc)*fneq1 + HALF*F_discr
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,ftemp(lii,ljj,lkk)
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,feq
-!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*p(l)*fneq1
+!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*fneq1
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,HALF*F_discr
 		             call syncthreads
 		             
@@ -2355,18 +2792,68 @@ contains
                   uu=HALF*(u*u+v*v+w*w)*invcssq
 
 			      feq=p(0)*(press - uu)
-				  fneq1=(HALF*invcssq)*(-pxx-pyy-pzz)
+				  fneq1=p(0)*(HALF*invcssq)*(-pxx-pyy-pzz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                  feq=feq + &
+                    Minv_mrt(17,0)*u*u*v*v + &
+                    Minv_mrt(18,0)*u*u*w*w + &
+                    Minv_mrt(19,0)*v*v*w*w + &
+                    Minv_mrt(26,0)*u*u*v*v*w*w
+                  fneq1=fneq1 + &
+                    Minv_mrt(17,0)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
+                    Minv_mrt(18,0)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
+                    Minv_mrt(19,0)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
+                    Minv_mrt(26,0)*(pzz*u**TWO*v**TWO + &
+                    w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+#endif
 				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)*invcssq
                   
-                  opress=feq + (1.0_db-omega_loc)*fneq1*p(0) + HALF*(F_discr)
+                  opress=feq + (1.0_db-omega_loc)*fneq1 + HALF*(F_discr)
                   
                   do l=1,nlinks
                      udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
 		             feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
-                     fneq1=(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
+                     fneq1=p(l)*(HALF/(cssq*cssq))*( (dex(l)*dex(l)-cssq)*pxx &
 		              + (dey(l)*dey(l)-cssq)*pyy + (dez(l)*dez(l)-cssq)*pzz &
 	                  + TWO*(dex(l)*dey(l))*pxy + TWO*(dex(l)*dez(l))*pxz &
 		              + TWO*(dey(l)*dez(l))*pyz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                     feq=feq+Minv_mrt(10,l)*u*u*v + &
+                             Minv_mrt(11,l)*u*u*w + &
+                             Minv_mrt(12,l)*u*v*v + &
+                             Minv_mrt(13,l)*u*w*w + &
+                             Minv_mrt(14,l)*v*w*w + &
+                             Minv_mrt(15,l)*v*v*w + &
+                             Minv_mrt(16,l)*u*v*w + &
+                             Minv_mrt(17,l)*u*u*v*v + &
+                             Minv_mrt(18,l)*u*u*w*w + &
+                             Minv_mrt(19,l)*v*v*w*w + &
+                             Minv_mrt(20,l)*u*v*w*w + &
+                             Minv_mrt(21,l)*u*v*v*w + &
+                             Minv_mrt(22,l)*u*u*v*w + &
+                             Minv_mrt(23,l)*u*u*v*w*w + &
+                             Minv_mrt(24,l)*u*u*v*v*w + &
+                             Minv_mrt(25,l)*u*v*v*w*w + &
+                             Minv_mrt(26,l)*u*u*v*v*w*w
+                     fneq1=fneq1+Minv_mrt(10,l)*(TWO*pxy*u + pxx*v) + &
+                             Minv_mrt(11,l)*(TWO*pxz*u + pxx*w) + &
+                             Minv_mrt(12,l)*(pyy*u + TWO*pxy*v) + &
+                             Minv_mrt(13,l)*(pzz*u + TWO*pxz*w)+ &
+                             Minv_mrt(14,l)*(pzz*v + TWO*pyz*w) + &
+                             Minv_mrt(15,l)*(TWO*pyz*v + pyy*w) + &
+                             Minv_mrt(16,l)*(pyz*u + pxz*v + pxy*w) + &
+                             Minv_mrt(17,l)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
+                             Minv_mrt(18,l)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
+                             Minv_mrt(19,l)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
+                             Minv_mrt(20,l)*(pzz*u*v + w*(THREE*pyz*u + THREE*pxz*v + TWO*pxy*w)) + &
+                             Minv_mrt(21,l)*(TWO*pyz*u*v + pxz*v**TWO + TWO*pyy*u*w + FOUR*pxy*v*w) + &
+                             Minv_mrt(22,l)*(pyz*u**TWO + TWO*pxz*u*v + FOUR*pxy*u*w + TWO*pxx*v*w) + &
+                             Minv_mrt(23,l)*(pzz*u**TWO*v + THREE*w*(pyz*u**TWO + TWO*pxz*u*v + TWO*pxy*u*w + pxx*v*w)) + &
+                             Minv_mrt(24,l)*(TWO*u*v*(pyz*u + pxz*v) + TWO*pyy*u**TWO*w + v*(TEN*pxy*u + THREE*pxx*v)*w) + &
+                             Minv_mrt(25,l)*(pzz*u*v**TWO + THREE*w*(TWO*pyz*u*v + pxz*v**TWO + pyy*u*w + TWO*pxy*v*w)) + &
+                             Minv_mrt(26,l)*(pzz*u**TWO*v**TWO + &
+                              w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+#endif
 		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
                       + ((dey(l) - v) + udotc * dey(l))*forcey &
                       + ((dez(l) - w) + udotc * dez(l))*forcez)*invcssq
@@ -2376,10 +2863,10 @@ contains
                      lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
                      ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
                      lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
-		             ftemp(lii,ljj,lkk)=feq + (ONE-omega_loc)*p(l)*fneq1 + HALF*F_discr
+		             ftemp(lii,ljj,lkk)=feq + (ONE-omega_loc)*fneq1 + HALF*F_discr
  		             !if(gi==32 .and. gj==32 .and. gk==2 .and. myblock==intblock)write(*,*)'b',l,ftemp(lii,ljj,lkk)
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,feq
-!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*p(l)*fneq1
+!		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*fneq1
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,HALF*F_discr
 		             call syncthreads
 		             
