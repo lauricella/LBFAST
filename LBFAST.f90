@@ -40,7 +40,7 @@ program threadsafeLB
 #ifdef MONOD	
 	mu_max,Ks, &
 #endif
-    radius,width,center
+    radius,width,center, &
 #ifdef DENSRATIO
     rho_r,rho_b, &
 #endif
