@@ -245,7 +245,7 @@ contains
                 
                 
                 if(abs(isfluid(i,j,k)).eq.1)then
-#ifdef TWOCOMPONENT
+
                    !dist=sqrt((float(gi)-lx/TWO)**TWO + (float(gj)-ly/TWO)**TWO+(float(gk)-(lz/TWO)+1.5*radius)**TWO)
                    dist3d(1)=real(gi,kind=db)-center(1)
                    dist3d(2)=real(gj,kind=db)-center(2)
@@ -255,7 +255,7 @@ contains
                    dist=sqrt(dist3dout(1)**TWO + dist3dout(2)**TWO + dist3dout(3)**TWO)
                    
                    tempphi=ONE*fcut_tanh(dist,radius,width)
-                   
+#ifdef TWOCOMPONENT                   
                    phifields_flip(ii,jj,kk,1,myblock)=tempphi
 #ifdef DENSRATIO
                    rhophi_loc=rho_r*tempphi+(ONE-tempphi)*rho_b
@@ -270,9 +270,9 @@ contains
 #else				  
  
                   !if(gi==lx/2 .and. gj==ly/2 .and. gk==lz/2)then
-                  if(gi.le.lx/4+2 .and. gi.ge.lx/4-2 .and. gj.le.ly/4+2 .and. gj.ge.ly/4-2 .and. gk.le.lz/3+2 .and. gk.ge.lz/3-2)then
-                    loc_press = loc_press + 0.05_db
-                  endif
+                  !if(gi.le.lx/4+2 .and. gi.ge.lx/4-2 .and. gj.le.ly/4+2 .and. gj.ge.ly/4-2 .and. gk.le.lz/3+2 .and. gk.ge.lz/3-2)then
+                   loc_press = loc_press + 0.01_db*tempphi
+                  !endif
                   loc_w=ZERO!fcut(dist,radius-width*0.5,radius+width*0.5)*uwall !   - fcut(dist2,radius-width*0.5,radius+width*0.5)*HALF*uwall
 
 #endif               

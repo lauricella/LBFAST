@@ -36,11 +36,11 @@ program threadsafeLB
     
    namelist /fluid/ fx,fy,fz,visc1, &
 #ifdef TWOCOMPONENT
-    tau_diff,radius,width,sigma,wettab_r,wettab_b, &
-    visc2,center, &
+    tau_diff,sigma,wettab_r,wettab_b,visc2, &
 #ifdef MONOD	
 	mu_max,Ks, &
 #endif
+    radius,width,center
 #ifdef DENSRATIO
     rho_r,rho_b, &
 #endif
@@ -352,10 +352,10 @@ program threadsafeLB
 	  write(6,'(a,g16.8)') 'beta',beta
 	  write(6,'(a,g16.8)') 'kapp',kapp
       write(6,'(a,g16.8)') 'sigma',sigma
+#endif
       write(6,'(a,g16.8)') 'radius',radius
       write(6,'(a,g16.8)') 'width',width
       write(6,'(a,3g16.8)')'center',center
-#endif
 #ifdef REPULSIVE_FLUX
 	  write(6,'(a,g16.8)') 'A_Rep', A_rep
 	  write(6,'(a,g16.8)') 'qth', q_th

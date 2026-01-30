@@ -504,7 +504,7 @@ contains
          call MPI_Cart_rank(lbecomm, [oi,oj,ok], send_dir(l),ierr)
 
 
-         lopp=opp(l)
+         lopp=oppmpi(l)
          temp_coord(1) = coords(1) + exmpi(lopp)
          temp_coord(2) = coords(2) + eympi(lopp)
          temp_coord(3) = coords(3) + ezmpi(lopp)
@@ -584,7 +584,7 @@ contains
 
          lrecv_dir(l)=(myrank .ne. recv_dir(l))
          if(lrecv_dir(l))then
-            lopp=opp(l)
+            lopp=oppmpi(l)
             temp_coord(1) = coords(1) + exmpi(lopp)
             temp_coord(2) = coords(2) + eympi(lopp)
             temp_coord(3) = coords(3) + ezmpi(lopp)
@@ -647,7 +647,7 @@ contains
          endif
          !se sono periodico nel mio processo allora non devo sfondare neanche quando ricevo
          if(lintpbc_dir(l))then
-            lopp=opp(l)
+            lopp=oppmpi(l)
             temp_coord(1) = coords(1) + exmpi(lopp)
             temp_coord(2) = coords(2) + eympi(lopp)
             temp_coord(3) = coords(3) + ezmpi(lopp)

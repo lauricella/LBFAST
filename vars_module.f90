@@ -220,7 +220,7 @@ module vars
 
    real(kind=db)  :: ts1,ts2
    real(kind=db), dimension(3) :: center=ZERO
-   real(kind=db) :: uu,udotc,omega,omega_diff, radius,width
+   real(kind=db) :: uu,udotc,omega,omega_diff,radius,width
    real(kind=db) :: tau_diff,fx,fy,fz,temp,tau1,tau2
    real(kind=db) :: sharp_c,sigma,beta,kapp
    real(kind=db) :: visc1,visc2
