@@ -14,7 +14,7 @@ contains
 		implicit none
 		
 		real(kind=db),dimension(3) :: vel_com
-		real(kind=db) :: phi_loc
+		real(kind=db) :: phi_loc,w_loc
 		integer :: ierr,i,j,k,gi,gj,gk,xblock,yblock,zblock,myblock
 		integer :: ii,kk,jj
 		
@@ -38,7 +38,8 @@ contains
                 phi_loc=phifields_flip(ii,jj,kk,1,myblock)
                 if(abs(isfluid(i,j,k))==1)vel_com(3)=vel_com(3)+phi_loc !storo la massa
 			    if(phi_loc<0.5_db)then 
-				  vel_com(1)=vel_com(1) + hfields_flip(ii,jj,kk,4,myblock)*(1.0_db-phi_loc)
+			      w_loc=hfields_flip(ii,jj,kk,4,myblock)
+				  vel_com(1)=vel_com(1) + w_loc*(1.0_db-phi_loc)
 				  vel_com(2)=vel_com(2) + 1.0_db*(1.0_db-phi_loc) 
 				endif
 			  enddo

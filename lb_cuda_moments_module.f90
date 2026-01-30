@@ -70,6 +70,7 @@ contains
 
       real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
       real(kind=db) :: mytemp,forcex,forcey,forcez,rhophi_loc,press_loc,u_loc,v_loc,w_loc
+      real(kind=db) :: tforcex,tforcey,tforcez
 
 #ifdef TWOCOMPONENT
 	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc
@@ -173,20 +174,18 @@ contains
                    press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
                   forcey=forcey - &
                    press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
-		  forcez=forcez - &
-		   press_loc*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
+                  forcez=forcez - &
+                   press_loc*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
 		  !! from this point I compute the force terms that depend on the velocity
 		  !! these terms should be not included in force arrays since they must be computed with the updated velocity
 		  !! at the end of this subroutine
 #endif
-                  
-              
-                  
-		  forces_s(ii,jj,kk,1,myblock)=forcex
-		  forces_s(ii,jj,kk,2,myblock)=forcey
-		  forces_s(ii,jj,kk,3,myblock)=forcez
+		  
+                  tforcex=forcex
+                  tforcey=forcey
+                  tforcez=forcez
 				  
-		  u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
+                  u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_old(ii,jj,kk,3,myblock)
                   w_loc=hfields_old(ii,jj,kk,4,myblock)
                   
@@ -195,10 +194,10 @@ contains
 #if defined(ELASTIC_FORCE)
                   forcex=forcex + &
                    rhophi_loc*(u_loc - u_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+   
-		  forcey=forcey + &
-		   rhophi_loc*(v_loc - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-		  forcez=forcez + &
-		   rhophi_loc*(w_loc - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc + rhophi_loc*fz !+  	
+                  forcey=forcey + &
+                   rhophi_loc*(v_loc - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
+                  forcez=forcez + &
+                   rhophi_loc*(w_loc - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc + rhophi_loc*fz !+  	
 #endif
 
 #ifdef DENSRATIO 
@@ -234,35 +233,35 @@ contains
                   w_loc=hfields_s(ii,jj,kk,4,myblock)            
 					 
 #if defined(INTERFACE_INCOMP) && defined(DENSRATIO)
-		  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
-		  u_loc = u_loc + 0.5_db*forcex/(rhophi_loc)
+                  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+                  u_loc = u_loc + 0.5_db*forcex/(rhophi_loc)
                   v_loc = v_loc + 0.5_db*forcey/(rhophi_loc)
                   w_loc = w_loc + 0.5_db*forcez/(rhophi_loc)
 				  
-		  u_loc = u_loc/ &
-		   (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc )
+                  u_loc = u_loc/ &
+                   (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc )
 				  
-		  v_loc = v_loc/ &
-		   (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc ) 
+                  v_loc = v_loc/ &
+                   (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc ) 
 				  
-		  w_loc = w_loc/ &
-	           (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc ) 
+                  w_loc = w_loc/ &
+                   (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc ) 
 
-		  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) - &
-		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*u_loc
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) - &
-		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*v_loc
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) - &
-		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*w_loc
+                  tforcex= tforcex - &
+                   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*u_loc
+                  tforcey= tforcey - &
+                   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*v_loc
+                  tforcez= tforcez - &
+                   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*w_loc
 					 
-		  forcex=forcex - &
-		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*u_loc
+                  forcex=forcex - &
+                   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*u_loc
 					 
-		  forcey=forcey - &
-		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*v_loc
+                  forcey=forcey - &
+                   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*v_loc
 					 
-		  forcez=forcez - &
-		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*w_loc
+                  forcez=forcez - &
+                   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*w_loc
                   
 #else
                   u_loc = u_loc + 0.5_db*forcex/rhophi_loc
@@ -278,7 +277,7 @@ contains
                                     
 
 !regularized 
-		  pxx=hfields_s(ii,jj,kk,5,myblock)
+                  pxx=hfields_s(ii,jj,kk,5,myblock)
                   pyy=hfields_s(ii,jj,kk,6,myblock)
                   pzz=hfields_s(ii,jj,kk,7,myblock)
                   pxy=hfields_s(ii,jj,kk,8,myblock)
@@ -303,19 +302,19 @@ contains
                   
                   
 #if defined(ELASTIC_FORCE)
-		  u_ref(i,j,k) = u_ref(i,j,k) + &
-		   lambda_rel*(u_loc - u_ref(i,j,k))
-		  v_ref(i,j,k) = v_ref(i,j,k) + &
-		   lambda_rel*(v_loc - v_ref(i,j,k))
-		  w_ref(i,j,k) = w_ref(i,j,k) + &
-		   lambda_rel*(w_loc - w_ref(i,j,k))
+                  u_ref(i,j,k) = u_ref(i,j,k) + &
+                   lambda_rel*(u_loc - u_ref(i,j,k))
+                  v_ref(i,j,k) = v_ref(i,j,k) + &
+                   lambda_rel*(v_loc - v_ref(i,j,k))
+                  w_ref(i,j,k) = w_ref(i,j,k) + &
+                   lambda_rel*(w_loc - w_ref(i,j,k))
 				  
-                  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) + &
+                  tforcex = tforcex + &
                    rhophi_loc*(u_loc - u_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) +&
-		   rhophi_loc*(v_loc - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) + &
-		   rhophi_loc*(w_loc - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+rhophi_loc*fz  
+                  tforcey = tforcey +&
+                   rhophi_loc*(v_loc - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
+                  tforcez = tforcez + &
+                   rhophi_loc*(w_loc - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+rhophi_loc*fz  
 #endif               
                   
 #if defined(DENSRATIO)	
@@ -326,13 +325,17 @@ contains
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) - &
-		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) - &
-		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) - &
-		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
-#endif               
+                  tforcex = tforcex - &
+                   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
+                  tforcey = tforcey - &
+                   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
+                  tforcez = tforcez - &
+                   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
+#endif          
+                 
+                  forces_s(ii,jj,kk,1,myblock)=tforcex
+		          forces_s(ii,jj,kk,2,myblock)=tforcey
+		          forces_s(ii,jj,kk,3,myblock)=tforcez     
 
 
    endsubroutine moments_LB_kernel  
@@ -391,7 +394,8 @@ contains
 
       real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
       real(kind=db) :: mytemp,forcex,forcey,forcez,rhophi_loc,press_loc,u_loc,v_loc,w_loc
-
+      real(kind=db) :: tforcex,tforcey,tforcez
+      
 #ifdef TWOCOMPONENT
 	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc
 #endif
@@ -502,11 +506,11 @@ contains
                   
               
                   
-		  forces_s(ii,jj,kk,1,myblock)=forcex
-		  forces_s(ii,jj,kk,2,myblock)=forcey
-		  forces_s(ii,jj,kk,3,myblock)=forcez
+                  tforcex=forcex
+                  tforcey=forcey
+                  tforcez=forcez
 				  
-		  u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
+                  u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_old(ii,jj,kk,3,myblock)
                   w_loc=hfields_old(ii,jj,kk,4,myblock)
                   
@@ -568,11 +572,11 @@ contains
 		  w_loc = w_loc/ &
 	           (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc ) 
 
-		  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) - &
+		  tforcex= tforcex - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*u_loc
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) - &
+		  tforcey= tforcey - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*v_loc
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) - &
+		  tforcez= tforcez - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*w_loc
 					 
 		  forcex=forcex - &
@@ -630,11 +634,11 @@ contains
 		  w_ref(i,j,k) = w_ref(i,j,k) + &
 		   lambda_rel*(w_loc - w_ref(i,j,k))
 				  
-                  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) + &
+                  tforcex= tforcex + &
                    rhophi_loc*(u_loc - u_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) +&
+		  tforcey= tforcey +&
 		   rhophi_loc*(v_loc - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) + &
+		  tforcez= tforcez + &
 		   rhophi_loc*(w_loc - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+rhophi_loc*fz  
 #endif               
                   
@@ -646,14 +650,17 @@ contains
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) - &
+		  tforcex= tforcex - &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) - &
+		  tforcey= tforcey - &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) - &
+		  tforcez= tforcez - &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
+                  forces_s(ii,jj,kk,1,myblock)=tforcex
+		          forces_s(ii,jj,kk,2,myblock)=tforcey
+		          forces_s(ii,jj,kk,3,myblock)=tforcez  
 
    endsubroutine moments_LB_kernel_int
    
@@ -711,7 +718,8 @@ contains
 
       real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
       real(kind=db) :: mytemp,forcex,forcey,forcez,rhophi_loc,press_loc,u_loc,v_loc,w_loc
-
+      real(kind=db) :: tforcex,tforcey,tforcez
+      
 #ifdef TWOCOMPONENT
 	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc
 #endif
@@ -822,11 +830,11 @@ contains
                   
               
                   
-		  forces_s(ii,jj,kk,1,myblock)=forcex
-		  forces_s(ii,jj,kk,2,myblock)=forcey
-		  forces_s(ii,jj,kk,3,myblock)=forcez
+                  tforcex=forcex
+                  tforcey=forcey
+                  tforcez=forcez
 				  
-		  u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
+                  u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_old(ii,jj,kk,3,myblock)
                   w_loc=hfields_old(ii,jj,kk,4,myblock)
                   
@@ -888,11 +896,11 @@ contains
 		  w_loc = w_loc/ &
 	           (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc ) 
 
-		  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) - &
+		  tforcex= tforcex - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*u_loc
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) - &
+		  tforcey= tforcey - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*v_loc
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) - &
+		  tforcez= tforcez - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*w_loc
 					 
 		  forcex=forcex - &
@@ -950,11 +958,11 @@ contains
 		  w_ref(i,j,k) = w_ref(i,j,k) + &
 		   lambda_rel*(w_loc - w_ref(i,j,k))
 				  
-                  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) + &
+                  tforcex= tforcex + &
                    rhophi_loc*(u_loc - u_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) +&
+		  tforcey= tforcey +&
 		   rhophi_loc*(v_loc - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) + &
+		  tforcez= tforcez + &
 		   rhophi_loc*(w_loc - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+rhophi_loc*fz  
 #endif               
                   
@@ -966,14 +974,17 @@ contains
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) - &
+		  tforcex= tforcex - &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) - &
+		  tforcey= tforcey - &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) - &
+		  tforcez= tforcez - &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
+                  forces_s(ii,jj,kk,1,myblock)=tforcex
+		          forces_s(ii,jj,kk,2,myblock)=tforcey
+		          forces_s(ii,jj,kk,3,myblock)=tforcez  
 
    endsubroutine moments_LB_kernel_xplus
    
@@ -1031,7 +1042,8 @@ contains
 
       real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
       real(kind=db) :: mytemp,forcex,forcey,forcez,rhophi_loc,press_loc,u_loc,v_loc,w_loc
-
+      real(kind=db) :: tforcex,tforcey,tforcez
+      
 #ifdef TWOCOMPONENT
 	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc
 #endif
@@ -1142,11 +1154,11 @@ contains
                   
               
                   
-		  forces_s(ii,jj,kk,1,myblock)=forcex
-		  forces_s(ii,jj,kk,2,myblock)=forcey
-		  forces_s(ii,jj,kk,3,myblock)=forcez
+                  tforcex=forcex
+                  tforcey=forcey
+                  tforcez=forcez
 				  
-		  u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
+                  u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_old(ii,jj,kk,3,myblock)
                   w_loc=hfields_old(ii,jj,kk,4,myblock)
                   
@@ -1208,11 +1220,11 @@ contains
 		  w_loc = w_loc/ &
 	           (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc ) 
 
-		  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) - &
+		  tforcex= tforcex - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*u_loc
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) - &
+		  tforcey= tforcey - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*v_loc
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) - &
+		  tforcez= tforcez - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*w_loc
 					 
 		  forcex=forcex - &
@@ -1270,11 +1282,11 @@ contains
 		  w_ref(i,j,k) = w_ref(i,j,k) + &
 		   lambda_rel*(w_loc - w_ref(i,j,k))
 				  
-                  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) + &
+                  tforcex= tforcex + &
                    rhophi_loc*(u_loc - u_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) +&
+		  tforcey= tforcey +&
 		   rhophi_loc*(v_loc - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) + &
+		  tforcez= tforcez + &
 		   rhophi_loc*(w_loc - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+rhophi_loc*fz  
 #endif               
                   
@@ -1286,14 +1298,17 @@ contains
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) - &
+		  tforcex= tforcex - &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) - &
+		  tforcey= tforcey - &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) - &
+		  tforcez= tforcez - &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
+                  forces_s(ii,jj,kk,1,myblock)=tforcex
+		          forces_s(ii,jj,kk,2,myblock)=tforcey
+		          forces_s(ii,jj,kk,3,myblock)=tforcez  
 
    endsubroutine moments_LB_kernel_xminus
    
@@ -1351,7 +1366,8 @@ contains
 
       real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
       real(kind=db) :: mytemp,forcex,forcey,forcez,rhophi_loc,press_loc,u_loc,v_loc,w_loc
-
+      real(kind=db) :: tforcex,tforcey,tforcez
+      
 #ifdef TWOCOMPONENT
 	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc
 #endif
@@ -1462,11 +1478,11 @@ contains
                   
               
                   
-		  forces_s(ii,jj,kk,1,myblock)=forcex
-		  forces_s(ii,jj,kk,2,myblock)=forcey
-		  forces_s(ii,jj,kk,3,myblock)=forcez
+                  tforcex=forcex
+                  tforcey=forcey
+                  tforcez=forcez
 				  
-		  u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
+                  u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_old(ii,jj,kk,3,myblock)
                   w_loc=hfields_old(ii,jj,kk,4,myblock)
                   
@@ -1528,11 +1544,11 @@ contains
 		  w_loc = w_loc/ &
 	           (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc ) 
 
-		  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) - &
+		  tforcex= tforcex - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*u_loc
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) - &
+		  tforcey= tforcey - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*v_loc
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) - &
+		  tforcez= tforcez - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*w_loc
 					 
 		  forcex=forcex - &
@@ -1590,11 +1606,11 @@ contains
 		  w_ref(i,j,k) = w_ref(i,j,k) + &
 		   lambda_rel*(w_loc - w_ref(i,j,k))
 				  
-                  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) + &
+                  tforcex= tforcex + &
                    rhophi_loc*(u_loc - u_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) +&
+		  tforcey= tforcey +&
 		   rhophi_loc*(v_loc - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) + &
+		  tforcez= tforcez + &
 		   rhophi_loc*(w_loc - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+rhophi_loc*fz  
 #endif               
                   
@@ -1606,14 +1622,17 @@ contains
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) - &
+		  tforcex= tforcex - &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) - &
+		  tforcey= tforcey - &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) - &
+		  tforcez= tforcez - &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
+                  forces_s(ii,jj,kk,1,myblock)=tforcex
+		          forces_s(ii,jj,kk,2,myblock)=tforcey
+		          forces_s(ii,jj,kk,3,myblock)=tforcez  
 
    endsubroutine moments_LB_kernel_yplus
    
@@ -1671,7 +1690,8 @@ contains
 
       real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
       real(kind=db) :: mytemp,forcex,forcey,forcez,rhophi_loc,press_loc,u_loc,v_loc,w_loc
-
+      real(kind=db) :: tforcex,tforcey,tforcez
+      
 #ifdef TWOCOMPONENT
 	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc
 #endif
@@ -1782,11 +1802,11 @@ contains
                   
               
                   
-		  forces_s(ii,jj,kk,1,myblock)=forcex
-		  forces_s(ii,jj,kk,2,myblock)=forcey
-		  forces_s(ii,jj,kk,3,myblock)=forcez
+                  tforcex=forcex
+                  tforcey=forcey
+                  tforcez=forcez
 				  
-		  u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
+                  u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_old(ii,jj,kk,3,myblock)
                   w_loc=hfields_old(ii,jj,kk,4,myblock)
                   
@@ -1848,11 +1868,11 @@ contains
 		  w_loc = w_loc/ &
 	           (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc ) 
 
-		  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) - &
+		  tforcex= tforcex - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*u_loc
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) - &
+		  tforcey= tforcey - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*v_loc
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) - &
+		  tforcez= tforcez - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*w_loc
 					 
 		  forcex=forcex - &
@@ -1910,11 +1930,11 @@ contains
 		  w_ref(i,j,k) = w_ref(i,j,k) + &
 		   lambda_rel*(w_loc - w_ref(i,j,k))
 				  
-                  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) + &
+                  tforcex= tforcex + &
                    rhophi_loc*(u_loc - u_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) +&
+		  tforcey= tforcey +&
 		   rhophi_loc*(v_loc - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) + &
+		  tforcez= tforcez + &
 		   rhophi_loc*(w_loc - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+rhophi_loc*fz  
 #endif               
                   
@@ -1926,14 +1946,17 @@ contains
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) - &
+		  tforcex= tforcex - &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) - &
+		  tforcey= tforcey - &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) - &
+		  tforcez= tforcez - &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
+                  forces_s(ii,jj,kk,1,myblock)=tforcex
+		          forces_s(ii,jj,kk,2,myblock)=tforcey
+		          forces_s(ii,jj,kk,3,myblock)=tforcez  
 
    endsubroutine moments_LB_kernel_yminus
    
@@ -1991,7 +2014,8 @@ contains
 
       real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
       real(kind=db) :: mytemp,forcex,forcey,forcez,rhophi_loc,press_loc,u_loc,v_loc,w_loc
-
+      real(kind=db) :: tforcex,tforcey,tforcez
+      
 #ifdef TWOCOMPONENT
 	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc
 #endif
@@ -2102,11 +2126,11 @@ contains
                   
               
                   
-		  forces_s(ii,jj,kk,1,myblock)=forcex
-		  forces_s(ii,jj,kk,2,myblock)=forcey
-		  forces_s(ii,jj,kk,3,myblock)=forcez
+                  tforcex=forcex
+                  tforcey=forcey
+                  tforcez=forcez
 				  
-		  u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
+                  u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_old(ii,jj,kk,3,myblock)
                   w_loc=hfields_old(ii,jj,kk,4,myblock)
                   
@@ -2168,11 +2192,11 @@ contains
 		  w_loc = w_loc/ &
 	           (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc ) 
 
-		  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) - &
+		  tforcex= tforcex - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*u_loc
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) - &
+		  tforcey= tforcey - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*v_loc
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) - &
+		  tforcez= tforcez - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*w_loc
 					 
 		  forcex=forcex - &
@@ -2230,11 +2254,11 @@ contains
 		  w_ref(i,j,k) = w_ref(i,j,k) + &
 		   lambda_rel*(w_loc - w_ref(i,j,k))
 				  
-                  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) + &
+                  tforcex= tforcex + &
                    rhophi_loc*(u_loc - u_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) +&
+		  tforcey= tforcey +&
 		   rhophi_loc*(v_loc - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) + &
+		  tforcez= tforcez + &
 		   rhophi_loc*(w_loc - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+rhophi_loc*fz  
 #endif               
                   
@@ -2246,14 +2270,17 @@ contains
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) - &
+		  tforcex= tforcex - &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) - &
+		  tforcey= tforcey - &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) - &
+		  tforcez= tforcez - &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
+                  forces_s(ii,jj,kk,1,myblock)=tforcex
+		          forces_s(ii,jj,kk,2,myblock)=tforcey
+		          forces_s(ii,jj,kk,3,myblock)=tforcez  
 
    endsubroutine moments_LB_kernel_zplus
    
@@ -2311,6 +2338,7 @@ contains
 
       real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
       real(kind=db) :: mytemp,forcex,forcey,forcez,rhophi_loc,press_loc,u_loc,v_loc,w_loc
+      real(kind=db) :: tforcex,tforcey,tforcez
 
 #ifdef TWOCOMPONENT
 	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc
@@ -2422,11 +2450,11 @@ contains
                   
               
                   
-		  forces_s(ii,jj,kk,1,myblock)=forcex
-		  forces_s(ii,jj,kk,2,myblock)=forcey
-		  forces_s(ii,jj,kk,3,myblock)=forcez
+                  tforcex=forcex
+                  tforcey=forcey
+                  tforcez=forcez
 				  
-		  u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
+                  u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_old(ii,jj,kk,3,myblock)
                   w_loc=hfields_old(ii,jj,kk,4,myblock)
                   
@@ -2488,11 +2516,11 @@ contains
 		  w_loc = w_loc/ &
 	           (1.0_db - 0.5_db*(rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)/rhophi_loc ) 
 
-		  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) - &
+		  tforcex= tforcex - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*u_loc
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) - &
+		  tforcey= tforcey - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*v_loc
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) - &
+		  tforcez= tforcez - &
 		   (rho_r-rho_b)*(tau_diff*lap_phi_loc + mytemp)*w_loc
 					 
 		  forcex=forcex - &
@@ -2550,11 +2578,11 @@ contains
 		  w_ref(i,j,k) = w_ref(i,j,k) + &
 		   lambda_rel*(w_loc - w_ref(i,j,k))
 				  
-                  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) + &
+                  tforcex= tforcex + &
                    rhophi_loc*(u_loc - u_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) +&
+		  tforcey= tforcey +&
 		   rhophi_loc*(v_loc - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) + &
+		  tforcez= tforcez + &
 		   rhophi_loc*(w_loc - w_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+rhophi_loc*fz  
 #endif               
                   
@@ -2566,14 +2594,17 @@ contains
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  forces_s(ii,jj,kk,1,myblock)= forces_s(ii,jj,kk,1,myblock) - &
+		  tforcex= tforcex - &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forces_s(ii,jj,kk,2,myblock)= forces_s(ii,jj,kk,2,myblock) - &
+		  tforcey= tforcey - &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forces_s(ii,jj,kk,3,myblock)= forces_s(ii,jj,kk,3,myblock) - &
+		  tforcez= tforcez - &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
+                  forces_s(ii,jj,kk,1,myblock)=tforcex
+		          forces_s(ii,jj,kk,2,myblock)=tforcey
+		          forces_s(ii,jj,kk,3,myblock)=tforcez  
 
    endsubroutine moments_LB_kernel_zminus
    
