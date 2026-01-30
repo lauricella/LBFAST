@@ -360,6 +360,16 @@ program threadsafeLB
 #else
       write(6,'(a)') 'Compiled for single component'
 #endif
+#if PRC==4
+      write(6,'(a)') 'Compiled in single precision'
+#elif PRC==8
+      write(6,'(a)') 'Compiled in double precision'
+#endif
+#ifdef PRINTHALF
+      write(6,'(a)') 'File written in half precision'
+#else
+      write(6,'(a)') 'File written in single precision'
+#endif
       write(6,'(a)') '*******************LB data*****************'
       write(6,'(a,g16.8)') 'tau1',tau1
 	  write(6,'(a,g16.8)') 'visc',visc1
