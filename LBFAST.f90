@@ -35,12 +35,12 @@ program threadsafeLB
     nplanes,stamp_term,time_limit,every_time_check,lwriterestart,lweakscaling
     
    namelist /fluid/ fx,fy,fz,visc1, &
+    radius,width,center, &
 #ifdef TWOCOMPONENT
     tau_diff,sigma,wettab_r,wettab_b,visc2, &
 #ifdef MONOD	
 	mu_max,Ks, &
 #endif
-    radius,width,center, &
 #ifdef DENSRATIO
     rho_r,rho_b, &
 #endif

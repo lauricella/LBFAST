@@ -11,12 +11,14 @@ module lb_cuda_driver
    use cudafor
    use mpi_template, only: coords,dostop,doerror,mydev,myrank,nprocs,nbuff,nbuffbvec
    use lb_cuda_vars
+#ifdef TWOCOMPONENT
    use lb_cuda_auxfields, only: compute_norm_interface_kernel,compute_div_theta_n_kernel, &
     compute_norm_interface_kernel_int,compute_norm_interface_kernel_ext, &
     compute_norm_interface_kernel_xminus,compute_norm_interface_kernel_xplus, &
     compute_norm_interface_kernel_yminus,compute_norm_interface_kernel_yplus, &
     compute_norm_interface_kernel_zminus,compute_norm_interface_kernel_zplus
    use lb_cuda_repulsive, only: thinfilm_scan_mark_kernel,repulsive_flux_normal_kernel
+#endif
    use lb_cuda_moments, only: moments_LB_kernel,moments_LB_kernel_int, &
     moments_LB_kernel_xminus,moments_LB_kernel_xplus, &
     moments_LB_kernel_yminus,moments_LB_kernel_yplus, &
@@ -25,10 +27,12 @@ module lb_cuda_driver
     fused_LB_kernel_xminus,fused_LB_kernel_xplus, &
     fused_LB_kernel_yminus,fused_LB_kernel_yplus, &
     fused_LB_kernel_zminus,fused_LB_kernel_zplus
+#ifdef TWOCOMPONENT
    use lb_cuda_update_phi, only: update_phifields_kernel,update_phifields_kernel_int, &
     update_phifields_kernel_xminus,update_phifields_kernel_xplus, &
     update_phifields_kernel_yminus,update_phifields_kernel_yplus, &
     update_phifields_kernel_zminus,update_phifields_kernel_zplus
+#endif
    use lb_cuda_boundary, only: LB_int_boundary_kernel,PHI_int_boundary_kernel, &
     phi_sum_count_kernel,apply_lagrangian_phi_kernel
 
@@ -898,7 +902,11 @@ contains
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
 	   ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_old,hfields_s,auxfields,locauxfields,forces)
+	   ,hfields_old,hfields_s &
+#ifdef TWOCOMPONENT 	   
+	   ,auxfields,locauxfields &
+#endif
+	   ,forces)
 !$acc end host_data
       
       istat = cudaGetLastError()
@@ -971,7 +979,11 @@ contains
         ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
 	    ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	    ,hfields_old,hfields_s,auxfields,locauxfields,forces)
+	    ,hfields_old,hfields_s &
+#ifdef TWOCOMPONENT 	   
+	   ,auxfields,locauxfields &
+#endif
+	   ,forces)
       
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
@@ -1042,7 +1054,11 @@ contains
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
 	   ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_old,hfields_s,auxfields,locauxfields,forces)
+	   ,hfields_old,hfields_s &
+#ifdef TWOCOMPONENT 	   
+	   ,auxfields,locauxfields &
+#endif
+	   ,forces)
 
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
@@ -1076,7 +1092,11 @@ contains
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
 	   ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_old,hfields_s,auxfields,locauxfields,forces)
+	   ,hfields_old,hfields_s &
+#ifdef TWOCOMPONENT 	   
+	   ,auxfields,locauxfields &
+#endif
+	   ,forces)
 
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
@@ -1111,7 +1131,11 @@ contains
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
 	   ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_old,hfields_s,auxfields,locauxfields,forces)
+	   ,hfields_old,hfields_s &
+#ifdef TWOCOMPONENT 	   
+	   ,auxfields,locauxfields &
+#endif
+	   ,forces)
 
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
@@ -1146,7 +1170,11 @@ contains
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
 	   ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_old,hfields_s,auxfields,locauxfields,forces)
+	   ,hfields_old,hfields_s &
+#ifdef TWOCOMPONENT 	   
+	   ,auxfields,locauxfields &
+#endif
+	   ,forces)
 
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
@@ -1181,7 +1209,11 @@ contains
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
 	   ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_old,hfields_s,auxfields,locauxfields,forces)
+	   ,hfields_old,hfields_s &
+#ifdef TWOCOMPONENT 	   
+	   ,auxfields,locauxfields &
+#endif
+	   ,forces)
 
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
@@ -1216,7 +1248,11 @@ contains
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
 	   ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_old,hfields_s,auxfields,locauxfields,forces)
+	   ,hfields_old,hfields_s &
+#ifdef TWOCOMPONENT 	   
+	   ,auxfields,locauxfields &
+#endif
+	   ,forces)
 
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
@@ -1287,7 +1323,11 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+	   ,hfields_in,hfields_out, &
+#ifdef TWOCOMPONENT 
+	   auxfields,locauxfields, &
+#endif   
+	   forces)
 
       
       istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
@@ -1360,7 +1400,11 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+	   ,hfields_in,hfields_out, &
+#ifdef TWOCOMPONENT 
+	   auxfields,locauxfields, &
+#endif   
+	   forces)
 
       
       istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
@@ -1433,7 +1477,11 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+	   ,hfields_in,hfields_out, &
+#ifdef TWOCOMPONENT 
+	   auxfields,locauxfields, &
+#endif   
+	   forces)
 	   
       istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
       if (istat /= cudaSuccess) then
@@ -1467,7 +1515,11 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+	   ,hfields_in,hfields_out, &
+#ifdef TWOCOMPONENT 
+	   auxfields,locauxfields, &
+#endif   
+	   forces)
 	   
       istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
       if (istat /= cudaSuccess) then
@@ -1502,7 +1554,11 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+	   ,hfields_in,hfields_out, &
+#ifdef TWOCOMPONENT 
+	   auxfields,locauxfields, &
+#endif   
+	   forces)
 	   
       istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
       if (istat /= cudaSuccess) then
@@ -1537,7 +1593,11 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+	   ,hfields_in,hfields_out, &
+#ifdef TWOCOMPONENT 
+	   auxfields,locauxfields, &
+#endif   
+	   forces)
 	   
       istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
       if (istat /= cudaSuccess) then
@@ -1572,7 +1632,11 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+	   ,hfields_in,hfields_out, &
+#ifdef TWOCOMPONENT 
+	   auxfields,locauxfields, &
+#endif   
+	   forces)
 	   
       istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
       if (istat /= cudaSuccess) then
@@ -1607,7 +1671,11 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+	   ,hfields_in,hfields_out, &
+#ifdef TWOCOMPONENT 
+	   auxfields,locauxfields, &
+#endif   
+	   forces)
 	   
       istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
       if (istat /= cudaSuccess) then
@@ -1999,7 +2067,11 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-	   ,hfields_in,hfields_out,auxfields,locauxfields,forces)
+	   ,hfields_in,hfields_out, &
+#ifdef TWOCOMPONENT 
+	   auxfields,locauxfields, &
+#endif   
+	   forces)
 !$acc end host_data
       istat = cudaDeviceSynchronize
       istat = cudaGetLastError()

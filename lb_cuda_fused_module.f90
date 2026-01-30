@@ -31,7 +31,11 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
-       hfields_in,hfields_out,auxfields_s,locauxfields_s,forces_s)
+       hfields_in,hfields_out &
+#ifdef TWOCOMPONENT 
+       ,auxfields_s,locauxfields_s &
+#endif   
+       ,forces_s)
 
       implicit none
       
@@ -56,9 +60,10 @@ contains
       real(kind=db) :: visc1,omega,fx,fy,fz
       
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
-      
+#ifdef TWOCOMPONENT 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+#endif  
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       real(kind=db), shared :: f_front(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
@@ -323,7 +328,11 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
-       hfields_in,hfields_out,auxfields_s,locauxfields_s,forces_s)
+       hfields_in,hfields_out &
+#ifdef TWOCOMPONENT 
+       ,auxfields_s,locauxfields_s &
+#endif   
+       ,forces_s)
 
       implicit none
       
@@ -348,9 +357,10 @@ contains
       real(kind=db) :: visc1,omega,fx,fy,fz
       
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
-      
+#ifdef TWOCOMPONENT 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+#endif  
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       real(kind=db), shared :: ftemp(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
@@ -594,7 +604,11 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
-       hfields_in,hfields_out,auxfields_s,locauxfields_s,forces_s)
+       hfields_in,hfields_out &
+#ifdef TWOCOMPONENT 
+       ,auxfields_s,locauxfields_s &
+#endif   
+       ,forces_s)
 
       implicit none
       
@@ -619,9 +633,10 @@ contains
       real(kind=db) :: visc1,omega,fx,fy,fz
       
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
-      
+#ifdef TWOCOMPONENT 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+#endif  
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       real(kind=db), shared :: ftemp(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
@@ -845,7 +860,11 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
-       hfields_in,hfields_out,auxfields_s,locauxfields_s,forces_s)
+       hfields_in,hfields_out &
+#ifdef TWOCOMPONENT 
+       ,auxfields_s,locauxfields_s &
+#endif   
+       ,forces_s)
 
       implicit none
       
@@ -870,9 +889,10 @@ contains
       real(kind=db) :: visc1,omega,fx,fy,fz
       
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
-      
+#ifdef TWOCOMPONENT 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+#endif  
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       real(kind=db), shared :: ftemp(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
@@ -1107,7 +1127,11 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
-       hfields_in,hfields_out,auxfields_s,locauxfields_s,forces_s)
+       hfields_in,hfields_out &
+#ifdef TWOCOMPONENT 
+       ,auxfields_s,locauxfields_s &
+#endif   
+       ,forces_s)
 
       implicit none
       
@@ -1132,9 +1156,10 @@ contains
       real(kind=db) :: visc1,omega,fx,fy,fz
       
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
-      
+#ifdef TWOCOMPONENT 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+#endif  
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       real(kind=db), shared :: ftemp(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
@@ -1370,7 +1395,11 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
-       hfields_in,hfields_out,auxfields_s,locauxfields_s,forces_s)
+       hfields_in,hfields_out &
+#ifdef TWOCOMPONENT 
+       ,auxfields_s,locauxfields_s &
+#endif   
+       ,forces_s)
 
       implicit none
       
@@ -1395,9 +1424,10 @@ contains
       real(kind=db) :: visc1,omega,fx,fy,fz
       
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
-      
+#ifdef TWOCOMPONENT 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+#endif  
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       real(kind=db), shared :: ftemp(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
@@ -1624,7 +1654,11 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
-       hfields_in,hfields_out,auxfields_s,locauxfields_s,forces_s)
+       hfields_in,hfields_out &
+#ifdef TWOCOMPONENT 
+       ,auxfields_s,locauxfields_s &
+#endif   
+       ,forces_s)
 
       implicit none
       
@@ -1649,9 +1683,10 @@ contains
       real(kind=db) :: visc1,omega,fx,fy,fz
       
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
-      
+#ifdef TWOCOMPONENT 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+#endif  
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       real(kind=db), shared :: ftemp(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
@@ -1876,7 +1911,11 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
-       hfields_in,hfields_out,auxfields_s,locauxfields_s,forces_s)
+       hfields_in,hfields_out &
+#ifdef TWOCOMPONENT 
+       ,auxfields_s,locauxfields_s &
+#endif   
+       ,forces_s)
 
       implicit none
       
@@ -1901,9 +1940,10 @@ contains
       real(kind=db) :: visc1,omega,fx,fy,fz
       
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
-      
+#ifdef TWOCOMPONENT 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+#endif  
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       real(kind=db), shared :: ftemp(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
@@ -2130,7 +2170,11 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
-       hfields_in,hfields_out,auxfields_s,locauxfields_s,forces_s)
+       hfields_in,hfields_out &
+#ifdef TWOCOMPONENT 
+       ,auxfields_s,locauxfields_s &
+#endif   
+       ,forces_s)
 
       implicit none
       
@@ -2155,9 +2199,10 @@ contains
       real(kind=db) :: visc1,omega,fx,fy,fz
       
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
-      
+#ifdef TWOCOMPONENT 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+#endif  
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       real(kind=db), shared :: ftemp(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)

@@ -15,7 +15,7 @@ module lb_cuda_update_phi
    
 
 contains
-   
+#ifdef TWOCOMPONENT   
    attributes(global) subroutine update_phifields_kernel(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
 #ifdef TWOCOMPONENT    
     ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
@@ -736,5 +736,6 @@ contains
       return
       
    endsubroutine update_phifields_kernel_zminus
+#endif
 
 endmodule lb_cuda_update_phi

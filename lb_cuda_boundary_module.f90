@@ -30,7 +30,11 @@ contains
 #endif
 #endif   
        ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-       ,hfields_in,hfields_out,auxfields_s,locauxfields_s,forces_s)
+       ,hfields_in,hfields_out &
+#ifdef TWOCOMPONENT 
+       ,auxfields_s,locauxfields_s &
+#endif  
+       ,forces_s)
 
       implicit none
       
@@ -54,9 +58,10 @@ contains
       real(kind=db) :: visc1,omega,fx,fy,fz
       
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
-
+#ifdef TWOCOMPONENT 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+#endif 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
 
@@ -208,7 +213,7 @@ contains
      return
 
    endsubroutine LB_int_boundary_kernel   
-   
+#ifdef TWOCOMPONENT	    
    attributes(global) subroutine PHI_int_boundary_kernel(flop,nx,ny,nz,coords,isfluid &
     ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
 #ifdef WETTABILITY  
@@ -431,5 +436,5 @@ contains
       return
     
   end subroutine apply_lagrangian_phi_kernel
-
+#endif
 endmodule lb_cuda_boundary

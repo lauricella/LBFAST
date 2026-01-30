@@ -15,7 +15,7 @@ module lb_cuda_repulsive
    
 
 contains
-   
+#ifdef TWOCOMPONENT   
    attributes(global) subroutine thinfilm_scan_mark_kernel(flop,nx,ny,nz,coords,q_th,win,cosOppT,pwr,A_rep,isfluid, &
     rep_mask,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields_s,locauxfields_s)
       implicit none
@@ -287,6 +287,6 @@ contains
 	  locauxfields_s(ii,jj,kk,8,myblock) = dz * scales
        
  end subroutine repulsive_flux_normal_kernel
-
+#endif
 
 endmodule lb_cuda_repulsive

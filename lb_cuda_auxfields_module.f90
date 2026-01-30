@@ -15,7 +15,7 @@ module lb_cuda_auxfields
    
 
 contains
-
+#ifdef TWOCOMPONENT
   attributes(global) subroutine compute_norm_interface_kernel(step, &
    iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
    ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields_s,locauxfields_s)
@@ -1082,7 +1082,7 @@ contains
       return
       
    endsubroutine compute_norm_interface_kernel_zminus
-   
+  
    attributes(global) subroutine compute_div_theta_n_kernel(flop,nx,ny,nz,coords,isfluid, &
      rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields_s,locauxfields_s)
 
@@ -1162,5 +1162,5 @@ contains
       return
       
    endsubroutine compute_div_theta_n_kernel
-
+#endif 
 endmodule lb_cuda_auxfields

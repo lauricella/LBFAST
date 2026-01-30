@@ -30,7 +30,11 @@ contains
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
        ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-       ,hfields_old,hfields_s,auxfields_s,locauxfields_s,forces_s)
+       ,hfields_old,hfields_s &
+#ifdef TWOCOMPONENT        
+       ,auxfields_s,locauxfields_s &
+#endif
+       ,forces_s)
  
 
       implicit none
@@ -57,8 +61,10 @@ contains
       real(kind=db) :: fx,fy,fz
 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
+#ifdef TWOCOMPONENT 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+#endif
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
 
@@ -345,7 +351,11 @@ contains
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
        ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-       ,hfields_old,hfields_s,auxfields_s,locauxfields_s,forces_s)
+       ,hfields_old,hfields_s &
+#ifdef TWOCOMPONENT        
+       ,auxfields_s,locauxfields_s &
+#endif
+       ,forces_s)
  
 
       implicit none
@@ -372,8 +382,10 @@ contains
       real(kind=db) :: fx,fy,fz
 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
+#ifdef TWOCOMPONENT 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+#endif
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
 
@@ -659,7 +671,11 @@ contains
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
        ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-       ,hfields_old,hfields_s,auxfields_s,locauxfields_s,forces_s)
+       ,hfields_old,hfields_s &
+#ifdef TWOCOMPONENT        
+       ,auxfields_s,locauxfields_s &
+#endif
+       ,forces_s)
  
 
       implicit none
@@ -686,8 +702,10 @@ contains
       real(kind=db) :: fx,fy,fz
 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
+#ifdef TWOCOMPONENT 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+#endif
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
 
@@ -973,7 +991,11 @@ contains
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
        ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-       ,hfields_old,hfields_s,auxfields_s,locauxfields_s,forces_s)
+       ,hfields_old,hfields_s &
+#ifdef TWOCOMPONENT        
+       ,auxfields_s,locauxfields_s &
+#endif
+       ,forces_s)
  
 
       implicit none
@@ -1000,8 +1022,10 @@ contains
       real(kind=db) :: fx,fy,fz
 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
+#ifdef TWOCOMPONENT 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+#endif
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
 
@@ -1287,7 +1311,11 @@ contains
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
        ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-       ,hfields_old,hfields_s,auxfields_s,locauxfields_s,forces_s)
+       ,hfields_old,hfields_s &
+#ifdef TWOCOMPONENT        
+       ,auxfields_s,locauxfields_s &
+#endif
+       ,forces_s)
  
 
       implicit none
@@ -1314,8 +1342,10 @@ contains
       real(kind=db) :: fx,fy,fz
 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
+#ifdef TWOCOMPONENT 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+#endif
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
 
@@ -1601,7 +1631,11 @@ contains
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
        ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-       ,hfields_old,hfields_s,auxfields_s,locauxfields_s,forces_s)
+       ,hfields_old,hfields_s &
+#ifdef TWOCOMPONENT        
+       ,auxfields_s,locauxfields_s &
+#endif
+       ,forces_s)
  
 
       implicit none
@@ -1628,8 +1662,10 @@ contains
       real(kind=db) :: fx,fy,fz
 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
+#ifdef TWOCOMPONENT 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+#endif
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
 
@@ -1915,7 +1951,11 @@ contains
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
        ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-       ,hfields_old,hfields_s,auxfields_s,locauxfields_s,forces_s)
+       ,hfields_old,hfields_s &
+#ifdef TWOCOMPONENT        
+       ,auxfields_s,locauxfields_s &
+#endif
+       ,forces_s)
  
 
       implicit none
@@ -1942,8 +1982,10 @@ contains
       real(kind=db) :: fx,fy,fz
 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
+#ifdef TWOCOMPONENT 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+#endif
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
 
@@ -2229,7 +2271,11 @@ contains
        ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
 #endif
        ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
-       ,hfields_old,hfields_s,auxfields_s,locauxfields_s,forces_s)
+       ,hfields_old,hfields_s &
+#ifdef TWOCOMPONENT        
+       ,auxfields_s,locauxfields_s &
+#endif
+       ,forces_s)
  
 
       implicit none
@@ -2256,8 +2302,10 @@ contains
       real(kind=db) :: fx,fy,fz
 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
+#ifdef TWOCOMPONENT 
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+#endif
       real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
 
