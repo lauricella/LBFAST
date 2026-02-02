@@ -667,7 +667,7 @@ module vars
    
    integer :: flip,flop
 
-   real(kind=db), allocatable, dimension(:,:,:) :: arr_3d
+   real(kind=4), allocatable, dimension(:,:,:) :: arr_3d
 
    real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: hfields_flip,hfields_flop  !allocate hydro fields flip and flop
    real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_flip,phifields_flop  !allocate phi fields flip and flop

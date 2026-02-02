@@ -1067,7 +1067,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,1,myblock),kind=db)  
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,1,myblock),kind=4)  
              enddo
          enddo
       enddo 
@@ -1084,7 +1084,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,2,myblock),kind=db) 
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,2,myblock),kind=4) 
              enddo
          enddo
       enddo 
@@ -1101,7 +1101,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,3,myblock),kind=db) 
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,3,myblock),kind=4) 
              enddo
          enddo
       enddo  
@@ -1119,7 +1119,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,4,myblock),kind=db) 
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,4,myblock),kind=4) 
              enddo
          enddo
       enddo 
@@ -1136,7 +1136,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,5,myblock),kind=db) 
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,5,myblock),kind=4) 
              enddo
          enddo
       enddo 
@@ -1153,7 +1153,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,8,myblock),kind=db) 
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,8,myblock),kind=4) 
              enddo
          enddo
       enddo 
@@ -1170,7 +1170,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,9,myblock),kind=db) 
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,9,myblock),kind=4) 
              enddo
          enddo
       enddo 
@@ -1187,7 +1187,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,6,myblock),kind=db) 
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,6,myblock),kind=4) 
              enddo
          enddo
       enddo 
@@ -1204,7 +1204,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,10,myblock),kind=db) 
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,10,myblock),kind=4) 
              enddo
          enddo
       enddo 
@@ -1221,7 +1221,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,7,myblock),kind=db) 
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,7,myblock),kind=4) 
              enddo
          enddo
       enddo  
@@ -1492,7 +1492,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,1,myblock),kind=db) 
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,1,myblock),kind=4) 
              enddo
          enddo
       enddo 
@@ -1509,7 +1509,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,2,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,2,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -1526,7 +1526,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,3,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -1543,7 +1543,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,4,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -1560,7 +1560,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,5,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,5,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -1577,7 +1577,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,8,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,8,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -1594,7 +1594,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,9,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,9,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -1611,7 +1611,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,6,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,6,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -1628,7 +1628,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,10,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,10,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -1645,7 +1645,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,7,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,7,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -1662,7 +1662,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
-               arr_3d(i,j,k)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+               arr_3d(i,j,k)=real(phifields_s(ii,jj,kk,1,myblock),kind=4)
              enddo
          enddo
       enddo         

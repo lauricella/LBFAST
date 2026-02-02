@@ -36,7 +36,7 @@ module integrator_module
 #if defined(_OPENACC)        
    use lb_cuda_driver, only : moments_LB_cuda,fused_lb_cuda,test_LB_cuda, &
     compute_norm_interface_cuda,thinfilm_scan_mark_cuda,repulsive_flux_normal_cuda, &
-    compute_div_theta_n,update_phifields,fused_LB_cuda_int,fused_LB_cuda_ext, &
+    compute_div_theta_n,update_phifields, &
     moments_LB_cuda,moments_LB_cuda_int,moments_LB_cuda_ext, &
     update_phifields_int,update_phifields_ext, &
     compute_norm_interface_cuda_int,compute_norm_interface_cuda_ext

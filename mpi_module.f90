@@ -1956,7 +1956,7 @@ contains
       if(ltwocomp)then
         do l=1,nlinksmpi,2
           ll=(l+1)/2
-          call MPI_type_contiguous(f_num_extr(l), MYMPIREAL, f_datampi(ll), ierr)
+          call MPI_type_contiguous(f_num_extr(l), STRMPIREAL, f_datampi(ll), ierr)
           call MPI_type_commit(f_datampi(ll),ierr)
 #ifdef VERBOSE
           if(myrank.eq.0) then
@@ -1970,7 +1970,7 @@ contains
       !dir
         do l=1,nlinksmpi,2
           ll=(l+1)/2
-          call MPI_type_contiguous(fvec_num_extr(l), MYMPIREAL, fvec_datampi(ll), ierr)
+          call MPI_type_contiguous(fvec_num_extr(l), STRMPIREAL, fvec_datampi(ll), ierr)
           call MPI_type_commit(fvec_datampi(ll),ierr)
 #ifdef VERBOSE
           if(myrank.eq.0) then
@@ -1985,7 +1985,7 @@ contains
       !dir
       do l=1,nlinksmpi,2
          ll=(l+1)/2
-         call MPI_type_contiguous(b_num_extr(l), MYMPIREAL, b_datampi(ll), ierr)
+         call MPI_type_contiguous(b_num_extr(l), STRMPIREAL, b_datampi(ll), ierr)
          call MPI_type_commit(b_datampi(ll),ierr)
 #ifdef VERBOSE
          if(myrank.eq.0) then
@@ -1999,7 +1999,7 @@ contains
       !dir
       do l=1,nlinksmpi,2
          ll=(l+1)/2
-         call MPI_type_contiguous(c_num_extr(l), MYMPIREAL, c_datampi(ll), ierr)
+         call MPI_type_contiguous(c_num_extr(l), STRMPIREAL, c_datampi(ll), ierr)
          call MPI_type_commit(c_datampi(ll),ierr)
 #ifdef VERBOSE
          if(myrank.eq.0) then
@@ -4040,11 +4040,11 @@ contains
 
 
       call MPI_Type_create_subarray(3,gsizes,lsizes,myoffset, &
-         MPI_ORDER_FORTRAN,MYMPIREAL,filetypesub,e_io)
+         MPI_ORDER_FORTRAN,MPI_REAL,filetypesub,e_io)
 
       call MPI_Type_commit(filetypesub, e_io)
 
-      call MPI_File_Set_View(fdens,tempoffset,MYMPIREAL,filetypesub, &
+      call MPI_File_Set_View(fdens,tempoffset,MPI_REAL,filetypesub, &
          "native",MPI_INFO_NULL,e_io)
       
       ! We need full local sizes: memDims
@@ -4052,7 +4052,7 @@ contains
       memOffs = [ nbuffsub, nbuffsub, nbuffsub ]
 
       call MPI_TYPE_CREATE_SUBARRAY(3,memDims,lsizes,memOffs, &
-         MPI_ORDER_FORTRAN,MYMPIREAL,imemtype,e_io)
+         MPI_ORDER_FORTRAN,MPI_REAL,imemtype,e_io)
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
@@ -4067,7 +4067,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,1,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,1,myblock),kind=4)
              enddo
          enddo
       enddo
@@ -4084,7 +4084,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,2,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,2,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -4101,7 +4101,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,3,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -4118,75 +4118,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
-             enddo
-         enddo
-      enddo 
-      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
-
-      
-      do k=1,nz
-  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
-         do j=1,ny
-            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
-            do i=1,nx
-               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
-               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
-               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
-               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
-               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,5,myblock),kind=db)
-             enddo
-         enddo
-      enddo 
-      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
-      
-      
-      do k=1,nz
-  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
-         do j=1,ny
-            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
-            do i=1,nx
-               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
-               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
-               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
-               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
-               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,8,myblock),kind=db)
-             enddo
-         enddo
-      enddo 
-      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
-      
-      
-      do k=1,nz
-  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
-         do j=1,ny
-            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
-            do i=1,nx
-               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
-               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
-               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
-               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
-               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,9,myblock),kind=db)
-             enddo
-         enddo
-      enddo 
-      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
-      
-       
-      do k=1,nz
-  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
-         do j=1,ny
-            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
-            do i=1,nx
-               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
-               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
-               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
-               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
-               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,6,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,4,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -4203,7 +4135,41 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,10,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,5,myblock),kind=4)
+             enddo
+         enddo
+      enddo 
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      
+      
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,8,myblock),kind=4)
+             enddo
+         enddo
+      enddo 
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      
+      
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,9,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -4220,7 +4186,41 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,7,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,6,myblock),kind=4)
+             enddo
+         enddo
+      enddo 
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
+
+      
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,10,myblock),kind=4)
+             enddo
+         enddo
+      enddo 
+      call MPI_FILE_WRITE_ALL(fdens,arr_3d,1,imemtype,MPI_STATUS_IGNORE,e_io)
+      
+       
+      do k=1,nz
+  	     zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,7,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -4324,13 +4324,13 @@ contains
       call MPI_Barrier(MPI_COMM_WORLD, e_io)
 
       call MPI_Type_create_subarray(3,gsizes,lsizes,myoffset, &
-         MPI_ORDER_FORTRAN,MYMPIREAL,filetypesub,e_io)
+         MPI_ORDER_FORTRAN,MPI_REAL,filetypesub,e_io)
 
       call MPI_Type_commit(filetypesub, e_io)
       
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
       
-      call MPI_File_Set_View(fdens,tempoffset,MYMPIREAL,filetypesub, &
+      call MPI_File_Set_View(fdens,tempoffset,MPI_REAL,filetypesub, &
          "native",MPI_INFO_NULL,e_io)
          
       call MPI_Barrier(MPI_COMM_WORLD, e_io)
@@ -4340,7 +4340,7 @@ contains
       memOffs = [ nbuffsub, nbuffsub, nbuffsub ]
 
       call MPI_TYPE_CREATE_SUBARRAY(3,memDims,lsizes,memOffs, &
-         MPI_ORDER_FORTRAN,MYMPIREAL,imemtype,e_io)
+         MPI_ORDER_FORTRAN,MPI_REAL,imemtype,e_io)
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
@@ -4621,18 +4621,18 @@ contains
 
 
       call MPI_Type_create_subarray(3,gsizes,lsizes,myoffset, &
-         MPI_ORDER_FORTRAN,MYMPIREAL,filetypesub,e_io)
+         MPI_ORDER_FORTRAN,MPI_REAL,filetypesub,e_io)
 
       call MPI_Type_commit(filetypesub, e_io)
 
-      call MPI_File_Set_View(fdens,tempoffset,MYMPIREAL,filetypesub, &
+      call MPI_File_Set_View(fdens,tempoffset,MPI_REAL,filetypesub, &
          "native",MPI_INFO_NULL,e_io)
       ! We need full local sizes: memDims
       memDims = lsizes + 2*nbuffsub
       memOffs = [ nbuffsub, nbuffsub, nbuffsub ]
 
       call MPI_TYPE_CREATE_SUBARRAY(3,memDims,lsizes,memOffs, &
-         MPI_ORDER_FORTRAN,MYMPIREAL,imemtype,e_io)
+         MPI_ORDER_FORTRAN,MPI_REAL,imemtype,e_io)
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
@@ -4647,7 +4647,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,1,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,1,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -4664,7 +4664,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,2,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,2,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -4681,7 +4681,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,3,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -4698,7 +4698,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,4,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -4715,7 +4715,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,5,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,5,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -4732,7 +4732,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,8,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,8,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -4749,7 +4749,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,9,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,9,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -4766,7 +4766,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,6,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,6,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -4783,7 +4783,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,10,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,10,myblock),kind=4)
              enddo
          enddo
       enddo 
@@ -4800,7 +4800,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz
-               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,7,myblock),kind=db)
+               arr_3d(i,j,k)=real(hfields_s(ii,jj,kk,7,myblock),kind=4)
              enddo
          enddo
       enddo
@@ -4817,7 +4817,7 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
-               arr_3d(i,j,k)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+               arr_3d(i,j,k)=real(phifields_s(ii,jj,kk,1,myblock),kind=4)
              enddo
          enddo
       enddo
@@ -4927,13 +4927,13 @@ contains
       call MPI_Barrier(MPI_COMM_WORLD, e_io)
       
       call MPI_Type_create_subarray(3,gsizes,lsizes,myoffset, &
-         MPI_ORDER_FORTRAN,MYMPIREAL,filetypesub,e_io)
+         MPI_ORDER_FORTRAN,MPI_REAL,filetypesub,e_io)
 
       call MPI_Type_commit(filetypesub, e_io)
       
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
-      call MPI_File_Set_View(fdens,tempoffset,MYMPIREAL,filetypesub, &
+      call MPI_File_Set_View(fdens,tempoffset,MPI_REAL,filetypesub, &
          "native",MPI_INFO_NULL,e_io)
       
       call MPI_Barrier(MPI_COMM_WORLD, e_io)
@@ -4943,7 +4943,7 @@ contains
       memOffs = [ nbuffsub, nbuffsub, nbuffsub ]
 
       call MPI_TYPE_CREATE_SUBARRAY(3,memDims,lsizes,memOffs, &
-         MPI_ORDER_FORTRAN,MYMPIREAL,imemtype,e_io)
+         MPI_ORDER_FORTRAN,MPI_REAL,imemtype,e_io)
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
@@ -5232,13 +5232,13 @@ contains
       call MPI_Barrier(MPI_COMM_WORLD, e_io)
 
       call MPI_Type_create_subarray(3,gsizes,lsizes,myoffset, &
-         MPI_ORDER_FORTRAN,MYMPIREAL,filetypesub,e_io)
+         MPI_ORDER_FORTRAN,MPI_REAL,filetypesub,e_io)
       
       call MPI_Type_commit(filetypesub, e_io)
       
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
-      call MPI_File_Set_View(fdens,tempoffset,MYMPIREAL,filetypesub, &
+      call MPI_File_Set_View(fdens,tempoffset,MPI_REAL,filetypesub, &
          "native",MPI_INFO_NULL,e_io)
       
       call MPI_Barrier(MPI_COMM_WORLD, e_io)
@@ -5248,7 +5248,7 @@ contains
       memOffs = [ nbuffsub, nbuffsub, nbuffsub ]
 
       call MPI_TYPE_CREATE_SUBARRAY(3,memDims,lsizes,memOffs, &
-         MPI_ORDER_FORTRAN,MYMPIREAL,imemtype,e_io)
+         MPI_ORDER_FORTRAN,MPI_REAL,imemtype,e_io)
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
@@ -5333,13 +5333,13 @@ contains
       call MPI_Barrier(MPI_COMM_WORLD, e_io)
 
       call MPI_Type_create_subarray(3,gsizes,lsizes,myoffset, &
-         MPI_ORDER_FORTRAN,MYMPIREAL,filetypesub,e_io)
+         MPI_ORDER_FORTRAN,MPI_REAL,filetypesub,e_io)
 
       call MPI_Type_commit(filetypesub, e_io)
       
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
-      call MPI_File_Set_View(fdens,tempoffset,MYMPIREAL,filetypesub, &
+      call MPI_File_Set_View(fdens,tempoffset,MPI_REAL,filetypesub, &
          "native",MPI_INFO_NULL,e_io)
       
       call MPI_Barrier(MPI_COMM_WORLD, e_io)
@@ -5349,7 +5349,7 @@ contains
       memOffs = [ nbuffsub, nbuffsub, nbuffsub ]
 
       call MPI_TYPE_CREATE_SUBARRAY(3,memDims,lsizes,memOffs, &
-         MPI_ORDER_FORTRAN,MYMPIREAL,imemtype,e_io)
+         MPI_ORDER_FORTRAN,MPI_REAL,imemtype,e_io)
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
@@ -5404,13 +5404,13 @@ contains
       call MPI_Barrier(MPI_COMM_WORLD, e_io)
 
       call MPI_Type_create_subarray(3,gsizes,lsizes,myoffset, &
-         MPI_ORDER_FORTRAN,MYMPIREAL,filetypesub,e_io)
+         MPI_ORDER_FORTRAN,MPI_REAL,filetypesub,e_io)
 
       call MPI_Type_commit(filetypesub, e_io)
       
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
-      call MPI_File_Set_View(fdens,tempoffset,MYMPIREAL,filetypesub, &
+      call MPI_File_Set_View(fdens,tempoffset,MPI_REAL,filetypesub, &
          "native",MPI_INFO_NULL,e_io)
       
       call MPI_Barrier(MPI_COMM_WORLD, e_io)
@@ -5420,7 +5420,7 @@ contains
       memOffs = [ nbuffsub, nbuffsub, nbuffsub ]
 
       call MPI_TYPE_CREATE_SUBARRAY(3,memDims,lsizes,memOffs, &
-         MPI_ORDER_FORTRAN,MYMPIREAL,imemtype,e_io)
+         MPI_ORDER_FORTRAN,MPI_REAL,imemtype,e_io)
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
@@ -5475,13 +5475,13 @@ contains
       call MPI_Barrier(MPI_COMM_WORLD, e_io)
 
       call MPI_Type_create_subarray(3,gsizes,lsizes,myoffset, &
-         MPI_ORDER_FORTRAN,MYMPIREAL,filetypesub,e_io)
+         MPI_ORDER_FORTRAN,MPI_REAL,filetypesub,e_io)
 
       call MPI_Type_commit(filetypesub, e_io)
       
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
-      call MPI_File_Set_View(fdens,tempoffset,MYMPIREAL,filetypesub, &
+      call MPI_File_Set_View(fdens,tempoffset,MPI_REAL,filetypesub, &
          "native",MPI_INFO_NULL,e_io)
       
       call MPI_Barrier(MPI_COMM_WORLD, e_io)
@@ -5491,7 +5491,7 @@ contains
       memOffs = [ nbuffsub, nbuffsub, nbuffsub ]
 
       call MPI_TYPE_CREATE_SUBARRAY(3,memDims,lsizes,memOffs, &
-         MPI_ORDER_FORTRAN,MYMPIREAL,imemtype,e_io)
+         MPI_ORDER_FORTRAN,MPI_REAL,imemtype,e_io)
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
@@ -5546,13 +5546,13 @@ contains
       call MPI_Barrier(MPI_COMM_WORLD, e_io)
 
       call MPI_Type_create_subarray(3,gsizes,lsizes,myoffset, &
-         MPI_ORDER_FORTRAN,MYMPIREAL,filetypesub,e_io)
+         MPI_ORDER_FORTRAN,MPI_REAL,filetypesub,e_io)
 
       call MPI_Type_commit(filetypesub, e_io)
       
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
-      call MPI_File_Set_View(fdens,tempoffset,MYMPIREAL,filetypesub, &
+      call MPI_File_Set_View(fdens,tempoffset,MPI_REAL,filetypesub, &
          "native",MPI_INFO_NULL,e_io)
       
       call MPI_Barrier(MPI_COMM_WORLD, e_io)
@@ -5562,7 +5562,7 @@ contains
       memOffs = [ nbuffsub, nbuffsub, nbuffsub ]
 
       call MPI_TYPE_CREATE_SUBARRAY(3,memDims,lsizes,memOffs, &
-         MPI_ORDER_FORTRAN,MYMPIREAL,imemtype,e_io)
+         MPI_ORDER_FORTRAN,MPI_REAL,imemtype,e_io)
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
@@ -5618,13 +5618,13 @@ contains
       call MPI_Barrier(MPI_COMM_WORLD, e_io)
       
       call MPI_Type_create_subarray(3,gsizes,lsizes,myoffset, &
-         MPI_ORDER_FORTRAN,MYMPIREAL,filetypesub,e_io)
+         MPI_ORDER_FORTRAN,MPI_REAL,filetypesub,e_io)
 
       call MPI_Type_commit(filetypesub, e_io)
       
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
-      call MPI_File_Set_View(fdens,tempoffset,MYMPIREAL,filetypesub, &
+      call MPI_File_Set_View(fdens,tempoffset,MPI_REAL,filetypesub, &
          "native",MPI_INFO_NULL,e_io)
       
       call MPI_Barrier(MPI_COMM_WORLD, e_io)
@@ -5634,7 +5634,7 @@ contains
       memOffs = [ nbuffsub, nbuffsub, nbuffsub ]
 
       call MPI_TYPE_CREATE_SUBARRAY(3,memDims,lsizes,memOffs, &
-         MPI_ORDER_FORTRAN,MYMPIREAL,imemtype,e_io)
+         MPI_ORDER_FORTRAN,MPI_REAL,imemtype,e_io)
 
       call MPI_TYPE_COMMIT(imemtype,e_io)
 
