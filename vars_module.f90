@@ -84,6 +84,10 @@
 #warning "ASYNCMPI: activated"
 #endif
 
+#ifdef MIXEDPRC
+#warning "MIXEDPRC: mixed precision activated"
+#endif
+
 #ifndef LATTICE
 #error "LATTICE not defined. Use -DLATTICE=27 or #define LATTICE 27 (or 19 or 15)"
 #endif
@@ -99,12 +103,32 @@ module vars
    implicit none
 
 #if PRC==4
+#warning "PRC 4: single precision activated"
    integer, parameter :: db=4 !kind(1.0)
 #elif PRC==8
+#warning "PRC 8: double precision activated"
    integer, parameter :: db=8 !kind(1.0)
 #else
    //#error "ERROR in specifying PRC"
 #endif
+
+#ifdef MIXEDPRC
+#if STRPRC==2
+#warning "STRPRC 2: half precision activated for storaging"
+   integer, parameter :: strdb=2 !kind(1.0)
+#elif STRPRC==4
+#warning "STRPRC 4: single precision activated for storaging"
+   integer, parameter :: strdb=4 !kind(1.0)
+#elif STRPRC==8
+#warning "STRPRC 8: double precision activated for storaging"
+   integer, parameter :: strdb=8 !kind(1.0)
+#else
+   //#error "ERROR in specifying STRPRC"
+#endif
+#else
+   integer, parameter :: strdb=db !kind(1.0)
+#endif
+
    integer, parameter :: isf=1 !kind(1.0)
    
 #ifdef PRINTHALF
@@ -135,6 +159,8 @@ module vars
    real(kind=db), parameter :: SEVENTYTWO=real(72.d0,kind=db)
    real(kind=db), parameter :: ONEHUNDREDEIGHT=real(108.d0,kind=db)
    real(kind=db), parameter :: TWOHUNDREDSIXTEEN=real(216.d0,kind=db)
+   
+   real(kind=db), parameter :: ZEROSTR=real(0.d0,kind=strdb)
 
    !aritra 
    ! !!!for WENO5
@@ -643,12 +669,11 @@ module vars
 
    real(kind=db), allocatable, dimension(:,:,:) :: arr_3d
 
-   !real(kind=db), allocatable, dimension(:,:,:,:) :: f       !pops
-   real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_flip,hfields_flop  !allocate hydro fields flip and flop
-   real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_flip,phifields_flop  !allocate phi fields flip and flop
-   real(kind=db), allocatable, dimension(:,:,:,:,:) :: forces
-   real(kind=db), allocatable, dimension(:,:,:,:,:) :: auxfields !allocate aux fields
-   real(kind=db), allocatable, dimension(:,:,:,:,:) :: locauxfields !allocate aux fields
+   real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: hfields_flip,hfields_flop  !allocate hydro fields flip and flop
+   real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_flip,phifields_flop  !allocate phi fields flip and flop
+   real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: forces
+   real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: auxfields !allocate aux fields
+   real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: locauxfields !allocate aux fields
    
    
    integer, parameter :: nhfields=10

@@ -52,19 +52,19 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
 #ifdef MONOD
       real(kind=db) :: mu_max,Ks
 #endif
 #endif           
       real(kind=db) :: visc1,omega,fx,fy,fz
       
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
 #ifdef TWOCOMPONENT 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
 #endif  
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       real(kind=db), shared :: f_front(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       real(kind=db), shared :: f_rear(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
@@ -121,8 +121,12 @@ contains
                !if (abs(isfluid(i,j,k)) /= 1) return
        
      
-#ifdef TWOCOMPONENT	  
+#ifdef TWOCOMPONENT
+#ifdef MIXEDPRC
+                  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+#else
                   phi_loc=phifields_s(ii,jj,kk,1,myblock)
+#endif
 #endif                  
 #ifdef DENSRATIO
                   
@@ -130,7 +134,22 @@ contains
 #else
                   invrhophi_loc = 1.0_db !press_loc
 #endif	
-
+#ifdef MIXEDPRC
+				  forcex=real(forces_s(ii,jj,kk,1,myblock),kind=db)*invrhophi_loc
+				  forcey=real(forces_s(ii,jj,kk,2,myblock),kind=db)*invrhophi_loc
+				  forcez=real(forces_s(ii,jj,kk,3,myblock),kind=db)*invrhophi_loc
+                  
+                  press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
+                  u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
+                  v=real(hfields_in(ii,jj,kk,3,myblock),kind=db)
+                  w=real(hfields_in(ii,jj,kk,4,myblock),kind=db)
+                  pxx=real(hfields_in(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_in(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_in(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_in(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_in(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_in(ii,jj,kk,10,myblock),kind=db)
+#else
 				  forcex=forces_s(ii,jj,kk,1,myblock)*invrhophi_loc
 				  forcey=forces_s(ii,jj,kk,2,myblock)*invrhophi_loc
 				  forcez=forces_s(ii,jj,kk,3,myblock)*invrhophi_loc
@@ -145,7 +164,7 @@ contains
                   pxy=hfields_in(ii,jj,kk,8,myblock)
                   pxz=hfields_in(ii,jj,kk,9,myblock)
                   pyz=hfields_in(ii,jj,kk,10,myblock)
-                  
+#endif                  
                   
 #ifdef INTERNAL_OBSTACLES
                   if(isfluid(i,j,k) == 0)then
@@ -387,7 +406,18 @@ contains
                   
                   !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
 	              if(myblock .ne. (blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1) )return
-	                 
+#ifdef MIXEDPRC
+	              hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)
+                  hfields_out(ii,jj,kk,2,myblock)=real(ou,kind=strdb)
+                  hfields_out(ii,jj,kk,3,myblock)=real(ov,kind=strdb)
+                  hfields_out(ii,jj,kk,4,myblock)=real(ow,kind=strdb)
+                  hfields_out(ii,jj,kk,5,myblock)=real(opxx,kind=strdb)
+                  hfields_out(ii,jj,kk,6,myblock)=real(opyy,kind=strdb)
+                  hfields_out(ii,jj,kk,7,myblock)=real(opzz,kind=strdb)
+                  hfields_out(ii,jj,kk,8,myblock)=real(opxy,kind=strdb)
+                  hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
+                  hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)
+#else	                 
 	              hfields_out(ii,jj,kk,1,myblock)=opress
                   hfields_out(ii,jj,kk,2,myblock)=ou
                   hfields_out(ii,jj,kk,3,myblock)=ov
@@ -398,7 +428,7 @@ contains
                   hfields_out(ii,jj,kk,8,myblock)=opxy
                   hfields_out(ii,jj,kk,9,myblock)=opxz
                   hfields_out(ii,jj,kk,10,myblock)=opyz
-                  
+#endif                  
     endsubroutine fused_LB_kernel2     
 
       attributes(global) subroutine fused_LB_kernel1(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &  
@@ -436,19 +466,19 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
 #ifdef MONOD
       real(kind=db) :: mu_max,Ks
 #endif
 #endif           
       real(kind=db) :: visc1,omega,fx,fy,fz
       
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
 #ifdef TWOCOMPONENT 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
 #endif  
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       real(kind=db), shared :: ftemp(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       
@@ -506,7 +536,11 @@ contains
        
      
 #ifdef TWOCOMPONENT	  
+#ifdef MIXEDPRC
+                  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+#else
                   phi_loc=phifields_s(ii,jj,kk,1,myblock)
+#endif
 #endif                  
 #ifdef DENSRATIO
                   
@@ -515,6 +549,22 @@ contains
                   invrhophi_loc = 1.0_db !press_loc
 #endif	
 
+#ifdef MIXEDPRC
+				  forcex=real(forces_s(ii,jj,kk,1,myblock),kind=db)*invrhophi_loc
+				  forcey=real(forces_s(ii,jj,kk,2,myblock),kind=db)*invrhophi_loc
+				  forcez=real(forces_s(ii,jj,kk,3,myblock),kind=db)*invrhophi_loc
+                  
+                  press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
+                  u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
+                  v=real(hfields_in(ii,jj,kk,3,myblock),kind=db)
+                  w=real(hfields_in(ii,jj,kk,4,myblock),kind=db)
+                  pxx=real(hfields_in(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_in(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_in(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_in(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_in(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_in(ii,jj,kk,10,myblock),kind=db)
+#else
 				  forcex=forces_s(ii,jj,kk,1,myblock)*invrhophi_loc
 				  forcey=forces_s(ii,jj,kk,2,myblock)*invrhophi_loc
 				  forcez=forces_s(ii,jj,kk,3,myblock)*invrhophi_loc
@@ -529,6 +579,7 @@ contains
                   pxy=hfields_in(ii,jj,kk,8,myblock)
                   pxz=hfields_in(ii,jj,kk,9,myblock)
                   pyz=hfields_in(ii,jj,kk,10,myblock)
+#endif   
                   
                   
 #ifdef INTERNAL_OBSTACLES
@@ -712,6 +763,18 @@ contains
                   !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
 	              if(myblock .ne. intblock)return
 	                 
+#ifdef MIXEDPRC
+	              hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)
+                  hfields_out(ii,jj,kk,2,myblock)=real(ou,kind=strdb)
+                  hfields_out(ii,jj,kk,3,myblock)=real(ov,kind=strdb)
+                  hfields_out(ii,jj,kk,4,myblock)=real(ow,kind=strdb)
+                  hfields_out(ii,jj,kk,5,myblock)=real(opxx,kind=strdb)
+                  hfields_out(ii,jj,kk,6,myblock)=real(opyy,kind=strdb)
+                  hfields_out(ii,jj,kk,7,myblock)=real(opzz,kind=strdb)
+                  hfields_out(ii,jj,kk,8,myblock)=real(opxy,kind=strdb)
+                  hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
+                  hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)
+#else	                 
 	              hfields_out(ii,jj,kk,1,myblock)=opress
                   hfields_out(ii,jj,kk,2,myblock)=ou
                   hfields_out(ii,jj,kk,3,myblock)=ov
@@ -722,6 +785,7 @@ contains
                   hfields_out(ii,jj,kk,8,myblock)=opxy
                   hfields_out(ii,jj,kk,9,myblock)=opxz
                   hfields_out(ii,jj,kk,10,myblock)=opyz
+#endif       
                    
     endsubroutine fused_LB_kernel1
     
@@ -762,19 +826,19 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
 #ifdef MONOD
       real(kind=db) :: mu_max,Ks
 #endif
 #endif           
       real(kind=db) :: visc1,omega,fx,fy,fz
       
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
 #ifdef TWOCOMPONENT 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
 #endif  
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       real(kind=db), shared :: ftemp(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       
@@ -831,7 +895,11 @@ contains
        
      
 #ifdef TWOCOMPONENT	  
+#ifdef MIXEDPRC
+                  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+#else
                   phi_loc=phifields_s(ii,jj,kk,1,myblock)
+#endif
 #endif                  
 #ifdef DENSRATIO
                   
@@ -840,6 +908,22 @@ contains
                   invrhophi_loc = 1.0_db !press_loc
 #endif	
 
+#ifdef MIXEDPRC
+				  forcex=real(forces_s(ii,jj,kk,1,myblock),kind=db)*invrhophi_loc
+				  forcey=real(forces_s(ii,jj,kk,2,myblock),kind=db)*invrhophi_loc
+				  forcez=real(forces_s(ii,jj,kk,3,myblock),kind=db)*invrhophi_loc
+                  
+                  press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
+                  u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
+                  v=real(hfields_in(ii,jj,kk,3,myblock),kind=db)
+                  w=real(hfields_in(ii,jj,kk,4,myblock),kind=db)
+                  pxx=real(hfields_in(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_in(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_in(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_in(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_in(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_in(ii,jj,kk,10,myblock),kind=db)
+#else
 				  forcex=forces_s(ii,jj,kk,1,myblock)*invrhophi_loc
 				  forcey=forces_s(ii,jj,kk,2,myblock)*invrhophi_loc
 				  forcez=forces_s(ii,jj,kk,3,myblock)*invrhophi_loc
@@ -854,6 +938,7 @@ contains
                   pxy=hfields_in(ii,jj,kk,8,myblock)
                   pxz=hfields_in(ii,jj,kk,9,myblock)
                   pyz=hfields_in(ii,jj,kk,10,myblock)
+#endif   
                   
                   
 #ifdef INTERNAL_OBSTACLES
@@ -1020,6 +1105,18 @@ contains
                   !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
 	              if(myblock .ne. intblock)return
 	                 
+#ifdef MIXEDPRC
+	              hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)
+                  hfields_out(ii,jj,kk,2,myblock)=real(ou,kind=strdb)
+                  hfields_out(ii,jj,kk,3,myblock)=real(ov,kind=strdb)
+                  hfields_out(ii,jj,kk,4,myblock)=real(ow,kind=strdb)
+                  hfields_out(ii,jj,kk,5,myblock)=real(opxx,kind=strdb)
+                  hfields_out(ii,jj,kk,6,myblock)=real(opyy,kind=strdb)
+                  hfields_out(ii,jj,kk,7,myblock)=real(opzz,kind=strdb)
+                  hfields_out(ii,jj,kk,8,myblock)=real(opxy,kind=strdb)
+                  hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
+                  hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)
+#else	                 
 	              hfields_out(ii,jj,kk,1,myblock)=opress
                   hfields_out(ii,jj,kk,2,myblock)=ou
                   hfields_out(ii,jj,kk,3,myblock)=ov
@@ -1030,6 +1127,7 @@ contains
                   hfields_out(ii,jj,kk,8,myblock)=opxy
                   hfields_out(ii,jj,kk,9,myblock)=opxz
                   hfields_out(ii,jj,kk,10,myblock)=opyz
+#endif      
                    
     endsubroutine fused_LB_kernel_int
     
@@ -1068,19 +1166,19 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
 #ifdef MONOD
       real(kind=db) :: mu_max,Ks
 #endif
 #endif           
       real(kind=db) :: visc1,omega,fx,fy,fz
       
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
 #ifdef TWOCOMPONENT 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
 #endif  
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       real(kind=db), shared :: ftemp(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       
@@ -1148,7 +1246,11 @@ contains
        
      
 #ifdef TWOCOMPONENT	  
+#ifdef MIXEDPRC
+                  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+#else
                   phi_loc=phifields_s(ii,jj,kk,1,myblock)
+#endif
 #endif                  
 #ifdef DENSRATIO
                   
@@ -1157,6 +1259,22 @@ contains
                   invrhophi_loc = 1.0_db !press_loc
 #endif	
 
+#ifdef MIXEDPRC
+				  forcex=real(forces_s(ii,jj,kk,1,myblock),kind=db)*invrhophi_loc
+				  forcey=real(forces_s(ii,jj,kk,2,myblock),kind=db)*invrhophi_loc
+				  forcez=real(forces_s(ii,jj,kk,3,myblock),kind=db)*invrhophi_loc
+                  
+                  press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
+                  u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
+                  v=real(hfields_in(ii,jj,kk,3,myblock),kind=db)
+                  w=real(hfields_in(ii,jj,kk,4,myblock),kind=db)
+                  pxx=real(hfields_in(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_in(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_in(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_in(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_in(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_in(ii,jj,kk,10,myblock),kind=db)
+#else
 				  forcex=forces_s(ii,jj,kk,1,myblock)*invrhophi_loc
 				  forcey=forces_s(ii,jj,kk,2,myblock)*invrhophi_loc
 				  forcez=forces_s(ii,jj,kk,3,myblock)*invrhophi_loc
@@ -1171,6 +1289,7 @@ contains
                   pxy=hfields_in(ii,jj,kk,8,myblock)
                   pxz=hfields_in(ii,jj,kk,9,myblock)
                   pyz=hfields_in(ii,jj,kk,10,myblock)
+#endif   
                   
                   
 #ifdef INTERNAL_OBSTACLES
@@ -1337,6 +1456,18 @@ contains
                   !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
 	              if(myblock .ne. intblock)return
 	                 
+#ifdef MIXEDPRC
+	              hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)
+                  hfields_out(ii,jj,kk,2,myblock)=real(ou,kind=strdb)
+                  hfields_out(ii,jj,kk,3,myblock)=real(ov,kind=strdb)
+                  hfields_out(ii,jj,kk,4,myblock)=real(ow,kind=strdb)
+                  hfields_out(ii,jj,kk,5,myblock)=real(opxx,kind=strdb)
+                  hfields_out(ii,jj,kk,6,myblock)=real(opyy,kind=strdb)
+                  hfields_out(ii,jj,kk,7,myblock)=real(opzz,kind=strdb)
+                  hfields_out(ii,jj,kk,8,myblock)=real(opxy,kind=strdb)
+                  hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
+                  hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)
+#else	                 
 	              hfields_out(ii,jj,kk,1,myblock)=opress
                   hfields_out(ii,jj,kk,2,myblock)=ou
                   hfields_out(ii,jj,kk,3,myblock)=ov
@@ -1346,7 +1477,8 @@ contains
                   hfields_out(ii,jj,kk,7,myblock)=opzz
                   hfields_out(ii,jj,kk,8,myblock)=opxy
                   hfields_out(ii,jj,kk,9,myblock)=opxz
-                  hfields_out(ii,jj,kk,10,myblock)=opyz      
+                  hfields_out(ii,jj,kk,10,myblock)=opyz
+#endif       
                    
     endsubroutine fused_LB_kernel_xplus
     
@@ -1385,19 +1517,19 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
 #ifdef MONOD
       real(kind=db) :: mu_max,Ks
 #endif
 #endif           
       real(kind=db) :: visc1,omega,fx,fy,fz
       
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
 #ifdef TWOCOMPONENT 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
 #endif  
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       real(kind=db), shared :: ftemp(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       
@@ -1466,7 +1598,11 @@ contains
        
      
 #ifdef TWOCOMPONENT	  
+#ifdef MIXEDPRC
+                  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+#else
                   phi_loc=phifields_s(ii,jj,kk,1,myblock)
+#endif
 #endif                  
 #ifdef DENSRATIO
                   
@@ -1475,6 +1611,22 @@ contains
                   invrhophi_loc = 1.0_db !press_loc
 #endif	
 
+#ifdef MIXEDPRC
+				  forcex=real(forces_s(ii,jj,kk,1,myblock),kind=db)*invrhophi_loc
+				  forcey=real(forces_s(ii,jj,kk,2,myblock),kind=db)*invrhophi_loc
+				  forcez=real(forces_s(ii,jj,kk,3,myblock),kind=db)*invrhophi_loc
+                  
+                  press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
+                  u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
+                  v=real(hfields_in(ii,jj,kk,3,myblock),kind=db)
+                  w=real(hfields_in(ii,jj,kk,4,myblock),kind=db)
+                  pxx=real(hfields_in(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_in(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_in(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_in(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_in(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_in(ii,jj,kk,10,myblock),kind=db)
+#else
 				  forcex=forces_s(ii,jj,kk,1,myblock)*invrhophi_loc
 				  forcey=forces_s(ii,jj,kk,2,myblock)*invrhophi_loc
 				  forcez=forces_s(ii,jj,kk,3,myblock)*invrhophi_loc
@@ -1489,6 +1641,7 @@ contains
                   pxy=hfields_in(ii,jj,kk,8,myblock)
                   pxz=hfields_in(ii,jj,kk,9,myblock)
                   pyz=hfields_in(ii,jj,kk,10,myblock)
+#endif   
                   
                   
 #ifdef INTERNAL_OBSTACLES
@@ -1655,6 +1808,18 @@ contains
                   !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
 	              if(myblock .ne. intblock)return
 	                 
+#ifdef MIXEDPRC
+	              hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)
+                  hfields_out(ii,jj,kk,2,myblock)=real(ou,kind=strdb)
+                  hfields_out(ii,jj,kk,3,myblock)=real(ov,kind=strdb)
+                  hfields_out(ii,jj,kk,4,myblock)=real(ow,kind=strdb)
+                  hfields_out(ii,jj,kk,5,myblock)=real(opxx,kind=strdb)
+                  hfields_out(ii,jj,kk,6,myblock)=real(opyy,kind=strdb)
+                  hfields_out(ii,jj,kk,7,myblock)=real(opzz,kind=strdb)
+                  hfields_out(ii,jj,kk,8,myblock)=real(opxy,kind=strdb)
+                  hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
+                  hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)
+#else	                 
 	              hfields_out(ii,jj,kk,1,myblock)=opress
                   hfields_out(ii,jj,kk,2,myblock)=ou
                   hfields_out(ii,jj,kk,3,myblock)=ov
@@ -1665,6 +1830,7 @@ contains
                   hfields_out(ii,jj,kk,8,myblock)=opxy
                   hfields_out(ii,jj,kk,9,myblock)=opxz
                   hfields_out(ii,jj,kk,10,myblock)=opyz
+#endif      
                    
     endsubroutine fused_LB_kernel_xminus
 
@@ -1703,19 +1869,19 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
 #ifdef MONOD
       real(kind=db) :: mu_max,Ks
 #endif
 #endif           
       real(kind=db) :: visc1,omega,fx,fy,fz
       
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
 #ifdef TWOCOMPONENT 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
 #endif  
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       real(kind=db), shared :: ftemp(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       
@@ -1775,7 +1941,11 @@ contains
        
      
 #ifdef TWOCOMPONENT	  
+#ifdef MIXEDPRC
+                  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+#else
                   phi_loc=phifields_s(ii,jj,kk,1,myblock)
+#endif
 #endif                  
 #ifdef DENSRATIO
                   
@@ -1784,6 +1954,22 @@ contains
                   invrhophi_loc = 1.0_db !press_loc
 #endif	
 
+#ifdef MIXEDPRC
+				  forcex=real(forces_s(ii,jj,kk,1,myblock),kind=db)*invrhophi_loc
+				  forcey=real(forces_s(ii,jj,kk,2,myblock),kind=db)*invrhophi_loc
+				  forcez=real(forces_s(ii,jj,kk,3,myblock),kind=db)*invrhophi_loc
+                  
+                  press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
+                  u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
+                  v=real(hfields_in(ii,jj,kk,3,myblock),kind=db)
+                  w=real(hfields_in(ii,jj,kk,4,myblock),kind=db)
+                  pxx=real(hfields_in(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_in(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_in(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_in(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_in(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_in(ii,jj,kk,10,myblock),kind=db)
+#else
 				  forcex=forces_s(ii,jj,kk,1,myblock)*invrhophi_loc
 				  forcey=forces_s(ii,jj,kk,2,myblock)*invrhophi_loc
 				  forcez=forces_s(ii,jj,kk,3,myblock)*invrhophi_loc
@@ -1798,6 +1984,7 @@ contains
                   pxy=hfields_in(ii,jj,kk,8,myblock)
                   pxz=hfields_in(ii,jj,kk,9,myblock)
                   pyz=hfields_in(ii,jj,kk,10,myblock)
+#endif   
                   
                   
 #ifdef INTERNAL_OBSTACLES
@@ -1964,6 +2151,18 @@ contains
                   !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
 	              if(myblock .ne. intblock)return
 	                 
+#ifdef MIXEDPRC
+	              hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)
+                  hfields_out(ii,jj,kk,2,myblock)=real(ou,kind=strdb)
+                  hfields_out(ii,jj,kk,3,myblock)=real(ov,kind=strdb)
+                  hfields_out(ii,jj,kk,4,myblock)=real(ow,kind=strdb)
+                  hfields_out(ii,jj,kk,5,myblock)=real(opxx,kind=strdb)
+                  hfields_out(ii,jj,kk,6,myblock)=real(opyy,kind=strdb)
+                  hfields_out(ii,jj,kk,7,myblock)=real(opzz,kind=strdb)
+                  hfields_out(ii,jj,kk,8,myblock)=real(opxy,kind=strdb)
+                  hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
+                  hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)
+#else	                 
 	              hfields_out(ii,jj,kk,1,myblock)=opress
                   hfields_out(ii,jj,kk,2,myblock)=ou
                   hfields_out(ii,jj,kk,3,myblock)=ov
@@ -1973,7 +2172,8 @@ contains
                   hfields_out(ii,jj,kk,7,myblock)=opzz
                   hfields_out(ii,jj,kk,8,myblock)=opxy
                   hfields_out(ii,jj,kk,9,myblock)=opxz
-                  hfields_out(ii,jj,kk,10,myblock)=opyz      
+                  hfields_out(ii,jj,kk,10,myblock)=opyz
+#endif           
                    
     endsubroutine fused_LB_kernel_yplus
     
@@ -2012,19 +2212,19 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
 #ifdef MONOD
       real(kind=db) :: mu_max,Ks
 #endif
 #endif           
       real(kind=db) :: visc1,omega,fx,fy,fz
       
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
 #ifdef TWOCOMPONENT 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
 #endif  
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       real(kind=db), shared :: ftemp(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       
@@ -2083,7 +2283,11 @@ contains
        
      
 #ifdef TWOCOMPONENT	  
+#ifdef MIXEDPRC
+                  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+#else
                   phi_loc=phifields_s(ii,jj,kk,1,myblock)
+#endif
 #endif                  
 #ifdef DENSRATIO
                   
@@ -2092,6 +2296,22 @@ contains
                   invrhophi_loc = 1.0_db !press_loc
 #endif	
 
+#ifdef MIXEDPRC
+				  forcex=real(forces_s(ii,jj,kk,1,myblock),kind=db)*invrhophi_loc
+				  forcey=real(forces_s(ii,jj,kk,2,myblock),kind=db)*invrhophi_loc
+				  forcez=real(forces_s(ii,jj,kk,3,myblock),kind=db)*invrhophi_loc
+                  
+                  press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
+                  u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
+                  v=real(hfields_in(ii,jj,kk,3,myblock),kind=db)
+                  w=real(hfields_in(ii,jj,kk,4,myblock),kind=db)
+                  pxx=real(hfields_in(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_in(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_in(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_in(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_in(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_in(ii,jj,kk,10,myblock),kind=db)
+#else
 				  forcex=forces_s(ii,jj,kk,1,myblock)*invrhophi_loc
 				  forcey=forces_s(ii,jj,kk,2,myblock)*invrhophi_loc
 				  forcez=forces_s(ii,jj,kk,3,myblock)*invrhophi_loc
@@ -2106,6 +2326,7 @@ contains
                   pxy=hfields_in(ii,jj,kk,8,myblock)
                   pxz=hfields_in(ii,jj,kk,9,myblock)
                   pyz=hfields_in(ii,jj,kk,10,myblock)
+#endif   
                   
                   
 #ifdef INTERNAL_OBSTACLES
@@ -2271,6 +2492,18 @@ contains
                   !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
 	              if(myblock .ne. intblock)return
 	                 
+#ifdef MIXEDPRC
+	              hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)
+                  hfields_out(ii,jj,kk,2,myblock)=real(ou,kind=strdb)
+                  hfields_out(ii,jj,kk,3,myblock)=real(ov,kind=strdb)
+                  hfields_out(ii,jj,kk,4,myblock)=real(ow,kind=strdb)
+                  hfields_out(ii,jj,kk,5,myblock)=real(opxx,kind=strdb)
+                  hfields_out(ii,jj,kk,6,myblock)=real(opyy,kind=strdb)
+                  hfields_out(ii,jj,kk,7,myblock)=real(opzz,kind=strdb)
+                  hfields_out(ii,jj,kk,8,myblock)=real(opxy,kind=strdb)
+                  hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
+                  hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)
+#else	                 
 	              hfields_out(ii,jj,kk,1,myblock)=opress
                   hfields_out(ii,jj,kk,2,myblock)=ou
                   hfields_out(ii,jj,kk,3,myblock)=ov
@@ -2280,7 +2513,8 @@ contains
                   hfields_out(ii,jj,kk,7,myblock)=opzz
                   hfields_out(ii,jj,kk,8,myblock)=opxy
                   hfields_out(ii,jj,kk,9,myblock)=opxz
-                  hfields_out(ii,jj,kk,10,myblock)=opyz      
+                  hfields_out(ii,jj,kk,10,myblock)=opyz
+#endif          
                    
     endsubroutine fused_LB_kernel_yminus
 
@@ -2319,19 +2553,19 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
 #ifdef MONOD
       real(kind=db) :: mu_max,Ks
 #endif
 #endif           
       real(kind=db) :: visc1,omega,fx,fy,fz
       
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
 #ifdef TWOCOMPONENT 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
 #endif  
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       real(kind=db), shared :: ftemp(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       
@@ -2391,7 +2625,11 @@ contains
        
      
 #ifdef TWOCOMPONENT	  
+#ifdef MIXEDPRC
+                  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+#else
                   phi_loc=phifields_s(ii,jj,kk,1,myblock)
+#endif
 #endif                  
 #ifdef DENSRATIO
                   
@@ -2400,6 +2638,22 @@ contains
                   invrhophi_loc = 1.0_db !press_loc
 #endif	
 
+#ifdef MIXEDPRC
+				  forcex=real(forces_s(ii,jj,kk,1,myblock),kind=db)*invrhophi_loc
+				  forcey=real(forces_s(ii,jj,kk,2,myblock),kind=db)*invrhophi_loc
+				  forcez=real(forces_s(ii,jj,kk,3,myblock),kind=db)*invrhophi_loc
+                  
+                  press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
+                  u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
+                  v=real(hfields_in(ii,jj,kk,3,myblock),kind=db)
+                  w=real(hfields_in(ii,jj,kk,4,myblock),kind=db)
+                  pxx=real(hfields_in(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_in(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_in(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_in(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_in(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_in(ii,jj,kk,10,myblock),kind=db)
+#else
 				  forcex=forces_s(ii,jj,kk,1,myblock)*invrhophi_loc
 				  forcey=forces_s(ii,jj,kk,2,myblock)*invrhophi_loc
 				  forcez=forces_s(ii,jj,kk,3,myblock)*invrhophi_loc
@@ -2414,6 +2668,7 @@ contains
                   pxy=hfields_in(ii,jj,kk,8,myblock)
                   pxz=hfields_in(ii,jj,kk,9,myblock)
                   pyz=hfields_in(ii,jj,kk,10,myblock)
+#endif   
                   
                   
 #ifdef INTERNAL_OBSTACLES
@@ -2580,6 +2835,18 @@ contains
                   !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
 	              if(myblock .ne. intblock)return
 	                 
+#ifdef MIXEDPRC
+	              hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)
+                  hfields_out(ii,jj,kk,2,myblock)=real(ou,kind=strdb)
+                  hfields_out(ii,jj,kk,3,myblock)=real(ov,kind=strdb)
+                  hfields_out(ii,jj,kk,4,myblock)=real(ow,kind=strdb)
+                  hfields_out(ii,jj,kk,5,myblock)=real(opxx,kind=strdb)
+                  hfields_out(ii,jj,kk,6,myblock)=real(opyy,kind=strdb)
+                  hfields_out(ii,jj,kk,7,myblock)=real(opzz,kind=strdb)
+                  hfields_out(ii,jj,kk,8,myblock)=real(opxy,kind=strdb)
+                  hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
+                  hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)
+#else	                 
 	              hfields_out(ii,jj,kk,1,myblock)=opress
                   hfields_out(ii,jj,kk,2,myblock)=ou
                   hfields_out(ii,jj,kk,3,myblock)=ov
@@ -2589,7 +2856,8 @@ contains
                   hfields_out(ii,jj,kk,7,myblock)=opzz
                   hfields_out(ii,jj,kk,8,myblock)=opxy
                   hfields_out(ii,jj,kk,9,myblock)=opxz
-                  hfields_out(ii,jj,kk,10,myblock)=opyz      
+                  hfields_out(ii,jj,kk,10,myblock)=opyz
+#endif         
                    
     endsubroutine fused_LB_kernel_zplus
     
@@ -2628,19 +2896,19 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
 #ifdef MONOD
       real(kind=db) :: mu_max,Ks
 #endif
 #endif           
       real(kind=db) :: visc1,omega,fx,fy,fz
       
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
 #ifdef TWOCOMPONENT 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
 #endif  
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       real(kind=db), shared :: ftemp(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       
@@ -2700,7 +2968,11 @@ contains
        
      
 #ifdef TWOCOMPONENT	  
+#ifdef MIXEDPRC
+                  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+#else
                   phi_loc=phifields_s(ii,jj,kk,1,myblock)
+#endif
 #endif                  
 #ifdef DENSRATIO
                   
@@ -2709,6 +2981,22 @@ contains
                   invrhophi_loc = 1.0_db !press_loc
 #endif	
 
+#ifdef MIXEDPRC
+				  forcex=real(forces_s(ii,jj,kk,1,myblock),kind=db)*invrhophi_loc
+				  forcey=real(forces_s(ii,jj,kk,2,myblock),kind=db)*invrhophi_loc
+				  forcez=real(forces_s(ii,jj,kk,3,myblock),kind=db)*invrhophi_loc
+                  
+                  press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
+                  u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
+                  v=real(hfields_in(ii,jj,kk,3,myblock),kind=db)
+                  w=real(hfields_in(ii,jj,kk,4,myblock),kind=db)
+                  pxx=real(hfields_in(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_in(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_in(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_in(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_in(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_in(ii,jj,kk,10,myblock),kind=db)
+#else
 				  forcex=forces_s(ii,jj,kk,1,myblock)*invrhophi_loc
 				  forcey=forces_s(ii,jj,kk,2,myblock)*invrhophi_loc
 				  forcez=forces_s(ii,jj,kk,3,myblock)*invrhophi_loc
@@ -2723,6 +3011,7 @@ contains
                   pxy=hfields_in(ii,jj,kk,8,myblock)
                   pxz=hfields_in(ii,jj,kk,9,myblock)
                   pyz=hfields_in(ii,jj,kk,10,myblock)
+#endif   
                   
                   
 #ifdef INTERNAL_OBSTACLES
@@ -2889,6 +3178,18 @@ contains
                   !If my block index does not match the index of the internal-node block (lii), it means my thread is on the outer. I must exit
 	              if(myblock .ne. intblock)return
 	                 
+#ifdef MIXEDPRC
+	              hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)
+                  hfields_out(ii,jj,kk,2,myblock)=real(ou,kind=strdb)
+                  hfields_out(ii,jj,kk,3,myblock)=real(ov,kind=strdb)
+                  hfields_out(ii,jj,kk,4,myblock)=real(ow,kind=strdb)
+                  hfields_out(ii,jj,kk,5,myblock)=real(opxx,kind=strdb)
+                  hfields_out(ii,jj,kk,6,myblock)=real(opyy,kind=strdb)
+                  hfields_out(ii,jj,kk,7,myblock)=real(opzz,kind=strdb)
+                  hfields_out(ii,jj,kk,8,myblock)=real(opxy,kind=strdb)
+                  hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
+                  hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)
+#else	                 
 	              hfields_out(ii,jj,kk,1,myblock)=opress
                   hfields_out(ii,jj,kk,2,myblock)=ou
                   hfields_out(ii,jj,kk,3,myblock)=ov
@@ -2898,7 +3199,8 @@ contains
                   hfields_out(ii,jj,kk,7,myblock)=opzz
                   hfields_out(ii,jj,kk,8,myblock)=opxy
                   hfields_out(ii,jj,kk,9,myblock)=opxz
-                  hfields_out(ii,jj,kk,10,myblock)=opyz      
+                  hfields_out(ii,jj,kk,10,myblock)=opyz
+#endif         
                    
     endsubroutine fused_LB_kernel_zminus
 

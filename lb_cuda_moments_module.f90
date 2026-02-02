@@ -52,7 +52,7 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff    
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s 
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s 
 #endif           
 #if defined(ELASTIC_FORCE)
       real(kind=db) :: lambda_rel,k_elastic
@@ -60,12 +60,12 @@ contains
 #endif
       real(kind=db) :: fx,fy,fz
 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
 #ifdef TWOCOMPONENT 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
 #endif
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
 
       real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
@@ -101,12 +101,20 @@ contains
       kk=threadIdx%z
       
 
-				 
+#ifdef MIXEDPRC
+		  press_loc=real(hfields_s(ii,jj,kk,1,myblock),kind=db)
+#else 
 		  press_loc=hfields_s(ii,jj,kk,1,myblock)
-				 
-#ifdef TWOCOMPONENT					 
+#endif
+			 
+#ifdef TWOCOMPONENT
+#ifdef MIXEDPRC
+		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+#else				 
 		  phi_loc=phifields_s(ii,jj,kk,1,myblock)
 		  lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
+#endif
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -128,11 +136,18 @@ contains
 			 
 #ifdef TWOCOMPONENT		
 		   
-		  !jaqmin 
+		  !jaqmin
+#ifdef MIXEDPRC
+		  mytemp=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
+		  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*mytemp !normx*modgrad
+		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
+		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
+#else
 		  mytemp=auxfields_s(ii,jj,kk,4,myblock) !modgrad
 		  gradfix=auxfields_s(ii,jj,kk,1,myblock)*mytemp !normx*modgrad
 		  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*mytemp !normy*modgrad
 		  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*mytemp !normz*modgrad
+#endif
 		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
 		  forcey = forcey + &
@@ -142,33 +157,45 @@ contains
 				   				   
 
 #ifdef REPULSIVE_FLUX
-		  mytemp=locauxfields_s(ii,jj,kk,6,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcex=forcex + mytemp*rhophi_loc
-				  
-		  mytemp=locauxfields_s(ii,jj,kk,7,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcey=forcey + mytemp*rhophi_loc
-				  
-		  mytemp=locauxfields_s(ii,jj,kk,8,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcez=forcez + mytemp*rhophi_loc
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,6,myblock),kind=db)*rhophi_loc 
+#else
+                  mytemp=locauxfields_s(ii,jj,kk,6,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcex=forcex + mytemp*rhophi_loc
+		  
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,7,myblock),kind=db)*rhophi_loc 
+#else	  
+                  mytemp=locauxfields_s(ii,jj,kk,7,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcey=forcey + mytemp*rhophi_loc
+		  
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,8,myblock),kind=db)*rhophi_loc 
+#else  
+                  mytemp=locauxfields_s(ii,jj,kk,8,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcez=forcez + mytemp*rhophi_loc
 #endif
 #endif
 
 
 #if defined(MULTIHIT)   
                   forcex=forcex + rhophi_loc*ABCx(i,j,k) !+ AAA*sin(k_zero*gk) + AAA*sin(k_zero*gj)  
-		  forcey=forcey + rhophi_loc*ABCy(i,j,k) !+ AAA*sin(k_zero*gi) + AAA*sin(k_zero*gk)
-		  forcez=forcez + rhophi_loc*ABCz(i,j,k) !+ AAA*sin(k_zero*gj) + AAA*sin(k_zero*gi) 	
+                  forcey=forcey + rhophi_loc*ABCy(i,j,k) !+ AAA*sin(k_zero*gi) + AAA*sin(k_zero*gk)
+                  forcez=forcez + rhophi_loc*ABCz(i,j,k) !+ AAA*sin(k_zero*gj) + AAA*sin(k_zero*gi) 	
 #endif
                   
 #ifdef DENSRATIO				  
 		  ! pressure and viscous forces
 				  
-		  gradrhox=(rho_r-rho_b)*gradfix
-		  gradrhoy=(rho_r-rho_b)*gradfiy
-		  gradrhoz=(rho_r-rho_b)*gradfiz
+                  gradrhox=(rho_r-rho_b)*gradfix
+                  gradrhoy=(rho_r-rho_b)*gradfiy
+                  gradrhoz=(rho_r-rho_b)*gradfiz
 				  
                   forcex=forcex - &
                    press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
@@ -184,11 +211,16 @@ contains
                   tforcex=forcex
                   tforcey=forcey
                   tforcez=forcez
-				  
+
+#ifdef MIXEDPRC
+                  u_loc=real(hfields_old(ii,jj,kk,2,myblock),kind=db) !velocity
+                  v_loc=real(hfields_old(ii,jj,kk,3,myblock),kind=db)
+                  w_loc=real(hfields_old(ii,jj,kk,4,myblock),kind=db)
+#else  				  
                   u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_old(ii,jj,kk,3,myblock)
                   w_loc=hfields_old(ii,jj,kk,4,myblock)
-                  
+#endif            
                  
 				  
 #if defined(ELASTIC_FORCE)
@@ -201,14 +233,21 @@ contains
 #endif
 
 #ifdef DENSRATIO 
-			  
+#ifdef MIXEDPRC	
+                  pxx=real(hfields_s(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_s(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_s(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_s(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_s(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_s(ii,jj,kk,10,myblock),kind=db)
+#else		  
                   pxx=hfields_s(ii,jj,kk,5,myblock)
                   pyy=hfields_s(ii,jj,kk,6,myblock)
                   pzz=hfields_s(ii,jj,kk,7,myblock)
                   pxy=hfields_s(ii,jj,kk,8,myblock)
                   pxz=hfields_s(ii,jj,kk,9,myblock)
                   pyz=hfields_s(ii,jj,kk,10,myblock)
-                  
+#endif                  
                   !1-2
                   !*1
                   ! 2nd order
@@ -228,12 +267,22 @@ contains
 		  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
-		  u_loc=hfields_s(ii,jj,kk,2,myblock) !velocity
+#ifdef MIXEDPRC
+                  u_loc=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
+                  v_loc=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
+                  w_loc=real(hfields_s(ii,jj,kk,4,myblock),kind=db)  
+#else
+                  u_loc=hfields_s(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_s(ii,jj,kk,3,myblock)
                   w_loc=hfields_s(ii,jj,kk,4,myblock)            
+#endif
 					 
 #if defined(INTERFACE_INCOMP) && defined(DENSRATIO)
+#ifdef MIXEDPRC
+                  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
+#else
                   mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+#endif
                   u_loc = u_loc + 0.5_db*forcex/(rhophi_loc)
                   v_loc = v_loc + 0.5_db*forcey/(rhophi_loc)
                   w_loc = w_loc + 0.5_db*forcez/(rhophi_loc)
@@ -269,20 +318,33 @@ contains
                   w_loc = w_loc + 0.5_db*forcez/rhophi_loc
 #endif
                   
-
+#ifdef MIXEDPRC
+                  hfields_s(ii,jj,kk,2,myblock)=real(u_loc,kind=strdb) !put the new velocity in hfields_s
+                  hfields_s(ii,jj,kk,3,myblock)=real(v_loc,kind=strdb)
+                  hfields_s(ii,jj,kk,4,myblock)=real(w_loc,kind=strdb)
+#else
                   hfields_s(ii,jj,kk,2,myblock)=u_loc   !put the new velocity in hfields_s
                   hfields_s(ii,jj,kk,3,myblock)=v_loc
                   hfields_s(ii,jj,kk,4,myblock)=w_loc
-                  
+#endif                  
                                     
 
 !regularized 
+#ifdef MIXEDPRC	
+                  pxx=real(hfields_s(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_s(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_s(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_s(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_s(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_s(ii,jj,kk,10,myblock),kind=db)
+#else		  
                   pxx=hfields_s(ii,jj,kk,5,myblock)
                   pyy=hfields_s(ii,jj,kk,6,myblock)
                   pzz=hfields_s(ii,jj,kk,7,myblock)
                   pxy=hfields_s(ii,jj,kk,8,myblock)
                   pxz=hfields_s(ii,jj,kk,9,myblock)
                   pyz=hfields_s(ii,jj,kk,10,myblock)
+#endif  
                   
                   
                   pxx=pxx + forcex*u_loc/rhophi_loc
@@ -292,14 +354,21 @@ contains
                   pxz=pxz + HALF*(forcez*u_loc+forcex*w_loc)/rhophi_loc
                   pyz=pyz + HALF*(forcez*v_loc+forcey*w_loc)/rhophi_loc
 
-
+#ifdef MIXEDPRC	
+                  hfields_s(ii,jj,kk,5,myblock)=real(pxx,kind=strdb)
+                  hfields_s(ii,jj,kk,6,myblock)=real(pyy,kind=strdb)
+                  hfields_s(ii,jj,kk,7,myblock)=real(pzz,kind=strdb)
+                  hfields_s(ii,jj,kk,8,myblock)=real(pxy,kind=strdb)
+                  hfields_s(ii,jj,kk,9,myblock)=real(pxz,kind=strdb)
+                  hfields_s(ii,jj,kk,10,myblock)=real(pyz,kind=strdb)
+#else	
                   hfields_s(ii,jj,kk,5,myblock)=pxx
                   hfields_s(ii,jj,kk,6,myblock)=pyy
                   hfields_s(ii,jj,kk,7,myblock)=pzz
                   hfields_s(ii,jj,kk,8,myblock)=pxy
                   hfields_s(ii,jj,kk,9,myblock)=pxz
                   hfields_s(ii,jj,kk,10,myblock)=pyz
-                  
+#endif                  
                   
 #if defined(ELASTIC_FORCE)
                   u_ref(i,j,k) = u_ref(i,j,k) + &
@@ -331,12 +400,17 @@ contains
                    (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
                   tforcez = tforcez - &
                    (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
-#endif          
-                 
+#endif  
+        
+#ifdef MIXEDPRC	
+                  forces_s(ii,jj,kk,1,myblock)=real(tforcex,kind=strdb)
+		          forces_s(ii,jj,kk,2,myblock)=real(tforcey,kind=strdb)
+		          forces_s(ii,jj,kk,3,myblock)=real(tforcez,kind=strdb)
+#else                 
                   forces_s(ii,jj,kk,1,myblock)=tforcex
 		          forces_s(ii,jj,kk,2,myblock)=tforcey
 		          forces_s(ii,jj,kk,3,myblock)=tforcez     
-
+#endif
 
    endsubroutine moments_LB_kernel  
    
@@ -376,7 +450,7 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff    
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s 
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s 
 #endif           
 #if defined(ELASTIC_FORCE)
       real(kind=db) :: lambda_rel,k_elastic
@@ -384,12 +458,12 @@ contains
 #endif
       real(kind=db) :: fx,fy,fz
 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
 #ifdef TWOCOMPONENT 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
 #endif
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
 
       real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
@@ -425,11 +499,20 @@ contains
       myblock=(blockIdx%x+1)+(blockIdx%y+1)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1
       
 				 
+#ifdef MIXEDPRC
+		  press_loc=real(hfields_s(ii,jj,kk,1,myblock),kind=db)
+#else 
 		  press_loc=hfields_s(ii,jj,kk,1,myblock)
-				 
-#ifdef TWOCOMPONENT					 
+#endif
+			 
+#ifdef TWOCOMPONENT
+#ifdef MIXEDPRC
+		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+#else				 
 		  phi_loc=phifields_s(ii,jj,kk,1,myblock)
 		  lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
+#endif
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -452,10 +535,17 @@ contains
 #ifdef TWOCOMPONENT		
 		   
 		  !jaqmin 
+#ifdef MIXEDPRC
+		  mytemp=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
+		  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*mytemp !normx*modgrad
+		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
+		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
+#else
 		  mytemp=auxfields_s(ii,jj,kk,4,myblock) !modgrad
 		  gradfix=auxfields_s(ii,jj,kk,1,myblock)*mytemp !normx*modgrad
 		  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*mytemp !normy*modgrad
 		  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*mytemp !normz*modgrad
+#endif
 		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
 		  forcey = forcey + &
@@ -465,17 +555,29 @@ contains
 				   				   
 
 #ifdef REPULSIVE_FLUX
-		  mytemp=locauxfields_s(ii,jj,kk,6,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcex=forcex + mytemp*rhophi_loc
-				  
-		  mytemp=locauxfields_s(ii,jj,kk,7,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcey=forcey + mytemp*rhophi_loc
-				  
-		  mytemp=locauxfields_s(ii,jj,kk,8,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcez=forcez + mytemp*rhophi_loc
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,6,myblock),kind=db)*rhophi_loc 
+#else
+                  mytemp=locauxfields_s(ii,jj,kk,6,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcex=forcex + mytemp*rhophi_loc
+		  
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,7,myblock),kind=db)*rhophi_loc 
+#else	  
+                  mytemp=locauxfields_s(ii,jj,kk,7,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcey=forcey + mytemp*rhophi_loc
+		  
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,8,myblock),kind=db)*rhophi_loc 
+#else  
+                  mytemp=locauxfields_s(ii,jj,kk,8,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcez=forcez + mytemp*rhophi_loc
 #endif
 #endif
 
@@ -510,9 +612,15 @@ contains
                   tforcey=forcey
                   tforcez=forcez
 				  
+#ifdef MIXEDPRC
+                  u_loc=real(hfields_old(ii,jj,kk,2,myblock),kind=db) !velocity
+                  v_loc=real(hfields_old(ii,jj,kk,3,myblock),kind=db)
+                  w_loc=real(hfields_old(ii,jj,kk,4,myblock),kind=db)
+#else  				  
                   u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_old(ii,jj,kk,3,myblock)
                   w_loc=hfields_old(ii,jj,kk,4,myblock)
+#endif 
                   
                  
 				  
@@ -527,12 +635,21 @@ contains
 
 #ifdef DENSRATIO 
 			  
+#ifdef MIXEDPRC	
+                  pxx=real(hfields_s(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_s(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_s(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_s(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_s(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_s(ii,jj,kk,10,myblock),kind=db)
+#else		  
                   pxx=hfields_s(ii,jj,kk,5,myblock)
                   pyy=hfields_s(ii,jj,kk,6,myblock)
                   pzz=hfields_s(ii,jj,kk,7,myblock)
                   pxy=hfields_s(ii,jj,kk,8,myblock)
                   pxz=hfields_s(ii,jj,kk,9,myblock)
                   pyz=hfields_s(ii,jj,kk,10,myblock)
+#endif 
                   
                   !1-2
                   !*1
@@ -553,12 +670,22 @@ contains
 		  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
-		  u_loc=hfields_s(ii,jj,kk,2,myblock) !velocity
+#ifdef MIXEDPRC
+                  u_loc=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
+                  v_loc=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
+                  w_loc=real(hfields_s(ii,jj,kk,4,myblock),kind=db)  
+#else
+                  u_loc=hfields_s(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_s(ii,jj,kk,3,myblock)
                   w_loc=hfields_s(ii,jj,kk,4,myblock)            
+#endif
 					 
 #if defined(INTERFACE_INCOMP) && defined(DENSRATIO)
-		  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+#ifdef MIXEDPRC
+                  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
+#else
+                  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+#endif
 		  u_loc = u_loc + 0.5_db*forcex/(rhophi_loc)
                   v_loc = v_loc + 0.5_db*forcey/(rhophi_loc)
                   w_loc = w_loc + 0.5_db*forcez/(rhophi_loc)
@@ -595,19 +722,34 @@ contains
 #endif
                   
 
+#ifdef MIXEDPRC
+                  hfields_s(ii,jj,kk,2,myblock)=real(u_loc,kind=strdb) !put the new velocity in hfields_s
+                  hfields_s(ii,jj,kk,3,myblock)=real(v_loc,kind=strdb)
+                  hfields_s(ii,jj,kk,4,myblock)=real(w_loc,kind=strdb)
+#else
                   hfields_s(ii,jj,kk,2,myblock)=u_loc   !put the new velocity in hfields_s
                   hfields_s(ii,jj,kk,3,myblock)=v_loc
                   hfields_s(ii,jj,kk,4,myblock)=w_loc
+#endif 
                   
                                     
 
 !regularized 
-		  pxx=hfields_s(ii,jj,kk,5,myblock)
+#ifdef MIXEDPRC	
+                  pxx=real(hfields_s(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_s(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_s(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_s(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_s(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_s(ii,jj,kk,10,myblock),kind=db)
+#else		  
+                  pxx=hfields_s(ii,jj,kk,5,myblock)
                   pyy=hfields_s(ii,jj,kk,6,myblock)
                   pzz=hfields_s(ii,jj,kk,7,myblock)
                   pxy=hfields_s(ii,jj,kk,8,myblock)
                   pxz=hfields_s(ii,jj,kk,9,myblock)
                   pyz=hfields_s(ii,jj,kk,10,myblock)
+#endif 
                   
                   
                   pxx=pxx + forcex*u_loc/rhophi_loc
@@ -618,12 +760,21 @@ contains
                   pyz=pyz + HALF*(forcez*v_loc+forcey*w_loc)/rhophi_loc
 
 
+#ifdef MIXEDPRC	
+                  hfields_s(ii,jj,kk,5,myblock)=real(pxx,kind=strdb)
+                  hfields_s(ii,jj,kk,6,myblock)=real(pyy,kind=strdb)
+                  hfields_s(ii,jj,kk,7,myblock)=real(pzz,kind=strdb)
+                  hfields_s(ii,jj,kk,8,myblock)=real(pxy,kind=strdb)
+                  hfields_s(ii,jj,kk,9,myblock)=real(pxz,kind=strdb)
+                  hfields_s(ii,jj,kk,10,myblock)=real(pyz,kind=strdb)
+#else	
                   hfields_s(ii,jj,kk,5,myblock)=pxx
                   hfields_s(ii,jj,kk,6,myblock)=pyy
                   hfields_s(ii,jj,kk,7,myblock)=pzz
                   hfields_s(ii,jj,kk,8,myblock)=pxy
                   hfields_s(ii,jj,kk,9,myblock)=pxz
                   hfields_s(ii,jj,kk,10,myblock)=pyz
+#endif  
                   
                   
 #if defined(ELASTIC_FORCE)
@@ -658,9 +809,15 @@ contains
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
+#ifdef MIXEDPRC	
+                  forces_s(ii,jj,kk,1,myblock)=real(tforcex,kind=strdb)
+		          forces_s(ii,jj,kk,2,myblock)=real(tforcey,kind=strdb)
+		          forces_s(ii,jj,kk,3,myblock)=real(tforcez,kind=strdb)
+#else                 
                   forces_s(ii,jj,kk,1,myblock)=tforcex
 		          forces_s(ii,jj,kk,2,myblock)=tforcey
-		          forces_s(ii,jj,kk,3,myblock)=tforcez  
+		          forces_s(ii,jj,kk,3,myblock)=tforcez     
+#endif
 
    endsubroutine moments_LB_kernel_int
    
@@ -700,7 +857,7 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff    
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s 
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s 
 #endif           
 #if defined(ELASTIC_FORCE)
       real(kind=db) :: lambda_rel,k_elastic
@@ -708,12 +865,12 @@ contains
 #endif
       real(kind=db) :: fx,fy,fz
 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
 #ifdef TWOCOMPONENT 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
 #endif
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
 
       real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
@@ -749,11 +906,20 @@ contains
       myblock=(nxblock_d-2)+(blockIdx%y+1)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1
       
 				 
+#ifdef MIXEDPRC
+		  press_loc=real(hfields_s(ii,jj,kk,1,myblock),kind=db)
+#else 
 		  press_loc=hfields_s(ii,jj,kk,1,myblock)
-				 
-#ifdef TWOCOMPONENT					 
+#endif
+			 
+#ifdef TWOCOMPONENT
+#ifdef MIXEDPRC
+		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+#else				 
 		  phi_loc=phifields_s(ii,jj,kk,1,myblock)
 		  lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
+#endif
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -776,10 +942,17 @@ contains
 #ifdef TWOCOMPONENT		
 		   
 		  !jaqmin 
+#ifdef MIXEDPRC
+		  mytemp=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
+		  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*mytemp !normx*modgrad
+		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
+		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
+#else
 		  mytemp=auxfields_s(ii,jj,kk,4,myblock) !modgrad
 		  gradfix=auxfields_s(ii,jj,kk,1,myblock)*mytemp !normx*modgrad
 		  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*mytemp !normy*modgrad
 		  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*mytemp !normz*modgrad
+#endif
 		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
 		  forcey = forcey + &
@@ -789,17 +962,29 @@ contains
 				   				   
 
 #ifdef REPULSIVE_FLUX
-		  mytemp=locauxfields_s(ii,jj,kk,6,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcex=forcex + mytemp*rhophi_loc
-				  
-		  mytemp=locauxfields_s(ii,jj,kk,7,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcey=forcey + mytemp*rhophi_loc
-				  
-		  mytemp=locauxfields_s(ii,jj,kk,8,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcez=forcez + mytemp*rhophi_loc
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,6,myblock),kind=db)*rhophi_loc 
+#else
+                  mytemp=locauxfields_s(ii,jj,kk,6,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcex=forcex + mytemp*rhophi_loc
+		  
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,7,myblock),kind=db)*rhophi_loc 
+#else	  
+                  mytemp=locauxfields_s(ii,jj,kk,7,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcey=forcey + mytemp*rhophi_loc
+		  
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,8,myblock),kind=db)*rhophi_loc 
+#else  
+                  mytemp=locauxfields_s(ii,jj,kk,8,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcez=forcez + mytemp*rhophi_loc
 #endif
 #endif
 
@@ -834,9 +1019,15 @@ contains
                   tforcey=forcey
                   tforcez=forcez
 				  
+#ifdef MIXEDPRC
+                  u_loc=real(hfields_old(ii,jj,kk,2,myblock),kind=db) !velocity
+                  v_loc=real(hfields_old(ii,jj,kk,3,myblock),kind=db)
+                  w_loc=real(hfields_old(ii,jj,kk,4,myblock),kind=db)
+#else  				  
                   u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_old(ii,jj,kk,3,myblock)
                   w_loc=hfields_old(ii,jj,kk,4,myblock)
+#endif 
                   
                  
 				  
@@ -851,12 +1042,21 @@ contains
 
 #ifdef DENSRATIO 
 			  
+#ifdef MIXEDPRC	
+                  pxx=real(hfields_s(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_s(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_s(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_s(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_s(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_s(ii,jj,kk,10,myblock),kind=db)
+#else		  
                   pxx=hfields_s(ii,jj,kk,5,myblock)
                   pyy=hfields_s(ii,jj,kk,6,myblock)
                   pzz=hfields_s(ii,jj,kk,7,myblock)
                   pxy=hfields_s(ii,jj,kk,8,myblock)
                   pxz=hfields_s(ii,jj,kk,9,myblock)
                   pyz=hfields_s(ii,jj,kk,10,myblock)
+#endif 
                   
                   !1-2
                   !*1
@@ -877,12 +1077,22 @@ contains
 		  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
-		  u_loc=hfields_s(ii,jj,kk,2,myblock) !velocity
+#ifdef MIXEDPRC
+                  u_loc=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
+                  v_loc=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
+                  w_loc=real(hfields_s(ii,jj,kk,4,myblock),kind=db)  
+#else
+                  u_loc=hfields_s(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_s(ii,jj,kk,3,myblock)
                   w_loc=hfields_s(ii,jj,kk,4,myblock)            
+#endif
 					 
 #if defined(INTERFACE_INCOMP) && defined(DENSRATIO)
-		  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+#ifdef MIXEDPRC
+                  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
+#else
+                  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+#endif
 		  u_loc = u_loc + 0.5_db*forcex/(rhophi_loc)
                   v_loc = v_loc + 0.5_db*forcey/(rhophi_loc)
                   w_loc = w_loc + 0.5_db*forcez/(rhophi_loc)
@@ -919,19 +1129,34 @@ contains
 #endif
                   
 
+#ifdef MIXEDPRC
+                  hfields_s(ii,jj,kk,2,myblock)=real(u_loc,kind=strdb) !put the new velocity in hfields_s
+                  hfields_s(ii,jj,kk,3,myblock)=real(v_loc,kind=strdb)
+                  hfields_s(ii,jj,kk,4,myblock)=real(w_loc,kind=strdb)
+#else
                   hfields_s(ii,jj,kk,2,myblock)=u_loc   !put the new velocity in hfields_s
                   hfields_s(ii,jj,kk,3,myblock)=v_loc
                   hfields_s(ii,jj,kk,4,myblock)=w_loc
+#endif 
                   
                                     
 
 !regularized 
-		  pxx=hfields_s(ii,jj,kk,5,myblock)
+#ifdef MIXEDPRC	
+                  pxx=real(hfields_s(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_s(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_s(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_s(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_s(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_s(ii,jj,kk,10,myblock),kind=db)
+#else		  
+                  pxx=hfields_s(ii,jj,kk,5,myblock)
                   pyy=hfields_s(ii,jj,kk,6,myblock)
                   pzz=hfields_s(ii,jj,kk,7,myblock)
                   pxy=hfields_s(ii,jj,kk,8,myblock)
                   pxz=hfields_s(ii,jj,kk,9,myblock)
                   pyz=hfields_s(ii,jj,kk,10,myblock)
+#endif 
                   
                   
                   pxx=pxx + forcex*u_loc/rhophi_loc
@@ -942,12 +1167,21 @@ contains
                   pyz=pyz + HALF*(forcez*v_loc+forcey*w_loc)/rhophi_loc
 
 
+#ifdef MIXEDPRC	
+                  hfields_s(ii,jj,kk,5,myblock)=real(pxx,kind=strdb)
+                  hfields_s(ii,jj,kk,6,myblock)=real(pyy,kind=strdb)
+                  hfields_s(ii,jj,kk,7,myblock)=real(pzz,kind=strdb)
+                  hfields_s(ii,jj,kk,8,myblock)=real(pxy,kind=strdb)
+                  hfields_s(ii,jj,kk,9,myblock)=real(pxz,kind=strdb)
+                  hfields_s(ii,jj,kk,10,myblock)=real(pyz,kind=strdb)
+#else	
                   hfields_s(ii,jj,kk,5,myblock)=pxx
                   hfields_s(ii,jj,kk,6,myblock)=pyy
                   hfields_s(ii,jj,kk,7,myblock)=pzz
                   hfields_s(ii,jj,kk,8,myblock)=pxy
                   hfields_s(ii,jj,kk,9,myblock)=pxz
                   hfields_s(ii,jj,kk,10,myblock)=pyz
+#endif  
                   
                   
 #if defined(ELASTIC_FORCE)
@@ -982,9 +1216,15 @@ contains
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
+#ifdef MIXEDPRC	
+                  forces_s(ii,jj,kk,1,myblock)=real(tforcex,kind=strdb)
+		          forces_s(ii,jj,kk,2,myblock)=real(tforcey,kind=strdb)
+		          forces_s(ii,jj,kk,3,myblock)=real(tforcez,kind=strdb)
+#else                 
                   forces_s(ii,jj,kk,1,myblock)=tforcex
 		          forces_s(ii,jj,kk,2,myblock)=tforcey
-		          forces_s(ii,jj,kk,3,myblock)=tforcez  
+		          forces_s(ii,jj,kk,3,myblock)=tforcez     
+#endif
 
    endsubroutine moments_LB_kernel_xplus
    
@@ -1024,7 +1264,7 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff    
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s 
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s 
 #endif           
 #if defined(ELASTIC_FORCE)
       real(kind=db) :: lambda_rel,k_elastic
@@ -1032,12 +1272,12 @@ contains
 #endif
       real(kind=db) :: fx,fy,fz
 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
 #ifdef TWOCOMPONENT 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
 #endif
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
 
       real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
@@ -1073,11 +1313,20 @@ contains
       myblock=1+(blockIdx%y+1)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1
       
 				 
+#ifdef MIXEDPRC
+		  press_loc=real(hfields_s(ii,jj,kk,1,myblock),kind=db)
+#else 
 		  press_loc=hfields_s(ii,jj,kk,1,myblock)
-				 
-#ifdef TWOCOMPONENT					 
+#endif
+			 
+#ifdef TWOCOMPONENT
+#ifdef MIXEDPRC
+		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+#else				 
 		  phi_loc=phifields_s(ii,jj,kk,1,myblock)
 		  lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
+#endif
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -1100,10 +1349,17 @@ contains
 #ifdef TWOCOMPONENT		
 		   
 		  !jaqmin 
+#ifdef MIXEDPRC
+		  mytemp=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
+		  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*mytemp !normx*modgrad
+		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
+		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
+#else
 		  mytemp=auxfields_s(ii,jj,kk,4,myblock) !modgrad
 		  gradfix=auxfields_s(ii,jj,kk,1,myblock)*mytemp !normx*modgrad
 		  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*mytemp !normy*modgrad
 		  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*mytemp !normz*modgrad
+#endif
 		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
 		  forcey = forcey + &
@@ -1113,17 +1369,29 @@ contains
 				   				   
 
 #ifdef REPULSIVE_FLUX
-		  mytemp=locauxfields_s(ii,jj,kk,6,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcex=forcex + mytemp*rhophi_loc
-				  
-		  mytemp=locauxfields_s(ii,jj,kk,7,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcey=forcey + mytemp*rhophi_loc
-				  
-		  mytemp=locauxfields_s(ii,jj,kk,8,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcez=forcez + mytemp*rhophi_loc
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,6,myblock),kind=db)*rhophi_loc 
+#else
+                  mytemp=locauxfields_s(ii,jj,kk,6,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcex=forcex + mytemp*rhophi_loc
+		  
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,7,myblock),kind=db)*rhophi_loc 
+#else	  
+                  mytemp=locauxfields_s(ii,jj,kk,7,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcey=forcey + mytemp*rhophi_loc
+		  
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,8,myblock),kind=db)*rhophi_loc 
+#else  
+                  mytemp=locauxfields_s(ii,jj,kk,8,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcez=forcez + mytemp*rhophi_loc
 #endif
 #endif
 
@@ -1158,9 +1426,15 @@ contains
                   tforcey=forcey
                   tforcez=forcez
 				  
+#ifdef MIXEDPRC
+                  u_loc=real(hfields_old(ii,jj,kk,2,myblock),kind=db) !velocity
+                  v_loc=real(hfields_old(ii,jj,kk,3,myblock),kind=db)
+                  w_loc=real(hfields_old(ii,jj,kk,4,myblock),kind=db)
+#else  				  
                   u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_old(ii,jj,kk,3,myblock)
                   w_loc=hfields_old(ii,jj,kk,4,myblock)
+#endif 
                   
                  
 				  
@@ -1175,12 +1449,21 @@ contains
 
 #ifdef DENSRATIO 
 			  
+#ifdef MIXEDPRC	
+                  pxx=real(hfields_s(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_s(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_s(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_s(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_s(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_s(ii,jj,kk,10,myblock),kind=db)
+#else		  
                   pxx=hfields_s(ii,jj,kk,5,myblock)
                   pyy=hfields_s(ii,jj,kk,6,myblock)
                   pzz=hfields_s(ii,jj,kk,7,myblock)
                   pxy=hfields_s(ii,jj,kk,8,myblock)
                   pxz=hfields_s(ii,jj,kk,9,myblock)
                   pyz=hfields_s(ii,jj,kk,10,myblock)
+#endif 
                   
                   !1-2
                   !*1
@@ -1201,12 +1484,22 @@ contains
 		  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
-		  u_loc=hfields_s(ii,jj,kk,2,myblock) !velocity
+#ifdef MIXEDPRC
+                  u_loc=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
+                  v_loc=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
+                  w_loc=real(hfields_s(ii,jj,kk,4,myblock),kind=db)  
+#else
+                  u_loc=hfields_s(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_s(ii,jj,kk,3,myblock)
                   w_loc=hfields_s(ii,jj,kk,4,myblock)            
+#endif
 					 
 #if defined(INTERFACE_INCOMP) && defined(DENSRATIO)
-		  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+#ifdef MIXEDPRC
+                  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
+#else
+                  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+#endif
 		  u_loc = u_loc + 0.5_db*forcex/(rhophi_loc)
                   v_loc = v_loc + 0.5_db*forcey/(rhophi_loc)
                   w_loc = w_loc + 0.5_db*forcez/(rhophi_loc)
@@ -1243,19 +1536,34 @@ contains
 #endif
                   
 
+#ifdef MIXEDPRC
+                  hfields_s(ii,jj,kk,2,myblock)=real(u_loc,kind=strdb) !put the new velocity in hfields_s
+                  hfields_s(ii,jj,kk,3,myblock)=real(v_loc,kind=strdb)
+                  hfields_s(ii,jj,kk,4,myblock)=real(w_loc,kind=strdb)
+#else
                   hfields_s(ii,jj,kk,2,myblock)=u_loc   !put the new velocity in hfields_s
                   hfields_s(ii,jj,kk,3,myblock)=v_loc
                   hfields_s(ii,jj,kk,4,myblock)=w_loc
+#endif 
                   
                                     
 
 !regularized 
-		  pxx=hfields_s(ii,jj,kk,5,myblock)
+#ifdef MIXEDPRC	
+                  pxx=real(hfields_s(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_s(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_s(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_s(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_s(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_s(ii,jj,kk,10,myblock),kind=db)
+#else		  
+                  pxx=hfields_s(ii,jj,kk,5,myblock)
                   pyy=hfields_s(ii,jj,kk,6,myblock)
                   pzz=hfields_s(ii,jj,kk,7,myblock)
                   pxy=hfields_s(ii,jj,kk,8,myblock)
                   pxz=hfields_s(ii,jj,kk,9,myblock)
                   pyz=hfields_s(ii,jj,kk,10,myblock)
+#endif 
                   
                   
                   pxx=pxx + forcex*u_loc/rhophi_loc
@@ -1266,12 +1574,21 @@ contains
                   pyz=pyz + HALF*(forcez*v_loc+forcey*w_loc)/rhophi_loc
 
 
+#ifdef MIXEDPRC	
+                  hfields_s(ii,jj,kk,5,myblock)=real(pxx,kind=strdb)
+                  hfields_s(ii,jj,kk,6,myblock)=real(pyy,kind=strdb)
+                  hfields_s(ii,jj,kk,7,myblock)=real(pzz,kind=strdb)
+                  hfields_s(ii,jj,kk,8,myblock)=real(pxy,kind=strdb)
+                  hfields_s(ii,jj,kk,9,myblock)=real(pxz,kind=strdb)
+                  hfields_s(ii,jj,kk,10,myblock)=real(pyz,kind=strdb)
+#else	
                   hfields_s(ii,jj,kk,5,myblock)=pxx
                   hfields_s(ii,jj,kk,6,myblock)=pyy
                   hfields_s(ii,jj,kk,7,myblock)=pzz
                   hfields_s(ii,jj,kk,8,myblock)=pxy
                   hfields_s(ii,jj,kk,9,myblock)=pxz
                   hfields_s(ii,jj,kk,10,myblock)=pyz
+#endif  
                   
                   
 #if defined(ELASTIC_FORCE)
@@ -1306,9 +1623,15 @@ contains
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
+#ifdef MIXEDPRC	
+                  forces_s(ii,jj,kk,1,myblock)=real(tforcex,kind=strdb)
+		          forces_s(ii,jj,kk,2,myblock)=real(tforcey,kind=strdb)
+		          forces_s(ii,jj,kk,3,myblock)=real(tforcez,kind=strdb)
+#else                 
                   forces_s(ii,jj,kk,1,myblock)=tforcex
 		          forces_s(ii,jj,kk,2,myblock)=tforcey
-		          forces_s(ii,jj,kk,3,myblock)=tforcez  
+		          forces_s(ii,jj,kk,3,myblock)=tforcez     
+#endif
 
    endsubroutine moments_LB_kernel_xminus
    
@@ -1348,7 +1671,7 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff    
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s 
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s 
 #endif           
 #if defined(ELASTIC_FORCE)
       real(kind=db) :: lambda_rel,k_elastic
@@ -1356,12 +1679,12 @@ contains
 #endif
       real(kind=db) :: fx,fy,fz
 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
 #ifdef TWOCOMPONENT 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
 #endif
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
 
       real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
@@ -1397,11 +1720,20 @@ contains
       myblock=blockIdx%x+(nyblock_d-2)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1
       
 				 
+#ifdef MIXEDPRC
+		  press_loc=real(hfields_s(ii,jj,kk,1,myblock),kind=db)
+#else 
 		  press_loc=hfields_s(ii,jj,kk,1,myblock)
-				 
-#ifdef TWOCOMPONENT					 
+#endif
+			 
+#ifdef TWOCOMPONENT
+#ifdef MIXEDPRC
+		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+#else				 
 		  phi_loc=phifields_s(ii,jj,kk,1,myblock)
 		  lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
+#endif
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -1424,10 +1756,17 @@ contains
 #ifdef TWOCOMPONENT		
 		   
 		  !jaqmin 
+#ifdef MIXEDPRC
+		  mytemp=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
+		  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*mytemp !normx*modgrad
+		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
+		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
+#else
 		  mytemp=auxfields_s(ii,jj,kk,4,myblock) !modgrad
 		  gradfix=auxfields_s(ii,jj,kk,1,myblock)*mytemp !normx*modgrad
 		  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*mytemp !normy*modgrad
 		  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*mytemp !normz*modgrad
+#endif
 		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
 		  forcey = forcey + &
@@ -1437,17 +1776,29 @@ contains
 				   				   
 
 #ifdef REPULSIVE_FLUX
-		  mytemp=locauxfields_s(ii,jj,kk,6,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcex=forcex + mytemp*rhophi_loc
-				  
-		  mytemp=locauxfields_s(ii,jj,kk,7,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcey=forcey + mytemp*rhophi_loc
-				  
-		  mytemp=locauxfields_s(ii,jj,kk,8,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcez=forcez + mytemp*rhophi_loc
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,6,myblock),kind=db)*rhophi_loc 
+#else
+                  mytemp=locauxfields_s(ii,jj,kk,6,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcex=forcex + mytemp*rhophi_loc
+		  
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,7,myblock),kind=db)*rhophi_loc 
+#else	  
+                  mytemp=locauxfields_s(ii,jj,kk,7,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcey=forcey + mytemp*rhophi_loc
+		  
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,8,myblock),kind=db)*rhophi_loc 
+#else  
+                  mytemp=locauxfields_s(ii,jj,kk,8,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcez=forcez + mytemp*rhophi_loc
 #endif
 #endif
 
@@ -1482,9 +1833,15 @@ contains
                   tforcey=forcey
                   tforcez=forcez
 				  
+#ifdef MIXEDPRC
+                  u_loc=real(hfields_old(ii,jj,kk,2,myblock),kind=db) !velocity
+                  v_loc=real(hfields_old(ii,jj,kk,3,myblock),kind=db)
+                  w_loc=real(hfields_old(ii,jj,kk,4,myblock),kind=db)
+#else  				  
                   u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_old(ii,jj,kk,3,myblock)
                   w_loc=hfields_old(ii,jj,kk,4,myblock)
+#endif 
                   
                  
 				  
@@ -1499,12 +1856,21 @@ contains
 
 #ifdef DENSRATIO 
 			  
+#ifdef MIXEDPRC	
+                  pxx=real(hfields_s(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_s(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_s(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_s(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_s(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_s(ii,jj,kk,10,myblock),kind=db)
+#else		  
                   pxx=hfields_s(ii,jj,kk,5,myblock)
                   pyy=hfields_s(ii,jj,kk,6,myblock)
                   pzz=hfields_s(ii,jj,kk,7,myblock)
                   pxy=hfields_s(ii,jj,kk,8,myblock)
                   pxz=hfields_s(ii,jj,kk,9,myblock)
                   pyz=hfields_s(ii,jj,kk,10,myblock)
+#endif 
                   
                   !1-2
                   !*1
@@ -1525,12 +1891,22 @@ contains
 		  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
-		  u_loc=hfields_s(ii,jj,kk,2,myblock) !velocity
+#ifdef MIXEDPRC
+                  u_loc=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
+                  v_loc=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
+                  w_loc=real(hfields_s(ii,jj,kk,4,myblock),kind=db)  
+#else
+                  u_loc=hfields_s(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_s(ii,jj,kk,3,myblock)
                   w_loc=hfields_s(ii,jj,kk,4,myblock)            
+#endif
 					 
 #if defined(INTERFACE_INCOMP) && defined(DENSRATIO)
-		  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+#ifdef MIXEDPRC
+                  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
+#else
+                  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+#endif
 		  u_loc = u_loc + 0.5_db*forcex/(rhophi_loc)
                   v_loc = v_loc + 0.5_db*forcey/(rhophi_loc)
                   w_loc = w_loc + 0.5_db*forcez/(rhophi_loc)
@@ -1567,19 +1943,34 @@ contains
 #endif
                   
 
+#ifdef MIXEDPRC
+                  hfields_s(ii,jj,kk,2,myblock)=real(u_loc,kind=strdb) !put the new velocity in hfields_s
+                  hfields_s(ii,jj,kk,3,myblock)=real(v_loc,kind=strdb)
+                  hfields_s(ii,jj,kk,4,myblock)=real(w_loc,kind=strdb)
+#else
                   hfields_s(ii,jj,kk,2,myblock)=u_loc   !put the new velocity in hfields_s
                   hfields_s(ii,jj,kk,3,myblock)=v_loc
                   hfields_s(ii,jj,kk,4,myblock)=w_loc
+#endif 
                   
                                     
 
 !regularized 
-		  pxx=hfields_s(ii,jj,kk,5,myblock)
+#ifdef MIXEDPRC	
+                  pxx=real(hfields_s(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_s(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_s(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_s(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_s(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_s(ii,jj,kk,10,myblock),kind=db)
+#else		  
+                  pxx=hfields_s(ii,jj,kk,5,myblock)
                   pyy=hfields_s(ii,jj,kk,6,myblock)
                   pzz=hfields_s(ii,jj,kk,7,myblock)
                   pxy=hfields_s(ii,jj,kk,8,myblock)
                   pxz=hfields_s(ii,jj,kk,9,myblock)
                   pyz=hfields_s(ii,jj,kk,10,myblock)
+#endif 
                   
                   
                   pxx=pxx + forcex*u_loc/rhophi_loc
@@ -1590,12 +1981,21 @@ contains
                   pyz=pyz + HALF*(forcez*v_loc+forcey*w_loc)/rhophi_loc
 
 
+#ifdef MIXEDPRC	
+                  hfields_s(ii,jj,kk,5,myblock)=real(pxx,kind=strdb)
+                  hfields_s(ii,jj,kk,6,myblock)=real(pyy,kind=strdb)
+                  hfields_s(ii,jj,kk,7,myblock)=real(pzz,kind=strdb)
+                  hfields_s(ii,jj,kk,8,myblock)=real(pxy,kind=strdb)
+                  hfields_s(ii,jj,kk,9,myblock)=real(pxz,kind=strdb)
+                  hfields_s(ii,jj,kk,10,myblock)=real(pyz,kind=strdb)
+#else	
                   hfields_s(ii,jj,kk,5,myblock)=pxx
                   hfields_s(ii,jj,kk,6,myblock)=pyy
                   hfields_s(ii,jj,kk,7,myblock)=pzz
                   hfields_s(ii,jj,kk,8,myblock)=pxy
                   hfields_s(ii,jj,kk,9,myblock)=pxz
                   hfields_s(ii,jj,kk,10,myblock)=pyz
+#endif  
                   
                   
 #if defined(ELASTIC_FORCE)
@@ -1630,9 +2030,15 @@ contains
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
+#ifdef MIXEDPRC	
+                  forces_s(ii,jj,kk,1,myblock)=real(tforcex,kind=strdb)
+		          forces_s(ii,jj,kk,2,myblock)=real(tforcey,kind=strdb)
+		          forces_s(ii,jj,kk,3,myblock)=real(tforcez,kind=strdb)
+#else                 
                   forces_s(ii,jj,kk,1,myblock)=tforcex
 		          forces_s(ii,jj,kk,2,myblock)=tforcey
-		          forces_s(ii,jj,kk,3,myblock)=tforcez  
+		          forces_s(ii,jj,kk,3,myblock)=tforcez     
+#endif
 
    endsubroutine moments_LB_kernel_yplus
    
@@ -1672,7 +2078,7 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff    
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s 
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s 
 #endif           
 #if defined(ELASTIC_FORCE)
       real(kind=db) :: lambda_rel,k_elastic
@@ -1680,12 +2086,12 @@ contains
 #endif
       real(kind=db) :: fx,fy,fz
 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
 #ifdef TWOCOMPONENT 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
 #endif
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
 
       real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
@@ -1721,11 +2127,20 @@ contains
       myblock=blockIdx%x+1*nxblock_d+(blockIdx%z+1)*nxyblock_d+1
       
 				 
+#ifdef MIXEDPRC
+		  press_loc=real(hfields_s(ii,jj,kk,1,myblock),kind=db)
+#else 
 		  press_loc=hfields_s(ii,jj,kk,1,myblock)
-				 
-#ifdef TWOCOMPONENT					 
+#endif
+			 
+#ifdef TWOCOMPONENT
+#ifdef MIXEDPRC
+		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+#else				 
 		  phi_loc=phifields_s(ii,jj,kk,1,myblock)
 		  lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
+#endif
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -1748,10 +2163,17 @@ contains
 #ifdef TWOCOMPONENT		
 		   
 		  !jaqmin 
+#ifdef MIXEDPRC
+		  mytemp=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
+		  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*mytemp !normx*modgrad
+		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
+		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
+#else
 		  mytemp=auxfields_s(ii,jj,kk,4,myblock) !modgrad
 		  gradfix=auxfields_s(ii,jj,kk,1,myblock)*mytemp !normx*modgrad
 		  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*mytemp !normy*modgrad
 		  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*mytemp !normz*modgrad
+#endif
 		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
 		  forcey = forcey + &
@@ -1761,17 +2183,29 @@ contains
 				   				   
 
 #ifdef REPULSIVE_FLUX
-		  mytemp=locauxfields_s(ii,jj,kk,6,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcex=forcex + mytemp*rhophi_loc
-				  
-		  mytemp=locauxfields_s(ii,jj,kk,7,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcey=forcey + mytemp*rhophi_loc
-				  
-		  mytemp=locauxfields_s(ii,jj,kk,8,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcez=forcez + mytemp*rhophi_loc
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,6,myblock),kind=db)*rhophi_loc 
+#else
+                  mytemp=locauxfields_s(ii,jj,kk,6,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcex=forcex + mytemp*rhophi_loc
+		  
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,7,myblock),kind=db)*rhophi_loc 
+#else	  
+                  mytemp=locauxfields_s(ii,jj,kk,7,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcey=forcey + mytemp*rhophi_loc
+		  
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,8,myblock),kind=db)*rhophi_loc 
+#else  
+                  mytemp=locauxfields_s(ii,jj,kk,8,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcez=forcez + mytemp*rhophi_loc
 #endif
 #endif
 
@@ -1806,9 +2240,15 @@ contains
                   tforcey=forcey
                   tforcez=forcez
 				  
+#ifdef MIXEDPRC
+                  u_loc=real(hfields_old(ii,jj,kk,2,myblock),kind=db) !velocity
+                  v_loc=real(hfields_old(ii,jj,kk,3,myblock),kind=db)
+                  w_loc=real(hfields_old(ii,jj,kk,4,myblock),kind=db)
+#else  				  
                   u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_old(ii,jj,kk,3,myblock)
                   w_loc=hfields_old(ii,jj,kk,4,myblock)
+#endif 
                   
                  
 				  
@@ -1823,12 +2263,21 @@ contains
 
 #ifdef DENSRATIO 
 			  
+#ifdef MIXEDPRC	
+                  pxx=real(hfields_s(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_s(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_s(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_s(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_s(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_s(ii,jj,kk,10,myblock),kind=db)
+#else		  
                   pxx=hfields_s(ii,jj,kk,5,myblock)
                   pyy=hfields_s(ii,jj,kk,6,myblock)
                   pzz=hfields_s(ii,jj,kk,7,myblock)
                   pxy=hfields_s(ii,jj,kk,8,myblock)
                   pxz=hfields_s(ii,jj,kk,9,myblock)
                   pyz=hfields_s(ii,jj,kk,10,myblock)
+#endif 
                   
                   !1-2
                   !*1
@@ -1849,12 +2298,22 @@ contains
 		  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
-		  u_loc=hfields_s(ii,jj,kk,2,myblock) !velocity
+#ifdef MIXEDPRC
+                  u_loc=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
+                  v_loc=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
+                  w_loc=real(hfields_s(ii,jj,kk,4,myblock),kind=db)  
+#else
+                  u_loc=hfields_s(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_s(ii,jj,kk,3,myblock)
                   w_loc=hfields_s(ii,jj,kk,4,myblock)            
+#endif
 					 
 #if defined(INTERFACE_INCOMP) && defined(DENSRATIO)
-		  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+#ifdef MIXEDPRC
+                  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
+#else
+                  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+#endif
 		  u_loc = u_loc + 0.5_db*forcex/(rhophi_loc)
                   v_loc = v_loc + 0.5_db*forcey/(rhophi_loc)
                   w_loc = w_loc + 0.5_db*forcez/(rhophi_loc)
@@ -1891,19 +2350,34 @@ contains
 #endif
                   
 
+#ifdef MIXEDPRC
+                  hfields_s(ii,jj,kk,2,myblock)=real(u_loc,kind=strdb) !put the new velocity in hfields_s
+                  hfields_s(ii,jj,kk,3,myblock)=real(v_loc,kind=strdb)
+                  hfields_s(ii,jj,kk,4,myblock)=real(w_loc,kind=strdb)
+#else
                   hfields_s(ii,jj,kk,2,myblock)=u_loc   !put the new velocity in hfields_s
                   hfields_s(ii,jj,kk,3,myblock)=v_loc
                   hfields_s(ii,jj,kk,4,myblock)=w_loc
+#endif 
                   
                                     
 
 !regularized 
-		  pxx=hfields_s(ii,jj,kk,5,myblock)
+#ifdef MIXEDPRC	
+                  pxx=real(hfields_s(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_s(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_s(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_s(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_s(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_s(ii,jj,kk,10,myblock),kind=db)
+#else		  
+                  pxx=hfields_s(ii,jj,kk,5,myblock)
                   pyy=hfields_s(ii,jj,kk,6,myblock)
                   pzz=hfields_s(ii,jj,kk,7,myblock)
                   pxy=hfields_s(ii,jj,kk,8,myblock)
                   pxz=hfields_s(ii,jj,kk,9,myblock)
                   pyz=hfields_s(ii,jj,kk,10,myblock)
+#endif 
                   
                   
                   pxx=pxx + forcex*u_loc/rhophi_loc
@@ -1914,12 +2388,21 @@ contains
                   pyz=pyz + HALF*(forcez*v_loc+forcey*w_loc)/rhophi_loc
 
 
+#ifdef MIXEDPRC	
+                  hfields_s(ii,jj,kk,5,myblock)=real(pxx,kind=strdb)
+                  hfields_s(ii,jj,kk,6,myblock)=real(pyy,kind=strdb)
+                  hfields_s(ii,jj,kk,7,myblock)=real(pzz,kind=strdb)
+                  hfields_s(ii,jj,kk,8,myblock)=real(pxy,kind=strdb)
+                  hfields_s(ii,jj,kk,9,myblock)=real(pxz,kind=strdb)
+                  hfields_s(ii,jj,kk,10,myblock)=real(pyz,kind=strdb)
+#else	
                   hfields_s(ii,jj,kk,5,myblock)=pxx
                   hfields_s(ii,jj,kk,6,myblock)=pyy
                   hfields_s(ii,jj,kk,7,myblock)=pzz
                   hfields_s(ii,jj,kk,8,myblock)=pxy
                   hfields_s(ii,jj,kk,9,myblock)=pxz
                   hfields_s(ii,jj,kk,10,myblock)=pyz
+#endif  
                   
                   
 #if defined(ELASTIC_FORCE)
@@ -1954,9 +2437,15 @@ contains
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
+#ifdef MIXEDPRC	
+                  forces_s(ii,jj,kk,1,myblock)=real(tforcex,kind=strdb)
+		          forces_s(ii,jj,kk,2,myblock)=real(tforcey,kind=strdb)
+		          forces_s(ii,jj,kk,3,myblock)=real(tforcez,kind=strdb)
+#else                 
                   forces_s(ii,jj,kk,1,myblock)=tforcex
 		          forces_s(ii,jj,kk,2,myblock)=tforcey
-		          forces_s(ii,jj,kk,3,myblock)=tforcez  
+		          forces_s(ii,jj,kk,3,myblock)=tforcez     
+#endif
 
    endsubroutine moments_LB_kernel_yminus
    
@@ -1996,7 +2485,7 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff    
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s 
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s 
 #endif           
 #if defined(ELASTIC_FORCE)
       real(kind=db) :: lambda_rel,k_elastic
@@ -2004,12 +2493,12 @@ contains
 #endif
       real(kind=db) :: fx,fy,fz
 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
 #ifdef TWOCOMPONENT 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
 #endif
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
 
       real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
@@ -2045,11 +2534,20 @@ contains
       myblock=blockIdx%x+blockIdx%y*nxblock_d+(nzblock_d-2)*nxyblock_d+1
       
 				 
+#ifdef MIXEDPRC
+		  press_loc=real(hfields_s(ii,jj,kk,1,myblock),kind=db)
+#else 
 		  press_loc=hfields_s(ii,jj,kk,1,myblock)
-				 
-#ifdef TWOCOMPONENT					 
+#endif
+			 
+#ifdef TWOCOMPONENT
+#ifdef MIXEDPRC
+		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+#else				 
 		  phi_loc=phifields_s(ii,jj,kk,1,myblock)
 		  lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
+#endif
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -2072,10 +2570,17 @@ contains
 #ifdef TWOCOMPONENT		
 		   
 		  !jaqmin 
+#ifdef MIXEDPRC
+		  mytemp=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
+		  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*mytemp !normx*modgrad
+		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
+		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
+#else
 		  mytemp=auxfields_s(ii,jj,kk,4,myblock) !modgrad
 		  gradfix=auxfields_s(ii,jj,kk,1,myblock)*mytemp !normx*modgrad
 		  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*mytemp !normy*modgrad
 		  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*mytemp !normz*modgrad
+#endif
 		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
 		  forcey = forcey + &
@@ -2085,17 +2590,29 @@ contains
 				   				   
 
 #ifdef REPULSIVE_FLUX
-		  mytemp=locauxfields_s(ii,jj,kk,6,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcex=forcex + mytemp*rhophi_loc
-				  
-		  mytemp=locauxfields_s(ii,jj,kk,7,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcey=forcey + mytemp*rhophi_loc
-				  
-		  mytemp=locauxfields_s(ii,jj,kk,8,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcez=forcez + mytemp*rhophi_loc
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,6,myblock),kind=db)*rhophi_loc 
+#else
+                  mytemp=locauxfields_s(ii,jj,kk,6,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcex=forcex + mytemp*rhophi_loc
+		  
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,7,myblock),kind=db)*rhophi_loc 
+#else	  
+                  mytemp=locauxfields_s(ii,jj,kk,7,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcey=forcey + mytemp*rhophi_loc
+		  
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,8,myblock),kind=db)*rhophi_loc 
+#else  
+                  mytemp=locauxfields_s(ii,jj,kk,8,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcez=forcez + mytemp*rhophi_loc
 #endif
 #endif
 
@@ -2130,9 +2647,15 @@ contains
                   tforcey=forcey
                   tforcez=forcez
 				  
+#ifdef MIXEDPRC
+                  u_loc=real(hfields_old(ii,jj,kk,2,myblock),kind=db) !velocity
+                  v_loc=real(hfields_old(ii,jj,kk,3,myblock),kind=db)
+                  w_loc=real(hfields_old(ii,jj,kk,4,myblock),kind=db)
+#else  				  
                   u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_old(ii,jj,kk,3,myblock)
                   w_loc=hfields_old(ii,jj,kk,4,myblock)
+#endif 
                   
                  
 				  
@@ -2147,12 +2670,21 @@ contains
 
 #ifdef DENSRATIO 
 			  
+#ifdef MIXEDPRC	
+                  pxx=real(hfields_s(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_s(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_s(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_s(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_s(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_s(ii,jj,kk,10,myblock),kind=db)
+#else		  
                   pxx=hfields_s(ii,jj,kk,5,myblock)
                   pyy=hfields_s(ii,jj,kk,6,myblock)
                   pzz=hfields_s(ii,jj,kk,7,myblock)
                   pxy=hfields_s(ii,jj,kk,8,myblock)
                   pxz=hfields_s(ii,jj,kk,9,myblock)
                   pyz=hfields_s(ii,jj,kk,10,myblock)
+#endif 
                   
                   !1-2
                   !*1
@@ -2173,12 +2705,22 @@ contains
 		  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
-		  u_loc=hfields_s(ii,jj,kk,2,myblock) !velocity
+#ifdef MIXEDPRC
+                  u_loc=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
+                  v_loc=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
+                  w_loc=real(hfields_s(ii,jj,kk,4,myblock),kind=db)  
+#else
+                  u_loc=hfields_s(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_s(ii,jj,kk,3,myblock)
                   w_loc=hfields_s(ii,jj,kk,4,myblock)            
+#endif
 					 
 #if defined(INTERFACE_INCOMP) && defined(DENSRATIO)
-		  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+#ifdef MIXEDPRC
+                  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
+#else
+                  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+#endif
 		  u_loc = u_loc + 0.5_db*forcex/(rhophi_loc)
                   v_loc = v_loc + 0.5_db*forcey/(rhophi_loc)
                   w_loc = w_loc + 0.5_db*forcez/(rhophi_loc)
@@ -2215,19 +2757,34 @@ contains
 #endif
                   
 
+#ifdef MIXEDPRC
+                  hfields_s(ii,jj,kk,2,myblock)=real(u_loc,kind=strdb) !put the new velocity in hfields_s
+                  hfields_s(ii,jj,kk,3,myblock)=real(v_loc,kind=strdb)
+                  hfields_s(ii,jj,kk,4,myblock)=real(w_loc,kind=strdb)
+#else
                   hfields_s(ii,jj,kk,2,myblock)=u_loc   !put the new velocity in hfields_s
                   hfields_s(ii,jj,kk,3,myblock)=v_loc
                   hfields_s(ii,jj,kk,4,myblock)=w_loc
+#endif 
                   
                                     
 
 !regularized 
-		  pxx=hfields_s(ii,jj,kk,5,myblock)
+#ifdef MIXEDPRC	
+                  pxx=real(hfields_s(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_s(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_s(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_s(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_s(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_s(ii,jj,kk,10,myblock),kind=db)
+#else		  
+                  pxx=hfields_s(ii,jj,kk,5,myblock)
                   pyy=hfields_s(ii,jj,kk,6,myblock)
                   pzz=hfields_s(ii,jj,kk,7,myblock)
                   pxy=hfields_s(ii,jj,kk,8,myblock)
                   pxz=hfields_s(ii,jj,kk,9,myblock)
                   pyz=hfields_s(ii,jj,kk,10,myblock)
+#endif 
                   
                   
                   pxx=pxx + forcex*u_loc/rhophi_loc
@@ -2238,12 +2795,21 @@ contains
                   pyz=pyz + HALF*(forcez*v_loc+forcey*w_loc)/rhophi_loc
 
 
+#ifdef MIXEDPRC	
+                  hfields_s(ii,jj,kk,5,myblock)=real(pxx,kind=strdb)
+                  hfields_s(ii,jj,kk,6,myblock)=real(pyy,kind=strdb)
+                  hfields_s(ii,jj,kk,7,myblock)=real(pzz,kind=strdb)
+                  hfields_s(ii,jj,kk,8,myblock)=real(pxy,kind=strdb)
+                  hfields_s(ii,jj,kk,9,myblock)=real(pxz,kind=strdb)
+                  hfields_s(ii,jj,kk,10,myblock)=real(pyz,kind=strdb)
+#else	
                   hfields_s(ii,jj,kk,5,myblock)=pxx
                   hfields_s(ii,jj,kk,6,myblock)=pyy
                   hfields_s(ii,jj,kk,7,myblock)=pzz
                   hfields_s(ii,jj,kk,8,myblock)=pxy
                   hfields_s(ii,jj,kk,9,myblock)=pxz
                   hfields_s(ii,jj,kk,10,myblock)=pyz
+#endif  
                   
                   
 #if defined(ELASTIC_FORCE)
@@ -2278,9 +2844,15 @@ contains
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
+#ifdef MIXEDPRC	
+                  forces_s(ii,jj,kk,1,myblock)=real(tforcex,kind=strdb)
+		          forces_s(ii,jj,kk,2,myblock)=real(tforcey,kind=strdb)
+		          forces_s(ii,jj,kk,3,myblock)=real(tforcez,kind=strdb)
+#else                 
                   forces_s(ii,jj,kk,1,myblock)=tforcex
 		          forces_s(ii,jj,kk,2,myblock)=tforcey
-		          forces_s(ii,jj,kk,3,myblock)=tforcez  
+		          forces_s(ii,jj,kk,3,myblock)=tforcez     
+#endif
 
    endsubroutine moments_LB_kernel_zplus
    
@@ -2320,7 +2892,7 @@ contains
 #endif  
 #ifdef TWOCOMPONENT 
       real(kind=db) :: visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff    
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s 
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s 
 #endif           
 #if defined(ELASTIC_FORCE)
       real(kind=db) :: lambda_rel,k_elastic
@@ -2328,12 +2900,12 @@ contains
 #endif
       real(kind=db) :: fx,fy,fz
 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_old,hfields_s
 #ifdef TWOCOMPONENT 
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
 #endif
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
 
       real(kind=db) :: pxx,pyy,pzz,pxy,pxz,pyz
@@ -2369,11 +2941,20 @@ contains
       myblock=blockIdx%x+blockIdx%y*nxblock_d+1*nxyblock_d+1
       
 				 
+#ifdef MIXEDPRC
+		  press_loc=real(hfields_s(ii,jj,kk,1,myblock),kind=db)
+#else 
 		  press_loc=hfields_s(ii,jj,kk,1,myblock)
-				 
-#ifdef TWOCOMPONENT					 
+#endif
+			 
+#ifdef TWOCOMPONENT
+#ifdef MIXEDPRC
+		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+#else				 
 		  phi_loc=phifields_s(ii,jj,kk,1,myblock)
 		  lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
+#endif
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -2396,10 +2977,17 @@ contains
 #ifdef TWOCOMPONENT		
 		   
 		  !jaqmin 
+#ifdef MIXEDPRC
+		  mytemp=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
+		  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*mytemp !normx*modgrad
+		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
+		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
+#else
 		  mytemp=auxfields_s(ii,jj,kk,4,myblock) !modgrad
 		  gradfix=auxfields_s(ii,jj,kk,1,myblock)*mytemp !normx*modgrad
 		  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*mytemp !normy*modgrad
 		  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*mytemp !normz*modgrad
+#endif
 		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
 		  forcey = forcey + &
@@ -2409,17 +2997,29 @@ contains
 				   				   
 
 #ifdef REPULSIVE_FLUX
-		  mytemp=locauxfields_s(ii,jj,kk,6,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcex=forcex + mytemp*rhophi_loc
-				  
-		  mytemp=locauxfields_s(ii,jj,kk,7,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcey=forcey + mytemp*rhophi_loc
-				  
-		  mytemp=locauxfields_s(ii,jj,kk,8,myblock)*rhophi_loc 
-		  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
-		  forcez=forcez + mytemp*rhophi_loc
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,6,myblock),kind=db)*rhophi_loc 
+#else
+                  mytemp=locauxfields_s(ii,jj,kk,6,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcex=forcex + mytemp*rhophi_loc
+		  
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,7,myblock),kind=db)*rhophi_loc 
+#else	  
+                  mytemp=locauxfields_s(ii,jj,kk,7,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcey=forcey + mytemp*rhophi_loc
+		  
+#ifdef MIXEDPRC
+                  mytemp=real(locauxfields_s(ii,jj,kk,8,myblock),kind=db)*rhophi_loc 
+#else  
+                  mytemp=locauxfields_s(ii,jj,kk,8,myblock)*rhophi_loc 
+#endif
+                  if(abs(mytemp)>1.0d-3) mytemp=1.0d-3*sign(1.0,mytemp)!mytemp*0.1_db
+                  forcez=forcez + mytemp*rhophi_loc
 #endif
 #endif
 
@@ -2454,9 +3054,15 @@ contains
                   tforcey=forcey
                   tforcez=forcez
 				  
+#ifdef MIXEDPRC
+                  u_loc=real(hfields_old(ii,jj,kk,2,myblock),kind=db) !velocity
+                  v_loc=real(hfields_old(ii,jj,kk,3,myblock),kind=db)
+                  w_loc=real(hfields_old(ii,jj,kk,4,myblock),kind=db)
+#else  				  
                   u_loc=hfields_old(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_old(ii,jj,kk,3,myblock)
                   w_loc=hfields_old(ii,jj,kk,4,myblock)
+#endif 
                   
                  
 				  
@@ -2471,12 +3077,21 @@ contains
 
 #ifdef DENSRATIO 
 			  
+#ifdef MIXEDPRC	
+                  pxx=real(hfields_s(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_s(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_s(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_s(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_s(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_s(ii,jj,kk,10,myblock),kind=db)
+#else		  
                   pxx=hfields_s(ii,jj,kk,5,myblock)
                   pyy=hfields_s(ii,jj,kk,6,myblock)
                   pzz=hfields_s(ii,jj,kk,7,myblock)
                   pxy=hfields_s(ii,jj,kk,8,myblock)
                   pxz=hfields_s(ii,jj,kk,9,myblock)
                   pyz=hfields_s(ii,jj,kk,10,myblock)
+#endif 
                   
                   !1-2
                   !*1
@@ -2497,12 +3112,22 @@ contains
 		  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
-		  u_loc=hfields_s(ii,jj,kk,2,myblock) !velocity
+#ifdef MIXEDPRC
+                  u_loc=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
+                  v_loc=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
+                  w_loc=real(hfields_s(ii,jj,kk,4,myblock),kind=db)  
+#else
+                  u_loc=hfields_s(ii,jj,kk,2,myblock) !velocity
                   v_loc=hfields_s(ii,jj,kk,3,myblock)
                   w_loc=hfields_s(ii,jj,kk,4,myblock)            
+#endif
 					 
 #if defined(INTERFACE_INCOMP) && defined(DENSRATIO)
-		  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+#ifdef MIXEDPRC
+                  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
+#else
+                  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+#endif
 		  u_loc = u_loc + 0.5_db*forcex/(rhophi_loc)
                   v_loc = v_loc + 0.5_db*forcey/(rhophi_loc)
                   w_loc = w_loc + 0.5_db*forcez/(rhophi_loc)
@@ -2539,19 +3164,34 @@ contains
 #endif
                   
 
+#ifdef MIXEDPRC
+                  hfields_s(ii,jj,kk,2,myblock)=real(u_loc,kind=strdb) !put the new velocity in hfields_s
+                  hfields_s(ii,jj,kk,3,myblock)=real(v_loc,kind=strdb)
+                  hfields_s(ii,jj,kk,4,myblock)=real(w_loc,kind=strdb)
+#else
                   hfields_s(ii,jj,kk,2,myblock)=u_loc   !put the new velocity in hfields_s
                   hfields_s(ii,jj,kk,3,myblock)=v_loc
                   hfields_s(ii,jj,kk,4,myblock)=w_loc
+#endif 
                   
                                     
 
 !regularized 
-		  pxx=hfields_s(ii,jj,kk,5,myblock)
+#ifdef MIXEDPRC	
+                  pxx=real(hfields_s(ii,jj,kk,5,myblock),kind=db)
+                  pyy=real(hfields_s(ii,jj,kk,6,myblock),kind=db)
+                  pzz=real(hfields_s(ii,jj,kk,7,myblock),kind=db)
+                  pxy=real(hfields_s(ii,jj,kk,8,myblock),kind=db)
+                  pxz=real(hfields_s(ii,jj,kk,9,myblock),kind=db)
+                  pyz=real(hfields_s(ii,jj,kk,10,myblock),kind=db)
+#else		  
+                  pxx=hfields_s(ii,jj,kk,5,myblock)
                   pyy=hfields_s(ii,jj,kk,6,myblock)
                   pzz=hfields_s(ii,jj,kk,7,myblock)
                   pxy=hfields_s(ii,jj,kk,8,myblock)
                   pxz=hfields_s(ii,jj,kk,9,myblock)
                   pyz=hfields_s(ii,jj,kk,10,myblock)
+#endif 
                   
                   
                   pxx=pxx + forcex*u_loc/rhophi_loc
@@ -2562,12 +3202,21 @@ contains
                   pyz=pyz + HALF*(forcez*v_loc+forcey*w_loc)/rhophi_loc
 
 
+#ifdef MIXEDPRC	
+                  hfields_s(ii,jj,kk,5,myblock)=real(pxx,kind=strdb)
+                  hfields_s(ii,jj,kk,6,myblock)=real(pyy,kind=strdb)
+                  hfields_s(ii,jj,kk,7,myblock)=real(pzz,kind=strdb)
+                  hfields_s(ii,jj,kk,8,myblock)=real(pxy,kind=strdb)
+                  hfields_s(ii,jj,kk,9,myblock)=real(pxz,kind=strdb)
+                  hfields_s(ii,jj,kk,10,myblock)=real(pyz,kind=strdb)
+#else	
                   hfields_s(ii,jj,kk,5,myblock)=pxx
                   hfields_s(ii,jj,kk,6,myblock)=pyy
                   hfields_s(ii,jj,kk,7,myblock)=pzz
                   hfields_s(ii,jj,kk,8,myblock)=pxy
                   hfields_s(ii,jj,kk,9,myblock)=pxz
                   hfields_s(ii,jj,kk,10,myblock)=pyz
+#endif  
                   
                   
 #if defined(ELASTIC_FORCE)
@@ -2602,9 +3251,15 @@ contains
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
+#ifdef MIXEDPRC	
+                  forces_s(ii,jj,kk,1,myblock)=real(tforcex,kind=strdb)
+		          forces_s(ii,jj,kk,2,myblock)=real(tforcey,kind=strdb)
+		          forces_s(ii,jj,kk,3,myblock)=real(tforcez,kind=strdb)
+#else                 
                   forces_s(ii,jj,kk,1,myblock)=tforcex
 		          forces_s(ii,jj,kk,2,myblock)=tforcey
-		          forces_s(ii,jj,kk,3,myblock)=tforcez  
+		          forces_s(ii,jj,kk,3,myblock)=tforcez     
+#endif 
 
    endsubroutine moments_LB_kernel_zminus
    

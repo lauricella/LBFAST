@@ -533,7 +533,7 @@ contains
  subroutine compute_norm_interface_cuda(phifields_s)
 
       implicit none
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_s
       
 #ifdef TWOCOMPONENT
       !$acc wait
@@ -574,7 +574,7 @@ contains
  subroutine compute_norm_interface_cuda_int(phifields_s)
 
       implicit none
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_s
       
 #ifdef TWOCOMPONENT
       !$acc wait
@@ -615,7 +615,7 @@ contains
  subroutine compute_norm_interface_cuda_ext(phifields_s)
 
       implicit none
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_s
       
 #ifdef TWOCOMPONENT
       !$acc wait
@@ -768,7 +768,7 @@ contains
  subroutine compute_div_theta_n(phifields_s)
 
       implicit none
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_s
 
       
 #ifdef TWOCOMPONENT
@@ -797,7 +797,7 @@ contains
    subroutine thinfilm_scan_mark_cuda(phifields_s)
 
       implicit none
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_s
  
    
 #if defined(TWOCOMPONENT) && defined(REPULSIVE_FLUX)
@@ -828,7 +828,7 @@ contains
    subroutine repulsive_flux_normal_cuda(phifields_s)
 
       implicit none
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_s
  
    
 #if defined(TWOCOMPONENT) && defined(REPULSIVE_FLUX)
@@ -864,9 +864,9 @@ contains
 
       implicit none
       
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_old,hfields_s
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: hfields_old,hfields_s
 #ifdef TWOCOMPONENT          
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_s
 #endif 
 
 !      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
@@ -939,9 +939,9 @@ contains
 
       implicit none
       
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_old,hfields_s
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: hfields_old,hfields_s
 #ifdef TWOCOMPONENT          
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_s
 #endif 
 
 !      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
@@ -1015,9 +1015,9 @@ contains
 
       implicit none
       
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_old,hfields_s
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: hfields_old,hfields_s
 #ifdef TWOCOMPONENT          
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_s
 #endif 
 
 !      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
@@ -1285,9 +1285,9 @@ contains
 
       implicit none
       
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_in,hfields_out
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: hfields_in,hfields_out
 #ifdef TWOCOMPONENT       
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_s
 #endif
       
 !      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
@@ -1361,9 +1361,9 @@ contains
 
       implicit none
       
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_in,hfields_out
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: hfields_in,hfields_out
 #ifdef TWOCOMPONENT       
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_s
 #endif
       
 !      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
@@ -1438,9 +1438,9 @@ contains
 
       implicit none
       
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_in,hfields_out
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: hfields_in,hfields_out
 #ifdef TWOCOMPONENT       
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_s
 #endif
       
 !      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
@@ -1706,7 +1706,7 @@ contains
    subroutine update_phifields(hfields_s,phifields_in,phifields_out)
 
       implicit none
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_in,phifields_out
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_in,phifields_out
  
       
 #ifdef TWOCOMPONENT
@@ -1761,7 +1761,7 @@ contains
    subroutine update_phifields_int(hfields_s,phifields_in,phifields_out)
 
       implicit none
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_in,phifields_out
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_in,phifields_out
  
       
 #ifdef TWOCOMPONENT
@@ -1817,7 +1817,7 @@ contains
    subroutine update_phifields_ext(hfields_s,phifields_in,phifields_out)
 
       implicit none
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_in,phifields_out
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_in,phifields_out
  
       
 #ifdef TWOCOMPONENT
@@ -2029,9 +2029,9 @@ contains
      )
 
       implicit none
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_in,hfields_out
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: hfields_in,hfields_out
 #ifdef TWOCOMPONENT	       
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: phifields_s
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_s
 #endif     
       
 !      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
@@ -2088,7 +2088,7 @@ contains
    subroutine PHI_int_boundary_cuda(hfields_s,phifields_s)
 
       implicit none
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_s
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_s
  
       
 #ifdef TWOCOMPONENT
@@ -2133,7 +2133,7 @@ contains
    subroutine phi_sum_count_cuda(hfields_s,phifields_s)
 
       implicit none
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_s
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_s
  
       
 #ifdef TWOCOMPONENT
@@ -2166,7 +2166,7 @@ contains
   subroutine apply_lagrangian_phi_cuda(hfields_s,phifields_s)
 
       implicit none
-      real(kind=db), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_s
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_s
  
       
 #ifdef TWOCOMPONENT

@@ -53,26 +53,26 @@ contains
                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz               
 
-                 hfields_flip(ii,jj,kk,1,myblock)=ZERO
-                 hfields_flip(ii,jj,kk,2,myblock)=ZERO
-                 hfields_flip(ii,jj,kk,3,myblock)=ZERO
-                 hfields_flip(ii,jj,kk,4,myblock)=ZERO
-                 hfields_flip(ii,jj,kk,5,myblock)=ZERO
-                 hfields_flip(ii,jj,kk,6,myblock)=ZERO
-                 hfields_flip(ii,jj,kk,7,myblock)=ZERO
-                 hfields_flip(ii,jj,kk,8,myblock)=ZERO
-                 hfields_flip(ii,jj,kk,9,myblock)=ZERO
-                 hfields_flip(ii,jj,kk,10,myblock)=ZERO
+                 hfields_flip(ii,jj,kk,1,myblock)=ZEROSTR
+                 hfields_flip(ii,jj,kk,2,myblock)=ZEROSTR
+                 hfields_flip(ii,jj,kk,3,myblock)=ZEROSTR
+                 hfields_flip(ii,jj,kk,4,myblock)=ZEROSTR
+                 hfields_flip(ii,jj,kk,5,myblock)=ZEROSTR
+                 hfields_flip(ii,jj,kk,6,myblock)=ZEROSTR
+                 hfields_flip(ii,jj,kk,7,myblock)=ZEROSTR
+                 hfields_flip(ii,jj,kk,8,myblock)=ZEROSTR
+                 hfields_flip(ii,jj,kk,9,myblock)=ZEROSTR
+                 hfields_flip(ii,jj,kk,10,myblock)=ZEROSTR
                  
 
 #ifdef TWOCOMPONENT
 				 
-				 phifields_flip(ii,jj,kk,1,myblock)=ZERO
+				 phifields_flip(ii,jj,kk,1,myblock)=ZEROSTR
 				 
-				 auxfields(ii,jj,kk,1,myblock)=ZERO
-				 auxfields(ii,jj,kk,2,myblock)=ZERO
-				 auxfields(ii,jj,kk,3,myblock)=ZERO
-				 auxfields(ii,jj,kk,4,myblock)=ZERO
+				 auxfields(ii,jj,kk,1,myblock)=ZEROSTR
+				 auxfields(ii,jj,kk,2,myblock)=ZEROSTR
+				 auxfields(ii,jj,kk,3,myblock)=ZEROSTR
+				 auxfields(ii,jj,kk,4,myblock)=ZEROSTR
 #endif
               enddo
             enddo
@@ -115,9 +115,12 @@ contains
 				 
 				 tempphi=max(sel1, sel2)
 				 
-#ifdef TWOCOMPONENT				 
+#ifdef TWOCOMPONENT		
+#ifdef MIXEDPRC
+				 phifields_flip(ii,jj,kk,1,myblock)=real(tempphi,kind=strdb)
+#else		 
 				 phifields_flip(ii,jj,kk,1,myblock)=tempphi
-                 
+#endif                 
 #ifdef DENSRATIO
                  rhophi_loc=rho_r*tempphi+(ONE-tempphi)*rho_b
 #else
@@ -130,7 +133,18 @@ contains
 			    ! crisp velocity: uniform inside each core (phi~1 region)
 				!if (sel1 > 0.1_db) then 
 				loc_u = 0.02*sel1-0.02*sel2
-				
+#ifdef MIXEDPRC
+                hfields_flip(ii,jj,kk,1,myblock)= real(loc_press,kind=strdb)
+                hfields_flip(ii,jj,kk,2,myblock)=real(loc_u,kind=strdb)
+                hfields_flip(ii,jj,kk,3,myblock)=real(loc_v,kind=strdb) 
+                hfields_flip(ii,jj,kk,4,myblock)=real(loc_w,kind=strdb) 
+                hfields_flip(ii,jj,kk,5,myblock)=real(loc_u*loc_u+cssq*loc_press,kind=strdb)
+                hfields_flip(ii,jj,kk,6,myblock)=real(loc_v*loc_v+cssq*loc_press,kind=strdb)
+                hfields_flip(ii,jj,kk,7,myblock)=real(loc_w*loc_w+cssq*loc_press,kind=strdb)
+                hfields_flip(ii,jj,kk,8,myblock)=real(loc_u*loc_v,kind=strdb)
+                hfields_flip(ii,jj,kk,9,myblock)=real(loc_u*loc_w,kind=strdb)
+                hfields_flip(ii,jj,kk,10,myblock)=real(loc_v*loc_w,kind=strdb)  
+#else					
                 hfields_flip(ii,jj,kk,1,myblock)= loc_press
                 hfields_flip(ii,jj,kk,2,myblock)=loc_u
                 hfields_flip(ii,jj,kk,3,myblock)=loc_v 
@@ -141,7 +155,7 @@ contains
                 hfields_flip(ii,jj,kk,8,myblock)=loc_u*loc_v
                 hfields_flip(ii,jj,kk,9,myblock)=loc_u*loc_w
                 hfields_flip(ii,jj,kk,10,myblock)=loc_v*loc_w    
-                
+#endif                  
                         
 				!else if (sel2 > 0.1_db) then
 				 ! u(i,j,k) = -0.01*sel2
@@ -167,8 +181,12 @@ contains
                  myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
                  ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
-                 kk=k-zblock*TILE_DIMz+2*TILE_DIMz               
+                 kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+#ifdef MIXEDPRC
+			     global_phi_sum_ini=global_phi_sum_ini + real(phifields_flip(ii,jj,kk,1,myblock),kind=db)
+#else          
 			     global_phi_sum_ini=global_phi_sum_ini + phifields_flip(ii,jj,kk,1,myblock)
+#endif
               enddo
            enddo
       enddo
@@ -196,26 +214,26 @@ contains
                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz         
                     
 
-                 hfields_flip(ii,jj,kk,1,myblock)=ZERO
-                 hfields_flip(ii,jj,kk,2,myblock)=ZERO
-                 hfields_flip(ii,jj,kk,3,myblock)=ZERO
-                 hfields_flip(ii,jj,kk,4,myblock)=ZERO
-                 hfields_flip(ii,jj,kk,5,myblock)=ZERO
-                 hfields_flip(ii,jj,kk,6,myblock)=ZERO
-                 hfields_flip(ii,jj,kk,7,myblock)=ZERO
-                 hfields_flip(ii,jj,kk,8,myblock)=ZERO
-                 hfields_flip(ii,jj,kk,9,myblock)=ZERO
-                 hfields_flip(ii,jj,kk,10,myblock)=ZERO
+                 hfields_flip(ii,jj,kk,1,myblock)=ZEROSTR
+                 hfields_flip(ii,jj,kk,2,myblock)=ZEROSTR
+                 hfields_flip(ii,jj,kk,3,myblock)=ZEROSTR
+                 hfields_flip(ii,jj,kk,4,myblock)=ZEROSTR
+                 hfields_flip(ii,jj,kk,5,myblock)=ZEROSTR
+                 hfields_flip(ii,jj,kk,6,myblock)=ZEROSTR
+                 hfields_flip(ii,jj,kk,7,myblock)=ZEROSTR
+                 hfields_flip(ii,jj,kk,8,myblock)=ZEROSTR
+                 hfields_flip(ii,jj,kk,9,myblock)=ZEROSTR
+                 hfields_flip(ii,jj,kk,10,myblock)=ZEROSTR
                  
                  
 #ifdef TWOCOMPONENT
 				 
-				 phifields_flip(ii,jj,kk,1,myblock)=ZERO
+				 phifields_flip(ii,jj,kk,1,myblock)=ZEROSTR
 				 
-				 auxfields(ii,jj,kk,1,myblock)=ZERO
-				 auxfields(ii,jj,kk,2,myblock)=ZERO
-				 auxfields(ii,jj,kk,3,myblock)=ZERO
-				 auxfields(ii,jj,kk,4,myblock)=ZERO
+				 auxfields(ii,jj,kk,1,myblock)=ZEROSTR
+				 auxfields(ii,jj,kk,2,myblock)=ZEROSTR
+				 auxfields(ii,jj,kk,3,myblock)=ZEROSTR
+				 auxfields(ii,jj,kk,4,myblock)=ZEROSTR
 #endif
               enddo
             enddo
@@ -255,8 +273,12 @@ contains
                    dist=sqrt(dist3dout(1)**TWO + dist3dout(2)**TWO + dist3dout(3)**TWO)
                    
                    tempphi=ONE*fcut_tanh(dist,radius,width)
-#ifdef TWOCOMPONENT                   
+#ifdef TWOCOMPONENT
+#ifdef MIXEDPRC
+                   phifields_flip(ii,jj,kk,1,myblock)=real(tempphi,kind=strdb)
+#else                 
                    phifields_flip(ii,jj,kk,1,myblock)=tempphi
+#endif
 #ifdef DENSRATIO
                    rhophi_loc=rho_r*tempphi+(ONE-tempphi)*rho_b
 #else
@@ -275,18 +297,30 @@ contains
                   !endif
                   loc_w=ZERO!fcut(dist,radius-width*0.5,radius+width*0.5)*uwall !   - fcut(dist2,radius-width*0.5,radius+width*0.5)*HALF*uwall
 
-#endif               
-                 hfields_flip(ii,jj,kk,1,myblock)= loc_press
-                 hfields_flip(ii,jj,kk,2,myblock)=loc_u
-                 hfields_flip(ii,jj,kk,3,myblock)=loc_v
-                 hfields_flip(ii,jj,kk,4,myblock)=loc_w
-                 hfields_flip(ii,jj,kk,5,myblock)=loc_u*loc_u+cssq*loc_press
-                 hfields_flip(ii,jj,kk,6,myblock)=loc_v*loc_v+cssq*loc_press
-                 hfields_flip(ii,jj,kk,7,myblock)=loc_w*loc_w+cssq*loc_press
-                 hfields_flip(ii,jj,kk,8,myblock)=loc_u*loc_v
-                 hfields_flip(ii,jj,kk,9,myblock)=loc_u*loc_w
-                 hfields_flip(ii,jj,kk,10,myblock)=loc_v*loc_w
-                      
+#endif       
+#ifdef MIXEDPRC
+                hfields_flip(ii,jj,kk,1,myblock)= real(loc_press,kind=strdb)
+                hfields_flip(ii,jj,kk,2,myblock)=real(loc_u,kind=strdb)
+                hfields_flip(ii,jj,kk,3,myblock)=real(loc_v,kind=strdb) 
+                hfields_flip(ii,jj,kk,4,myblock)=real(loc_w,kind=strdb) 
+                hfields_flip(ii,jj,kk,5,myblock)=real(loc_u*loc_u+cssq*loc_press,kind=strdb)
+                hfields_flip(ii,jj,kk,6,myblock)=real(loc_v*loc_v+cssq*loc_press,kind=strdb)
+                hfields_flip(ii,jj,kk,7,myblock)=real(loc_w*loc_w+cssq*loc_press,kind=strdb)
+                hfields_flip(ii,jj,kk,8,myblock)=real(loc_u*loc_v,kind=strdb)
+                hfields_flip(ii,jj,kk,9,myblock)=real(loc_u*loc_w,kind=strdb)
+                hfields_flip(ii,jj,kk,10,myblock)=real(loc_v*loc_w,kind=strdb)  
+#else					
+                hfields_flip(ii,jj,kk,1,myblock)= loc_press
+                hfields_flip(ii,jj,kk,2,myblock)=loc_u
+                hfields_flip(ii,jj,kk,3,myblock)=loc_v 
+                hfields_flip(ii,jj,kk,4,myblock)=loc_w 
+                hfields_flip(ii,jj,kk,5,myblock)=loc_u*loc_u+cssq*loc_press
+                hfields_flip(ii,jj,kk,6,myblock)=loc_v*loc_v+cssq*loc_press
+                hfields_flip(ii,jj,kk,7,myblock)=loc_w*loc_w+cssq*loc_press
+                hfields_flip(ii,jj,kk,8,myblock)=loc_u*loc_v
+                hfields_flip(ii,jj,kk,9,myblock)=loc_u*loc_w
+                hfields_flip(ii,jj,kk,10,myblock)=loc_v*loc_w    
+#endif                
                 endif
              enddo
           enddo

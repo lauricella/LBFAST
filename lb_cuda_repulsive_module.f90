@@ -26,9 +26,9 @@ contains
       integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
       integer(kind=isf), dimension(1:nx,1:ny,1:nz) :: rep_mask
       integer :: ntotphifields,ntotauxfields,ntotlocauxfields
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
       
       integer :: i,j,k,gi,gj,gk,myblock,ii,jj,kk,iii,jjj,kkk
       
@@ -59,19 +59,29 @@ contains
       kk=threadIdx%z
       
       rep_mask(i,j,k) = 0
-      locauxfields_s(ii,jj,kk,3,myblock) = 0
-      locauxfields_s(ii,jj,kk,4,myblock) = 0
-      locauxfields_s(ii,jj,kk,5,myblock) = 0
+   
+      locauxfields_s(ii,jj,kk,3,myblock) = ZEROSTR
+      locauxfields_s(ii,jj,kk,4,myblock) = ZEROSTR
+      locauxfields_s(ii,jj,kk,5,myblock) = ZEROSTR
 
 	  ! gate: interfacial cell (use clamped phi for q)
+#ifdef MIXEDPRC
+      qloc = real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+#else
       qloc = phifields_s(ii,jj,kk,1,myblock)
+#endif
       qloc = min(max(qloc,0.0_db),1.0_db)
       qloc = qloc*(1.0_db - qloc)
       if (qloc < q_th) return
-
-      nix = auxfields_s(ii,jj,kk,1,myblock) 
+#ifdef MIXEDPRC
+      nix = real(auxfields_s(ii,jj,kk,1,myblock),kind=db)
+      niy = real(auxfields_s(ii,jj,kk,2,myblock),kind=db)
+      niz = real(auxfields_s(ii,jj,kk,3,myblock),kind=db)
+#else
+      nix = auxfields_s(ii,jj,kk,1,myblock)
       niy = auxfields_s(ii,jj,kk,2,myblock)
       niz = auxfields_s(ii,jj,kk,3,myblock)
+#endif
 
       best_r2   = HUGE(1.0_db)
       best_face = -1.0_db
@@ -109,16 +119,25 @@ contains
                   oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
                   ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
                   okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-				  
+#ifdef MIXEDPRC
+				  qneig = real(phifields_s(oii,ojj,okk,1,omyblock),kind=db)
+#else
 				  qneig = phifields_s(oii,ojj,okk,1,omyblock)
+#endif
 				  qneig = min(max(qneig,0.0_db),1.0_db)
 				  qneig = qneig*(1.0_db - qneig)
 				  if ( (qneig < q_th) .or. (abs(qneig - qloc) > 0.1_db*max(qloc,1.0e-12_db)) ) cycle
 
 				  ! ---- facing condition (opposite normals): dotn <= cosOppT
+#ifdef MIXEDPRC
+				  dotn = nix*real(auxfields_s(oii,ojj,okk,1,omyblock),kind=db) &
+				   + niy*real(auxfields_s(oii,ojj,okk,2,omyblock),kind=db) &
+				   + niz*real(auxfields_s(oii,ojj,okk,3,omyblock),kind=db) 
+#else
 				  dotn = nix*auxfields_s(oii,ojj,okk,1,omyblock) &
 				   + niy*auxfields_s(oii,ojj,okk,2,omyblock) &
 				   + niz*auxfields_s(oii,ojj,okk,3,omyblock) 
+#endif
 				  if (dotn > cosOppT) cycle
 				  face = 0.5_db*(1.0_db - dotn)   ! in [0,1]
 
@@ -140,9 +159,15 @@ contains
 			end do
 
 			if (found) then
-			  locauxfields_s(ii,jj,kk,3,myblock) = iii_best
-			  locauxfields_s(ii,jj,kk,4,myblock) = jjj_best
-			  locauxfields_s(ii,jj,kk,5,myblock) = kkk_best
+#ifdef MIXEDPRC
+              locauxfields_s(ii,jj,kk,3,myblock) = real(iii_best,kind=strdb)
+			  locauxfields_s(ii,jj,kk,4,myblock) = real(jjj_best,kind=strdb)
+			  locauxfields_s(ii,jj,kk,5,myblock) = real(kkk_best,kind=strdb)
+#else
+			  locauxfields_s(ii,jj,kk,3,myblock) = real(iii_best,kind=db)
+			  locauxfields_s(ii,jj,kk,4,myblock) = real(jjj_best,kind=db)
+			  locauxfields_s(ii,jj,kk,5,myblock) = real(kkk_best,kind=db)
+#endif
 			  rep_mask(i,j,k) = 1
 			end if
    
@@ -160,9 +185,9 @@ contains
       integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
       integer(kind=isf), dimension(1:nx,1:ny,1:nz) :: rep_mask
       integer :: ntotphifields,ntotauxfields,ntotlocauxfields
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
       
       integer :: i,j,k,gi,gj,gk,myblock,ii,jj,kk,iii,jjj,kkk
       
@@ -191,14 +216,16 @@ contains
       jj=threadIdx%y
       kk=threadIdx%z
 
-	  locauxfields_s(ii,jj,kk,6,myblock)=0.0_db
-	  locauxfields_s(ii,jj,kk,7,myblock)=0.0_db
-	  locauxfields_s(ii,jj,kk,8,myblock)=0.0_db
+	  locauxfields_s(ii,jj,kk,6,myblock)=ZEROSTR
+	  locauxfields_s(ii,jj,kk,7,myblock)=ZEROSTR
+	  locauxfields_s(ii,jj,kk,8,myblock)=ZEROSTR
 	
 	  if (rep_mask(i,j,k) .ne. 1) return
-      
+#ifdef MIXEDPRC
+      loc_phi=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+#else
       loc_phi=phifields_s(ii,jj,kk,1,myblock)
-      
+#endif
 	  q1 = loc_phi*(1.0_db - loc_phi)
 	
 	  if (q1 <= eps) return
@@ -217,10 +244,15 @@ contains
 	  dx = dx*rinv; dy = dy*rinv; dz = dz*rinv      ! u
 
 	  !normals
+#ifdef MIXEDPRC
+	  nx1 = real(auxfields_s(ii,jj,kk,1,myblock),kind=db)
+      ny1 = real(auxfields_s(ii,jj,kk,2,myblock),kind=db)
+      nz1 = real(auxfields_s(ii,jj,kk,3,myblock),kind=db)
+#else
 	  nx1 = auxfields_s(ii,jj,kk,1,myblock) 
       ny1 = auxfields_s(ii,jj,kk,2,myblock)
       nz1 = auxfields_s(ii,jj,kk,3,myblock)
-	  
+#endif 
 	  
 	  oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
       oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
@@ -229,10 +261,16 @@ contains
       oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
       ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
       okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-                  
+      
+#ifdef MIXEDPRC
+	  nx2 = real(auxfields_s(oii,ojj,okk,1,omyblock),kind=db)
+	  ny2 = real(auxfields_s(oii,ojj,okk,2,omyblock),kind=db)
+	  nz2 = real(auxfields_s(oii,ojj,okk,3,omyblock),kind=db)
+#else             
 	  nx2 = auxfields_s(oii,ojj,okk,1,omyblock)
 	  ny2 = auxfields_s(oii,ojj,okk,2,omyblock)
 	  nz2 = auxfields_s(oii,ojj,okk,3,omyblock)
+#endif 
 
 	  !facing factor in [0,1]
 	  face = max( 0.0_db, -(nx1*nx2 + ny1*ny2 + nz1*nz2) )
@@ -259,7 +297,11 @@ contains
 	  end if
 
 	  !symmetric magnitude from qpair
+#ifdef MIXEDPRC
+	  loc_phi2=real(phifields_s(oii,ojj,okk,1,omyblock),kind=db)
+#else
 	  loc_phi2=phifields_s(oii,ojj,okk,1,omyblock)
+#endif
 	  q2 = loc_phi2*(1.0_db - loc_phi2)
 	  qpair = 0.5_db*(q1 + q2)
 	  qcl   = min( max(qpair, eps), 0.25_db - eps )
@@ -281,11 +323,15 @@ contains
 	  alpha = 1.5_db
 	  cap   = alpha * (abs(dx)+abs(dy)+abs(dz)) 
 	  scales = min(1.0_db, loc_phi / max(cap, 1.0e-9_db))
-	  
+#ifdef MIXEDPRC
+	  locauxfields_s(ii,jj,kk,6,myblock) = real(dx * scales,kind=strdb)
+	  locauxfields_s(ii,jj,kk,7,myblock) = real(dy * scales,kind=strdb)
+	  locauxfields_s(ii,jj,kk,8,myblock) = real(dz * scales,kind=strdb)
+#else	  
 	  locauxfields_s(ii,jj,kk,6,myblock) = dx * scales
 	  locauxfields_s(ii,jj,kk,7,myblock) = dy * scales
 	  locauxfields_s(ii,jj,kk,8,myblock) = dz * scales
-       
+#endif       
  end subroutine repulsive_flux_normal_kernel
 #endif
 

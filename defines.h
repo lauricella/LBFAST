@@ -20,3 +20,8 @@
 #define GPUTILEZ 8
 
 #define ASYNCMPI
+
+#define PRC 4
+
+#define noMIXEDPRC
+#define STRPRC 4

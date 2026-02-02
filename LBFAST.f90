@@ -360,10 +360,22 @@ program threadsafeLB
 #else
       write(6,'(a)') 'Compiled for single component'
 #endif
+#ifdef MIXEDPRC
+      write(6,'(a)') 'Compiled with mixed precision'
+#endif
 #if PRC==4
       write(6,'(a)') 'Compiled in single precision'
 #elif PRC==8
       write(6,'(a)') 'Compiled in double precision'
+#endif
+#ifdef MIXEDPRC
+#if STRPRC==2
+      write(6,'(a)') 'Compiled in half precision for storaing'
+#elif STRPRC==4
+      write(6,'(a)') 'Compiled in single precision for storaing'
+#elif STRPRC==8
+      write(6,'(a)') 'Compiled in double precision for storaing'
+#endif
 #endif
 #ifdef PRINTHALF
       write(6,'(a)') 'File written in half precision'

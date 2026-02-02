@@ -40,11 +40,11 @@ contains
 #endif
 #endif 
       integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       integer :: i,j,k
       !integer :: gi,gj,gk
@@ -71,12 +71,26 @@ contains
       jj=threadIdx%y
       kk=threadIdx%z
 	   
-#ifdef TWOCOMPONENT
-				  
-	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
-	  			  
+#ifdef TWOCOMPONENT		  
 	  !reuse gradrhox,gradrhoy,gradrhoz as local velocity (reusing variables is saving register memory)
 	  !reuse gradfix,gradfiy,gradfiz
+#ifdef MIXEDPRC
+	  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
+	  
+      modgrad=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
+	  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*modgrad !normx*modgrad
+	  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*modgrad !normy*modgrad
+	  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*modgrad !normz*modgrad
+                  
+      phi_loc=real(phifields_in(ii,jj,kk,1,myblock),kind=db)
+      lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+                  
+      loc_u=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
+      loc_v=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
+      loc_w=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
+#else
+	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
+	  
       modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
 	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
 	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
@@ -88,7 +102,7 @@ contains
       loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
       loc_v=hfields_s(ii,jj,kk,3,myblock)
       loc_w=hfields_s(ii,jj,kk,4,myblock)
-                  
+#endif                   
       phi_out = phi_loc &
         - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
         - loc_w*0.5_db*(gradfiz) + tau_diff*lap_phi_loc + mytemp 
@@ -99,8 +113,11 @@ contains
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
+#ifdef MIXEDPRC
+      phifields_out(ii,jj,kk,1,myblock)=real(phi_out,kind=strdb)
+#else
       phifields_out(ii,jj,kk,1,myblock)=phi_out
-      
+#endif 
       return
       
    endsubroutine update_phifields_kernel
@@ -129,11 +146,11 @@ contains
 #endif
 #endif 
       integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       integer :: i,j,k
       !integer :: gi,gj,gk
@@ -164,10 +181,23 @@ contains
 	   
 #ifdef TWOCOMPONENT
 				  
+#ifdef MIXEDPRC
+	  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
+	  
+      modgrad=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
+	  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*modgrad !normx*modgrad
+	  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*modgrad !normy*modgrad
+	  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*modgrad !normz*modgrad
+                  
+      phi_loc=real(phifields_in(ii,jj,kk,1,myblock),kind=db)
+      lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+                  
+      loc_u=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
+      loc_v=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
+      loc_w=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
+#else
 	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
-	  			  
-	  !reuse gradrhox,gradrhoy,gradrhoz as local velocity (reusing variables is saving register memory)
-	  !reuse gradfix,gradfiy,gradfiz
+	  
       modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
 	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
 	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
@@ -179,6 +209,7 @@ contains
       loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
       loc_v=hfields_s(ii,jj,kk,3,myblock)
       loc_w=hfields_s(ii,jj,kk,4,myblock)
+#endif   
                   
       phi_out = phi_loc &
         - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
@@ -190,7 +221,11 @@ contains
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
+#ifdef MIXEDPRC
+      phifields_out(ii,jj,kk,1,myblock)=real(phi_out,kind=strdb)
+#else
       phifields_out(ii,jj,kk,1,myblock)=phi_out
+#endif 
       
       return
       
@@ -220,11 +255,11 @@ contains
 #endif
 #endif 
       integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       integer :: i,j,k
       !integer :: gi,gj,gk
@@ -255,10 +290,23 @@ contains
 	   
 #ifdef TWOCOMPONENT
 				  
+#ifdef MIXEDPRC
+	  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
+	  
+      modgrad=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
+	  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*modgrad !normx*modgrad
+	  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*modgrad !normy*modgrad
+	  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*modgrad !normz*modgrad
+                  
+      phi_loc=real(phifields_in(ii,jj,kk,1,myblock),kind=db)
+      lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+                  
+      loc_u=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
+      loc_v=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
+      loc_w=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
+#else
 	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
-	  			  
-	  !reuse gradrhox,gradrhoy,gradrhoz as local velocity (reusing variables is saving register memory)
-	  !reuse gradfix,gradfiy,gradfiz
+	  
       modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
 	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
 	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
@@ -270,6 +318,7 @@ contains
       loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
       loc_v=hfields_s(ii,jj,kk,3,myblock)
       loc_w=hfields_s(ii,jj,kk,4,myblock)
+#endif   
                   
       phi_out = phi_loc &
         - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
@@ -281,7 +330,11 @@ contains
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
+#ifdef MIXEDPRC
+      phifields_out(ii,jj,kk,1,myblock)=real(phi_out,kind=strdb)
+#else
       phifields_out(ii,jj,kk,1,myblock)=phi_out
+#endif 
       
       return
       
@@ -311,11 +364,11 @@ contains
 #endif
 #endif 
       integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       integer :: i,j,k
       !integer :: gi,gj,gk
@@ -345,10 +398,23 @@ contains
 	   
 #ifdef TWOCOMPONENT
 				  
+#ifdef MIXEDPRC
+	  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
+	  
+      modgrad=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
+	  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*modgrad !normx*modgrad
+	  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*modgrad !normy*modgrad
+	  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*modgrad !normz*modgrad
+                  
+      phi_loc=real(phifields_in(ii,jj,kk,1,myblock),kind=db)
+      lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+                  
+      loc_u=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
+      loc_v=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
+      loc_w=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
+#else
 	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
-	  			  
-	  !reuse gradrhox,gradrhoy,gradrhoz as local velocity (reusing variables is saving register memory)
-	  !reuse gradfix,gradfiy,gradfiz
+	  
       modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
 	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
 	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
@@ -360,6 +426,7 @@ contains
       loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
       loc_v=hfields_s(ii,jj,kk,3,myblock)
       loc_w=hfields_s(ii,jj,kk,4,myblock)
+#endif   
                   
       phi_out = phi_loc &
         - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
@@ -371,7 +438,11 @@ contains
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
+#ifdef MIXEDPRC
+      phifields_out(ii,jj,kk,1,myblock)=real(phi_out,kind=strdb)
+#else
       phifields_out(ii,jj,kk,1,myblock)=phi_out
+#endif 
       
       return
       
@@ -401,11 +472,11 @@ contains
 #endif
 #endif 
       integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       integer :: i,j,k
       !integer :: gi,gj,gk
@@ -435,10 +506,23 @@ contains
        
 #ifdef TWOCOMPONENT
 				  
+#ifdef MIXEDPRC
+	  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
+	  
+      modgrad=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
+	  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*modgrad !normx*modgrad
+	  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*modgrad !normy*modgrad
+	  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*modgrad !normz*modgrad
+                  
+      phi_loc=real(phifields_in(ii,jj,kk,1,myblock),kind=db)
+      lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+                  
+      loc_u=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
+      loc_v=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
+      loc_w=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
+#else
 	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
-	  			  
-	  !reuse gradrhox,gradrhoy,gradrhoz as local velocity (reusing variables is saving register memory)
-	  !reuse gradfix,gradfiy,gradfiz
+	  
       modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
 	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
 	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
@@ -450,6 +534,7 @@ contains
       loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
       loc_v=hfields_s(ii,jj,kk,3,myblock)
       loc_w=hfields_s(ii,jj,kk,4,myblock)
+#endif   
                   
       phi_out = phi_loc &
         - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
@@ -461,7 +546,11 @@ contains
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
+#ifdef MIXEDPRC
+      phifields_out(ii,jj,kk,1,myblock)=real(phi_out,kind=strdb)
+#else
       phifields_out(ii,jj,kk,1,myblock)=phi_out
+#endif 
       
       return
       
@@ -491,11 +580,11 @@ contains
 #endif
 #endif 
       integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       integer :: i,j,k
       !integer :: gi,gj,gk
@@ -525,10 +614,23 @@ contains
 	   
 #ifdef TWOCOMPONENT
 				  
+#ifdef MIXEDPRC
+	  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
+	  
+      modgrad=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
+	  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*modgrad !normx*modgrad
+	  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*modgrad !normy*modgrad
+	  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*modgrad !normz*modgrad
+                  
+      phi_loc=real(phifields_in(ii,jj,kk,1,myblock),kind=db)
+      lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+                  
+      loc_u=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
+      loc_v=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
+      loc_w=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
+#else
 	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
-	  			  
-	  !reuse gradrhox,gradrhoy,gradrhoz as local velocity (reusing variables is saving register memory)
-	  !reuse gradfix,gradfiy,gradfiz
+	  
       modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
 	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
 	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
@@ -540,6 +642,7 @@ contains
       loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
       loc_v=hfields_s(ii,jj,kk,3,myblock)
       loc_w=hfields_s(ii,jj,kk,4,myblock)
+#endif   
                   
       phi_out = phi_loc &
         - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
@@ -551,7 +654,11 @@ contains
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
+#ifdef MIXEDPRC
+      phifields_out(ii,jj,kk,1,myblock)=real(phi_out,kind=strdb)
+#else
       phifields_out(ii,jj,kk,1,myblock)=phi_out
+#endif 
       
       return
       
@@ -581,11 +688,11 @@ contains
 #endif
 #endif 
       integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       integer :: i,j,k
       !integer :: gi,gj,gk
@@ -615,10 +722,23 @@ contains
        
 #ifdef TWOCOMPONENT
 				  
+#ifdef MIXEDPRC
+	  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
+	  
+      modgrad=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
+	  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*modgrad !normx*modgrad
+	  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*modgrad !normy*modgrad
+	  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*modgrad !normz*modgrad
+                  
+      phi_loc=real(phifields_in(ii,jj,kk,1,myblock),kind=db)
+      lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+                  
+      loc_u=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
+      loc_v=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
+      loc_w=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
+#else
 	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
-	  			  
-	  !reuse gradrhox,gradrhoy,gradrhoz as local velocity (reusing variables is saving register memory)
-	  !reuse gradfix,gradfiy,gradfiz
+	  
       modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
 	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
 	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
@@ -630,6 +750,7 @@ contains
       loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
       loc_v=hfields_s(ii,jj,kk,3,myblock)
       loc_w=hfields_s(ii,jj,kk,4,myblock)
+#endif   
                   
       phi_out = phi_loc &
         - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
@@ -641,7 +762,11 @@ contains
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
+#ifdef MIXEDPRC
+      phifields_out(ii,jj,kk,1,myblock)=real(phi_out,kind=strdb)
+#else
       phifields_out(ii,jj,kk,1,myblock)=phi_out
+#endif 
       
       return
       
@@ -671,11 +796,11 @@ contains
 #endif
 #endif 
       integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
-      real(kind=db), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_in,phifields_out
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
       
       integer :: i,j,k
       !integer :: gi,gj,gk
@@ -705,10 +830,23 @@ contains
 	   
 #ifdef TWOCOMPONENT
 				  
+#ifdef MIXEDPRC
+	  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
+	  
+      modgrad=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
+	  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*modgrad !normx*modgrad
+	  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*modgrad !normy*modgrad
+	  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*modgrad !normz*modgrad
+                  
+      phi_loc=real(phifields_in(ii,jj,kk,1,myblock),kind=db)
+      lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+                  
+      loc_u=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
+      loc_v=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
+      loc_w=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
+#else
 	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
-	  			  
-	  !reuse gradrhox,gradrhoy,gradrhoz as local velocity (reusing variables is saving register memory)
-	  !reuse gradfix,gradfiy,gradfiz
+	  
       modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
 	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
 	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
@@ -720,6 +858,7 @@ contains
       loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
       loc_v=hfields_s(ii,jj,kk,3,myblock)
       loc_w=hfields_s(ii,jj,kk,4,myblock)
+#endif   
                   
       phi_out = phi_loc &
         - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
@@ -731,7 +870,11 @@ contains
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
+#ifdef MIXEDPRC
+      phifields_out(ii,jj,kk,1,myblock)=real(phi_out,kind=strdb)
+#else
       phifields_out(ii,jj,kk,1,myblock)=phi_out
+#endif 
       
       return
       
