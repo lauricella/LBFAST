@@ -23,5 +23,5 @@
 
 #define PRC 4
 
-#define noMIXEDPRC
+#define MIXEDPRC
 #define STRPRC 4

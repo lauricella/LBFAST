@@ -58,11 +58,8 @@ contains
       ii=i-xblock*TILE_DIMx+2*TILE_DIMx
       jj=j-yblock*TILE_DIMy+2*TILE_DIMy
       kk=k-zblock*TILE_DIMz+2*TILE_DIMz
-#ifdef MIXEDPRC
-      myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-#else
-      myphi(li,lj,lk)=phifields_s(ii,jj,kk,1,myblock)
-#endif      
+
+      myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)   
       call syncthreads
       
       if(abs(isfluid(i,j,k)) .ne. 1)return
@@ -103,7 +100,7 @@ contains
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
       
 	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
-#ifdef MIXEDPRC
+
 	  auxfields_s(ii,jj,kk,1,myblock)= &
 	   real(grad_fix/(mod_grad+1.0e-9_db),kind=strdb)
 	  auxfields_s(ii,jj,kk,2,myblock)= &
@@ -136,40 +133,7 @@ contains
                    (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
                    (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
                    (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1))))),kind=strdb)
-#else
-	  auxfields_s(ii,jj,kk,1,myblock)= &
-	   grad_fix/(mod_grad+1.0e-9_db)
-	  auxfields_s(ii,jj,kk,2,myblock)= &
-	   grad_fiy/(mod_grad+1.0e-9_db)
-	  auxfields_s(ii,jj,kk,3,myblock)= &
-	   grad_fiz/(mod_grad+1.0e-9_db)
-	  
-	  auxfields_s(ii,jj,kk,4,myblock)=mod_grad 
-
-	  auxfields_s(ii,jj,kk,5,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9_db))
-	  auxfields_s(ii,jj,kk,6,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9_db))
-	  auxfields_s(ii,jj,kk,7,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9_db))
-	   
-      !lap_phi here
-      locauxfields_s(ii,jj,kk,1,myblock)= &
-                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0d3q27-1.0_db) + &
-                   ( p1d3q27*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
-                   myphi(li,lj+1,lk)+myphi(li,lj-1,lk) + &
-                   myphi(li,lj,lk+1)+myphi(li,lj,lk-1)) + &
-                   p2d3q27*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
-                   (myphi(li+1,lj-1,lk)+myphi(li-1,lj+1,lk))+ &
-                   (myphi(li+1,lj,lk+1)+myphi(li-1,lj,lk-1))+ &
-                   (myphi(li+1,lj,lk-1)+myphi(li-1,lj,lk+1)) + &
-                   (myphi(li,lj+1,lk+1)+myphi(li,lj-1,lk-1))+ &
-                   (myphi(li,lj+1,lk-1)+myphi(li,lj-1,lk+1)) )  + &
-                   p3d3q27*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
-                   (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
-                   (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
-                   (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1)))))
-#endif      
+  
       return
       
    endsubroutine compute_norm_interface_kernel
@@ -228,11 +192,7 @@ contains
       
       intblock=(blockIdx%x+1)+(blockIdx%y+1)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1 !internal-node block
       
-#ifdef MIXEDPRC
       myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-#else
-      myphi(li,lj,lk)=phifields_s(ii,jj,kk,1,myblock)
-#endif 
       
       call syncthreads
       
@@ -273,7 +233,6 @@ contains
       
 	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
 
-#ifdef MIXEDPRC
 	  auxfields_s(ii,jj,kk,1,myblock)= &
 	   real(grad_fix/(mod_grad+1.0e-9_db),kind=strdb)
 	  auxfields_s(ii,jj,kk,2,myblock)= &
@@ -306,40 +265,6 @@ contains
                    (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
                    (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
                    (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1))))),kind=strdb)
-#else
-	  auxfields_s(ii,jj,kk,1,myblock)= &
-	   grad_fix/(mod_grad+1.0e-9_db)
-	  auxfields_s(ii,jj,kk,2,myblock)= &
-	   grad_fiy/(mod_grad+1.0e-9_db)
-	  auxfields_s(ii,jj,kk,3,myblock)= &
-	   grad_fiz/(mod_grad+1.0e-9_db)
-	  
-	  auxfields_s(ii,jj,kk,4,myblock)=mod_grad 
-
-	  auxfields_s(ii,jj,kk,5,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9_db))
-	  auxfields_s(ii,jj,kk,6,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9_db))
-	  auxfields_s(ii,jj,kk,7,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9_db))
-	   
-      !lap_phi here
-      locauxfields_s(ii,jj,kk,1,myblock)= &
-                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0d3q27-1.0_db) + &
-                   ( p1d3q27*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
-                   myphi(li,lj+1,lk)+myphi(li,lj-1,lk) + &
-                   myphi(li,lj,lk+1)+myphi(li,lj,lk-1)) + &
-                   p2d3q27*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
-                   (myphi(li+1,lj-1,lk)+myphi(li-1,lj+1,lk))+ &
-                   (myphi(li+1,lj,lk+1)+myphi(li-1,lj,lk-1))+ &
-                   (myphi(li+1,lj,lk-1)+myphi(li-1,lj,lk+1)) + &
-                   (myphi(li,lj+1,lk+1)+myphi(li,lj-1,lk-1))+ &
-                   (myphi(li,lj+1,lk-1)+myphi(li,lj-1,lk+1)) )  + &
-                   p3d3q27*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
-                   (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
-                   (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
-                   (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1)))))
-#endif  
       
       return
       
@@ -406,11 +331,7 @@ contains
       
       intblock=(nxblock_d-2)+(blockIdx%y+1)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1 !internal-node block
       
-#ifdef MIXEDPRC
       myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-#else
-      myphi(li,lj,lk)=phifields_s(ii,jj,kk,1,myblock)
-#endif 
       
       call syncthreads
       
@@ -451,7 +372,6 @@ contains
       
 	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
 
-#ifdef MIXEDPRC
 	  auxfields_s(ii,jj,kk,1,myblock)= &
 	   real(grad_fix/(mod_grad+1.0e-9_db),kind=strdb)
 	  auxfields_s(ii,jj,kk,2,myblock)= &
@@ -483,41 +403,7 @@ contains
                    p3d3q27*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
                    (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
                    (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
-                   (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1))))),kind=strdb)
-#else
-	  auxfields_s(ii,jj,kk,1,myblock)= &
-	   grad_fix/(mod_grad+1.0e-9_db)
-	  auxfields_s(ii,jj,kk,2,myblock)= &
-	   grad_fiy/(mod_grad+1.0e-9_db)
-	  auxfields_s(ii,jj,kk,3,myblock)= &
-	   grad_fiz/(mod_grad+1.0e-9_db)
-	  
-	  auxfields_s(ii,jj,kk,4,myblock)=mod_grad 
-
-	  auxfields_s(ii,jj,kk,5,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9_db))
-	  auxfields_s(ii,jj,kk,6,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9_db))
-	  auxfields_s(ii,jj,kk,7,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9_db))
-	   
-      !lap_phi here
-      locauxfields_s(ii,jj,kk,1,myblock)= &
-                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0d3q27-1.0_db) + &
-                   ( p1d3q27*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
-                   myphi(li,lj+1,lk)+myphi(li,lj-1,lk) + &
-                   myphi(li,lj,lk+1)+myphi(li,lj,lk-1)) + &
-                   p2d3q27*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
-                   (myphi(li+1,lj-1,lk)+myphi(li-1,lj+1,lk))+ &
-                   (myphi(li+1,lj,lk+1)+myphi(li-1,lj,lk-1))+ &
-                   (myphi(li+1,lj,lk-1)+myphi(li-1,lj,lk+1)) + &
-                   (myphi(li,lj+1,lk+1)+myphi(li,lj-1,lk-1))+ &
-                   (myphi(li,lj+1,lk-1)+myphi(li,lj-1,lk+1)) )  + &
-                   p3d3q27*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
-                   (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
-                   (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
-                   (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1)))))
-#endif  
+                   (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1))))),kind=strdb) 
       
       return
       
@@ -584,11 +470,7 @@ contains
       
       intblock=1+(blockIdx%y+1)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1 !internal-node block
       
-#ifdef MIXEDPRC
       myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-#else
-      myphi(li,lj,lk)=phifields_s(ii,jj,kk,1,myblock)
-#endif 
       
       call syncthreads
       
@@ -629,7 +511,6 @@ contains
       
 	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
 
-#ifdef MIXEDPRC
 	  auxfields_s(ii,jj,kk,1,myblock)= &
 	   real(grad_fix/(mod_grad+1.0e-9_db),kind=strdb)
 	  auxfields_s(ii,jj,kk,2,myblock)= &
@@ -662,40 +543,6 @@ contains
                    (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
                    (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
                    (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1))))),kind=strdb)
-#else
-	  auxfields_s(ii,jj,kk,1,myblock)= &
-	   grad_fix/(mod_grad+1.0e-9_db)
-	  auxfields_s(ii,jj,kk,2,myblock)= &
-	   grad_fiy/(mod_grad+1.0e-9_db)
-	  auxfields_s(ii,jj,kk,3,myblock)= &
-	   grad_fiz/(mod_grad+1.0e-9_db)
-	  
-	  auxfields_s(ii,jj,kk,4,myblock)=mod_grad 
-
-	  auxfields_s(ii,jj,kk,5,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9_db))
-	  auxfields_s(ii,jj,kk,6,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9_db))
-	  auxfields_s(ii,jj,kk,7,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9_db))
-	   
-      !lap_phi here
-      locauxfields_s(ii,jj,kk,1,myblock)= &
-                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0d3q27-1.0_db) + &
-                   ( p1d3q27*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
-                   myphi(li,lj+1,lk)+myphi(li,lj-1,lk) + &
-                   myphi(li,lj,lk+1)+myphi(li,lj,lk-1)) + &
-                   p2d3q27*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
-                   (myphi(li+1,lj-1,lk)+myphi(li-1,lj+1,lk))+ &
-                   (myphi(li+1,lj,lk+1)+myphi(li-1,lj,lk-1))+ &
-                   (myphi(li+1,lj,lk-1)+myphi(li-1,lj,lk+1)) + &
-                   (myphi(li,lj+1,lk+1)+myphi(li,lj-1,lk-1))+ &
-                   (myphi(li,lj+1,lk-1)+myphi(li,lj-1,lk+1)) )  + &
-                   p3d3q27*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
-                   (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
-                   (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
-                   (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1)))))
-#endif  
       
       return
       
@@ -757,11 +604,7 @@ contains
       
       intblock=blockIdx%x+(nyblock_d-2)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1 !internal-node block
       
-#ifdef MIXEDPRC
       myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-#else
-      myphi(li,lj,lk)=phifields_s(ii,jj,kk,1,myblock)
-#endif 
       
       call syncthreads
       
@@ -802,7 +645,6 @@ contains
       
 	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
 
-#ifdef MIXEDPRC
 	  auxfields_s(ii,jj,kk,1,myblock)= &
 	   real(grad_fix/(mod_grad+1.0e-9_db),kind=strdb)
 	  auxfields_s(ii,jj,kk,2,myblock)= &
@@ -834,41 +676,7 @@ contains
                    p3d3q27*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
                    (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
                    (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
-                   (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1))))),kind=strdb)
-#else
-	  auxfields_s(ii,jj,kk,1,myblock)= &
-	   grad_fix/(mod_grad+1.0e-9_db)
-	  auxfields_s(ii,jj,kk,2,myblock)= &
-	   grad_fiy/(mod_grad+1.0e-9_db)
-	  auxfields_s(ii,jj,kk,3,myblock)= &
-	   grad_fiz/(mod_grad+1.0e-9_db)
-	  
-	  auxfields_s(ii,jj,kk,4,myblock)=mod_grad 
-
-	  auxfields_s(ii,jj,kk,5,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9_db))
-	  auxfields_s(ii,jj,kk,6,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9_db))
-	  auxfields_s(ii,jj,kk,7,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9_db))
-	   
-      !lap_phi here
-      locauxfields_s(ii,jj,kk,1,myblock)= &
-                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0d3q27-1.0_db) + &
-                   ( p1d3q27*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
-                   myphi(li,lj+1,lk)+myphi(li,lj-1,lk) + &
-                   myphi(li,lj,lk+1)+myphi(li,lj,lk-1)) + &
-                   p2d3q27*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
-                   (myphi(li+1,lj-1,lk)+myphi(li-1,lj+1,lk))+ &
-                   (myphi(li+1,lj,lk+1)+myphi(li-1,lj,lk-1))+ &
-                   (myphi(li+1,lj,lk-1)+myphi(li-1,lj,lk+1)) + &
-                   (myphi(li,lj+1,lk+1)+myphi(li,lj-1,lk-1))+ &
-                   (myphi(li,lj+1,lk-1)+myphi(li,lj-1,lk+1)) )  + &
-                   p3d3q27*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
-                   (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
-                   (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
-                   (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1)))))
-#endif  
+                   (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1))))),kind=strdb) 
       
       return
       
@@ -930,11 +738,7 @@ contains
       
       intblock=blockIdx%x+1*nxblock_d+(blockIdx%z+1)*nxyblock_d+1 !internal-node block
       
-#ifdef MIXEDPRC
       myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-#else
-      myphi(li,lj,lk)=phifields_s(ii,jj,kk,1,myblock)
-#endif 
       
       call syncthreads
       
@@ -975,7 +779,6 @@ contains
       
 	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
 
-#ifdef MIXEDPRC
 	  auxfields_s(ii,jj,kk,1,myblock)= &
 	   real(grad_fix/(mod_grad+1.0e-9_db),kind=strdb)
 	  auxfields_s(ii,jj,kk,2,myblock)= &
@@ -1008,40 +811,6 @@ contains
                    (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
                    (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
                    (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1))))),kind=strdb)
-#else
-	  auxfields_s(ii,jj,kk,1,myblock)= &
-	   grad_fix/(mod_grad+1.0e-9_db)
-	  auxfields_s(ii,jj,kk,2,myblock)= &
-	   grad_fiy/(mod_grad+1.0e-9_db)
-	  auxfields_s(ii,jj,kk,3,myblock)= &
-	   grad_fiz/(mod_grad+1.0e-9_db)
-	  
-	  auxfields_s(ii,jj,kk,4,myblock)=mod_grad 
-
-	  auxfields_s(ii,jj,kk,5,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9_db))
-	  auxfields_s(ii,jj,kk,6,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9_db))
-	  auxfields_s(ii,jj,kk,7,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9_db))
-	   
-      !lap_phi here
-      locauxfields_s(ii,jj,kk,1,myblock)= &
-                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0d3q27-1.0_db) + &
-                   ( p1d3q27*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
-                   myphi(li,lj+1,lk)+myphi(li,lj-1,lk) + &
-                   myphi(li,lj,lk+1)+myphi(li,lj,lk-1)) + &
-                   p2d3q27*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
-                   (myphi(li+1,lj-1,lk)+myphi(li-1,lj+1,lk))+ &
-                   (myphi(li+1,lj,lk+1)+myphi(li-1,lj,lk-1))+ &
-                   (myphi(li+1,lj,lk-1)+myphi(li-1,lj,lk+1)) + &
-                   (myphi(li,lj+1,lk+1)+myphi(li,lj-1,lk-1))+ &
-                   (myphi(li,lj+1,lk-1)+myphi(li,lj-1,lk+1)) )  + &
-                   p3d3q27*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
-                   (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
-                   (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
-                   (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1)))))
-#endif  
       
       return
       
@@ -1102,11 +871,7 @@ contains
       
       intblock=blockIdx%x+blockIdx%y*nxblock_d+(nzblock_d-2)*nxyblock_d+1 !internal-node block
       
-#ifdef MIXEDPRC
       myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-#else
-      myphi(li,lj,lk)=phifields_s(ii,jj,kk,1,myblock)
-#endif 
       
       call syncthreads
       
@@ -1147,7 +912,6 @@ contains
       
 	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
 
-#ifdef MIXEDPRC
 	  auxfields_s(ii,jj,kk,1,myblock)= &
 	   real(grad_fix/(mod_grad+1.0e-9_db),kind=strdb)
 	  auxfields_s(ii,jj,kk,2,myblock)= &
@@ -1180,40 +944,6 @@ contains
                    (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
                    (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
                    (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1))))),kind=strdb)
-#else
-	  auxfields_s(ii,jj,kk,1,myblock)= &
-	   grad_fix/(mod_grad+1.0e-9_db)
-	  auxfields_s(ii,jj,kk,2,myblock)= &
-	   grad_fiy/(mod_grad+1.0e-9_db)
-	  auxfields_s(ii,jj,kk,3,myblock)= &
-	   grad_fiz/(mod_grad+1.0e-9_db)
-	  
-	  auxfields_s(ii,jj,kk,4,myblock)=mod_grad 
-
-	  auxfields_s(ii,jj,kk,5,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9_db))
-	  auxfields_s(ii,jj,kk,6,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9_db))
-	  auxfields_s(ii,jj,kk,7,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9_db))
-	   
-      !lap_phi here
-      locauxfields_s(ii,jj,kk,1,myblock)= &
-                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0d3q27-1.0_db) + &
-                   ( p1d3q27*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
-                   myphi(li,lj+1,lk)+myphi(li,lj-1,lk) + &
-                   myphi(li,lj,lk+1)+myphi(li,lj,lk-1)) + &
-                   p2d3q27*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
-                   (myphi(li+1,lj-1,lk)+myphi(li-1,lj+1,lk))+ &
-                   (myphi(li+1,lj,lk+1)+myphi(li-1,lj,lk-1))+ &
-                   (myphi(li+1,lj,lk-1)+myphi(li-1,lj,lk+1)) + &
-                   (myphi(li,lj+1,lk+1)+myphi(li,lj-1,lk-1))+ &
-                   (myphi(li,lj+1,lk-1)+myphi(li,lj-1,lk+1)) )  + &
-                   p3d3q27*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
-                   (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
-                   (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
-                   (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1)))))
-#endif  
       
       return
       
@@ -1274,11 +1004,7 @@ contains
       
       intblock=blockIdx%x+blockIdx%y*nxblock_d+1*nxyblock_d+1 !internal-node block
       
-#ifdef MIXEDPRC
       myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-#else
-      myphi(li,lj,lk)=phifields_s(ii,jj,kk,1,myblock)
-#endif 
       
       call syncthreads
       
@@ -1319,7 +1045,6 @@ contains
       
 	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
 
-#ifdef MIXEDPRC
 	  auxfields_s(ii,jj,kk,1,myblock)= &
 	   real(grad_fix/(mod_grad+1.0e-9_db),kind=strdb)
 	  auxfields_s(ii,jj,kk,2,myblock)= &
@@ -1352,40 +1077,6 @@ contains
                    (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
                    (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
                    (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1))))),kind=strdb)
-#else
-	  auxfields_s(ii,jj,kk,1,myblock)= &
-	   grad_fix/(mod_grad+1.0e-9_db)
-	  auxfields_s(ii,jj,kk,2,myblock)= &
-	   grad_fiy/(mod_grad+1.0e-9_db)
-	  auxfields_s(ii,jj,kk,3,myblock)= &
-	   grad_fiz/(mod_grad+1.0e-9_db)
-	  
-	  auxfields_s(ii,jj,kk,4,myblock)=mod_grad 
-
-	  auxfields_s(ii,jj,kk,5,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9_db))
-	  auxfields_s(ii,jj,kk,6,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9_db))
-	  auxfields_s(ii,jj,kk,7,myblock)= &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9_db))
-	   
-      !lap_phi here
-      locauxfields_s(ii,jj,kk,1,myblock)= &
-                   (2.0_db*invcssq)*(myphi(li,lj,lk)*(p0d3q27-1.0_db) + &
-                   ( p1d3q27*(myphi(li+1,lj,lk)+myphi(li-1,lj,lk) + &
-                   myphi(li,lj+1,lk)+myphi(li,lj-1,lk) + &
-                   myphi(li,lj,lk+1)+myphi(li,lj,lk-1)) + &
-                   p2d3q27*( (myphi(li+1,lj+1,lk)+myphi(li-1,lj-1,lk))+ &
-                   (myphi(li+1,lj-1,lk)+myphi(li-1,lj+1,lk))+ &
-                   (myphi(li+1,lj,lk+1)+myphi(li-1,lj,lk-1))+ &
-                   (myphi(li+1,lj,lk-1)+myphi(li-1,lj,lk+1)) + &
-                   (myphi(li,lj+1,lk+1)+myphi(li,lj-1,lk-1))+ &
-                   (myphi(li,lj+1,lk-1)+myphi(li,lj-1,lk+1)) )  + &
-                   p3d3q27*((myphi(li+1,lj+1,lk+1)+myphi(li-1,lj-1,lk-1))+ &
-                   (myphi(li+1,lj-1,lk-1)+myphi(li-1,lj+1,lk+1))+ &
-                   (myphi(li+1,lj-1,lk+1)+myphi(li-1,lj+1,lk-1))+ &
-                   (myphi(li+1,lj+1,lk-1)+myphi(li-1,lj-1,lk+1)))))
-#endif  
       
       return
       
@@ -1434,15 +1125,9 @@ contains
       jj=j-yblock*TILE_DIMy+2*TILE_DIMy
       kk=k-zblock*TILE_DIMz+2*TILE_DIMz
       
-#ifdef MIXEDPRC
       myarrx(li,lj,lk)=real(auxfields_s(ii,jj,kk,5,myblock),kind=db)
       myarry(li,lj,lk)=real(auxfields_s(ii,jj,kk,6,myblock),kind=db)
       myarrz(li,lj,lk)=real(auxfields_s(ii,jj,kk,7,myblock),kind=db)
-#else
-      myarrx(li,lj,lk)=auxfields_s(ii,jj,kk,5,myblock)
-      myarry(li,lj,lk)=auxfields_s(ii,jj,kk,6,myblock)
-      myarrz(li,lj,lk)=auxfields_s(ii,jj,kk,7,myblock)
-#endif 
       
       call syncthreads
       
@@ -1456,7 +1141,6 @@ contains
 
 	   
       !div_thetan here
-#ifdef MIXEDPRC
       locauxfields_s(ii,jj,kk,2,myblock)=real( &
        (( p1d3q27*(myarrx(li+1,lj,lk)-myarrx(li-1,lj,lk)) + &
        p2d3q27*((myarrx(li+1,lj+1,lk)-myarrx(li-1,lj-1,lk))+(myarrx(li+1,lj-1,lk)-myarrx(li-1,lj+1,lk))+ &
@@ -1474,24 +1158,7 @@ contains
        p3d3q27*((myarrz(li+1,lj+1,lk+1)-myarrz(li-1,lj-1,lk-1))+(myarrz(li-1,lj-1,lk+1)-myarrz(li+1,lj+1,lk-1))+ &
        (myarrz(li+1,lj-1,lk+1)-myarrz(li-1,lj+1,lk-1))+(myarrz(li-1,lj+1,lk+1)-myarrz(li+1,lj-1,lk-1)))))*invcssq &
        ,kind=strdb)
-#else
-      locauxfields_s(ii,jj,kk,2,myblock)= &
-       (( p1d3q27*(myarrx(li+1,lj,lk)-myarrx(li-1,lj,lk)) + &
-       p2d3q27*((myarrx(li+1,lj+1,lk)-myarrx(li-1,lj-1,lk))+(myarrx(li+1,lj-1,lk)-myarrx(li-1,lj+1,lk))+ &
-       (myarrx(li+1,lj,lk+1)-myarrx(li-1,lj,lk-1))+(myarrx(li+1,lj,lk-1)-myarrx(li-1,lj,lk+1)))+ &
-       p3d3q27*((myarrx(li+1,lj+1,lk+1)-myarrx(li-1,lj-1,lk-1))+(myarrx(li+1,lj-1,lk-1)-myarrx(li-1,lj+1,lk+1))+ &
-       (myarrx(li+1,lj-1,lk+1)-myarrx(li-1,lj+1,lk-1))+(myarrx(li+1,lj+1,lk-1)-myarrx(li-1,lj-1,lk+1))))+ &
-       (p1d3q27*(myarry(li,lj+1,lk)-myarry(li,lj-1,lk)) + &
-       p2d3q27*((myarry(li+1,lj+1,lk)-myarry(li-1,lj-1,lk))+(myarry(li-1,lj+1,lk)-myarry(li+1,lj-1,lk))+ &
-       (myarry(li,lj+1,lk+1)-myarry(li,lj-1,lk-1))+(myarry(li,lj+1,lk-1)-myarry(li,lj-1,lk+1)))+ &
-       p3d3q27*((myarry(li+1,lj+1,lk+1)-myarry(li-1,lj-1,lk-1))+(myarry(li-1,lj+1,lk-1)-myarry(li+1,lj-1,lk+1))+ &
-       (myarry(li+1,lj+1,lk-1)-myarry(li-1,lj-1,lk+1))+(myarry(li-1,lj+1,lk+1)-myarry(li+1,lj-1,lk-1))))+ &
-       (p1d3q27*(myarrz(li,lj,lk+1)-myarrz(li,lj,lk-1)) + &
-       p2d3q27*((myarrz(li+1,lj,lk+1)-myarrz(li-1,lj,lk-1))+(myarrz(li-1,lj,lk+1)-myarrz(li+1,lj,lk-1))+ &
-       (myarrz(li,lj+1,lk+1)-myarrz(li,lj-1,lk-1))+(myarrz(li,lj-1,lk+1)-myarrz(li,lj+1,lk-1)))+ &
-       p3d3q27*((myarrz(li+1,lj+1,lk+1)-myarrz(li-1,lj-1,lk-1))+(myarrz(li-1,lj-1,lk+1)-myarrz(li+1,lj+1,lk-1))+ &
-       (myarrz(li+1,lj-1,lk+1)-myarrz(li-1,lj+1,lk-1))+(myarrz(li-1,lj+1,lk+1)-myarrz(li+1,lj-1,lk-1)))))*invcssq
-#endif      
+  
       return
       
    endsubroutine compute_div_theta_n_kernel

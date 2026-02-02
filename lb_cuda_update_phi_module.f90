@@ -74,7 +74,6 @@ contains
 #ifdef TWOCOMPONENT		  
 	  !reuse gradrhox,gradrhoy,gradrhoz as local velocity (reusing variables is saving register memory)
 	  !reuse gradfix,gradfiy,gradfiz
-#ifdef MIXEDPRC
 	  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
 	  
       modgrad=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
@@ -88,21 +87,7 @@ contains
       loc_u=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
       loc_v=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
       loc_w=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
-#else
-	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
-	  
-      modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
-	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
-	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
-	  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*modgrad !normz*modgrad
-                  
-      phi_loc=phifields_in(ii,jj,kk,1,myblock)
-      lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
-                  
-      loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
-      loc_v=hfields_s(ii,jj,kk,3,myblock)
-      loc_w=hfields_s(ii,jj,kk,4,myblock)
-#endif                   
+                
       phi_out = phi_loc &
         - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
         - loc_w*0.5_db*(gradfiz) + tau_diff*lap_phi_loc + mytemp 
@@ -113,11 +98,7 @@ contains
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
-#ifdef MIXEDPRC
       phifields_out(ii,jj,kk,1,myblock)=real(phi_out,kind=strdb)
-#else
-      phifields_out(ii,jj,kk,1,myblock)=phi_out
-#endif 
       return
       
    endsubroutine update_phifields_kernel
@@ -181,7 +162,6 @@ contains
 	   
 #ifdef TWOCOMPONENT
 				  
-#ifdef MIXEDPRC
 	  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
 	  
       modgrad=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
@@ -195,21 +175,7 @@ contains
       loc_u=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
       loc_v=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
       loc_w=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
-#else
-	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
-	  
-      modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
-	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
-	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
-	  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*modgrad !normz*modgrad
-                  
-      phi_loc=phifields_in(ii,jj,kk,1,myblock)
-      lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
-                  
-      loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
-      loc_v=hfields_s(ii,jj,kk,3,myblock)
-      loc_w=hfields_s(ii,jj,kk,4,myblock)
-#endif   
+
                   
       phi_out = phi_loc &
         - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
@@ -221,11 +187,7 @@ contains
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
-#ifdef MIXEDPRC
       phifields_out(ii,jj,kk,1,myblock)=real(phi_out,kind=strdb)
-#else
-      phifields_out(ii,jj,kk,1,myblock)=phi_out
-#endif 
       
       return
       
@@ -290,7 +252,6 @@ contains
 	   
 #ifdef TWOCOMPONENT
 				  
-#ifdef MIXEDPRC
 	  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
 	  
       modgrad=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
@@ -304,21 +265,7 @@ contains
       loc_u=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
       loc_v=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
       loc_w=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
-#else
-	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
-	  
-      modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
-	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
-	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
-	  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*modgrad !normz*modgrad
-                  
-      phi_loc=phifields_in(ii,jj,kk,1,myblock)
-      lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
-                  
-      loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
-      loc_v=hfields_s(ii,jj,kk,3,myblock)
-      loc_w=hfields_s(ii,jj,kk,4,myblock)
-#endif   
+
                   
       phi_out = phi_loc &
         - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
@@ -330,11 +277,7 @@ contains
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
-#ifdef MIXEDPRC
       phifields_out(ii,jj,kk,1,myblock)=real(phi_out,kind=strdb)
-#else
-      phifields_out(ii,jj,kk,1,myblock)=phi_out
-#endif 
       
       return
       
@@ -398,7 +341,6 @@ contains
 	   
 #ifdef TWOCOMPONENT
 				  
-#ifdef MIXEDPRC
 	  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
 	  
       modgrad=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
@@ -412,21 +354,7 @@ contains
       loc_u=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
       loc_v=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
       loc_w=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
-#else
-	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
-	  
-      modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
-	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
-	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
-	  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*modgrad !normz*modgrad
-                  
-      phi_loc=phifields_in(ii,jj,kk,1,myblock)
-      lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
-                  
-      loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
-      loc_v=hfields_s(ii,jj,kk,3,myblock)
-      loc_w=hfields_s(ii,jj,kk,4,myblock)
-#endif   
+
                   
       phi_out = phi_loc &
         - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
@@ -438,11 +366,7 @@ contains
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
-#ifdef MIXEDPRC
       phifields_out(ii,jj,kk,1,myblock)=real(phi_out,kind=strdb)
-#else
-      phifields_out(ii,jj,kk,1,myblock)=phi_out
-#endif 
       
       return
       
@@ -506,7 +430,6 @@ contains
        
 #ifdef TWOCOMPONENT
 				  
-#ifdef MIXEDPRC
 	  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
 	  
       modgrad=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
@@ -520,21 +443,7 @@ contains
       loc_u=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
       loc_v=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
       loc_w=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
-#else
-	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
-	  
-      modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
-	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
-	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
-	  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*modgrad !normz*modgrad
-                  
-      phi_loc=phifields_in(ii,jj,kk,1,myblock)
-      lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
-                  
-      loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
-      loc_v=hfields_s(ii,jj,kk,3,myblock)
-      loc_w=hfields_s(ii,jj,kk,4,myblock)
-#endif   
+
                   
       phi_out = phi_loc &
         - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
@@ -546,11 +455,7 @@ contains
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
-#ifdef MIXEDPRC
       phifields_out(ii,jj,kk,1,myblock)=real(phi_out,kind=strdb)
-#else
-      phifields_out(ii,jj,kk,1,myblock)=phi_out
-#endif 
       
       return
       
@@ -614,7 +519,6 @@ contains
 	   
 #ifdef TWOCOMPONENT
 				  
-#ifdef MIXEDPRC
 	  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
 	  
       modgrad=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
@@ -628,21 +532,7 @@ contains
       loc_u=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
       loc_v=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
       loc_w=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
-#else
-	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
-	  
-      modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
-	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
-	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
-	  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*modgrad !normz*modgrad
-                  
-      phi_loc=phifields_in(ii,jj,kk,1,myblock)
-      lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
-                  
-      loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
-      loc_v=hfields_s(ii,jj,kk,3,myblock)
-      loc_w=hfields_s(ii,jj,kk,4,myblock)
-#endif   
+
                   
       phi_out = phi_loc &
         - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
@@ -654,11 +544,7 @@ contains
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
-#ifdef MIXEDPRC
       phifields_out(ii,jj,kk,1,myblock)=real(phi_out,kind=strdb)
-#else
-      phifields_out(ii,jj,kk,1,myblock)=phi_out
-#endif 
       
       return
       
@@ -722,7 +608,6 @@ contains
        
 #ifdef TWOCOMPONENT
 				  
-#ifdef MIXEDPRC
 	  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
 	  
       modgrad=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
@@ -736,21 +621,7 @@ contains
       loc_u=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
       loc_v=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
       loc_w=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
-#else
-	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
-	  
-      modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
-	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
-	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
-	  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*modgrad !normz*modgrad
-                  
-      phi_loc=phifields_in(ii,jj,kk,1,myblock)
-      lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
-                  
-      loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
-      loc_v=hfields_s(ii,jj,kk,3,myblock)
-      loc_w=hfields_s(ii,jj,kk,4,myblock)
-#endif   
+
                   
       phi_out = phi_loc &
         - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
@@ -762,11 +633,7 @@ contains
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
-#ifdef MIXEDPRC
       phifields_out(ii,jj,kk,1,myblock)=real(phi_out,kind=strdb)
-#else
-      phifields_out(ii,jj,kk,1,myblock)=phi_out
-#endif 
       
       return
       
@@ -830,7 +697,6 @@ contains
 	   
 #ifdef TWOCOMPONENT
 				  
-#ifdef MIXEDPRC
 	  mytemp= -sharp_c*real(locauxfields_s(ii,jj,kk,2,myblock),kind=db)
 	  
       modgrad=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
@@ -844,21 +710,7 @@ contains
       loc_u=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
       loc_v=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
       loc_w=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
-#else
-	  mytemp= -sharp_c*locauxfields_s(ii,jj,kk,2,myblock)
-	  
-      modgrad=auxfields_s(ii,jj,kk,4,myblock) !modgrad
-	  gradfix=auxfields_s(ii,jj,kk,1,myblock)*modgrad !normx*modgrad
-	  gradfiy=auxfields_s(ii,jj,kk,2,myblock)*modgrad !normy*modgrad
-	  gradfiz=auxfields_s(ii,jj,kk,3,myblock)*modgrad !normz*modgrad
-                  
-      phi_loc=phifields_in(ii,jj,kk,1,myblock)
-      lap_phi_loc=locauxfields_s(ii,jj,kk,1,myblock)
-                  
-      loc_u=hfields_s(ii,jj,kk,2,myblock) !velocity
-      loc_v=hfields_s(ii,jj,kk,3,myblock)
-      loc_w=hfields_s(ii,jj,kk,4,myblock)
-#endif   
+
                   
       phi_out = phi_loc &
         - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
@@ -870,11 +722,7 @@ contains
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
-#ifdef MIXEDPRC
       phifields_out(ii,jj,kk,1,myblock)=real(phi_out,kind=strdb)
-#else
-      phifields_out(ii,jj,kk,1,myblock)=phi_out
-#endif 
       
       return
       

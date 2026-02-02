@@ -116,11 +116,7 @@ contains
 				 tempphi=max(sel1, sel2)
 				 
 #ifdef TWOCOMPONENT		
-#ifdef MIXEDPRC
-				 phifields_flip(ii,jj,kk,1,myblock)=real(tempphi,kind=strdb)
-#else		 
-				 phifields_flip(ii,jj,kk,1,myblock)=tempphi
-#endif                 
+				 phifields_flip(ii,jj,kk,1,myblock)=real(tempphi,kind=strdb)               
 #ifdef DENSRATIO
                  rhophi_loc=rho_r*tempphi+(ONE-tempphi)*rho_b
 #else
@@ -133,7 +129,7 @@ contains
 			    ! crisp velocity: uniform inside each core (phi~1 region)
 				!if (sel1 > 0.1_db) then 
 				loc_u = 0.02*sel1-0.02*sel2
-#ifdef MIXEDPRC
+
                 hfields_flip(ii,jj,kk,1,myblock)= real(loc_press,kind=strdb)
                 hfields_flip(ii,jj,kk,2,myblock)=real(loc_u,kind=strdb)
                 hfields_flip(ii,jj,kk,3,myblock)=real(loc_v,kind=strdb) 
@@ -143,19 +139,7 @@ contains
                 hfields_flip(ii,jj,kk,7,myblock)=real(loc_w*loc_w+cssq*loc_press,kind=strdb)
                 hfields_flip(ii,jj,kk,8,myblock)=real(loc_u*loc_v,kind=strdb)
                 hfields_flip(ii,jj,kk,9,myblock)=real(loc_u*loc_w,kind=strdb)
-                hfields_flip(ii,jj,kk,10,myblock)=real(loc_v*loc_w,kind=strdb)  
-#else					
-                hfields_flip(ii,jj,kk,1,myblock)= loc_press
-                hfields_flip(ii,jj,kk,2,myblock)=loc_u
-                hfields_flip(ii,jj,kk,3,myblock)=loc_v 
-                hfields_flip(ii,jj,kk,4,myblock)=loc_w 
-                hfields_flip(ii,jj,kk,5,myblock)=loc_u*loc_u+cssq*loc_press
-                hfields_flip(ii,jj,kk,6,myblock)=loc_v*loc_v+cssq*loc_press
-                hfields_flip(ii,jj,kk,7,myblock)=loc_w*loc_w+cssq*loc_press
-                hfields_flip(ii,jj,kk,8,myblock)=loc_u*loc_v
-                hfields_flip(ii,jj,kk,9,myblock)=loc_u*loc_w
-                hfields_flip(ii,jj,kk,10,myblock)=loc_v*loc_w    
-#endif                  
+                hfields_flip(ii,jj,kk,10,myblock)=real(loc_v*loc_w,kind=strdb)                
                         
 				!else if (sel2 > 0.1_db) then
 				 ! u(i,j,k) = -0.01*sel2
@@ -182,11 +166,9 @@ contains
                  ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz
-#ifdef MIXEDPRC
+
 			     global_phi_sum_ini=global_phi_sum_ini + real(phifields_flip(ii,jj,kk,1,myblock),kind=db)
-#else          
-			     global_phi_sum_ini=global_phi_sum_ini + phifields_flip(ii,jj,kk,1,myblock)
-#endif
+
               enddo
            enddo
       enddo
@@ -274,11 +256,7 @@ contains
                    
                    tempphi=ONE*fcut_tanh(dist,radius,width)
 #ifdef TWOCOMPONENT
-#ifdef MIXEDPRC
                    phifields_flip(ii,jj,kk,1,myblock)=real(tempphi,kind=strdb)
-#else                 
-                   phifields_flip(ii,jj,kk,1,myblock)=tempphi
-#endif
 #ifdef DENSRATIO
                    rhophi_loc=rho_r*tempphi+(ONE-tempphi)*rho_b
 #else
@@ -298,7 +276,7 @@ contains
                   loc_w=ZERO!fcut(dist,radius-width*0.5,radius+width*0.5)*uwall !   - fcut(dist2,radius-width*0.5,radius+width*0.5)*HALF*uwall
 
 #endif       
-#ifdef MIXEDPRC
+
                 hfields_flip(ii,jj,kk,1,myblock)= real(loc_press,kind=strdb)
                 hfields_flip(ii,jj,kk,2,myblock)=real(loc_u,kind=strdb)
                 hfields_flip(ii,jj,kk,3,myblock)=real(loc_v,kind=strdb) 
@@ -309,18 +287,7 @@ contains
                 hfields_flip(ii,jj,kk,8,myblock)=real(loc_u*loc_v,kind=strdb)
                 hfields_flip(ii,jj,kk,9,myblock)=real(loc_u*loc_w,kind=strdb)
                 hfields_flip(ii,jj,kk,10,myblock)=real(loc_v*loc_w,kind=strdb)  
-#else					
-                hfields_flip(ii,jj,kk,1,myblock)= loc_press
-                hfields_flip(ii,jj,kk,2,myblock)=loc_u
-                hfields_flip(ii,jj,kk,3,myblock)=loc_v 
-                hfields_flip(ii,jj,kk,4,myblock)=loc_w 
-                hfields_flip(ii,jj,kk,5,myblock)=loc_u*loc_u+cssq*loc_press
-                hfields_flip(ii,jj,kk,6,myblock)=loc_v*loc_v+cssq*loc_press
-                hfields_flip(ii,jj,kk,7,myblock)=loc_w*loc_w+cssq*loc_press
-                hfields_flip(ii,jj,kk,8,myblock)=loc_u*loc_v
-                hfields_flip(ii,jj,kk,9,myblock)=loc_u*loc_w
-                hfields_flip(ii,jj,kk,10,myblock)=loc_v*loc_w    
-#endif                
+           
                 endif
              enddo
           enddo

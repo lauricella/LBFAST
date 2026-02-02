@@ -732,11 +732,7 @@ contains
                   kkk=kk-zblock*TILE_DIMz+2*TILE_DIMz                            
                   
 #if defined(DENSRATIO) && defined(TWOCOMPONENT)
-#ifdef MIXEDPRC
                   rhophi_loc=real(phifields_s(iii,jjj,kkk,1,myblock),kind=db)
-#else
-                  rhophi_loc=phifields_s(iii,jjj,kkk,1,myblock)
-#endif
                   rhophi_loc=rho_r*rhophi_loc+(ONE-rhophi_loc)*rho_b
                   rhoprint(i,j,k)=real(rhophi_loc,kind=printdb)
 #ifdef WRITEPRESS                 

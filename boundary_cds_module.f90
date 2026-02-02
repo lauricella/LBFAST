@@ -92,7 +92,7 @@ contains
                  ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
-#ifdef MIXEDPRC
+
 				 press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
 				 u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
 				 v=real(hfields_in(ii,jj,kk,3,myblock),kind=db)
@@ -114,29 +114,7 @@ contains
 				 opxy=real(hfields_out(ii,jj,kk,8,myblock),kind=db)
 				 opxz=real(hfields_out(ii,jj,kk,9,myblock),kind=db)
 				 opyz=real(hfields_out(ii,jj,kk,10,myblock),kind=db)
-#else
-				 press=hfields_in(ii,jj,kk,1,myblock)
-				 u=hfields_in(ii,jj,kk,2,myblock) 
-				 v=hfields_in(ii,jj,kk,3,myblock)
-				 w=hfields_in(ii,jj,kk,4,myblock)
-				 pxx=hfields_in(ii,jj,kk,5,myblock)
-				 pyy=hfields_in(ii,jj,kk,6,myblock)
-				 pzz=hfields_in(ii,jj,kk,7,myblock)
-				 pxy=hfields_in(ii,jj,kk,8,myblock)
-				 pxz=hfields_in(ii,jj,kk,9,myblock)
-				 pyz=hfields_in(ii,jj,kk,10,myblock)
-				 
-				 opress=hfields_out(ii,jj,kk,1,myblock)
-				 ou=hfields_out(ii,jj,kk,2,myblock)
-				 ov=hfields_out(ii,jj,kk,3,myblock)
-				 ow=hfields_out(ii,jj,kk,4,myblock)
-				 opxx=hfields_out(ii,jj,kk,5,myblock)
-				 opyy=hfields_out(ii,jj,kk,6,myblock)
-				 opzz=hfields_out(ii,jj,kk,7,myblock)
-				 opxy=hfields_out(ii,jj,kk,8,myblock)
-				 opxz=hfields_out(ii,jj,kk,9,myblock)
-				 opyz=hfields_out(ii,jj,kk,10,myblock)
-#endif
+
 				 if(openbc_type_x(1)==3)then
 				   presstmp=press
 				   utmp=u
@@ -166,11 +144,7 @@ contains
 	             pyz=pyz - v*w
 
 #ifdef TWOCOMPONENT	  
-#ifdef MIXEDPRC
                  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-#else
-                 phi_loc=phifields_s(ii,jj,kk,1,myblock)
-#endif
 #endif	           
 #ifdef DENSRATIO
 			     rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -276,29 +250,16 @@ contains
                    opyz=opyz + fpost*dey(l)*dez(l)
                  enddo
                  
-#ifdef MIXEDPRC
-	              hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)
-                  hfields_out(ii,jj,kk,2,myblock)=real(ou,kind=strdb)
-                  hfields_out(ii,jj,kk,3,myblock)=real(ov,kind=strdb)
-                  hfields_out(ii,jj,kk,4,myblock)=real(ow,kind=strdb)
-                  hfields_out(ii,jj,kk,5,myblock)=real(opxx,kind=strdb)
-                  hfields_out(ii,jj,kk,6,myblock)=real(opyy,kind=strdb)
-                  hfields_out(ii,jj,kk,7,myblock)=real(opzz,kind=strdb)
-                  hfields_out(ii,jj,kk,8,myblock)=real(opxy,kind=strdb)
-                  hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
-                  hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)
-#else	                 
-	              hfields_out(ii,jj,kk,1,myblock)=opress
-                  hfields_out(ii,jj,kk,2,myblock)=ou
-                  hfields_out(ii,jj,kk,3,myblock)=ov
-                  hfields_out(ii,jj,kk,4,myblock)=ow
-                  hfields_out(ii,jj,kk,5,myblock)=opxx
-                  hfields_out(ii,jj,kk,6,myblock)=opyy
-                  hfields_out(ii,jj,kk,7,myblock)=opzz
-                  hfields_out(ii,jj,kk,8,myblock)=opxy
-                  hfields_out(ii,jj,kk,9,myblock)=opxz
-                  hfields_out(ii,jj,kk,10,myblock)=opyz
-#endif      
+	             hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)
+                 hfields_out(ii,jj,kk,2,myblock)=real(ou,kind=strdb)
+                 hfields_out(ii,jj,kk,3,myblock)=real(ov,kind=strdb)
+                 hfields_out(ii,jj,kk,4,myblock)=real(ow,kind=strdb)
+                 hfields_out(ii,jj,kk,5,myblock)=real(opxx,kind=strdb)
+                 hfields_out(ii,jj,kk,6,myblock)=real(opyy,kind=strdb)
+                 hfields_out(ii,jj,kk,7,myblock)=real(opzz,kind=strdb)
+                 hfields_out(ii,jj,kk,8,myblock)=real(opxy,kind=strdb)
+                 hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
+                 hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)
                  
 			 endif
 	       enddo
@@ -344,7 +305,6 @@ contains
                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
 				 
-#ifdef MIXEDPRC
 				 press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
 				 u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
 				 v=real(hfields_in(ii,jj,kk,3,myblock),kind=db)
@@ -366,29 +326,7 @@ contains
 				 opxy=real(hfields_out(ii,jj,kk,8,myblock),kind=db)
 				 opxz=real(hfields_out(ii,jj,kk,9,myblock),kind=db)
 				 opyz=real(hfields_out(ii,jj,kk,10,myblock),kind=db)
-#else
-				 press=hfields_in(ii,jj,kk,1,myblock)
-				 u=hfields_in(ii,jj,kk,2,myblock) 
-				 v=hfields_in(ii,jj,kk,3,myblock)
-				 w=hfields_in(ii,jj,kk,4,myblock)
-				 pxx=hfields_in(ii,jj,kk,5,myblock)
-				 pyy=hfields_in(ii,jj,kk,6,myblock)
-				 pzz=hfields_in(ii,jj,kk,7,myblock)
-				 pxy=hfields_in(ii,jj,kk,8,myblock)
-				 pxz=hfields_in(ii,jj,kk,9,myblock)
-				 pyz=hfields_in(ii,jj,kk,10,myblock)
-				 
-				 opress=hfields_out(ii,jj,kk,1,myblock)
-				 ou=hfields_out(ii,jj,kk,2,myblock)
-				 ov=hfields_out(ii,jj,kk,3,myblock)
-				 ow=hfields_out(ii,jj,kk,4,myblock)
-				 opxx=hfields_out(ii,jj,kk,5,myblock)
-				 opyy=hfields_out(ii,jj,kk,6,myblock)
-				 opzz=hfields_out(ii,jj,kk,7,myblock)
-				 opxy=hfields_out(ii,jj,kk,8,myblock)
-				 opxz=hfields_out(ii,jj,kk,9,myblock)
-				 opyz=hfields_out(ii,jj,kk,10,myblock)
-#endif
+
 				 if(openbc_type_x(2)==3)then
 				   presstmp=press
 				   utmp=u
@@ -418,11 +356,7 @@ contains
 	             pyz=pyz - v*w
 
 #ifdef TWOCOMPONENT	 
-#ifdef MIXEDPRC
                  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-#else
-                 phi_loc=phifields_s(ii,jj,kk,1,myblock)
-#endif
 #endif	           
 #ifdef DENSRATIO
 			     rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -528,7 +462,6 @@ contains
                    opyz=opyz + fpost*dey(l)*dez(l)
                  enddo
                  
-#ifdef MIXEDPRC
 	              hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)
                   hfields_out(ii,jj,kk,2,myblock)=real(ou,kind=strdb)
                   hfields_out(ii,jj,kk,3,myblock)=real(ov,kind=strdb)
@@ -538,19 +471,7 @@ contains
                   hfields_out(ii,jj,kk,7,myblock)=real(opzz,kind=strdb)
                   hfields_out(ii,jj,kk,8,myblock)=real(opxy,kind=strdb)
                   hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
-                  hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)
-#else	                 
-	              hfields_out(ii,jj,kk,1,myblock)=opress
-                  hfields_out(ii,jj,kk,2,myblock)=ou
-                  hfields_out(ii,jj,kk,3,myblock)=ov
-                  hfields_out(ii,jj,kk,4,myblock)=ow
-                  hfields_out(ii,jj,kk,5,myblock)=opxx
-                  hfields_out(ii,jj,kk,6,myblock)=opyy
-                  hfields_out(ii,jj,kk,7,myblock)=opzz
-                  hfields_out(ii,jj,kk,8,myblock)=opxy
-                  hfields_out(ii,jj,kk,9,myblock)=opxz
-                  hfields_out(ii,jj,kk,10,myblock)=opyz
-#endif      
+                  hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)   
                  
 			 endif
 	       enddo
@@ -598,7 +519,6 @@ contains
                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
 				 
-#ifdef MIXEDPRC
 				 press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
 				 u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
 				 v=real(hfields_in(ii,jj,kk,3,myblock),kind=db)
@@ -620,29 +540,7 @@ contains
 				 opxy=real(hfields_out(ii,jj,kk,8,myblock),kind=db)
 				 opxz=real(hfields_out(ii,jj,kk,9,myblock),kind=db)
 				 opyz=real(hfields_out(ii,jj,kk,10,myblock),kind=db)
-#else
-				 press=hfields_in(ii,jj,kk,1,myblock)
-				 u=hfields_in(ii,jj,kk,2,myblock) 
-				 v=hfields_in(ii,jj,kk,3,myblock)
-				 w=hfields_in(ii,jj,kk,4,myblock)
-				 pxx=hfields_in(ii,jj,kk,5,myblock)
-				 pyy=hfields_in(ii,jj,kk,6,myblock)
-				 pzz=hfields_in(ii,jj,kk,7,myblock)
-				 pxy=hfields_in(ii,jj,kk,8,myblock)
-				 pxz=hfields_in(ii,jj,kk,9,myblock)
-				 pyz=hfields_in(ii,jj,kk,10,myblock)
-				 
-				 opress=hfields_out(ii,jj,kk,1,myblock)
-				 ou=hfields_out(ii,jj,kk,2,myblock)
-				 ov=hfields_out(ii,jj,kk,3,myblock)
-				 ow=hfields_out(ii,jj,kk,4,myblock)
-				 opxx=hfields_out(ii,jj,kk,5,myblock)
-				 opyy=hfields_out(ii,jj,kk,6,myblock)
-				 opzz=hfields_out(ii,jj,kk,7,myblock)
-				 opxy=hfields_out(ii,jj,kk,8,myblock)
-				 opxz=hfields_out(ii,jj,kk,9,myblock)
-				 opyz=hfields_out(ii,jj,kk,10,myblock)
-#endif
+
 				 if(openbc_type_y(1)==3)then
 				   presstmp=press
 				   utmp=u
@@ -672,11 +570,7 @@ contains
 	             pyz=pyz - v*w
 
 #ifdef TWOCOMPONENT	 
-#ifdef MIXEDPRC
                  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-#else
-                 phi_loc=phifields_s(ii,jj,kk,1,myblock)
-#endif
 #endif	           
 #ifdef DENSRATIO
 			     rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -781,30 +675,17 @@ contains
                    opxz=opxz + fpost*dex(l)*dez(l)
                    opyz=opyz + fpost*dey(l)*dez(l)
                  enddo
-                 
-#ifdef MIXEDPRC
-	              hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)
-                  hfields_out(ii,jj,kk,2,myblock)=real(ou,kind=strdb)
-                  hfields_out(ii,jj,kk,3,myblock)=real(ov,kind=strdb)
-                  hfields_out(ii,jj,kk,4,myblock)=real(ow,kind=strdb)
-                  hfields_out(ii,jj,kk,5,myblock)=real(opxx,kind=strdb)
-                  hfields_out(ii,jj,kk,6,myblock)=real(opyy,kind=strdb)
-                  hfields_out(ii,jj,kk,7,myblock)=real(opzz,kind=strdb)
-                  hfields_out(ii,jj,kk,8,myblock)=real(opxy,kind=strdb)
-                  hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
-                  hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)
-#else	                 
-	              hfields_out(ii,jj,kk,1,myblock)=opress
-                  hfields_out(ii,jj,kk,2,myblock)=ou
-                  hfields_out(ii,jj,kk,3,myblock)=ov
-                  hfields_out(ii,jj,kk,4,myblock)=ow
-                  hfields_out(ii,jj,kk,5,myblock)=opxx
-                  hfields_out(ii,jj,kk,6,myblock)=opyy
-                  hfields_out(ii,jj,kk,7,myblock)=opzz
-                  hfields_out(ii,jj,kk,8,myblock)=opxy
-                  hfields_out(ii,jj,kk,9,myblock)=opxz
-                  hfields_out(ii,jj,kk,10,myblock)=opyz
-#endif      
+
+	             hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)
+                 hfields_out(ii,jj,kk,2,myblock)=real(ou,kind=strdb)
+                 hfields_out(ii,jj,kk,3,myblock)=real(ov,kind=strdb)
+                 hfields_out(ii,jj,kk,4,myblock)=real(ow,kind=strdb)
+                 hfields_out(ii,jj,kk,5,myblock)=real(opxx,kind=strdb)
+                 hfields_out(ii,jj,kk,6,myblock)=real(opyy,kind=strdb)
+                 hfields_out(ii,jj,kk,7,myblock)=real(opzz,kind=strdb)
+                 hfields_out(ii,jj,kk,8,myblock)=real(opxy,kind=strdb)
+                 hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
+                 hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)   
                  
 			 endif
 	       enddo
@@ -850,7 +731,6 @@ contains
                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
 				 
-#ifdef MIXEDPRC
 				 press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
 				 u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
 				 v=real(hfields_in(ii,jj,kk,3,myblock),kind=db)
@@ -872,29 +752,7 @@ contains
 				 opxy=real(hfields_out(ii,jj,kk,8,myblock),kind=db)
 				 opxz=real(hfields_out(ii,jj,kk,9,myblock),kind=db)
 				 opyz=real(hfields_out(ii,jj,kk,10,myblock),kind=db)
-#else
-				 press=hfields_in(ii,jj,kk,1,myblock)
-				 u=hfields_in(ii,jj,kk,2,myblock) 
-				 v=hfields_in(ii,jj,kk,3,myblock)
-				 w=hfields_in(ii,jj,kk,4,myblock)
-				 pxx=hfields_in(ii,jj,kk,5,myblock)
-				 pyy=hfields_in(ii,jj,kk,6,myblock)
-				 pzz=hfields_in(ii,jj,kk,7,myblock)
-				 pxy=hfields_in(ii,jj,kk,8,myblock)
-				 pxz=hfields_in(ii,jj,kk,9,myblock)
-				 pyz=hfields_in(ii,jj,kk,10,myblock)
-				 
-				 opress=hfields_out(ii,jj,kk,1,myblock)
-				 ou=hfields_out(ii,jj,kk,2,myblock)
-				 ov=hfields_out(ii,jj,kk,3,myblock)
-				 ow=hfields_out(ii,jj,kk,4,myblock)
-				 opxx=hfields_out(ii,jj,kk,5,myblock)
-				 opyy=hfields_out(ii,jj,kk,6,myblock)
-				 opzz=hfields_out(ii,jj,kk,7,myblock)
-				 opxy=hfields_out(ii,jj,kk,8,myblock)
-				 opxz=hfields_out(ii,jj,kk,9,myblock)
-				 opyz=hfields_out(ii,jj,kk,10,myblock)
-#endif
+
 				 if(openbc_type_y(2)==3)then
 				   presstmp=press
 				   utmp=u
@@ -924,11 +782,7 @@ contains
 	             pyz=pyz - v*w
 	             
 #ifdef TWOCOMPONENT	 
-#ifdef MIXEDPRC
                  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-#else
-                 phi_loc=phifields_s(ii,jj,kk,1,myblock)
-#endif
 #endif	           
 #ifdef DENSRATIO
 			     rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -1034,29 +888,17 @@ contains
                    opyz=opyz + fpost*dey(l)*dez(l)
                  enddo
                  
-#ifdef MIXEDPRC
-	              hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)
-                  hfields_out(ii,jj,kk,2,myblock)=real(ou,kind=strdb)
-                  hfields_out(ii,jj,kk,3,myblock)=real(ov,kind=strdb)
-                  hfields_out(ii,jj,kk,4,myblock)=real(ow,kind=strdb)
-                  hfields_out(ii,jj,kk,5,myblock)=real(opxx,kind=strdb)
-                  hfields_out(ii,jj,kk,6,myblock)=real(opyy,kind=strdb)
-                  hfields_out(ii,jj,kk,7,myblock)=real(opzz,kind=strdb)
-                  hfields_out(ii,jj,kk,8,myblock)=real(opxy,kind=strdb)
-                  hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
-                  hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)
-#else	                 
-	              hfields_out(ii,jj,kk,1,myblock)=opress
-                  hfields_out(ii,jj,kk,2,myblock)=ou
-                  hfields_out(ii,jj,kk,3,myblock)=ov
-                  hfields_out(ii,jj,kk,4,myblock)=ow
-                  hfields_out(ii,jj,kk,5,myblock)=opxx
-                  hfields_out(ii,jj,kk,6,myblock)=opyy
-                  hfields_out(ii,jj,kk,7,myblock)=opzz
-                  hfields_out(ii,jj,kk,8,myblock)=opxy
-                  hfields_out(ii,jj,kk,9,myblock)=opxz
-                  hfields_out(ii,jj,kk,10,myblock)=opyz
-#endif      
+
+	             hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)
+                 hfields_out(ii,jj,kk,2,myblock)=real(ou,kind=strdb)
+                 hfields_out(ii,jj,kk,3,myblock)=real(ov,kind=strdb)
+                 hfields_out(ii,jj,kk,4,myblock)=real(ow,kind=strdb)
+                 hfields_out(ii,jj,kk,5,myblock)=real(opxx,kind=strdb)
+                 hfields_out(ii,jj,kk,6,myblock)=real(opyy,kind=strdb)
+                 hfields_out(ii,jj,kk,7,myblock)=real(opzz,kind=strdb)
+                 hfields_out(ii,jj,kk,8,myblock)=real(opxy,kind=strdb)
+                 hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
+                 hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)   
                  
 			 endif
 	       enddo
@@ -1104,7 +946,6 @@ contains
                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
 				 
-#ifdef MIXEDPRC
 				 press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
 				 u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
 				 v=real(hfields_in(ii,jj,kk,3,myblock),kind=db)
@@ -1126,29 +967,7 @@ contains
 				 opxy=real(hfields_out(ii,jj,kk,8,myblock),kind=db)
 				 opxz=real(hfields_out(ii,jj,kk,9,myblock),kind=db)
 				 opyz=real(hfields_out(ii,jj,kk,10,myblock),kind=db)
-#else
-				 press=hfields_in(ii,jj,kk,1,myblock)
-				 u=hfields_in(ii,jj,kk,2,myblock) 
-				 v=hfields_in(ii,jj,kk,3,myblock)
-				 w=hfields_in(ii,jj,kk,4,myblock)
-				 pxx=hfields_in(ii,jj,kk,5,myblock)
-				 pyy=hfields_in(ii,jj,kk,6,myblock)
-				 pzz=hfields_in(ii,jj,kk,7,myblock)
-				 pxy=hfields_in(ii,jj,kk,8,myblock)
-				 pxz=hfields_in(ii,jj,kk,9,myblock)
-				 pyz=hfields_in(ii,jj,kk,10,myblock)
-				 
-				 opress=hfields_out(ii,jj,kk,1,myblock)
-				 ou=hfields_out(ii,jj,kk,2,myblock)
-				 ov=hfields_out(ii,jj,kk,3,myblock)
-				 ow=hfields_out(ii,jj,kk,4,myblock)
-				 opxx=hfields_out(ii,jj,kk,5,myblock)
-				 opyy=hfields_out(ii,jj,kk,6,myblock)
-				 opzz=hfields_out(ii,jj,kk,7,myblock)
-				 opxy=hfields_out(ii,jj,kk,8,myblock)
-				 opxz=hfields_out(ii,jj,kk,9,myblock)
-				 opyz=hfields_out(ii,jj,kk,10,myblock)
-#endif
+
 				 if(openbc_type_z(1)==3)then
 				   presstmp=press
 				   utmp=u
@@ -1178,11 +997,7 @@ contains
 	             pyz=pyz - v*w
 
 #ifdef TWOCOMPONENT	 
-#ifdef MIXEDPRC
                  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-#else
-                 phi_loc=phifields_s(ii,jj,kk,1,myblock)
-#endif
 #endif	           
 #ifdef DENSRATIO
 			     rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -1288,29 +1103,16 @@ contains
                    opyz=opyz + fpost*dey(l)*dez(l)
                  enddo
                  
-#ifdef MIXEDPRC
-	              hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)
-                  hfields_out(ii,jj,kk,2,myblock)=real(ou,kind=strdb)
-                  hfields_out(ii,jj,kk,3,myblock)=real(ov,kind=strdb)
-                  hfields_out(ii,jj,kk,4,myblock)=real(ow,kind=strdb)
-                  hfields_out(ii,jj,kk,5,myblock)=real(opxx,kind=strdb)
-                  hfields_out(ii,jj,kk,6,myblock)=real(opyy,kind=strdb)
-                  hfields_out(ii,jj,kk,7,myblock)=real(opzz,kind=strdb)
-                  hfields_out(ii,jj,kk,8,myblock)=real(opxy,kind=strdb)
-                  hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
-                  hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)
-#else	                 
-	              hfields_out(ii,jj,kk,1,myblock)=opress
-                  hfields_out(ii,jj,kk,2,myblock)=ou
-                  hfields_out(ii,jj,kk,3,myblock)=ov
-                  hfields_out(ii,jj,kk,4,myblock)=ow
-                  hfields_out(ii,jj,kk,5,myblock)=opxx
-                  hfields_out(ii,jj,kk,6,myblock)=opyy
-                  hfields_out(ii,jj,kk,7,myblock)=opzz
-                  hfields_out(ii,jj,kk,8,myblock)=opxy
-                  hfields_out(ii,jj,kk,9,myblock)=opxz
-                  hfields_out(ii,jj,kk,10,myblock)=opyz
-#endif      
+	             hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)
+                 hfields_out(ii,jj,kk,2,myblock)=real(ou,kind=strdb)
+                 hfields_out(ii,jj,kk,3,myblock)=real(ov,kind=strdb)
+                 hfields_out(ii,jj,kk,4,myblock)=real(ow,kind=strdb)
+                 hfields_out(ii,jj,kk,5,myblock)=real(opxx,kind=strdb)
+                 hfields_out(ii,jj,kk,6,myblock)=real(opyy,kind=strdb)
+                 hfields_out(ii,jj,kk,7,myblock)=real(opzz,kind=strdb)
+                 hfields_out(ii,jj,kk,8,myblock)=real(opxy,kind=strdb)
+                 hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
+                 hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)   
                  
 			 endif
 	       enddo
@@ -1356,7 +1158,6 @@ contains
                  jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                  kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
 				 
-#ifdef MIXEDPRC
 				 press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
 				 u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
 				 v=real(hfields_in(ii,jj,kk,3,myblock),kind=db)
@@ -1378,29 +1179,7 @@ contains
 				 opxy=real(hfields_out(ii,jj,kk,8,myblock),kind=db)
 				 opxz=real(hfields_out(ii,jj,kk,9,myblock),kind=db)
 				 opyz=real(hfields_out(ii,jj,kk,10,myblock),kind=db)
-#else
-				 press=hfields_in(ii,jj,kk,1,myblock)
-				 u=hfields_in(ii,jj,kk,2,myblock) 
-				 v=hfields_in(ii,jj,kk,3,myblock)
-				 w=hfields_in(ii,jj,kk,4,myblock)
-				 pxx=hfields_in(ii,jj,kk,5,myblock)
-				 pyy=hfields_in(ii,jj,kk,6,myblock)
-				 pzz=hfields_in(ii,jj,kk,7,myblock)
-				 pxy=hfields_in(ii,jj,kk,8,myblock)
-				 pxz=hfields_in(ii,jj,kk,9,myblock)
-				 pyz=hfields_in(ii,jj,kk,10,myblock)
-				 
-				 opress=hfields_out(ii,jj,kk,1,myblock)
-				 ou=hfields_out(ii,jj,kk,2,myblock)
-				 ov=hfields_out(ii,jj,kk,3,myblock)
-				 ow=hfields_out(ii,jj,kk,4,myblock)
-				 opxx=hfields_out(ii,jj,kk,5,myblock)
-				 opyy=hfields_out(ii,jj,kk,6,myblock)
-				 opzz=hfields_out(ii,jj,kk,7,myblock)
-				 opxy=hfields_out(ii,jj,kk,8,myblock)
-				 opxz=hfields_out(ii,jj,kk,9,myblock)
-				 opyz=hfields_out(ii,jj,kk,10,myblock)
-#endif
+
 				 if(openbc_type_z(2)==3)then
 				   presstmp=press
 				   utmp=u
@@ -1430,11 +1209,7 @@ contains
 	             pyz=pyz - v*w
 
 #ifdef TWOCOMPONENT	 
-#ifdef MIXEDPRC
                  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-#else
-                 phi_loc=phifields_s(ii,jj,kk,1,myblock)
-#endif
 #endif	           
 #ifdef DENSRATIO
 			     rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -1541,7 +1316,6 @@ contains
                    opyz=opyz + fpost*dey(l)*dez(l)
                  enddo
                  
-#ifdef MIXEDPRC
 	              hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)
                   hfields_out(ii,jj,kk,2,myblock)=real(ou,kind=strdb)
                   hfields_out(ii,jj,kk,3,myblock)=real(ov,kind=strdb)
@@ -1551,19 +1325,7 @@ contains
                   hfields_out(ii,jj,kk,7,myblock)=real(opzz,kind=strdb)
                   hfields_out(ii,jj,kk,8,myblock)=real(opxy,kind=strdb)
                   hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
-                  hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)
-#else	                 
-	              hfields_out(ii,jj,kk,1,myblock)=opress
-                  hfields_out(ii,jj,kk,2,myblock)=ou
-                  hfields_out(ii,jj,kk,3,myblock)=ov
-                  hfields_out(ii,jj,kk,4,myblock)=ow
-                  hfields_out(ii,jj,kk,5,myblock)=opxx
-                  hfields_out(ii,jj,kk,6,myblock)=opyy
-                  hfields_out(ii,jj,kk,7,myblock)=opzz
-                  hfields_out(ii,jj,kk,8,myblock)=opxy
-                  hfields_out(ii,jj,kk,9,myblock)=opxz
-                  hfields_out(ii,jj,kk,10,myblock)=opyz
-#endif      
+                  hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)    
              
 			 endif
 	       enddo
@@ -1954,13 +1716,10 @@ contains
              ii=i-xblock*TILE_DIMx+2*TILE_DIMx
              jj=j-yblock*TILE_DIMy+2*TILE_DIMy
              kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
-#ifdef MIXEDPRC
+
 	         phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 	         utmp=real(hfields_s(ii,jj,kk,2,myblock),kind=db)
-#else
-	         phi_loc=phifields_s(ii,jj,kk,1,myblock)
-	         utmp=hfields_s(ii,jj,kk,2,myblock)
-#endif	
+
 			 global_phi_change = global_phi_change + utmp*phi_loc
 	       enddo
 	     enddo
@@ -1986,13 +1745,10 @@ contains
              ii=i-xblock*TILE_DIMx+2*TILE_DIMx
              jj=j-yblock*TILE_DIMy+2*TILE_DIMy
              kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
-#ifdef MIXEDPRC
+
 	         phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 	         utmp=real(hfields_s(ii,jj,kk,2,myblock),kind=db)
-#else
-	         phi_loc=phifields_s(ii,jj,kk,1,myblock)
-	         utmp=hfields_s(ii,jj,kk,2,myblock)
-#endif				 
+			 
 			 global_phi_change = global_phi_change - utmp*phi_loc
 	       enddo
 	     enddo
@@ -2021,13 +1777,10 @@ contains
              ii=i-xblock*TILE_DIMx+2*TILE_DIMx
              jj=j-yblock*TILE_DIMy+2*TILE_DIMy
              kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
-#ifdef MIXEDPRC
+
 	         phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 	         vtmp=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
-#else
-	         phi_loc=phifields_s(ii,jj,kk,1,myblock)
-	         vtmp=hfields_s(ii,jj,kk,3,myblock)
-#endif	         
+        
 			 global_phi_change = global_phi_change + vtmp*phi_loc
 	       enddo
 	     enddo
@@ -2054,13 +1807,10 @@ contains
              ii=i-xblock*TILE_DIMx+2*TILE_DIMx
              jj=j-yblock*TILE_DIMy+2*TILE_DIMy
              kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
-#ifdef MIXEDPRC
+
 	         phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 	         vtmp=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
-#else
-	         phi_loc=phifields_s(ii,jj,kk,1,myblock)
-	         vtmp=hfields_s(ii,jj,kk,3,myblock)
-#endif  		         
+ 		         
 			 global_phi_change = global_phi_change - vtmp*phi_loc
 	       enddo
 	     enddo
@@ -2089,13 +1839,10 @@ contains
              ii=i-xblock*TILE_DIMx+2*TILE_DIMx
              jj=j-yblock*TILE_DIMy+2*TILE_DIMy
              kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
-#ifdef MIXEDPRC
+
 	         phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 	         wtmp=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
-#else
-	         phi_loc=phifields_s(ii,jj,kk,1,myblock)
-	         wtmp=hfields_s(ii,jj,kk,4,myblock)
-#endif  	         
+ 	         
 			 global_phi_change = global_phi_change + wtmp*phi_loc
 	       enddo
 	     enddo
@@ -2125,13 +1872,10 @@ contains
              ii=i-xblock*TILE_DIMx+2*TILE_DIMx
              jj=j-yblock*TILE_DIMy+2*TILE_DIMy
              kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
-#ifdef MIXEDPRC
+
 	         phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 	         wtmp=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
-#else
-	         phi_loc=phifields_s(ii,jj,kk,1,myblock)
-	         wtmp=hfields_s(ii,jj,kk,4,myblock)
-#endif        
+      
 			 global_phi_change = global_phi_change - wtmp*phi_loc
 	       enddo
 	     enddo

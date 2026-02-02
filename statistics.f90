@@ -35,18 +35,11 @@ contains
                 ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                 jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                 kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
-#ifdef MIXEDPRC
+
                 phi_loc=real(phifields_flip(ii,jj,kk,1,myblock),kind=db)
-#else
-                phi_loc=phifields_flip(ii,jj,kk,1,myblock)
-#endif
                 if(abs(isfluid(i,j,k))==1)vel_com(3)=vel_com(3)+phi_loc !storo la massa
 			    if(phi_loc<0.5_db)then 
-#ifdef MIXEDPRC
                   w_loc=real(hfields_flip(ii,jj,kk,4,myblock),kind=db)
-#else
-			      w_loc=hfields_flip(ii,jj,kk,4,myblock)
-#endif
 				  vel_com(1)=vel_com(1) + w_loc*(1.0_db-phi_loc)
 				  vel_com(2)=vel_com(2) + 1.0_db*(1.0_db-phi_loc) 
 				endif

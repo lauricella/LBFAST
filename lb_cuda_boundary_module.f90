@@ -101,11 +101,7 @@ contains
       kk=threadIdx%z
        
 #ifdef TWOCOMPONENT	       
-#ifdef MIXEDPRC
       phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-#else
-      phi_loc=phifields_s(ii,jj,kk,1,myblock)
-#endif
 #endif	
 #ifdef DENSRATIO
 	  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -118,7 +114,6 @@ contains
 !	  forcez=force_s(ii,jj,kk,3,myblock)
 
 
-#ifdef MIXEDPRC
       press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
       u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
       v=real(hfields_in(ii,jj,kk,3,myblock),kind=db)
@@ -140,29 +135,6 @@ contains
       opxy=real(hfields_out(ii,jj,kk,8,myblock),kind=db)
       opxz=real(hfields_out(ii,jj,kk,9,myblock),kind=db)
       opyz=real(hfields_out(ii,jj,kk,10,myblock),kind=db)
-#else
-      press=hfields_in(ii,jj,kk,1,myblock)
-      u=hfields_in(ii,jj,kk,2,myblock) 
-      v=hfields_in(ii,jj,kk,3,myblock)
-      w=hfields_in(ii,jj,kk,4,myblock)
-      pxx=hfields_in(ii,jj,kk,5,myblock)
-      pyy=hfields_in(ii,jj,kk,6,myblock)
-      pzz=hfields_in(ii,jj,kk,7,myblock)
-      pxy=hfields_in(ii,jj,kk,8,myblock)
-      pxz=hfields_in(ii,jj,kk,9,myblock)
-      pyz=hfields_in(ii,jj,kk,10,myblock)
-      
-      opress=hfields_out(ii,jj,kk,1,myblock)
-      ou=hfields_out(ii,jj,kk,2,myblock)
-      ov=hfields_out(ii,jj,kk,3,myblock)
-      ow=hfields_out(ii,jj,kk,4,myblock)
-      opxx=hfields_out(ii,jj,kk,5,myblock)
-      opyy=hfields_out(ii,jj,kk,6,myblock)
-      opzz=hfields_out(ii,jj,kk,7,myblock)
-      opxy=hfields_out(ii,jj,kk,8,myblock)
-      opxz=hfields_out(ii,jj,kk,9,myblock)
-      opyz=hfields_out(ii,jj,kk,10,myblock)
-#endif
 	  
 	  pxx=pxx - cssq*press - u*u 
 	  pyy=pyy - cssq*press - v*v 
@@ -227,7 +199,6 @@ contains
       enddo
 
 		 
-#ifdef MIXEDPRC
 	  hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)
       hfields_out(ii,jj,kk,2,myblock)=real(ou,kind=strdb)
       hfields_out(ii,jj,kk,3,myblock)=real(ov,kind=strdb)
@@ -238,18 +209,6 @@ contains
       hfields_out(ii,jj,kk,8,myblock)=real(opxy,kind=strdb)
       hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
       hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)
-#else	                 
-	  hfields_out(ii,jj,kk,1,myblock)=opress
-      hfields_out(ii,jj,kk,2,myblock)=ou
-      hfields_out(ii,jj,kk,3,myblock)=ov
-      hfields_out(ii,jj,kk,4,myblock)=ow
-      hfields_out(ii,jj,kk,5,myblock)=opxx
-      hfields_out(ii,jj,kk,6,myblock)=opyy
-      hfields_out(ii,jj,kk,7,myblock)=opzz
-      hfields_out(ii,jj,kk,8,myblock)=opxy
-      hfields_out(ii,jj,kk,9,myblock)=opxz
-      hfields_out(ii,jj,kk,10,myblock)=opyz
-#endif   
 	              
      return
 
@@ -329,7 +288,7 @@ contains
 		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
 		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
 		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
-#ifdef MIXEDPRC
+
 		! Found fluid neighbor: enforce contact angle via ghost node extrapolation
 		phi_fluid = real(phifields_s(oii,ojj,okk,1,omyblock),kind=db)
 		
@@ -339,17 +298,7 @@ contains
 		gradfix=real(auxfields_s(oii,ojj,okk,1,omyblock),kind=db)*modgrad !normx*modgrad
 		gradfiy=real(auxfields_s(oii,ojj,okk,2,omyblock),kind=db)*modgrad !normy*modgrad
 		gradfiz=real(auxfields_s(oii,ojj,okk,3,omyblock),kind=db)*modgrad !normz*modgrad      
-#else
-		! Found fluid neighbor: enforce contact angle via ghost node extrapolation
-		phi_fluid = phifields_s(oii,ojj,okk,1,omyblock)
-		
-		
-		! Estimate gradient parallel to wall
-		modgrad=auxfields_s(oii,ojj,okk,4,omyblock) !modgrad
-		gradfix=auxfields_s(oii,ojj,okk,1,omyblock)*modgrad !normx*modgrad
-		gradfiy=auxfields_s(oii,ojj,okk,2,omyblock)*modgrad !normy*modgrad
-		gradfiz=auxfields_s(oii,ojj,okk,3,omyblock)*modgrad !normz*modgrad
-#endif        
+      
         grad_parallel=ZERO
 		if(l.eq.1 .or. l.eq.2)then
 			grad_parallel = sqrt(gradfiy**2 + gradfiz**2)
@@ -374,11 +323,9 @@ contains
 		
 		exit
 	  end do
-#ifdef MIXEDPRC
+
       phifields_s(ii,jj,kk,1,myblock)=real(loc_phi,kind=strdb)
-#else      
-      phifields_s(ii,jj,kk,1,myblock)=loc_phi
-#endif 
+      
       return
       
    endsubroutine PHI_int_boundary_kernel
@@ -427,11 +374,7 @@ contains
       jj=threadIdx%y
       kk=threadIdx%z
 
-#ifdef MIXEDPRC
       loc_phi=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-#else
-      loc_phi=phifields_s(ii,jj,kk,1,myblock)
-#endif
 
       dummy=atomicAdd(loc_phi_sum, loc_phi)
 
@@ -484,18 +427,10 @@ contains
       jj=threadIdx%y
       kk=threadIdx%z
 
-#ifdef MIXEDPRC
       loc_phi=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-#else
-      loc_phi=phifields_s(ii,jj,kk,1,myblock)
-#endif
-
       if(loc_phi > 0.5d0 .and. loc_phi < 0.9d0)then
-#ifdef MIXEDPRC
         phifields_s(ii,jj,kk,1,myblock)=real(loc_phi + loc_corr ,kind=strdb)
-#else
-        phifields_s(ii,jj,kk,1,myblock)=loc_phi + loc_corr
-#endif
+
       endif
     
       return
