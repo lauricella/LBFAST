@@ -168,6 +168,9 @@ module mpi_template
    
    integer, parameter :: nbuffbvec=1 !hfields
 
+   integer :: node_comm, node_rank, node_size,envlenjobg
+
+   character(len=256) :: cvd, stepg, jobg
 
 contains
 
@@ -177,11 +180,22 @@ contains
 
       integer:: ierr
 
+
 #ifdef MPI
 !
       call mpi_init(ierr)
       call MPI_comm_size(MPI_COMM_WORLD, nprocs, ierr)
       call MPI_comm_rank(MPI_COMM_WORLD, myrank, ierr)
+
+      ! communicator che raggruppa i rank sullo stesso nodo
+      call MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, node_comm, ierr)
+      call MPI_Comm_rank(node_comm, node_rank, ierr)
+      call MPI_Comm_size(node_comm, node_size, ierr)
+
+      call get_environment_variable("CUDA_VISIBLE_DEVICES", cvd)
+      call get_environment_variable("SLURM_STEP_GPUS", stepg)
+      jobg = repeat(" ",256);envlenjobg = 0
+      call get_environment_variable("SLURM_JOB_GPUS",  jobg, envlenjobg)
 
 #else
       nprocs=1
@@ -370,7 +384,7 @@ contains
 
 #ifdef _OPENACC
     ndev = acc_get_num_devices(devType)
-    write(6,'(a,2i8)') "number of device on each node: ", ndev, myrank
+    !if(node_rank==0)write(6,'(a,2i8)') "number of device on each node: ", ndev, myrank
     if (ndev == 0) then
         if (myrank == 0) write(6,*) 'WARNING: No GPUs found:', ndev
         call dostop
@@ -386,9 +400,9 @@ contains
  !   write(6,'(a,2i8)') "Device to set for the rank on each node: ", mydev, myrank
 #else
     call get_environment_variable("CUDA_VISIBLE_DEVICES", gpu_env, env_length)
-     write(6,'(a,i0,2a)') "Rank ", myrank, " sees CUDA_VISIBLE_DEVICES=", trim(gpu_env)
+    !if(node_rank==0)write(6,'(a,i0,2a)') "Rank ", myrank, " sees CUDA_VISIBLE_DEVICES=", trim(gpu_env)
 #endif
-    mydev = mod(myrank, ndev)
+    mydev = mod(node_rank, ndev)
     call acc_set_device_num(mydev, devType)
     actual_dev = acc_get_device_num(devType)
 #endif
@@ -405,6 +419,7 @@ contains
 #ifdef MPI
       call MPI_Barrier(MPI_COMM_WORLD,ierr)
 #endif
+#ifdef PRINTDEC
       do idrank=0,nprocs-1
          if(idrank==myrank)then  !
             write(6,'(a,i3,2a)') 'Rank ', myrank, ' on host: ', trim(hname)
@@ -422,7 +437,7 @@ contains
 #endif
       enddo
       call flush(6)
-
+#endif
 
       rreorder=.false.
 
@@ -774,8 +789,22 @@ contains
 
       call flush(6)
 #ifdef MPI
+
       call MPI_Barrier(MPI_COMM_WORLD,ierr)
+
+      if (node_rank == 0) then
+        write(*,'(a,1x,a,1x,a,i0,1x,a,i0,1x,a,a,1x,a,a,1x,a,1x,a,1x,a,3i6,1x,a,3i6)') &
+         "NODE", trim(hname), "node_size=", node_size, "ndev=", ndev, &
+         "CVD=", trim(cvd), "STEP_GPUS=", trim(stepg), "JOB_GPUS=", trim(jobg), &
+         "SUBDOMAIN_INIT=",start_idx(1),start_idx(2),start_idx(3), &
+         "SUBDOMAIN_END =",end_idx(1),end_idx(2),end_idx(3)
+      endif
+      call MPI_Barrier(MPI_COMM_WORLD,ierr)
+      
+      call flush(6)
+      
 #endif
+#ifdef PRINTDEC
       do idrank=0,nprocs
          if(idrank==myrank)then  !
             write(6,'(a,i4,a,9i8)')'DEC myrank ',myrank,' coords ',coords,&
@@ -810,6 +839,8 @@ contains
       call flush(6)
 #ifdef MPI
       call MPI_Barrier(MPI_COMM_WORLD,ierr)
+#endif
+
 #endif
 
 #endif
