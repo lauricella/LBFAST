@@ -115,16 +115,11 @@ contains
 				 opxz=real(hfields_out(ii,jj,kk,9,myblock),kind=db)
 				 opyz=real(hfields_out(ii,jj,kk,10,myblock),kind=db)
 
-				 if(openbc_type_x(1)==3)then
+				 if(openbc_type_x(1)==2)then
 				   presstmp=press
 				   utmp=u
 				   vtmp=v
 				   wtmp=w
-				 elseif(openbc_type_x(1)==2)then
-				   presstmp=openbc_press_x(1)
-				   utmp=openbc_u_x(1) 
-				   vtmp=openbc_v_x(1) 
-				   wtmp=openbc_w_x(1)
 				 elseif(openbc_type_x(1)==1)then
 				   presstmp=openbc_press_x(1)
 				   utmp=u
@@ -327,16 +322,11 @@ contains
 				 opxz=real(hfields_out(ii,jj,kk,9,myblock),kind=db)
 				 opyz=real(hfields_out(ii,jj,kk,10,myblock),kind=db)
 
-				 if(openbc_type_x(2)==3)then
+				 if(openbc_type_x(2)==2)then
 				   presstmp=press
 				   utmp=u
 				   vtmp=v
 				   wtmp=w
-				 elseif(openbc_type_x(2)==2)then
-				   presstmp=openbc_press_x(2)
-				   utmp=openbc_u_x(2) 
-				   vtmp=openbc_v_x(2) 
-				   wtmp=openbc_w_x(2)
 				 elseif(openbc_type_x(2)==1)then
 				   presstmp=openbc_press_x(2)
 				   utmp=u
@@ -541,16 +531,11 @@ contains
 				 opxz=real(hfields_out(ii,jj,kk,9,myblock),kind=db)
 				 opyz=real(hfields_out(ii,jj,kk,10,myblock),kind=db)
 
-				 if(openbc_type_y(1)==3)then
+				 if(openbc_type_y(1)==2)then
 				   presstmp=press
 				   utmp=u
 				   vtmp=v
 				   wtmp=w
-				 elseif(openbc_type_y(1)==2)then
-				   presstmp=openbc_press_y(1)
-				   utmp=openbc_u_y(1) 
-				   vtmp=openbc_v_y(1) 
-				   wtmp=openbc_w_y(1)
 				 elseif(openbc_type_y(1)==1)then
 				   presstmp=openbc_press_y(1)
 				   utmp=u
@@ -753,16 +738,11 @@ contains
 				 opxz=real(hfields_out(ii,jj,kk,9,myblock),kind=db)
 				 opyz=real(hfields_out(ii,jj,kk,10,myblock),kind=db)
 
-				 if(openbc_type_y(2)==3)then
+				 if(openbc_type_y(2)==2)then
 				   presstmp=press
 				   utmp=u
 				   vtmp=v
 				   wtmp=w
-				 elseif(openbc_type_y(2)==2)then
-				   presstmp=openbc_press_y(2)
-				   utmp=openbc_u_y(2) 
-				   vtmp=openbc_v_y(2) 
-				   wtmp=openbc_w_y(2)
 				 elseif(openbc_type_y(2)==1)then
 				   presstmp=openbc_press_y(2)
 				   utmp=u
@@ -968,16 +948,11 @@ contains
 				 opxz=real(hfields_out(ii,jj,kk,9,myblock),kind=db)
 				 opyz=real(hfields_out(ii,jj,kk,10,myblock),kind=db)
 
-				 if(openbc_type_z(1)==3)then
+				 if(openbc_type_z(1)==2)then
 				   presstmp=press
 				   utmp=u
 				   vtmp=v
 				   wtmp=w
-				 elseif(openbc_type_z(1)==2)then
-				   presstmp=openbc_press_z(1)
-				   utmp=openbc_u_z(1) 
-				   vtmp=openbc_v_z(1) 
-				   wtmp=openbc_w_z(1)
 				 elseif(openbc_type_z(1)==1)then
 				   presstmp=openbc_press_z(1)
 				   utmp=u
@@ -1180,16 +1155,11 @@ contains
 				 opxz=real(hfields_out(ii,jj,kk,9,myblock),kind=db)
 				 opyz=real(hfields_out(ii,jj,kk,10,myblock),kind=db)
 
-				 if(openbc_type_z(2)==3)then
+				 if(openbc_type_z(2)==2)then
 				   presstmp=press
 				   utmp=u
 				   vtmp=v
 				   wtmp=w
-				 elseif(openbc_type_z(2)==2)then
-				   presstmp=openbc_press_z(2)
-				   utmp=openbc_u_z(2) 
-				   vtmp=openbc_v_z(2) 
-				   wtmp=openbc_w_z(2)
 				 elseif(openbc_type_z(2)==1)then
 				   presstmp=openbc_press_z(2)
 				   utmp=u
