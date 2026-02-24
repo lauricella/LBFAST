@@ -547,7 +547,9 @@ contains
        call compute_norm_interface_kernel<<<dimGrid, dimBlockshared>>>(step, &
         iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
         ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-
+       !$acc end host_data
+         
+      
        istat = cudaGetLastError()
        if (istat/= cudaSuccess) then
          if(myrank==0) then
@@ -565,8 +567,7 @@ contains
         endif
         call doerror(6,'ERROR in compute_norm_interface_cuda (sync)')
        endif
-      !$acc end host_data
-      !$acc wait        
+       !$acc wait 
 #endif
       
       return
@@ -581,14 +582,15 @@ contains
 #ifdef TWOCOMPONENT
       !$acc wait
       istat = cudaDeviceSynchronize
-
+      if(ldodimGridInt)then
 !$acc host_data use_device(step &
        !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
        !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-	   if(ldodimGridInt)call compute_norm_interface_kernel_int<<<dimGridInt, dimBlockshared>>>(step, &
+	   call compute_norm_interface_kernel_int<<<dimGridInt, dimBlockshared>>>(step, &
         iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
         ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-
+       !$acc end host_data
+        
        istat = cudaGetLastError()
        if (istat/= cudaSuccess) then
          if(myrank==0) then
@@ -606,8 +608,8 @@ contains
         endif
         call doerror(6,'ERROR in compute_norm_interface_cuda_int (sync)')
        endif
-      !$acc end host_data
-      !$acc wait        
+       !$acc wait  
+       endif
 #endif
       
       return
@@ -623,16 +625,17 @@ contains
       !$acc wait
       istat = cudaDeviceSynchronize
 
-!$acc host_data use_device(step &
+       !$acc host_data use_device(step &
        !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
        !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-       
 	   call compute_norm_interface_kernel_zminus<<<dimGridz, dimBlockshared>>>(step, &
         iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
         ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-
+       !$acc end host_data
+          
+        
        istat = cudaGetLastError()
-       if (istat/= cudaSuccess) then
+       if(istat/= cudaSuccess) then
          if(myrank==0) then
            write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
            write(6,*) cudaGetErrorString(istat)
@@ -641,20 +644,26 @@ contains
        endif
       
        istat = cudaDeviceSynchronize()
-       if (istat /= cudaSuccess) then
+       if(istat /= cudaSuccess) then
         if(myrank==0) then
           write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
           write(6,*) cudaGetErrorString(istat)
         endif
         call doerror(6,'ERROR in compute_norm_interface_kernel_zminus (sync)')
        endif
+       !$acc wait
        
+       !$acc host_data use_device(step &
+       !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
+       !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
        call compute_norm_interface_kernel_zplus<<<dimGridz, dimBlockshared>>>(step, &
         iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
         ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-
+       !$acc end host_data
+       
+          
        istat = cudaGetLastError()
-       if (istat/= cudaSuccess) then
+       if(istat/= cudaSuccess) then
          if(myrank==0) then
            write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
            write(6,*) cudaGetErrorString(istat)
@@ -663,104 +672,136 @@ contains
        endif
       
        istat = cudaDeviceSynchronize()
-       if (istat /= cudaSuccess) then
+       if(istat /= cudaSuccess) then
         if(myrank==0) then
           write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
           write(6,*) cudaGetErrorString(istat)
         endif
         call doerror(6,'ERROR in compute_norm_interface_kernel_zplus (sync)')
        endif
+       !$acc wait 
        
-	   if(ldodimGridy)call compute_norm_interface_kernel_yminus<<<dimGridy, dimBlockshared>>>(step, &
-        iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
-        ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+       
+	   if(ldodimGridy)then
+         !$acc host_data use_device(step &
+         !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
+         !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)	    
+	     call compute_norm_interface_kernel_yminus<<<dimGridy, dimBlockshared>>>(step, &
+          iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
+          ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+         !$acc end host_data
+             
 
-       istat = cudaGetLastError()
-       if (istat/= cudaSuccess) then
-         if(myrank==0) then
-           write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
-           write(6,*) cudaGetErrorString(istat)
+         istat = cudaGetLastError()
+         if(istat/= cudaSuccess) then
+           if(myrank==0) then
+             write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
+             write(6,*) cudaGetErrorString(istat)
+           endif
+           call doerror(6,'ERROR in compute_norm_interface_kernel_yminus (launch)')
          endif
-         call doerror(6,'ERROR in compute_norm_interface_kernel_yminus (launch)')
-       endif
       
-       istat = cudaDeviceSynchronize()
-       if (istat /= cudaSuccess) then
-        if(myrank==0) then
-          write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
-          write(6,*) cudaGetErrorString(istat)
-        endif
-        call doerror(6,'ERROR in compute_norm_interface_kernel_yminus (sync)')
+         istat = cudaDeviceSynchronize()
+         if(istat /= cudaSuccess) then
+          if(myrank==0) then
+            write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+            write(6,*) cudaGetErrorString(istat)
+          endif
+          call doerror(6,'ERROR in compute_norm_interface_kernel_yminus (sync)')
+         endif
+         !$acc wait
        endif
-       
-       if(ldodimGridy)call compute_norm_interface_kernel_yplus<<<dimGridy, dimBlockshared>>>(step, &
-        iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
-        ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+              
+       if(ldodimGridy)then
+         !$acc host_data use_device(step &
+         !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
+         !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+         call compute_norm_interface_kernel_yplus<<<dimGridy, dimBlockshared>>>(step, &
+          iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
+          ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+         !$acc end host_data
+            
 
-       istat = cudaGetLastError()
-       if (istat/= cudaSuccess) then
-         if(myrank==0) then
-           write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
-           write(6,*) cudaGetErrorString(istat)
+         istat = cudaGetLastError()
+         if(istat/= cudaSuccess) then
+           if(myrank==0) then
+             write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
+             write(6,*) cudaGetErrorString(istat)
+           endif
+           call doerror(6,'ERROR in compute_norm_interface_kernel_yplus (launch)')
          endif
-         call doerror(6,'ERROR in compute_norm_interface_kernel_yplus (launch)')
+         
+         istat = cudaDeviceSynchronize()
+         if(istat /= cudaSuccess) then
+          if(myrank==0) then
+            write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+            write(6,*) cudaGetErrorString(istat)
+          endif
+          call doerror(6,'ERROR in compute_norm_interface_kernel_yplus (sync)')
+         endif
+         !$acc wait 
        endif
-      
-       istat = cudaDeviceSynchronize()
-       if (istat /= cudaSuccess) then
-        if(myrank==0) then
-          write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
-          write(6,*) cudaGetErrorString(istat)
-        endif
-        call doerror(6,'ERROR in compute_norm_interface_kernel_yplus (sync)')
-       endif
-       
-	   if(ldodimGridx)call compute_norm_interface_kernel_xminus<<<dimGridx, dimBlockshared>>>(step, &
-        iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
-        ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+              
+	   if(ldodimGridx)then
+         !$acc host_data use_device(step &
+         !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
+         !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+	     call compute_norm_interface_kernel_xminus<<<dimGridx, dimBlockshared>>>(step, &
+          iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
+          ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+         !$acc end host_data
+            
 
-       istat = cudaGetLastError()
-       if (istat/= cudaSuccess) then
-         if(myrank==0) then
-           write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
-           write(6,*) cudaGetErrorString(istat)
+         istat = cudaGetLastError()
+         if(istat/= cudaSuccess) then
+           if(myrank==0) then
+             write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
+             write(6,*) cudaGetErrorString(istat)
+           endif
+           call doerror(6,'ERROR in compute_norm_interface_kernel_xminus (launch)')
          endif
-         call doerror(6,'ERROR in compute_norm_interface_kernel_xminus (launch)')
-       endif
       
-       istat = cudaDeviceSynchronize()
-       if (istat /= cudaSuccess) then
-        if(myrank==0) then
-          write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
-          write(6,*) cudaGetErrorString(istat)
-        endif
-        call doerror(6,'ERROR in compute_norm_interface_kernel_xminus (sync)')
+         istat = cudaDeviceSynchronize()
+         if(istat /= cudaSuccess) then
+          if(myrank==0) then
+            write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+            write(6,*) cudaGetErrorString(istat)
+          endif
+          call doerror(6,'ERROR in compute_norm_interface_kernel_xminus (sync)')
+         endif
+         !$acc wait 
        endif
-       
-       if(ldodimGridx)call compute_norm_interface_kernel_xplus<<<dimGridx, dimBlockshared>>>(step, &
-        iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
-        ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+              
+       if(ldodimGridx)then
+         !$acc host_data use_device(step &
+         !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
+         !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+         call compute_norm_interface_kernel_xplus<<<dimGridx, dimBlockshared>>>(step, &
+          iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
+          ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
+         !$acc end host_data
+             
 
-       istat = cudaGetLastError()
-       if (istat/= cudaSuccess) then
-         if(myrank==0) then
-           write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
-           write(6,*) cudaGetErrorString(istat)
+         istat = cudaGetLastError()
+         if(istat/= cudaSuccess) then
+           if(myrank==0) then
+             write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
+             write(6,*) cudaGetErrorString(istat)
+           endif
+           call doerror(6,'ERROR in compute_norm_interface_kernel_xplus (launch)')
          endif
-         call doerror(6,'ERROR in compute_norm_interface_kernel_xplus (launch)')
-       endif
       
-       istat = cudaDeviceSynchronize()
-       if (istat /= cudaSuccess) then
-        if(myrank==0) then
-          write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
-          write(6,*) cudaGetErrorString(istat)
-        endif
-        call doerror(6,'ERROR in compute_norm_interface_kernel_xplus (sync)')
-       endif
-       
-      !$acc end host_data
-      !$acc wait        
+         istat = cudaDeviceSynchronize()
+         if(istat /= cudaSuccess) then
+          if(myrank==0) then
+            write(6,*) 'sync error at ', __LINE__, ' file ', __FILE__
+            write(6,*) cudaGetErrorString(istat)
+          endif
+          call doerror(6,'ERROR in compute_norm_interface_kernel_xplus (sync)')
+         endif
+         !$acc wait
+       endif       
+    
 #endif
       
       return
@@ -949,8 +990,8 @@ contains
 !      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
       !$acc wait
       istat = cudaDeviceSynchronize
-
-!$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid & 
+      if(ldodimGridInt)then
+      !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid & 
 #ifdef MULTIHIT
        !$acc& ,ABCx,ABCy,ABCz &
 #endif 
@@ -966,7 +1007,7 @@ contains
        !$acc& ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
        !$acc& ,hfields_old,hfields_s,auxfields,locauxfields,forces)
        
-       if(ldodimGridInt)call moments_LB_kernel_int<<<dimGridInt, dimBlock>>>(step &
+       call moments_LB_kernel_int<<<dimGridInt, dimBlock>>>(step &
         ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &   
 #ifdef MULTIHIT
 	    ,ABCx,ABCy,ABCz &
@@ -986,7 +1027,10 @@ contains
 	   ,auxfields,locauxfields &
 #endif
 	   ,forces)
+	   !$acc end host_data
+      endif
       
+            
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
         if(myrank==0) then
@@ -1004,7 +1048,6 @@ contains
        endif
        call doerror(6,'ERROR in moments_LB_cuda_int (sync)')
       endif
-      !$acc end host_data
       !$acc wait        
       
    endsubroutine moments_LB_cuda_int
@@ -1061,7 +1104,8 @@ contains
 	   ,auxfields,locauxfields &
 #endif
 	   ,forces)
-
+      !$acc end host_data
+      
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
         if(myrank==0) then
@@ -1079,7 +1123,23 @@ contains
        endif
        call doerror(6,'ERROR in moments_LB_cuda_zminus (sync)')
       endif
-      
+      !$acc wait  
+
+      !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid & 
+#ifdef MULTIHIT
+       !$acc& ,ABCx,ABCy,ABCz &
+#endif 
+#ifdef WETTABILITY
+       !$acc& ,wettab_r,wettab_b &
+#endif  
+#ifdef TWOCOMPONENT 
+       !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff,phifields_s &
+#endif   
+#if defined(ELASTIC_FORCE)
+       !$acc& ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
+#endif
+       !$acc& ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+       !$acc& ,hfields_old,hfields_s,auxfields,locauxfields,forces)      
       call moments_LB_kernel_zplus<<<dimGridz, dimBlock>>>(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &   
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
@@ -1099,7 +1159,8 @@ contains
 	   ,auxfields,locauxfields &
 #endif
 	   ,forces)
-
+      !$acc end host_data
+      
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
         if(myrank==0) then
@@ -1117,8 +1178,25 @@ contains
        endif
        call doerror(6,'ERROR in moments_LB_cuda_zplus (sync)')
       endif
+      !$acc wait  
       
-	  if(ldodimGridy)call moments_LB_kernel_yminus<<<dimGridy, dimBlock>>>(step &
+	  if(ldodimGridy)then
+      !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid & 
+#ifdef MULTIHIT
+       !$acc& ,ABCx,ABCy,ABCz &
+#endif 
+#ifdef WETTABILITY
+       !$acc& ,wettab_r,wettab_b &
+#endif  
+#ifdef TWOCOMPONENT 
+       !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff,phifields_s &
+#endif   
+#if defined(ELASTIC_FORCE)
+       !$acc& ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
+#endif
+       !$acc& ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+       !$acc& ,hfields_old,hfields_s,auxfields,locauxfields,forces)  
+	    call moments_LB_kernel_yminus<<<dimGridy, dimBlock>>>(step &
 	   ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &   
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
@@ -1138,7 +1216,8 @@ contains
 	   ,auxfields,locauxfields &
 #endif
 	   ,forces)
-
+      !$acc end host_data
+      
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
         if(myrank==0) then
@@ -1156,8 +1235,26 @@ contains
        endif
        call doerror(6,'ERROR in moments_LB_cuda_yminus (sync)')
       endif
+      !$acc wait  
+      endif
       
-      if(ldodimGridy)call moments_LB_kernel_yplus<<<dimGridy, dimBlock>>>(step &
+      if(ldodimGridy)then
+      !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid & 
+#ifdef MULTIHIT
+       !$acc& ,ABCx,ABCy,ABCz &
+#endif 
+#ifdef WETTABILITY
+       !$acc& ,wettab_r,wettab_b &
+#endif  
+#ifdef TWOCOMPONENT 
+       !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff,phifields_s &
+#endif   
+#if defined(ELASTIC_FORCE)
+       !$acc& ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
+#endif
+       !$acc& ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+       !$acc& ,hfields_old,hfields_s,auxfields,locauxfields,forces)  
+        call moments_LB_kernel_yplus<<<dimGridy, dimBlock>>>(step &
        ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &   
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
@@ -1177,7 +1274,8 @@ contains
 	   ,auxfields,locauxfields &
 #endif
 	   ,forces)
-
+      !$acc end host_data
+            
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
         if(myrank==0) then
@@ -1195,8 +1293,26 @@ contains
        endif
        call doerror(6,'ERROR in moments_LB_cuda_yplus (sync)')
       endif
+      !$acc wait  
+      endif
       
-      if(ldodimGridx)call moments_LB_kernel_xminus<<<dimGridx, dimBlock>>>(step &
+      if(ldodimGridx)then
+      !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid & 
+#ifdef MULTIHIT
+       !$acc& ,ABCx,ABCy,ABCz &
+#endif 
+#ifdef WETTABILITY
+       !$acc& ,wettab_r,wettab_b &
+#endif  
+#ifdef TWOCOMPONENT 
+       !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff,phifields_s &
+#endif   
+#if defined(ELASTIC_FORCE)
+       !$acc& ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
+#endif
+       !$acc& ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+       !$acc& ,hfields_old,hfields_s,auxfields,locauxfields,forces)  
+        call moments_LB_kernel_xminus<<<dimGridx, dimBlock>>>(step &
 	   ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &   
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
@@ -1216,7 +1332,8 @@ contains
 	   ,auxfields,locauxfields &
 #endif
 	   ,forces)
-
+      !$acc end host_data
+      
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
         if(myrank==0) then
@@ -1234,8 +1351,26 @@ contains
        endif
        call doerror(6,'ERROR in moments_LB_cuda_xminus (sync)')
       endif
+      !$acc wait  
+      endif
       
-      if(ldodimGridx)call moments_LB_kernel_xplus<<<dimGridx, dimBlock>>>(step &
+      if(ldodimGridx)then
+      !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid & 
+#ifdef MULTIHIT
+       !$acc& ,ABCx,ABCy,ABCz &
+#endif 
+#ifdef WETTABILITY
+       !$acc& ,wettab_r,wettab_b &
+#endif  
+#ifdef TWOCOMPONENT 
+       !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,beta,kapp,sigma,sharp_c,tau_diff,phifields_s &
+#endif   
+#if defined(ELASTIC_FORCE)
+       !$acc& ,lambda_rel,k_elastic,u_ref,v_ref,w_ref &
+#endif
+       !$acc& ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+       !$acc& ,hfields_old,hfields_s,auxfields,locauxfields,forces)  
+        call moments_LB_kernel_xplus<<<dimGridx, dimBlock>>>(step &
        ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &   
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
@@ -1255,7 +1390,8 @@ contains
 	   ,auxfields,locauxfields &
 #endif
 	   ,forces)
-
+      !$acc end host_data
+      
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
         if(myrank==0) then
@@ -1273,9 +1409,10 @@ contains
        endif
        call doerror(6,'ERROR in moments_LB_cuda_xplus (sync)')
       endif
-      
-      !$acc end host_data
-      !$acc wait        
+      !$acc wait  
+      endif
+
+        
       
    endsubroutine moments_LB_cuda_ext
 
@@ -1331,11 +1468,13 @@ contains
 #endif   
 	   forces)
 
+      !$acc end host_data
 #ifdef MONITORENERGY   
       if(mod(step-1,stamp_term).eq.0)then 
         p_mw = get_gpu_power_index(mydev_c)
       endif
-#endif        
+#endif
+
       
       istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
       if (istat /= cudaSuccess) then
@@ -1354,8 +1493,8 @@ contains
        endif
        call doerror(6,'ERROR in fused_LB_cuda (sync)')
       endif
-      !$acc end host_data
       !$acc wait
+      
 
       
    end subroutine fused_LB_cuda
@@ -1389,7 +1528,8 @@ contains
 #endif   
         ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
 	    ,hfields_s,phifields_in,phifields_out,auxfields,locauxfields,forces)
-
+      !$acc end host_data
+      
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
         if(myrank==0) then
@@ -1407,7 +1547,7 @@ contains
        endif
        call doerror(6,'ERROR in update_phifields (sync)')
       endif
-      !$acc end host_data
+
       !$acc wait        
 #endif
       
@@ -1424,7 +1564,7 @@ contains
 #ifdef TWOCOMPONENT
       !$acc wait
       istat = cudaDeviceSynchronize
-
+      if(ldodimGridInt)then
 !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
 #ifdef TWOCOMPONENT    
        !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
@@ -1434,7 +1574,7 @@ contains
 #endif
        !$acc& ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
 	   !$acc& ,hfields_s,phifields_in,phifields_out,auxfields,locauxfields,forces)
-       if(ldodimGridInt)call update_phifields_kernel_int<<<dimGridInt, dimBlock>>>(step &
+       call update_phifields_kernel_int<<<dimGridInt, dimBlock>>>(step &
         ,iprobe,jprobe,kprobe,flop &
         ,nx,ny,nz,coords,isfluid &
 #ifdef TWOCOMPONENT           
@@ -1445,7 +1585,8 @@ contains
 #endif   
         ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
 	    ,hfields_s,phifields_in,phifields_out,auxfields,locauxfields,forces)
-
+      !$acc end host_data
+      
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
         if(myrank==0) then
@@ -1463,8 +1604,8 @@ contains
        endif
        call doerror(6,'ERROR in update_phifields_int (sync)')
       endif
-      !$acc end host_data
-      !$acc wait        
+      !$acc wait   
+      endif     
 #endif
       
       return
@@ -1481,7 +1622,7 @@ contains
       !$acc wait
       istat = cudaDeviceSynchronize
 
-!$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
+      !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
 #ifdef TWOCOMPONENT    
        !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
 #ifdef MONOD
@@ -1502,7 +1643,7 @@ contains
 #endif   
         ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
 	    ,hfields_s,phifields_in,phifields_out,auxfields,locauxfields,forces)
-
+      !$acc end host_data
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
         if(myrank==0) then
@@ -1520,7 +1661,17 @@ contains
        endif
        call doerror(6,'ERROR in update_phifields_kernel_zminus (sync)')
       endif
+      !$acc wait  
       
+      !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
+#ifdef TWOCOMPONENT    
+       !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+#ifdef MONOD
+	   !$acc& ,mu_max,Ks &
+#endif
+#endif
+       !$acc& ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+	   !$acc& ,hfields_s,phifields_in,phifields_out,auxfields,locauxfields,forces)
       call update_phifields_kernel_zplus<<<dimGridz, dimBlock>>>(step &
        ,iprobe,jprobe,kprobe,flop &
        ,nx,ny,nz,coords,isfluid &
@@ -1532,7 +1683,7 @@ contains
 #endif   
        ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
 	   ,hfields_s,phifields_in,phifields_out,auxfields,locauxfields,forces)
-
+      !$acc end host_data
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
         if(myrank==0) then
@@ -1550,8 +1701,19 @@ contains
        endif
        call doerror(6,'ERROR in update_phifields_kernel_zplus (sync)')
       endif
+      !$acc wait  
       
-       if(ldodimGridy)call update_phifields_kernel_yminus<<<dimGridy, dimBlock>>>(step &
+       if(ldodimGridy)then
+      !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
+#ifdef TWOCOMPONENT    
+       !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+#ifdef MONOD
+	   !$acc& ,mu_max,Ks &
+#endif
+#endif
+       !$acc& ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+	   !$acc& ,hfields_s,phifields_in,phifields_out,auxfields,locauxfields,forces)
+         call update_phifields_kernel_yminus<<<dimGridy, dimBlock>>>(step &
         ,iprobe,jprobe,kprobe,flop &
         ,nx,ny,nz,coords,isfluid &
 #ifdef TWOCOMPONENT           
@@ -1562,7 +1724,7 @@ contains
 #endif   
         ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
 	    ,hfields_s,phifields_in,phifields_out,auxfields,locauxfields,forces)
-
+      !$acc end host_data
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
         if(myrank==0) then
@@ -1580,8 +1742,20 @@ contains
        endif
        call doerror(6,'ERROR in update_phifields_kernel_yminus (sync)')
       endif
+      !$acc wait  
+      endif
       
-      if(ldodimGridy)call update_phifields_kernel_yplus<<<dimGridy, dimBlock>>>(step &
+      if(ldodimGridy)then
+      !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
+#ifdef TWOCOMPONENT    
+       !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+#ifdef MONOD
+	   !$acc& ,mu_max,Ks &
+#endif
+#endif
+       !$acc& ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+	   !$acc& ,hfields_s,phifields_in,phifields_out,auxfields,locauxfields,forces)
+        call update_phifields_kernel_yplus<<<dimGridy, dimBlock>>>(step &
        ,iprobe,jprobe,kprobe,flop &
        ,nx,ny,nz,coords,isfluid &
 #ifdef TWOCOMPONENT           
@@ -1592,7 +1766,7 @@ contains
 #endif   
        ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
 	   ,hfields_s,phifields_in,phifields_out,auxfields,locauxfields,forces)
-
+      !$acc end host_data
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
         if(myrank==0) then
@@ -1610,8 +1784,20 @@ contains
        endif
        call doerror(6,'ERROR in update_phifields_kernel_yplus (sync)')
       endif
+      !$acc wait  
+      endif
       
-       if(ldodimGridx)call update_phifields_kernel_xminus<<<dimGridx, dimBlock>>>(step &
+       if(ldodimGridx)then
+      !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
+#ifdef TWOCOMPONENT    
+       !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+#ifdef MONOD
+	   !$acc& ,mu_max,Ks &
+#endif
+#endif
+       !$acc& ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+	   !$acc& ,hfields_s,phifields_in,phifields_out,auxfields,locauxfields,forces)
+         call update_phifields_kernel_xminus<<<dimGridx, dimBlock>>>(step &
         ,iprobe,jprobe,kprobe,flop &
         ,nx,ny,nz,coords,isfluid &
 #ifdef TWOCOMPONENT           
@@ -1622,7 +1808,7 @@ contains
 #endif   
         ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
 	    ,hfields_s,phifields_in,phifields_out,auxfields,locauxfields,forces)
-
+      !$acc end host_data
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
         if(myrank==0) then
@@ -1640,8 +1826,20 @@ contains
        endif
        call doerror(6,'ERROR in update_phifields_kernel_xminus (sync)')
       endif
+      !$acc wait  
+      endif
       
-      if(ldodimGridx)call update_phifields_kernel_xplus<<<dimGridx, dimBlock>>>(step &
+      if(ldodimGridx)then
+      !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
+#ifdef TWOCOMPONENT    
+       !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
+#ifdef MONOD
+	   !$acc& ,mu_max,Ks &
+#endif
+#endif
+       !$acc& ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
+	   !$acc& ,hfields_s,phifields_in,phifields_out,auxfields,locauxfields,forces)
+        call update_phifields_kernel_xplus<<<dimGridx, dimBlock>>>(step &
        ,iprobe,jprobe,kprobe,flop &
        ,nx,ny,nz,coords,isfluid &
 #ifdef TWOCOMPONENT           
@@ -1652,7 +1850,7 @@ contains
 #endif   
        ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
 	   ,hfields_s,phifields_in,phifields_out,auxfields,locauxfields,forces)
-
+      !$acc end host_data
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
         if(myrank==0) then
@@ -1670,9 +1868,11 @@ contains
        endif
        call doerror(6,'ERROR in update_phifields_kernel_xplus (sync)')
       endif
+      !$acc wait  
+      endif
       
-      !$acc end host_data
-      !$acc wait        
+
+      
 #endif
       
       return

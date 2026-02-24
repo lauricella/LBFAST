@@ -1,5 +1,5 @@
 #define LATTICE 27
-#define HIGHORDER
+#define noHIGHORDER
 
 #define TWOCOMPONENT
 #define DENSRATIO
@@ -27,3 +27,4 @@
 
 #define noMIXEDPRC
 #define STRPRC 4
+
