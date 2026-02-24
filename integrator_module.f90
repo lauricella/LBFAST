@@ -391,7 +391,6 @@ contains
 #ifdef MONITORENERGY                  
                num_p_w=num_p_w+1
                p_w=real(p_mw,kind=db)*1.0e-3_db
-               call sum_world_float(p_w)
                tot_energy=tot_energy+p_w*(time_actual-time_actual_old)
 #endif 
                if(all(subchords==coords))then
@@ -661,7 +660,6 @@ contains
 #ifdef MONITORENERGY         
                num_p_w=num_p_w+1         
                p_w=real(p_mw,kind=db)*1.0e-3_db
-               call sum_world_float(p_w)
                tot_energy=tot_energy+p_w*(time_actual-time_actual_old)
 #endif 
                if(all(subchords==coords))then
@@ -784,7 +782,8 @@ contains
 	  call get_memory_gpu(mymemory,totmemory)
 	  call print_memory_registration_gpu(6,'DEVICE memory occupied at the end', &
       'total DEVICE memory',mymemory,totmemory)
-#ifdef MONITORENERGY               
+#ifdef MONITORENERGY        
+      call sum_world_float(tot_energy)       
       step_energy=tot_energy/real(num_p_w*stamp_term,kind=db)
 #endif 
       !$wait
