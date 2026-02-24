@@ -1930,13 +1930,14 @@ contains
 #endif   
 	   forces)
 !$acc end host_data
-      istat = cudaDeviceSynchronize
+      
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
         if(myrank==0)write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
         if(myrank==0)write(6,*) cudaGetErrorString(istat)
         call doerror(6,'ERROR in LB_int_boundary_cuda')
       endif
+      istat = cudaDeviceSynchronize
       !$acc wait
 
       
@@ -1973,13 +1974,14 @@ contains
        ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
 	   ,hfields_s,phifields_s,auxfields,locauxfields,forces)
 !$acc end host_data
-      istat = cudaDeviceSynchronize
+      
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
         if(myrank==0)write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
         if(myrank==0)write(6,*) cudaGetErrorString(istat)
         call doerror(6,'ERROR in PHI_int_boundary_cuda')
       endif
+      istat = cudaDeviceSynchronize
       !$acc wait        
 #endif
       
@@ -2006,13 +2008,14 @@ contains
        ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields &
 	   ,hfields_s,phifields_s,auxfields,locauxfields,global_phi_sum,global_count)
 !$acc end host_data
-      istat = cudaDeviceSynchronize
+      
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
         if(myrank==0)write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
         if(myrank==0)write(6,*) cudaGetErrorString(istat)
         call doerror(6,'ERROR in phi_sum_count_cuda')
       endif
+      istat = cudaDeviceSynchronize
       !$acc wait        
 #endif
       
@@ -2039,13 +2042,14 @@ contains
        ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields &
 	   ,hfields_s,phifields_s,auxfields,locauxfields,corr)
 !$acc end host_data
-      istat = cudaDeviceSynchronize
+      
       istat = cudaGetLastError()
       if (istat/= cudaSuccess) then
         if(myrank==0)write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
         if(myrank==0)write(6,*) cudaGetErrorString(istat)
         call doerror(6,'ERROR in phi_sum_count_cuda')
       endif
+      istat = cudaDeviceSynchronize
       !$acc wait        
 #endif
       
