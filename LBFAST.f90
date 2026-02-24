@@ -2,7 +2,7 @@
 program threadsafeLB
    use mpi_template, only : myrank,proc_x,proc_y,proc_z,pbc_x,pbc_y,pbc_z, &
     coords,start_mpi,setup_mpi,exchange_isf_sendrecv,exchange_isf_intpbc, &
-    exchange_isf_wait,dostop,print_version_code
+    exchange_isf_wait,dostop,print_version_code,nprocs
 #ifdef _OPENACC
    use openacc
 #endif
@@ -24,8 +24,10 @@ program threadsafeLB
    
    logical :: lexist
    integer, parameter :: inputio=24
-   real(kind=db) :: dist
-   
+   real(kind=db) :: dist,tot_time,Glups
+#ifdef MONITORENERGY   
+   real(kind=db) :: Pavg=ZERO,eff_glups_per_w,E_tot,J_per_LUP
+#endif
    namelist /simulation/ nsteps,stamp,stamp2D,stepskip,lreadisfluid, &
     lreadinit,lx,ly,lz,lprint,lvtk,lraw,lrestart,pbc_x,pbc_y,pbc_z,openbc,lasync, &
     iprobe,jprobe,kprobe,openbc_type_x,openbc_type_y,openbc_type_z, &
@@ -485,10 +487,30 @@ program threadsafeLB
          'Occupied memory after setup MPI','Total memory',smemory,sram)
    endif
 
+
+   
+   tot_time=ts2-ts1
+   Glups = real(lx,db)*real(ly,db)*real(lz,db)*real(nsteps,db)/tot_time*1.e-9_db
+#ifdef MONITORENERGY               
+   Pavg=step_energy*real(nsteps,db)/tot_time
+   if (Pavg > ZERO) eff_glups_per_w = Glups / Pavg
+   E_tot = step_energy * real(nsteps,db)
+   J_per_LUP = step_energy / ( real(lx,db)*real(ly,db)*real(lz,db) )
+#endif  
+
    if(myrank==0)then
-      write(6,*) 'time elapsed: ', ts2-ts1, ' s of your life time'
-      write(6,*) 'glups: ',  real(lx)*real(ly)*real(lz)*real(nsteps)/1.0e9/(ts2-ts1)
-   endif
+      write(6,*) 'time elapsed: ', tot_time, ' s of your life time'
+      write(6,*) 'glups: ',  Glups
+#ifdef MONITORENERGY    
+      write(6,*) 'Pavg: ',  Pavg
+      write(6,*) 'eff_glups_per_w: ',  eff_glups_per_w
+      write(6,*) 'J_per_LUP: ',  J_per_LUP
+      write(6,*) 'E_tot: ',  E_tot
+      write(6,*) 'E_tot_per_rank: ',  E_tot / real(nprocs,db)
+      write(6,*) 'step_energy: ',  step_energy
+      write(6,*) 'step_energy_per_rank: ', step_energy / real(nprocs,db)
+#endif
+   endif  
 
    call get_memory(smemory)
    call get_totram(sram)

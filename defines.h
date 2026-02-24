@@ -23,5 +23,7 @@
 
 #define PRC 4
 
-#define MIXEDPRC
+#define MONITORENERGY
+
+#define noMIXEDPRC
 #define STRPRC 4

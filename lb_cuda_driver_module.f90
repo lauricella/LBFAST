@@ -9,7 +9,9 @@ module lb_cuda_driver
    use vars
    use iso_c_binding
    use cudafor
-   use mpi_template, only: coords,dostop,doerror,mydev,myrank,nprocs,nbuff,nbuffbvec
+   use nvml_interface
+   use mpi_template, only: coords,dostop,doerror,mydev,myrank,nprocs,nbuff,nbuffbvec, &
+    p_mw,mydev_c
    use lb_cuda_vars
 #ifdef TWOCOMPONENT
    use lb_cuda_auxfields, only: compute_norm_interface_kernel,compute_div_theta_n_kernel, &
@@ -1329,6 +1331,11 @@ contains
 #endif   
 	   forces)
 
+#ifdef MONITORENERGY   
+      if(mod(step-1,stamp_term).eq.0)then 
+        p_mw = get_gpu_power_index(mydev_c)
+      endif
+#endif        
       
       istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
       if (istat /= cudaSuccess) then
@@ -1338,7 +1345,7 @@ contains
         endif
         call doerror(6,'ERROR in fused_LB_cuda (launch)')
       endif
-
+    
       istat = cudaDeviceSynchronize()
       if (istat /= cudaSuccess) then
        if(myrank==0) then

@@ -245,7 +245,10 @@ contains
                 
                 
                 if(abs(isfluid(i,j,k)).eq.1)then
+#if defined(TAYLORGREEN) && !defined(TWOCOMPONENT)
 
+
+#else
                    !dist=sqrt((float(gi)-lx/TWO)**TWO + (float(gj)-ly/TWO)**TWO+(float(gk)-(lz/TWO)+1.5*radius)**TWO)
                    dist3d(1)=real(gi,kind=db)-center(1)
                    dist3d(2)=real(gj,kind=db)-center(2)
@@ -276,7 +279,7 @@ contains
                   loc_w=ZERO!fcut(dist,radius-width*0.5,radius+width*0.5)*uwall !   - fcut(dist2,radius-width*0.5,radius+width*0.5)*HALF*uwall
 
 #endif       
-
+#endif
                 hfields_flip(ii,jj,kk,1,myblock)= real(loc_press,kind=strdb)
                 hfields_flip(ii,jj,kk,2,myblock)=real(loc_u,kind=strdb)
                 hfields_flip(ii,jj,kk,3,myblock)=real(loc_v,kind=strdb) 

@@ -19,6 +19,7 @@ module mpi_template
 #ifdef MPI  
    use mpi
 #endif
+   use iso_c_binding
    implicit none
 #ifdef MPI
    !include 'mpif.h'
@@ -31,6 +32,7 @@ module mpi_template
    integer, save :: nprocs,myrank,lbecomm,localcomm
 
    integer :: mydev, ndev
+   integer(c_int) :: mydev_c,p_mw
    integer :: file_offset
    integer :: proc_x,proc_y,proc_z
    integer :: pbc_x,pbc_y,pbc_z
@@ -210,7 +212,6 @@ contains
 !
    subroutine setup_mpi
 
-      use iso_c_binding
       implicit none
 !
       integer:: uni,lopp,idrank,oi,oj,ok
@@ -405,6 +406,7 @@ contains
     mydev = mod(node_rank, ndev)
     call acc_set_device_num(mydev, devType)
     actual_dev = acc_get_device_num(devType)
+    mydev_c=int(mydev,kind=c_int)
 #endif
 
 #ifdef MPI

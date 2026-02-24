@@ -84,6 +84,10 @@
 #warning "ASYNCMPI: activated"
 #endif
 
+#ifdef MONITORENERGY
+#warning "MONITORENERGY: activated"
+#endif
+
 #ifdef MIXEDPRC
 #warning "MIXEDPRC: mixed precision activated"
 #endif
@@ -95,6 +99,7 @@
 #if defined(HIGHORDER) && (!defined(LATTICE) || (LATTICE != 27))
 #error "HIGHORDER: if the macro HIGHORDER is defined you MUST USE -DLATTICE=27 or #define LATTICE 27"
 #endif
+
 
 module vars
 #ifdef _OPENACC
@@ -725,6 +730,12 @@ module vars
    real(kind=db) :: time_init,time_actual,time_limit=-ONE
    real(kind=db) :: time_actual_old
    integer :: every_time_check=1000
+#ifdef MONITORENERGY  
+   integer :: num_p_w=0
+   real(kind=db) :: p_w=ZERO
+   real(kind=db) :: tot_energy=ZERO
+   real(kind=db) :: step_energy
+#endif
    
    !****************************print vars**************************************!
 
