@@ -1,10 +1,11 @@
 #define LATTICE 27
 #define noHIGHORDER
 
-#define TWOCOMPONENT
-#define DENSRATIO
+#define noTWOCOMPONENT
+#define noDENSRATIO
 
 #define DOBENCHMARK
+#define POISEUILLE
 #define DOXDMF
 #define noWRITEPRESS
 

@@ -100,6 +100,18 @@
 #error "HIGHORDER: if the macro HIGHORDER is defined you MUST USE -DLATTICE=27 or #define LATTICE 27"
 #endif
 
+#ifdef DOBENCHMARK
+#warning "DOBENCHMARK: activated"
+#endif
+
+#ifdef POISEUILLE
+#warning "POISEUILLE: activated"
+#endif
+
+#ifdef USEGNUPLOT
+#warning "USEGNUPLOT: activated"
+#endif
+
 
 module vars
 #ifdef _OPENACC
@@ -214,6 +226,8 @@ module vars
    logical, save :: lwriterestart=.false.
    logical, parameter :: lreadinput=.true.
    logical, save :: lweakscaling=.false.
+   
+   integer, save :: initseed=317
    
    integer :: narg,inumchar
    logical :: mydiagnostic
@@ -955,15 +969,17 @@ contains
       rand_noseeded = real(uni,kind=db)
    end function rand_noseeded
    
-   subroutine init_random_seed_CPU(myseed)
+   subroutine init_random_seed_CPU(myseed,myranksub)
   
    implicit none
   
-   integer,intent(in),optional :: myseed
+   integer,intent(in),optional :: myseed,myranksub
    integer :: i, n, clock
-   integer, parameter :: idrank=0
+   integer :: idrank=0
   
    integer, allocatable :: seed(:)
+   
+   if(present(myranksub))idrank=myranksub
           
    call random_seed(size = n)
   
@@ -981,7 +997,7 @@ contains
     
    endif
   
-  call random_seed(put = seed)
+   call random_seed(put = seed)
        
    deallocate(seed)
   
@@ -1005,18 +1021,6 @@ contains
   
    real(kind=db), dimension(nelement) :: dtemp1,dtemp2
    integer :: seedsub
-   logical, save :: lfirst=.true.
-  
-   if(lfirst)then
-     lfirst=.false.
-     if(present(myseed))then
-       seedsub=myseed
-       call init_random_seed_CPU(seedsub)
-     else
-       seedsub=17
-       call init_random_seed_CPU(seedsub)
-     endif
-   endif
   
    call random_number(dtemp1)
    call random_number(dtemp2)
@@ -1028,6 +1032,31 @@ contains
   
   
    end subroutine gauss_CPU
+   
+  function randgauss_CPU()
+  
+   implicit none
+   
+   real(kind=db) :: randgauss_CPU
+  
+   real(kind=db), parameter :: mylimit=real(1.d-30,kind=db)
+   real(kind=db), parameter :: FIFTY = real(50.d0,kind=db)
+   real(kind=db), parameter :: ONE = real(1.d0,kind=db)
+   real(kind=db), parameter :: TWO = real(2.d0,kind=db)
+   real(kind=db), parameter :: Pi = real(3.1415926535897932384626433832795028841971d0,kind=db)
+  
+   real(kind=db) :: dtemp1,dtemp2
+  
+   call random_number(dtemp1)
+   call random_number(dtemp2)
+  
+   dtemp1=dtemp1*(ONE-mylimit)+mylimit
+  
+   ! Box-Muller transformation
+   randgauss_CPU=sqrt(- TWO *log(dtemp1))*cos(TWO*pi*dtemp2)
+  
+  
+   end function randgauss_CPU
 
    subroutine string_char(mychar,nstring,mystring)
 

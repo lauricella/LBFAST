@@ -20,6 +20,7 @@ program threadsafeLB
     get_totram
    
    use initial_condts, only: initial_conditions_all
+   use stat_module, only: compare_benchmark
    implicit none
    
    logical :: lexist
@@ -520,7 +521,7 @@ program threadsafeLB
 !   call get_memory_gpu(mymemory,totmemory)
 !   call print_memory_registration_gpu(6,'DEVICE memory occupied at the end', &
 !      'total DEVICE memory',mymemory,totmemory)
-
+   call compare_benchmark
    call dostop('program correctly closed')
 
 end program

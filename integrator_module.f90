@@ -783,7 +783,7 @@ contains
 	  call print_memory_registration_gpu(6,'DEVICE memory occupied at the end', &
       'total DEVICE memory',mymemory,totmemory)
 #ifdef MONITORENERGY        
-      call sum_world_float(tot_energy)       
+      call sum_world_float(tot_energy)
       step_energy=tot_energy/real(num_p_w*stamp_term,kind=db)
 #endif 
       !$wait

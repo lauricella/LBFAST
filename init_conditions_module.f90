@@ -17,7 +17,10 @@ contains
       real(kind=db) :: dist1,dist2,sel1,sel2,dist
       real(kind=db),dimension(3) :: dist3d,dist3dout,invdim
       real(kind=db) :: fneq1,feq, rhophi_loc
-	  
+#ifdef POISEUILLE      
+      real(kind=db) :: H_pois,xc_pois
+#endif      
+
 #if defined(MULTIHIT)
 	  real(kind=db) :: k_zero
 #endif
@@ -30,7 +33,7 @@ contains
 #endif
     
     integer :: xblock,yblock,zblock,myblock,ii,jj,kk
-    real(kind=db) :: tempphi,tempphi2,loc_u,loc_v,loc_w,loc_press
+    real(kind=db) :: tempphi,tempphi2,loc_u,loc_v,loc_w,loc_press,stdev
     
     invdim(1) = ONE/real(lx,kind=db)
     invdim(2) = ONE/real(ly,kind=db)
@@ -222,7 +225,7 @@ contains
         enddo
 
 
-
+       stdev=1.0e-2
        do k=1,nz
           gk = nz*coords(3) + k
 		  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -248,6 +251,17 @@ contains
 #if defined(TAYLORGREEN) && !defined(TWOCOMPONENT)
 
 
+#elif defined(POISEUILLE)
+               rhophi_loc = 1.0_db
+               H_pois  = 0.5_db * real(lx-2,db)
+               xc_pois = 0.5_db * real(lx+1,db)
+               dist = real(gi,db) - xc_pois
+               dist = abs(dist)
+               if (dist <= H_pois) then
+                 loc_w=(fz)/(2.0_db*visc1) * (H_pois*H_pois - dist*dist)+ stdev*randgauss_CPU()
+               else
+                 loc_w=ZERO
+               endif
 #else
                    !dist=sqrt((float(gi)-lx/TWO)**TWO + (float(gj)-ly/TWO)**TWO+(float(gk)-(lz/TWO)+1.5*radius)**TWO)
                    dist3d(1)=real(gi,kind=db)-center(1)
