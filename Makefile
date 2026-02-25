@@ -6,10 +6,8 @@ BINROOT = $(CURDIR)
 FC=undefined
 CC=undefined
 CFLAGSNVML=undefined
-#NVML_INC = $(NVHPC_HOME)/Linux_x86_64/24.3/cuda/12.3/targets/x86_64-linux/include
-#NVML_LIB = $(NVHPC_HOME)/Linux_x86_64/24.3/cuda/12.3/targets/x86_64-linux/lib/stubs
-NVML_INC = $(CURDIR)
-NVML_LIB = $(CURDIR)
+NVML_INC ?= $(NVHPC_HOME)
+NVML_LIB ?= $(NVHPC_HOME)
 FCUDAFLAGS=undefined
 FCUDAFLAGSRID=undefined
 FFLAGS=undefined
@@ -104,7 +102,7 @@ nvfortran-nvml-mpi:
 	$(MAKE) CC=mpicc \
 	FC=mpif90 \
 	CFLAGS="-O3 -I$(CURDIR) " \
-	CFLAGSNVML="-O3 -I$(NVML_INC)  -I$(CURDIR) " \
+	CFLAGSNVML="-O3 -I$(NVML_INC) -D_NVML -I$(CURDIR) " \
 	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_NVML -I$(CURDIR) " \
 	FCUDAFLAGSRID="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_NVML -I$(CURDIR) " \
 	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_NVML -DMPI -I$(CURDIR) " \
