@@ -22,6 +22,7 @@ module nvml_interface
   contains
   
   pure function u64_delta_J(e0, e1) result(dJ)
+    implicit none
     integer(c_long_long), intent(in) :: e0, e1
     real(kind=PRC) :: dJ
 
@@ -54,7 +55,6 @@ module nvml_interface
     ! de_mJ = dhi*2^32 + dlo, poi mJ->J
     dJ = real(1.0d-3 * ( real(dhi, c_double) * 4294967296.0d0 + real(dlo, c_double) ),kind=PRC)
   end function u64_delta_J
-
   
 #endif
 end module nvml_interface
