@@ -1,11 +1,11 @@
 #define LATTICE 27
 #define noHIGHORDER
 
-#define noTWOCOMPONENT
-#define noDENSRATIO
+#define TWOCOMPONENT
+#define DENSRATIO
 
 #define DOBENCHMARK
-#define POISEUILLE
+#define noPOISEUILLE
 #define DOXDMF
 #define noWRITEPRESS
 
@@ -25,6 +25,7 @@
 #define PRC 4
 
 #define MONITORENERGY
+#define noGETPOWER
 
 #define noMIXEDPRC
 #define STRPRC 4

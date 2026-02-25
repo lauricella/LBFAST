@@ -5,10 +5,11 @@ module integrator_module
    use openacc
 #endif
    use iso_c_binding
+   use nvml_interface
    use mpi_template, only : nbuff,coords,myoffset,myrank,nprocs,intpbc_dir, &
            num_links_pops,links_pops,f_datampi,fvec_datampi,b_datampi,c_datampi,i_datampi, &
            f_send_extr,f_recv_extr,fvec_send_extr,fvec_recv_extr, &
-           b_send_extr,b_recv_extr,c_send_extr,c_recv_extr,p_mw, &
+           b_send_extr,b_recv_extr,c_send_extr,c_recv_extr, &
            f_send_buffmpi,f_recv_buffmpi,f_nbuffmpi_send,f_nbuffmpi_recv,lbuff, &
            fvec_send_buffmpi,fvec_recv_buffmpi,fvec_nbuffmpi_send,fvec_nbuffmpi_recv, &
            b_send_buffmpi,b_recv_buffmpi,b_nbuffmpi_send,b_nbuffmpi_recv, &
@@ -64,6 +65,7 @@ contains
       logical :: ltime_actual=.false.
       integer :: ii,jj,kk
       integer :: xblock,yblock,zblock,myblock,iii,jjj,kkk
+      integer(c_int) :: ierrc
 
       step=0
 
@@ -219,8 +221,12 @@ contains
       !call dostop
       time_init=current_time()
       time_actual_old=time_init
-      call cpu_time(ts1)
-      
+#if defined(MONITORENERGY) && !defined(GETPOWER)      
+      ierrc=get_gpu_energy_mJ_u64(mydev_c,energy_1)
+#endif  
+      ts1=current_time()
+      !call cpu_time(ts1)
+    
 #if 0
       call dostop('ciao',__FILE__,__LINE__)
       !call test_LB_cuda
@@ -388,7 +394,7 @@ contains
                subchords(1)=(gi-1)/nx
                subchords(2)=(gj-1)/ny
                subchords(3)=(gk-1)/nz
-#ifdef MONITORENERGY                  
+#if defined(MONITORENERGY) && defined(GETPOWER)              
                num_p_w=num_p_w+1
                p_w=real(p_mw,kind=db)*1.0e-3_db
                tot_energy=tot_energy+p_w*(time_actual-time_actual_old)
@@ -657,7 +663,7 @@ contains
                subchords(1)=(gi-1)/nx
                subchords(2)=(gj-1)/ny
                subchords(3)=(gk-1)/nz
-#ifdef MONITORENERGY         
+#if defined(MONITORENERGY) && defined(GETPOWER)  
                num_p_w=num_p_w+1         
                p_w=real(p_mw,kind=db)*1.0e-3_db
                tot_energy=tot_energy+p_w*(time_actual-time_actual_old)
@@ -769,7 +775,11 @@ contains
 	 
       enddo
 110   continue      
-      call cpu_time(ts2)
+      !call cpu_time(ts2)
+      ts2=current_time()
+#if defined(MONITORENERGY) && !defined(GETPOWER)      
+      ierrc=get_gpu_energy_mJ_u64(mydev_c,energy_2)
+#endif  
       !***********************************write restart************************
       if(lwriterestart)then
 #ifdef TWOCOMPONENT
@@ -782,9 +792,15 @@ contains
 	  call get_memory_gpu(mymemory,totmemory)
 	  call print_memory_registration_gpu(6,'DEVICE memory occupied at the end', &
       'total DEVICE memory',mymemory,totmemory)
-#ifdef MONITORENERGY        
+#ifdef MONITORENERGY 
+#ifdef GETPOWER
       call sum_world_float(tot_energy)
       step_energy=tot_energy/real(num_p_w*stamp_term,kind=db)
+#else
+      tot_energy=u64_delta_J(energy_1,energy_2)
+      call sum_world_float(tot_energy)
+      step_energy=tot_energy/real(nsteps,kind=db)
+#endif
 #endif 
       !$wait
       !$acc end data

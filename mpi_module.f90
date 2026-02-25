@@ -9,7 +9,7 @@ module mpi_template
 #ifdef _OPENACC
       devType, &
 #endif
-      flip,flop,rho_r,rho_b, &
+      flip,flop,rho_r,rho_b,mydev_c, &
       physic_type,acc_device_radeon, &
       nhfields,nphifields,auxfields,nauxfields,forces,nforces, &
       TILE_DIMx,TILE_DIMy,TILE_DIMz,TILE_DIM,nxblock,nyblock,nzblock,nxyblock,nblocks
@@ -19,7 +19,7 @@ module mpi_template
 #ifdef MPI  
    use mpi
 #endif
-   use iso_c_binding
+   
    implicit none
 #ifdef MPI
    !include 'mpif.h'
@@ -32,7 +32,7 @@ module mpi_template
    integer, save :: nprocs,myrank,lbecomm,localcomm
 
    integer :: mydev, ndev
-   integer(c_int) :: mydev_c,p_mw
+   
    integer :: file_offset
    integer :: proc_x,proc_y,proc_z
    integer :: pbc_x,pbc_y,pbc_z

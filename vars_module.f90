@@ -88,6 +88,10 @@
 #warning "MONITORENERGY: activated"
 #endif
 
+#ifdef GETPOWER
+#warning "GETPOWER: activated"
+#endif
+
 #ifdef MIXEDPRC
 #warning "MIXEDPRC: mixed precision activated"
 #endif
@@ -117,6 +121,7 @@ module vars
 #ifdef _OPENACC
    use openacc
 #endif
+   use iso_c_binding, only: c_long_long,c_int,c_float,c_double
    implicit none
 
 #if PRC==4
@@ -744,11 +749,14 @@ module vars
    real(kind=db) :: time_init,time_actual,time_limit=-ONE
    real(kind=db) :: time_actual_old
    integer :: every_time_check=1000
+   integer(c_int) :: mydev_c
 #ifdef MONITORENERGY  
    integer :: num_p_w=0
+   integer(c_int) :: p_mw
    real(kind=db) :: p_w=ZERO
    real(kind=db) :: tot_energy=ZERO
    real(kind=db) :: step_energy
+   integer(c_long_long) :: energy_1,energy_2
 #endif
    
    !****************************print vars**************************************!
