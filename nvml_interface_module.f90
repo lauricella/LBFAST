@@ -2,7 +2,7 @@
 module nvml_interface
   use iso_c_binding
   implicit none
-#ifdef MONITORENERGY
+#ifdef _NVML
   interface
     function get_gpu_power_index(idx) bind(C, name="get_gpu_power_index")
       import :: c_int

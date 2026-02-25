@@ -5,7 +5,9 @@ module integrator_module
    use openacc
 #endif
    use iso_c_binding
+#ifdef _NVML
    use nvml_interface
+#endif
    use mpi_template, only : nbuff,coords,myoffset,myrank,nprocs,intpbc_dir, &
            num_links_pops,links_pops,f_datampi,fvec_datampi,b_datampi,c_datampi,i_datampi, &
            f_send_extr,f_recv_extr,fvec_send_extr,fvec_recv_extr, &
@@ -221,7 +223,7 @@ contains
       !call dostop
       time_init=current_time()
       time_actual_old=time_init
-#if defined(MONITORENERGY) && !defined(GETPOWER)      
+#if defined(_NVML) && !defined(GETPOWER)      
       ierrc=get_gpu_energy_mJ_u64(mydev_c,energy_1)
 #endif  
       ts1=current_time()
@@ -394,7 +396,7 @@ contains
                subchords(1)=(gi-1)/nx
                subchords(2)=(gj-1)/ny
                subchords(3)=(gk-1)/nz
-#if defined(MONITORENERGY) && defined(GETPOWER)              
+#if defined(_NVML) && defined(GETPOWER)              
                num_p_w=num_p_w+1
                p_w=real(p_mw,kind=db)*1.0e-3_db
                tot_energy=tot_energy+p_w*(time_actual-time_actual_old)
@@ -663,7 +665,7 @@ contains
                subchords(1)=(gi-1)/nx
                subchords(2)=(gj-1)/ny
                subchords(3)=(gk-1)/nz
-#if defined(MONITORENERGY) && defined(GETPOWER)  
+#if defined(_NVML) && defined(GETPOWER)  
                num_p_w=num_p_w+1         
                p_w=real(p_mw,kind=db)*1.0e-3_db
                tot_energy=tot_energy+p_w*(time_actual-time_actual_old)
@@ -777,7 +779,7 @@ contains
 110   continue      
       !call cpu_time(ts2)
       ts2=current_time()
-#if defined(MONITORENERGY) && !defined(GETPOWER)      
+#if defined(_NVML) && !defined(GETPOWER)      
       ierrc=get_gpu_energy_mJ_u64(mydev_c,energy_2)
 #endif  
       !***********************************write restart************************
@@ -792,7 +794,7 @@ contains
 	  call get_memory_gpu(mymemory,totmemory)
 	  call print_memory_registration_gpu(6,'DEVICE memory occupied at the end', &
       'total DEVICE memory',mymemory,totmemory)
-#ifdef MONITORENERGY 
+#ifdef _NVML 
 #ifdef GETPOWER
       call sum_world_float(tot_energy)
       step_energy=tot_energy/real(num_p_w*stamp_term,kind=db)

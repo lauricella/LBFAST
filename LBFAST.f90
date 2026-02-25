@@ -26,7 +26,7 @@ program threadsafeLB
    logical :: lexist
    integer, parameter :: inputio=24
    real(kind=db) :: dist,tot_time,Glups
-#ifdef MONITORENERGY   
+#ifdef _NVML   
    real(kind=db) :: Pavg=ZERO,eff_glups_per_w,E_tot,J_per_LUP
 #endif
    namelist /simulation/ nsteps,stamp,stamp2D,stepskip,lreadisfluid, &
@@ -492,7 +492,7 @@ program threadsafeLB
    
    tot_time=ts2-ts1
    Glups = real(lx,db)*real(ly,db)*real(lz,db)*real(nsteps,db)/tot_time*1.e-9_db
-#ifdef MONITORENERGY               
+#ifdef _NVML               
    Pavg=step_energy*real(nsteps,db)/tot_time
    if (Pavg > ZERO) eff_glups_per_w = Glups / Pavg
    E_tot = step_energy * real(nsteps,db)
@@ -502,7 +502,7 @@ program threadsafeLB
    if(myrank==0)then
       write(6,*) 'time elapsed: ', tot_time, ' s of your life time'
       write(6,*) 'glups: ',  Glups
-#ifdef MONITORENERGY    
+#ifdef _NVML    
       write(6,*) 'Pavg: ',  Pavg
       write(6,*) 'eff_glups_per_w: ',  eff_glups_per_w
       write(6,*) 'J_per_LUP: ',  J_per_LUP

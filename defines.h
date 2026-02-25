@@ -24,7 +24,6 @@
 
 #define PRC 4
 
-#define MONITORENERGY
 #define noGETPOWER
 
 #define noMIXEDPRC

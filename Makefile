@@ -5,7 +5,11 @@
 BINROOT = $(CURDIR)
 FC=undefined
 CC=undefined
-CFLAGSNVLM=undefined
+CFLAGSNVML=undefined
+#NVML_INC = $(NVHPC_HOME)/Linux_x86_64/24.3/cuda/12.3/targets/x86_64-linux/include
+#NVML_LIB = $(NVHPC_HOME)/Linux_x86_64/24.3/cuda/12.3/targets/x86_64-linux/lib/stubs
+NVML_INC = $(CURDIR)
+NVML_LIB = $(CURDIR)
 FCUDAFLAGS=undefined
 FCUDAFLAGSRID=undefined
 FFLAGS=undefined
@@ -30,6 +34,8 @@ all:
 	@echo "nvfortran-debug                    "
 	@echo "nvfortran-mpi                      "
 	@echo "nvfortran-mpi-debug                "
+	@echo "nvfortran-nvml                     "
+	@echo "nvfortran-nvml-mpi                 "
 	@echo "                                   "
 	@echo "Possible choices for debugging are:"
 	@echo "                                   "
@@ -41,54 +47,88 @@ help: all
 nvfortran:
 	$(MAKE) CC=nvcc \
 	FC=nvfortran \
-	CFLAGS="-O3 -I $(CURDIR) " \
-	CFLAGSNVLM="-O3 -I$(CUDA_HOME)/include -I $(CURDIR) " \
-	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_KERNELCUDA -I $(CURDIR) " \
-	FCUDAFLAGSRID="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_KERNELCUDA -I $(CURDIR) " \
-	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_KERNELCUDA -I $(CURDIR) " \
-	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -I $(CURDIR) -o" \
+	CFLAGS="-O3 -I$(CURDIR) " \
+	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -I$(CURDIR) " \
+	FCUDAFLAGSRID="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -I$(CURDIR) " \
+	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -I$(CURDIR) " \
+	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -I$(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EXP) BINROOT=$(BINROOT) seq
 	
 nvfortran-debug:
 	$(MAKE) CC=nvcc \
 	FC=nvfortran \
-	CFLAGS="-O0 -g -I $(CURDIR) " \
-	CFLAGSNVLM="-O0 -g -I$(CUDA_HOME)/include -I $(CURDIR) " \
-	FCUDAFLAGS="-O0 -g -cpp -acc -cuda -gpu=cc$(GPUCC),debug,keep,ptxinfo,lineinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -D_KERNELCUDA -I $(CURDIR) " \
-	FCUDAFLAGSRID="-O0 -g -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -D_KERNELCUDA -I $(CURDIR) " \
-	FFLAGS="-O0 -g -cpp -acc -gpu=cc$(GPUCC),debug,keep,ptxinfo,lineinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -D_KERNELCUDA -I $(CURDIR) " \
-	LDFLAGS="-O0 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -Mchkptr -Mchkstk -traceback -I $(CURDIR) -o" \
+	CFLAGS="-O0 -g -I$(CURDIR) " \
+	FCUDAFLAGS="-O0 -g -cpp -acc -cuda -gpu=cc$(GPUCC),debug,keep,ptxinfo,lineinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -I$(CURDIR) " \
+	FCUDAFLAGSRID="-O0 -g -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -I$(CURDIR) " \
+	FFLAGS="-O0 -g -cpp -acc -gpu=cc$(GPUCC),debug,keep,ptxinfo,lineinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -I$(CURDIR) " \
+	LDFLAGS="-O0 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -Mchkptr -Mchkstk -traceback -I$(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EX) BINROOT=$(BINROOT) seq
 
 nvfortran-mpi:
 	$(MAKE) CC=mpicc \
 	FC=mpif90 \
-	CFLAGS="-O3 -I $(CURDIR) " \
-	CFLAGSNVLM="-O3 -I$(CUDA_HOME)/include -I $(CURDIR) " \
-	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_KERNELCUDA -I $(CURDIR) " \
-	FCUDAFLAGSRID="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_KERNELCUDA -I $(CURDIR) " \
-	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_KERNELCUDA -DMPI -I $(CURDIR) " \
-	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DMPI -I $(CURDIR) -o" \
+	CFLAGS="-O3 -I$(CURDIR) " \
+	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -I$(CURDIR) " \
+	FCUDAFLAGSRID="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -I$(CURDIR) " \
+	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DMPI -I$(CURDIR) " \
+	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DMPI -I$(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EXP) BINROOT=$(BINROOT) seq
 
 nvfortran-mpi-debug:
 	$(MAKE) CC=mpicc \
 	FC=mpif90 \
-	CFLAGS="-O0 -g -I $(CURDIR) " \
-	CFLAGSNVLM="-O0 -g -I$(CUDA_HOME)/include -I $(CURDIR) " \
-	FCUDAFLAGS="-O0 -g -cpp -acc -cuda -gpu=cc$(GPUCC),debug,keep,ptxinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -D_KERNELCUDA -I $(CURDIR) " \
-	FCUDAFLAGSRID="-O0 -g -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -D_KERNELCUDA -I $(CURDIR) " \
-	FFLAGS="-O0 -g -cpp -acc -gpu=cc$(GPUCC),debug,keep,ptxinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -D_KERNELCUDA -DMPI -I $(CURDIR) " \
-	LDFLAGS="-O0 -acc -cuda -gpu=cc$(GPUCC) -Minfo=accel -Mchkptr -Mchkstk -traceback -DMPI -I $(CURDIR) -o" \
+	CFLAGS="-O0 -g -I$(CURDIR) " \
+	FCUDAFLAGS="-O0 -g -cpp -acc -cuda -gpu=cc$(GPUCC),debug,keep,ptxinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -I$(CURDIR) " \
+	FCUDAFLAGSRID="-O0 -g -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -I$(CURDIR) " \
+	FFLAGS="-O0 -g -cpp -acc -gpu=cc$(GPUCC),debug,keep,ptxinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -DMPI -I$(CURDIR) " \
+	LDFLAGS="-O0 -acc -cuda -gpu=cc$(GPUCC) -Minfo=accel -Mchkptr -Mchkstk -traceback -DMPI -I$(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EXP) BINROOT=$(BINROOT) seq
 
+nvfortran-nvml:
+	$(MAKE) CC=nvcc \
+	FC=nvfortran \
+	CFLAGS="-O3 -I$(CURDIR) " \
+	CFLAGSNVML="-O3 -I$(NVML_INC) -D_NVML -I$(CURDIR) " \
+	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_NVML -I$(CURDIR) " \
+	FCUDAFLAGSRID="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_NVML -I$(CURDIR) " \
+	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_NVML -I$(CURDIR) " \
+	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -I$(CURDIR) -o" \
+	TYPE=seqnvml \
+	EX=$(EXP) BINROOT=$(BINROOT) seqnvml
 
+nvfortran-nvml-mpi:
+	$(MAKE) CC=mpicc \
+	FC=mpif90 \
+	CFLAGS="-O3 -I$(CURDIR) " \
+	CFLAGSNVML="-O3 -I$(NVML_INC)  -I$(CURDIR) " \
+	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_NVML -I$(CURDIR) " \
+	FCUDAFLAGSRID="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_NVML -I$(CURDIR) " \
+	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_NVML -DMPI -I$(CURDIR) " \
+	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DMPI -I$(CURDIR) -o" \
+	TYPE=seqnvml \
+	EX=$(EXP) BINROOT=$(BINROOT) seqnvml
 
 seq:get_mem.o get_ram.o vars_module.o \
+	mpi_module.o profiling_m.o lb_cuda_vars_module.o \
+	lb_cuda_auxfields_module.o lb_cuda_repulsive_module.o lb_cuda_moments_module.o \
+	lb_cuda_fused_module.o lb_cuda_update_phi_module.o lb_cuda_boundary_module.o \
+	lb_cuda_driver_module.o boundary_cds_module.o init_conditions_module.o \
+	statistics.o print_module.o allocate_module.o integrator_module.o \
+	LBFAST.o
+	$(FC) $(LDFLAGS) $(EX) get_mem.o get_ram.o \
+	vars_module.o mpi_module.o \
+	profiling_m.o lb_cuda_vars_module.o lb_cuda_auxfields_module.o \
+	lb_cuda_repulsive_module.o lb_cuda_moments_module.o \
+	lb_cuda_fused_module.o lb_cuda_update_phi_module.o lb_cuda_boundary_module.o \
+	lb_cuda_driver_module.o boundary_cds_module.o init_conditions_module.o \
+	statistics.o print_module.o allocate_module.o integrator_module.o \
+	LBFAST.o
+
+seqnvml:get_mem.o get_ram.o vars_module.o \
 	nvml_wrapper.o nvml_interface_module.o \
 	mpi_module.o profiling_m.o lb_cuda_vars_module.o \
 	lb_cuda_auxfields_module.o lb_cuda_repulsive_module.o lb_cuda_moments_module.o \
@@ -103,7 +143,7 @@ seq:get_mem.o get_ram.o vars_module.o \
 	lb_cuda_fused_module.o lb_cuda_update_phi_module.o lb_cuda_boundary_module.o \
 	lb_cuda_driver_module.o boundary_cds_module.o init_conditions_module.o \
 	statistics.o print_module.o allocate_module.o integrator_module.o \
-	LBFAST.o -lnvidia-ml
+	LBFAST.o -L$(NVML_LIB) -lnvidia-ml
 #	mv $(EXP) $(EXEP)
 
 get_mem.o:get_mem.c
@@ -113,7 +153,7 @@ get_ram.o:get_ram.c
 	$(CC) $(CFLAGS) -c get_ram.c
 
 nvml_wrapper.o: nvml_wrapper.c
-	$(CC) $(CFLAGSNVLM) -c nvml_wrapper.c
+	$(CC) $(CFLAGSNVML) -c nvml_wrapper.c
 
 nvml_interface_module.o: nvml_interface_module.f90
 	$(FC) $(FFLAGS) -c nvml_interface_module.f90

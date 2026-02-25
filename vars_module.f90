@@ -84,8 +84,8 @@
 #warning "ASYNCMPI: activated"
 #endif
 
-#ifdef MONITORENERGY
-#warning "MONITORENERGY: activated"
+#ifdef _NVML
+#warning "_NVML: activated"
 #endif
 
 #ifdef GETPOWER
@@ -750,7 +750,7 @@ module vars
    real(kind=db) :: time_actual_old
    integer :: every_time_check=1000
    integer(c_int) :: mydev_c
-#ifdef MONITORENERGY  
+#ifdef _NVML  
    integer :: num_p_w=0
    integer(c_int) :: p_mw
    real(kind=db) :: p_w=ZERO

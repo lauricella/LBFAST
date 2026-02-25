@@ -9,7 +9,9 @@ module lb_cuda_driver
    use vars
    use iso_c_binding
    use cudafor
+#ifdef _NVML
    use nvml_interface
+#endif
    use mpi_template, only: coords,dostop,doerror,mydev,myrank,nprocs,nbuff,nbuffbvec
    use lb_cuda_vars
 #ifdef TWOCOMPONENT
@@ -1468,7 +1470,7 @@ contains
 	   forces)
 
       !$acc end host_data
-#if defined(MONITORENERGY) && defined(GETPOWER)
+#if defined(_NVML) && defined(GETPOWER)
       if(mod(step-1,stamp_term).eq.0)then 
         p_mw = get_gpu_power_index(mydev_c)
       endif

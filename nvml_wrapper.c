@@ -1,6 +1,6 @@
 #include "defines.h"
 
-#ifdef MONITORENERGY
+#ifdef _NVML
 #include <nvml.h>
   
 int get_gpu_power_index(int idx) {
