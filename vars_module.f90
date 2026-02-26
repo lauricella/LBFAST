@@ -255,14 +255,14 @@ module vars
 #endif
 
 #ifdef GPUTILEY
-#warning "GPUTILEY: the TILE_DIMx value was defined in defines.h" 
+#warning "GPUTILEY: the TILE_DIMy value was defined in defines.h" 
    integer, parameter :: TILE_DIMy = GPUTILEY
 #else
    integer, parameter :: TILE_DIMy = 4
 #endif
 
 #ifdef GPUTILEZ
-#warning "GPUTILEZ: the TILE_DIMx value was defined in defines.h" 
+#warning "GPUTILEZ: the TILE_DIMz value was defined in defines.h" 
    integer, parameter :: TILE_DIMz = GPUTILEZ
 #else
    integer, parameter :: TILE_DIMz = 4
