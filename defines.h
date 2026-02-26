@@ -1,11 +1,10 @@
 #define LATTICE 27
-#define noHIGHORDER
+#define HIGHORDER
 
 #define TWOCOMPONENT
 #define DENSRATIO
 
 #define DOBENCHMARK
-#define noPOISEUILLE
 #define DOXDMF
 #define noWRITEPRESS
 
@@ -22,10 +21,8 @@
 
 #define ASYNCMPI
 
-#define PRC 4
-
-#define noGETPOWER
+#define PRC 8
 
 #define noMIXEDPRC
-#define STRPRC 4
+#define STRPRC 8
 
