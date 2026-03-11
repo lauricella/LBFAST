@@ -26,10 +26,7 @@ module lb_cuda_driver
     moments_LB_kernel_xminus,moments_LB_kernel_xplus, &
     moments_LB_kernel_yminus,moments_LB_kernel_yplus, &
     moments_LB_kernel_zminus,moments_LB_kernel_zplus
-   use lb_cuda_fused, only: fused_LB_kernel2,fused_LB_kernel1,fused_LB_kernel_int, &
-    fused_LB_kernel_xminus,fused_LB_kernel_xplus, &
-    fused_LB_kernel_yminus,fused_LB_kernel_yplus, &
-    fused_LB_kernel_zminus,fused_LB_kernel_zplus
+   use lb_cuda_fused, only: fused_LB_kernel_bb,fused_LB_kernel
 #ifdef TWOCOMPONENT
    use lb_cuda_update_phi, only: update_phifields_kernel,update_phifields_kernel_int, &
     update_phifields_kernel_xminus,update_phifields_kernel_xplus, &
@@ -109,6 +106,8 @@ contains
       if(nyb-2<=0)ldodimGridInt=.false.
       if(nzb-2<=0)ldodimGridInt=.false.
       
+
+      
       dimGridhalo  = dim3(nxb +2,nyb +2,nzb +2)
       dimBlockhalo = dim3(TILE_DIMx, TILE_DIMy, TILE_DIMz)
       
@@ -124,6 +123,16 @@ contains
       ldodimGridx=.true.
       if(nyb-2<=0)ldodimGridx=.false.
       if(nzb-2<=0)ldodimGridx=.false.
+      
+      ldodimGridx_twice=.true.
+      ldodimGridy_twice=.true.
+      ldodimGridz_twice=.true.
+      
+      if(nxb<2)ldodimGridx_twice=.false.
+      if(nyb<2)ldodimGridy_twice=.false.
+      if(nzb<2)ldodimGridz_twice=.false.
+      
+      
       
       dimBlock2 = dim3(TILE_DIM, TILE_DIM, 1)
       !plus 2 for the halo forward and backward
@@ -653,7 +662,7 @@ contains
         call doerror(6,'ERROR in compute_norm_interface_kernel_zminus (sync)')
        endif
        !$acc wait
-       
+       if(ldodimGridz_twice)then
        !$acc host_data use_device(step &
        !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
        !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
@@ -681,7 +690,7 @@ contains
         call doerror(6,'ERROR in compute_norm_interface_kernel_zplus (sync)')
        endif
        !$acc wait 
-       
+       endif
        
 	   if(ldodimGridy)then
          !$acc host_data use_device(step &
@@ -713,7 +722,7 @@ contains
          !$acc wait
        endif
               
-       if(ldodimGridy)then
+       if(ldodimGridy .and. ldodimGridy_twice)then
          !$acc host_data use_device(step &
          !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
          !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
@@ -773,7 +782,7 @@ contains
          !$acc wait 
        endif
               
-       if(ldodimGridx)then
+       if(ldodimGridx .and. ldodimGridx_twice)then
          !$acc host_data use_device(step &
          !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
          !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
@@ -1125,7 +1134,8 @@ contains
        call doerror(6,'ERROR in moments_LB_cuda_zminus (sync)')
       endif
       !$acc wait  
-
+      
+      if(ldodimGridz_twice)then
       !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid & 
 #ifdef MULTIHIT
        !$acc& ,ABCx,ABCy,ABCz &
@@ -1141,7 +1151,8 @@ contains
 #endif
        !$acc& ,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
        !$acc& ,hfields_old,hfields_s,auxfields,locauxfields,forces)      
-      call moments_LB_kernel_zplus<<<dimGridz, dimBlock>>>(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &   
+      call moments_LB_kernel_zplus<<<dimGridz, dimBlock>>>(step &
+       ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &   
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
 #endif 
@@ -1180,6 +1191,7 @@ contains
        call doerror(6,'ERROR in moments_LB_cuda_zplus (sync)')
       endif
       !$acc wait  
+      endif
       
 	  if(ldodimGridy)then
       !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid & 
@@ -1239,7 +1251,7 @@ contains
       !$acc wait  
       endif
       
-      if(ldodimGridy)then
+      if(ldodimGridy .and. ldodimGridy_twice)then
       !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid & 
 #ifdef MULTIHIT
        !$acc& ,ABCx,ABCy,ABCz &
@@ -1355,7 +1367,7 @@ contains
       !$acc wait  
       endif
       
-      if(ldodimGridx)then
+      if(ldodimGridx .and. ldodimGridx_twice)then
       !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid & 
 #ifdef MULTIHIT
        !$acc& ,ABCx,ABCy,ABCz &
@@ -1449,7 +1461,12 @@ contains
 #endif   
        !$acc& ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
        !$acc& ,hfields_in,hfields_out,auxfields,locauxfields,forces)
-      call fused_LB_kernel1<<<dimGrid,dimBlockshared>>>(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &    
+#ifdef BOUNCE_BACK
+      call fused_LB_kernel_bb<<<dimGrid,dimBlockshared>>>(step &
+#else
+      call fused_LB_kernel<<<dimGrid,dimBlockshared>>>(step &    
+#endif
+       ,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &  
 #ifdef MULTIHIT
 	   ,ABCx,ABCy,ABCz &
 #endif 
@@ -1663,7 +1680,7 @@ contains
        call doerror(6,'ERROR in update_phifields_kernel_zminus (sync)')
       endif
       !$acc wait  
-      
+      if(ldodimGridz_twice)then
       !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
 #ifdef TWOCOMPONENT    
        !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
@@ -1703,6 +1720,7 @@ contains
        call doerror(6,'ERROR in update_phifields_kernel_zplus (sync)')
       endif
       !$acc wait  
+      endif
       
        if(ldodimGridy)then
       !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
@@ -1746,7 +1764,7 @@ contains
       !$acc wait  
       endif
       
-      if(ldodimGridy)then
+      if(ldodimGridy .and. ldodimGridy_twice)then
       !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
 #ifdef TWOCOMPONENT    
        !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
@@ -1830,7 +1848,7 @@ contains
       !$acc wait  
       endif
       
-      if(ldodimGridx)then
+      if(ldodimGridx .and. ldodimGridx_twice)then
       !$acc host_data use_device(step,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid &
 #ifdef TWOCOMPONENT    
        !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &

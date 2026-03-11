@@ -17,7 +17,7 @@ module lb_cuda_fused
 contains
    
    
-   attributes(global) subroutine fused_LB_kernel2(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &  
+   attributes(global) subroutine fused_LB_kernel_bb(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &  
 #ifdef MULTIHIT
        ,ABCx,ABCy,ABCz &
 #endif 
@@ -184,9 +184,9 @@ contains
 !                     pyz=pyz - fpost*(dey(lii)*dez(lii))
 !                  enddo
 
-                  pxx=pxx - cssq*press - u*u 
-                  pyy=pyy - cssq*press - v*v 
-                  pzz=pzz - cssq*press - w*w 
+                  pxx=pxx - u*u 
+                  pyy=pyy - v*v 
+                  pzz=pzz - w*w 
                   pxy=pxy - u*v
                   pxz=pxz - u*w
                   pyz=pyz - v*w
@@ -217,7 +217,7 @@ contains
 #endif
 #endif      
       
-                  !opress=ZERO
+                  opress=ZERO
                   ou=ZERO
                   ov=ZERO
                   ow=ZERO
@@ -246,9 +246,11 @@ contains
                     w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
 #endif
 				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)*invcssq
-                  
-                  opress=feq + (1.0_db-omega_loc)*fneq1 + HALF*(F_discr)
-                  
+                  udotc=feq + (1.0_db-omega_loc)*fneq1 + HALF*(F_discr)
+		          opress=opress + udotc
+                  opxx=opxx + udotc*(-cssq)
+                  opyy=opyy + udotc*(-cssq)
+                  opzz=opzz + udotc*(-cssq)
                   do l=1,nlinks,2
                      udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
 		             feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
@@ -359,13 +361,33 @@ contains
 		             f_rear(lii,ljj,lkk)=feq + (ONE-omega_loc)*fneq1 + HALF*F_discr
 		             
 		             call syncthreads
+#ifdef BOUNCE_BACK
+                     if (isfluid(i,j,k) == 0)then
+                       lii=li+ex(l)
+                       ljj=lj+ey(l)
+                       lkk=lk+ez(l)
+                       lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                       ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                       lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
+                       f_front(lii,ljj,lkk)=f_rear(li,lj,lk)
+                       lii=li+ex(l+1)
+                       ljj=lj+ey(l+1)
+                       lkk=lk+ez(l+1)
+                       lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
+                       ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
+                       lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
+                       f_rear(lii,ljj,lkk)=f_front(li,lj,lk)
+                     endif
+                     call syncthreads
+#endif 		             
+		             
 		             opress=opress + f_front(li,lj,lk)
 		             ou=ou + f_front(li,lj,lk)*dex(l)
                      ov=ov + f_front(li,lj,lk)*dey(l)
                      ow=ow + f_front(li,lj,lk)*dez(l)
-                     opxx=opxx + f_front(li,lj,lk)*dex(l)*dex(l)
-                     opyy=opyy + f_front(li,lj,lk)*dey(l)*dey(l)
-                     opzz=opzz + f_front(li,lj,lk)*dez(l)*dez(l)
+                     opxx=opxx + f_front(li,lj,lk)*(dex(l)*dex(l)-cssq)
+                     opyy=opyy + f_front(li,lj,lk)*(dey(l)*dey(l)-cssq)
+                     opzz=opzz + f_front(li,lj,lk)*(dez(l)*dez(l)-cssq)
                      opxy=opxy + f_front(li,lj,lk)*dex(l)*dey(l)
                      opxz=opxz + f_front(li,lj,lk)*dex(l)*dez(l)
                      opyz=opyz + f_front(li,lj,lk)*dey(l)*dez(l)
@@ -374,9 +396,9 @@ contains
 		             ou=ou + f_rear(li,lj,lk)*dex(l+1)
                      ov=ov + f_rear(li,lj,lk)*dey(l+1)
                      ow=ow + f_rear(li,lj,lk)*dez(l+1)
-                     opxx=opxx + f_rear(li,lj,lk)*dex(l+1)*dex(l+1)
-                     opyy=opyy + f_rear(li,lj,lk)*dey(l+1)*dey(l+1)
-                     opzz=opzz + f_rear(li,lj,lk)*dez(l+1)*dez(l+1)
+                     opxx=opxx + f_rear(li,lj,lk)*(dex(l+1)*dex(l+1)-cssq)
+                     opyy=opyy + f_rear(li,lj,lk)*(dey(l+1)*dey(l+1)-cssq)
+                     opzz=opzz + f_rear(li,lj,lk)*(dez(l+1)*dez(l+1)-cssq)
                      opxy=opxy + f_rear(li,lj,lk)*dex(l+1)*dey(l+1)
                      opxz=opxz + f_rear(li,lj,lk)*dex(l+1)*dez(l+1)
                      opyz=opyz + f_rear(li,lj,lk)*dey(l+1)*dez(l+1)
@@ -399,9 +421,9 @@ contains
                   hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
                   hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)
               
-    endsubroutine fused_LB_kernel2     
+    endsubroutine fused_LB_kernel_bb  
 
-      attributes(global) subroutine fused_LB_kernel1(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &  
+      attributes(global) subroutine fused_LB_kernel(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &  
 #ifdef MULTIHIT
        ,ABCx,ABCy,ABCz &
 #endif 
@@ -568,9 +590,9 @@ contains
 !                     pyz=pyz - fpost*(dey(lii)*dez(lii))
 !                  enddo
 
-                  pxx=pxx - cssq*press - u*u 
-                  pyy=pyy - cssq*press - v*v 
-                  pzz=pzz - cssq*press - w*w 
+                  pxx=pxx - u*u 
+                  pyy=pyy - v*v 
+                  pzz=pzz - w*w 
                   pxy=pxy - u*v
                   pxz=pxz - u*w
                   pyz=pyz - v*w
@@ -601,7 +623,7 @@ contains
 #endif
 #endif      
       
-                  !opress=ZERO
+                  opress=ZERO
                   ou=ZERO
                   ov=ZERO
                   ow=ZERO
@@ -630,9 +652,11 @@ contains
                     w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
 #endif
 				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)*invcssq
-                  
-                  opress=feq + (1.0_db-omega_loc)*fneq1 + HALF*(F_discr)
-                  
+                  udotc=feq + (1.0_db-omega_loc)*fneq1 + HALF*(F_discr)
+		          opress=opress + udotc
+                  opxx=opxx + udotc*(-cssq)
+                  opyy=opyy + udotc*(-cssq)
+                  opzz=opzz + udotc*(-cssq)
                   do l=1,nlinks
                      udotc=(u*dex(l) + v*dey(l)+ w*dez(l))*invcssq
 		             feq=p(l)*(press + (udotc+0.5_db*udotc*udotc - uu))
@@ -697,9 +721,9 @@ contains
 		             ou=ou + ftemp(li,lj,lk)*dex(l)
                      ov=ov + ftemp(li,lj,lk)*dey(l)
                      ow=ow + ftemp(li,lj,lk)*dez(l)
-                     opxx=opxx + ftemp(li,lj,lk)*dex(l)*dex(l)
-                     opyy=opyy + ftemp(li,lj,lk)*dey(l)*dey(l)
-                     opzz=opzz + ftemp(li,lj,lk)*dez(l)*dez(l)
+                     opxx=opxx + ftemp(li,lj,lk)*(dex(l)*dex(l)-cssq)
+                     opyy=opyy + ftemp(li,lj,lk)*(dey(l)*dey(l)-cssq)
+                     opzz=opzz + ftemp(li,lj,lk)*(dez(l)*dez(l)-cssq)
                      opxy=opxy + ftemp(li,lj,lk)*dex(l)*dey(l)
                      opxz=opxz + ftemp(li,lj,lk)*dex(l)*dez(l)
                      opyz=opyz + ftemp(li,lj,lk)*dey(l)*dez(l)
@@ -723,7 +747,7 @@ contains
                   hfields_out(ii,jj,kk,9,myblock)=real(opxz,kind=strdb)
                   hfields_out(ii,jj,kk,10,myblock)=real(opyz,kind=strdb)   
                    
-    endsubroutine fused_LB_kernel1
+    endsubroutine fused_LB_kernel
     
 
 endmodule

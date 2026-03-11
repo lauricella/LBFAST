@@ -136,9 +136,9 @@ contains
       opxz=real(hfields_out(ii,jj,kk,9,myblock),kind=db)
       opyz=real(hfields_out(ii,jj,kk,10,myblock),kind=db)
 	  
-	  pxx=pxx - cssq*press - u*u 
-	  pyy=pyy - cssq*press - v*v 
-	  pzz=pzz - cssq*press - w*w 
+	  pxx=pxx - u*u 
+	  pyy=pyy - v*v 
+	  pzz=pzz - w*w 
 	  pxy=pxy - u*v
 	  pxz=pxz - u*w
 	  pyz=pyz - v*w
@@ -190,13 +190,14 @@ contains
 		  ou=ou + fpost*dex(l)
 		  ov=ov + fpost*dey(l)
 		  ow=ow + fpost*dez(l)
-		  opxx=opxx + fpost*dex(l)*dex(l)
-          opyy=opyy + fpost*dey(l)*dey(l)
-          opzz=opzz + fpost*dez(l)*dez(l)
+		  opxx=opxx + fpost*(dex(l)*dex(l)-cssq)
+          opyy=opyy + fpost*(dey(l)*dey(l)-cssq)
+          opzz=opzz + fpost*(dez(l)*dez(l)-cssq)
           opxy=opxy + fpost*dex(l)*dey(l)
           opxz=opxz + fpost*dex(l)*dez(l)
           opyz=opyz + fpost*dey(l)*dez(l)		  
       enddo
+      
 
 		 
 	  hfields_out(ii,jj,kk,1,myblock)=real(opress,kind=strdb)

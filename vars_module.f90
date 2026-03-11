@@ -57,6 +57,10 @@
 #warning "INTERNAL_OBSTACLES: actiaved"
 #endif
 
+#ifdef BOUNCE_BACK
+#warning "BOUNCE_BACK: actiaved"
+#endif
+
 #ifdef BUOYANCY_FORCING
 #warning "BUOYANCY_FORCING: actiaved"
 #endif
@@ -108,8 +112,16 @@
 #warning "DOBENCHMARK: activated"
 #endif
 
+#ifdef VELUNIFORMV
+#warning "VELUNIFORMV: activated"
+#endif
+
 #ifdef POISEUILLE
 #warning "POISEUILLE: activated"
+#endif
+
+#ifdef TAYLORGREEN
+#warning "TAYLORGREEN: activated"
 #endif
 
 #ifdef USEGNUPLOT
@@ -174,6 +186,7 @@ module vars
    real(kind=db), parameter :: TEN=real(10.d0,kind=db)
    real(kind=db), parameter :: TWELVE=real(12.d0,kind=db)
    real(kind=db), parameter :: FOURTEEN=real(14.d0,kind=db)
+   real(kind=db), parameter :: SIXTEEN=real(16.d0,kind=db)
    real(kind=db), parameter :: EIGHTEEN=real(18.d0,kind=db)
    real(kind=db), parameter :: TWENTYFOUR=real(24.d0,kind=db)
    real(kind=db), parameter :: TWENTYSEVEN=real(27.d0,kind=db)
@@ -271,7 +284,7 @@ module vars
    
    integer, save :: nxblock,nyblock,nzblock,nxyblock,nblocks
 
-   real(kind=db),parameter :: pi_greek=3.14159265359793234626433
+   real(kind=db),parameter :: pi_greek=real(3.1415926535897932384626433832795028841971d0,kind=db)
 
    real(kind=db)  :: ts1,ts2
    real(kind=db), dimension(3) :: center=ZERO

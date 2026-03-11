@@ -27,6 +27,7 @@ module lb_cuda_vars
    integer(8) :: mshared
    
    logical, save :: ldodimGridInt,ldodimGridx,ldodimGridy
+   logical, save :: ldodimGridx_twice,ldodimGridy_twice,ldodimGridz_twice
    
    contains
    

@@ -26,3 +26,12 @@
 #define noMIXEDPRC
 #define STRPRC 8
 
+#define noVELUNIFORMV
+#define noPOISEUILLE
+#define noTAYLORGREEN
+#define noUSEGNUPLOT
+
+#ifdef POISEUILLE
+#define INTERNAL_OBSTACLES
+#define BOUNCE_BACK
+#endif

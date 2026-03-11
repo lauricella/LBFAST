@@ -34,6 +34,10 @@ contains
     
     integer :: xblock,yblock,zblock,myblock,ii,jj,kk
     real(kind=db) :: tempphi,tempphi2,loc_u,loc_v,loc_w,loc_press,stdev
+#if defined(TAYLORGREEN) && !defined(TWOCOMPONENT)     
+    real(kind=db) :: c2x,c2y,c2z,x,y,z
+#endif      
+
     
     invdim(1) = ONE/real(lx,kind=db)
     invdim(2) = ONE/real(ly,kind=db)
@@ -224,8 +228,9 @@ contains
             enddo
         enddo
 
-
-       stdev=1.0e-2
+       ! ampiezza del TG: scegli tu, ma resta a Mach basso
+       ! es. uwall = u0tg = 0.02_db oppure 0.05_db
+       stdev=0.0e-2
        do k=1,nz
           gk = nz*coords(3) + k
 		  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -249,19 +254,35 @@ contains
                 
                 if(abs(isfluid(i,j,k)).eq.1)then
 #if defined(TAYLORGREEN) && !defined(TWOCOMPONENT)
+                  rhophi_loc = 1.0_db
+                  ! coordinate periodiche globali
+                  x = TWO*pi_greek * real(gi-1, db) / real(lx, db)
+                  y = TWO*pi_greek * real(gj-1, db) / real(ly, db)
+                  z = TWO*pi_greek * real(gk-1, db) / real(lz, db)
 
+                  loc_u =  uwall * sin(x) * cos(y) * cos(z)
+                  loc_v = -uwall * cos(x) * sin(y) * cos(z)
+                  loc_w =  ZERO
+                  
+                  c2x = cos(TWO*x)
+                  c2y = cos(TWO*y)
+                  c2z = cos(TWO*z)
+
+                  ! pressione idrodinamica fluttuante, media nulla
+                  loc_press = (uwall*uwall/SIXTEEN) * (c2x + c2y) * (TWO + c2z)
 
 #elif defined(POISEUILLE)
-               rhophi_loc = 1.0_db
-               H_pois  = 0.5_db * real(lx-2,db)
-               xc_pois = 0.5_db * real(lx+1,db)
-               dist = real(gi,db) - xc_pois
-               dist = abs(dist)
-               if (dist <= H_pois) then
-                 loc_w=(fz)/(2.0_db*visc1) * (H_pois*H_pois - dist*dist)+ stdev*randgauss_CPU()
-               else
-                 loc_w=ZERO
-               endif
+                  rhophi_loc = 1.0_db
+                  H_pois  = 0.5_db * real(lx-2,db)
+                  xc_pois = 0.5_db * real(lx+1,db)
+                  dist = real(gi,db) - xc_pois
+                  dist = abs(dist)
+                  if (dist <= H_pois) then
+                    loc_w=(fz)/(TWO*visc1) * (H_pois*H_pois - dist*dist)+ stdev*randgauss_CPU()
+                  else
+                    loc_w=ZERO
+                  endif
+                  loc_press=ZERO
 #else
                    !dist=sqrt((float(gi)-lx/TWO)**TWO + (float(gj)-ly/TWO)**TWO+(float(gk)-(lz/TWO)+1.5*radius)**TWO)
                    dist3d(1)=real(gi,kind=db)-center(1)
@@ -280,10 +301,10 @@ contains
                    rhophi_loc = 1.0_db
 #endif				  
 
-                   tempphi2 = tempphi*(sigma*2.0_db)/radius/(rhophi_loc/3.0_db)
-				   loc_press = loc_press + tempphi2
-				   loc_w=ZERO!fcut(dist,radius-width*0.5,radius+width*0.5)*uwall !   - fcut(dist2,radius-width*0.5,radius+width*0.5)*HALF*uwall
- !                 if(gi==lx/2 .and. gj==ly/2 .and. gk==lz/2)phi(i,j,k)=ONE		 
+                  tempphi2 = tempphi*(sigma*TWO)/radius/(rhophi_loc/3.0_db)
+				  loc_press = loc_press + tempphi2
+				  loc_w=ZERO!fcut(dist,radius-width*0.5,radius+width*0.5)*uwall !   - fcut(dist2,radius-width*0.5,radius+width*0.5)*HALF*uwall
+ !                if(gi==lx/2 .and. gj==ly/2 .and. gk==lz/2)phi(i,j,k)=ONE		 
 #else				  
  
                   !if(gi==lx/2 .and. gj==ly/2 .and. gk==lz/2)then
@@ -294,22 +315,28 @@ contains
 
 #endif       
 #endif
+
+#ifdef VELUNIFORMV
+                loc_press=ZERO
+                loc_w=uwall        
+#endif
+
                 hfields_flip(ii,jj,kk,1,myblock)= real(loc_press,kind=strdb)
                 hfields_flip(ii,jj,kk,2,myblock)=real(loc_u,kind=strdb)
                 hfields_flip(ii,jj,kk,3,myblock)=real(loc_v,kind=strdb) 
                 hfields_flip(ii,jj,kk,4,myblock)=real(loc_w,kind=strdb) 
-                hfields_flip(ii,jj,kk,5,myblock)=real(loc_u*loc_u+cssq*loc_press,kind=strdb)
-                hfields_flip(ii,jj,kk,6,myblock)=real(loc_v*loc_v+cssq*loc_press,kind=strdb)
-                hfields_flip(ii,jj,kk,7,myblock)=real(loc_w*loc_w+cssq*loc_press,kind=strdb)
+                hfields_flip(ii,jj,kk,5,myblock)=real(loc_u*loc_u,kind=strdb)
+                hfields_flip(ii,jj,kk,6,myblock)=real(loc_v*loc_v,kind=strdb)
+                hfields_flip(ii,jj,kk,7,myblock)=real(loc_w*loc_w,kind=strdb)
                 hfields_flip(ii,jj,kk,8,myblock)=real(loc_u*loc_v,kind=strdb)
                 hfields_flip(ii,jj,kk,9,myblock)=real(loc_u*loc_w,kind=strdb)
                 hfields_flip(ii,jj,kk,10,myblock)=real(loc_v*loc_w,kind=strdb)  
            
                 endif
+                !if(j==jprobe .and. k==kprobe)write(6,*)'velocità iniziale', i,loc_w
              enddo
           enddo
        enddo
-
 
 #endif
 
@@ -357,7 +384,7 @@ contains
 #ifdef TWOCOMPONENT     
      phifields_flop=phifields_flip
 #endif     
-
+     
    endsubroutine
    
     subroutine pbc_images(aaa,xxs,xout)

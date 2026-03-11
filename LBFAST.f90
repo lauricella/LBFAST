@@ -295,7 +295,7 @@ program threadsafeLB
 	   enddo
 #endif   
    
-#ifdef DOBENCHMARK 
+#if defined(DOBENCHMARK) && !defined(INTERNAL_OBSTACLES)
    isfluid=1
 #endif
 
@@ -413,7 +413,11 @@ program threadsafeLB
       
       write(6,'(a,g16.8)') 'rho_r',rho_r
       write(6,'(a,g16.8)') 'rho_b',rho_b
-
+#if defined(TAYLORGREEN) && !defined(TWOCOMPONENT)    
+      write(6,'(a,g16.8)') 'u0tg',uwall 
+#else  
+      write(6,'(a,g16.8)') 'uwall',uwall
+#endif
       write(6,'(a)') '*******************INPUT data*****************'
       write(6,'(a,i8)') 'lx',lx
       write(6,'(a,i8)') 'ly',ly

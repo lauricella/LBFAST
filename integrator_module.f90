@@ -56,7 +56,7 @@ module integrator_module
 #else
    get_totram
 #endif
-
+   use stat_module, only: Ekin0,Ekin,probe_loc
    implicit none
 
 contains
@@ -172,6 +172,24 @@ contains
             !2d planes print
             call driver_print_raw_sync2D(iframe2D,nplanes,ndir,npoint)
          endif
+#if defined(TAYLORGREEN) && !defined(TWOCOMPONENT)
+         Ekin0=ZERO
+         do k=1,nzskip
+            do j=1,nyskip
+               do i=1,nxskip  
+                 Ekin0=Ekin0+real((velprint(1,i,j,k)**TWO + velprint(2,i,j,k)**TWO + &
+                  velprint(3,i,j,k)**TWO),kind=db)   
+               enddo
+            enddo
+         enddo   
+         Ekin0=HALF*Ekin0/real(nxskip*nyskip*nzskip,kind=db)
+         call sum_world_float(Ekin0)  
+         Ekin0=Ekin0/real(nprocs,kind=db)
+         if(myrank==0)then
+           open(unit=142,file='taylorgreen.dat',action='write',status='replace')
+           !write(142,'(i12,2es20.10)') 0, ONE, ZERO
+         endif
+#endif
       endif
        
 #ifdef TWOCOMPONENT	 
@@ -391,6 +409,21 @@ contains
              endif
 
              if(mod(step,stamp_term).eq.0)then
+#if defined(TAYLORGREEN) && !defined(TWOCOMPONENT)
+               Ekin=ZERO
+               do k=1,nzskip
+                 do j=1,nyskip
+                   do i=1,nxskip  
+                     Ekin=Ekin+real((velprint(1,i,j,k)**TWO + velprint(2,i,j,k)**TWO + &
+                      velprint(3,i,j,k)**TWO),kind=db)   
+                   enddo
+                 enddo
+               enddo   
+               Ekin=HALF*Ekin/real(nxskip*nyskip*nzskip,kind=db)
+               call sum_world_float(Ekin)
+               Ekin=Ekin/real(nprocs,kind=db)
+               if(myrank==0)write(142,'(i12,2es20.10)') step, Ekin/Ekin0, log(Ekin/Ekin0)
+#endif
                time_actual=current_time()
                gi=iprobe;gj=jprobe;gk=kprobe
                subchords(1)=(gi-1)/nx
@@ -424,6 +457,7 @@ contains
        
          !***********************************collision + no slip + forcing: fused implementation*********
 		 if(ldiagnostic)call start_timing2("LB","fused")
+		 !call probe_loc(hfields_flip,'hfields_flip',__FILE__,__LINE__)
          call fused_LB_cuda(hfields_flip,hfields_flop &
 #ifdef TWOCOMPONENT	   
           ,phifields_flip &
@@ -660,6 +694,21 @@ contains
              endif
 
              if(mod(step,stamp_term).eq.0)then
+#if defined(TAYLORGREEN) && !defined(TWOCOMPONENT)
+               Ekin=ZERO
+               do k=1,nzskip
+                 do j=1,nyskip
+                   do i=1,nxskip  
+                     Ekin=Ekin+real((velprint(1,i,j,k)**TWO + velprint(2,i,j,k)**TWO + &
+                      velprint(3,i,j,k)**TWO),kind=db)   
+                   enddo
+                 enddo
+               enddo   
+               Ekin=HALF*Ekin/real(nxskip*nyskip*nzskip,kind=db)
+               call sum_world_float(Ekin)
+               Ekin=Ekin/real(nprocs,kind=db)
+               if(myrank==0)write(142,'(i12,2es20.10)') step, Ekin/Ekin0, log(Ekin/Ekin0)
+#endif
                time_actual=current_time()
                gi=iprobe;gj=jprobe;gk=kprobe
                subchords(1)=(gi-1)/nx
@@ -804,6 +853,9 @@ contains
       step_energy=tot_energy/real(nsteps,kind=db)
 #endif
 #endif 
+#if defined(TAYLORGREEN) && !defined(TWOCOMPONENT)
+      if(myrank==0)close(142) 
+#endif
       !$wait
       !$acc end data
 

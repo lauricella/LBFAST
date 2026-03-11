@@ -133,12 +133,13 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
-		  forcex = forcex + &
+		  forcex = forcex + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + &
+		  forcey = forcey + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + &
+		  forcez = forcez + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
+				
 				   				   
 
 #ifdef REPULSIVE_FLUX
@@ -170,11 +171,11 @@ contains
                   gradrhoy=(rho_r-rho_b)*gradfiy
                   gradrhoz=(rho_r-rho_b)*gradfiz
 				  
-                  forcex=forcex - &
+                  forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
                    press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
-                  forcey=forcey - &
+                  forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
                    press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
-                  forcez=forcez - &
+                  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
                    press_loc*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
 		  !! from this point I compute the force terms that depend on the velocity
 		  !! these terms should be not included in force arrays since they must be computed with the updated velocity
@@ -210,9 +211,9 @@ contains
                   !1-2
                   !*1
                   ! 2nd order
-                  pxx=pxx - cssq*press_loc - u_loc*u_loc
-                  pyy=pyy - cssq*press_loc - v_loc*v_loc
-                  pzz=pzz - cssq*press_loc - w_loc*w_loc
+                  pxx=pxx - u_loc*u_loc
+                  pyy=pyy - v_loc*v_loc
+                  pzz=pzz - w_loc*w_loc
                   pxy=pxy - u_loc*v_loc
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
@@ -221,9 +222,12 @@ contains
 				  
                   tau_loc=(visc_loc*invcssq + HALF) !è una tau
 				  
-		  forcex=forcex - (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forcey=forcey - (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
+		  forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
+		  forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
+		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
                   u_loc=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
@@ -280,7 +284,6 @@ contains
                   pxz=real(hfields_s(ii,jj,kk,9,myblock),kind=db)
                   pyz=real(hfields_s(ii,jj,kk,10,myblock),kind=db)
                   
-                  
                   pxx=pxx + forcex*u_loc/rhophi_loc
                   pyy=pyy + forcey*v_loc/rhophi_loc
                   pzz=pzz + forcez*w_loc/rhophi_loc
@@ -312,18 +315,19 @@ contains
 #endif               
                   
 #if defined(DENSRATIO)	
-                  pxx=pxx - cssq*press_loc - u_loc*u_loc 
-                  pyy=pyy - cssq*press_loc - v_loc*v_loc
-                  pzz=pzz - cssq*press_loc - w_loc*w_loc 
+		  
+                  pxx=pxx - u_loc*u_loc 
+                  pyy=pyy - v_loc*v_loc
+                  pzz=pzz - w_loc*w_loc 
                   pxy=pxy - u_loc*v_loc
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
-		  
-                  tforcex = tforcex - &
+                  
+                  tforcex = tforcex - FOUR*phi_loc*(ONE-phi_loc)* &
                    (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-                  tforcey = tforcey - &
+                  tforcey = tforcey - FOUR*phi_loc*(ONE-phi_loc)* &
                    (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-                  tforcez = tforcez - &
+                  tforcez = tforcez - FOUR*phi_loc*(ONE-phi_loc)* &
                    (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif  
         
@@ -416,7 +420,6 @@ contains
       !gk=nz*coords(3)+k
       
       myblock=(blockIdx%x+1)+(blockIdx%y+1)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1
-      
 				 
 		  press_loc=real(hfields_s(ii,jj,kk,1,myblock),kind=db)
 			 
@@ -450,11 +453,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
-		  forcex = forcex + &
+		  forcex = forcex + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + &
+		  forcey = forcey + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + &
+		  forcez = forcez + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 
@@ -487,11 +490,11 @@ contains
 		  gradrhoy=(rho_r-rho_b)*gradfiy
 		  gradrhoz=(rho_r-rho_b)*gradfiz
 				  
-                  forcex=forcex - &
-                   press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
-                  forcey=forcey - &
-                   press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
-		  forcez=forcez - &
+          forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+           press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
+          forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+           press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
+		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
 		   press_loc*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
 		  !! from this point I compute the force terms that depend on the velocity
 		  !! these terms should be not included in force arrays since they must be computed with the updated velocity
@@ -531,9 +534,9 @@ contains
                   !1-2
                   !*1
                   ! 2nd order
-                  pxx=pxx - cssq*press_loc - u_loc*u_loc
-                  pyy=pyy - cssq*press_loc - v_loc*v_loc
-                  pzz=pzz - cssq*press_loc - w_loc*w_loc
+                  pxx=pxx - u_loc*u_loc
+                  pyy=pyy - v_loc*v_loc
+                  pzz=pzz - w_loc*w_loc
                   pxy=pxy - u_loc*v_loc
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
@@ -542,9 +545,12 @@ contains
 				  
                   tau_loc=(visc_loc*invcssq + HALF) !è una tau
 				  
-		  forcex=forcex - (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forcey=forcey - (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
+		  forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
+		  forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
+		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
                   u_loc=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
@@ -638,18 +644,18 @@ contains
 #endif               
                   
 #if defined(DENSRATIO)	
-                  pxx=pxx - cssq*press_loc - u_loc*u_loc 
-                  pyy=pyy - cssq*press_loc - v_loc*v_loc
-                  pzz=pzz - cssq*press_loc - w_loc*w_loc 
+                  pxx=pxx - u_loc*u_loc 
+                  pyy=pyy - v_loc*v_loc
+                  pzz=pzz - w_loc*w_loc 
                   pxy=pxy - u_loc*v_loc
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  tforcex= tforcex - &
+		  tforcex= tforcex - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  tforcey= tforcey - &
+		  tforcey= tforcey - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  tforcez= tforcez - &
+		  tforcez= tforcez - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
@@ -776,11 +782,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
-		  forcex = forcex + &
+		  forcex = forcex + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + &
+		  forcey = forcey + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + &
+		  forcez = forcez + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 
@@ -813,11 +819,11 @@ contains
 		  gradrhoy=(rho_r-rho_b)*gradfiy
 		  gradrhoz=(rho_r-rho_b)*gradfiz
 				  
-                  forcex=forcex - &
-                   press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
-                  forcey=forcey - &
-                   press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
-		  forcez=forcez - &
+          forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+           press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
+          forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+           press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
+		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
 		   press_loc*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
 		  !! from this point I compute the force terms that depend on the velocity
 		  !! these terms should be not included in force arrays since they must be computed with the updated velocity
@@ -857,9 +863,9 @@ contains
                   !1-2
                   !*1
                   ! 2nd order
-                  pxx=pxx - cssq*press_loc - u_loc*u_loc
-                  pyy=pyy - cssq*press_loc - v_loc*v_loc
-                  pzz=pzz - cssq*press_loc - w_loc*w_loc
+                  pxx=pxx - u_loc*u_loc
+                  pyy=pyy - v_loc*v_loc
+                  pzz=pzz - w_loc*w_loc
                   pxy=pxy - u_loc*v_loc
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
@@ -868,9 +874,12 @@ contains
 				  
                   tau_loc=(visc_loc*invcssq + HALF) !è una tau
 				  
-		  forcex=forcex - (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forcey=forcey - (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
+		  forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
+		  forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
+		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
                   u_loc=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
@@ -956,8 +965,8 @@ contains
 		  w_ref(i,j,k) = w_ref(i,j,k) + &
 		   lambda_rel*(w_loc - w_ref(i,j,k))
 				  
-                  tforcex= tforcex + &
-                   rhophi_loc*(u_loc - u_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
+          tforcex= tforcex + &
+           rhophi_loc*(u_loc - u_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
 		  tforcey= tforcey +&
 		   rhophi_loc*(v_loc - v_ref(i,j,k))*k_elastic*lambda_rel*phi_loc !+ 
 		  tforcez= tforcez + &
@@ -965,18 +974,18 @@ contains
 #endif               
                   
 #if defined(DENSRATIO)	
-                  pxx=pxx - cssq*press_loc - u_loc*u_loc 
-                  pyy=pyy - cssq*press_loc - v_loc*v_loc
-                  pzz=pzz - cssq*press_loc - w_loc*w_loc 
+                  pxx=pxx - u_loc*u_loc 
+                  pyy=pyy - v_loc*v_loc
+                  pzz=pzz - w_loc*w_loc 
                   pxy=pxy - u_loc*v_loc
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  tforcex= tforcex - &
+		  tforcex= tforcex - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  tforcey= tforcey - &
+		  tforcey= tforcey - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  tforcez= tforcez - &
+		  tforcez= tforcez - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
@@ -1103,11 +1112,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 		  
-		  forcex = forcex + &
+		  forcex = forcex + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + &
+		  forcey = forcey + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + &
+		  forcez = forcez + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 
@@ -1140,11 +1149,11 @@ contains
 		  gradrhoy=(rho_r-rho_b)*gradfiy
 		  gradrhoz=(rho_r-rho_b)*gradfiz
 				  
-                  forcex=forcex - &
-                   press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
-                  forcey=forcey - &
-                   press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
-		  forcez=forcez - &
+          forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+           press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
+          forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+           press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
+		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
 		   press_loc*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
 		  !! from this point I compute the force terms that depend on the velocity
 		  !! these terms should be not included in force arrays since they must be computed with the updated velocity
@@ -1184,9 +1193,9 @@ contains
                   !1-2
                   !*1
                   ! 2nd order
-                  pxx=pxx - cssq*press_loc - u_loc*u_loc
-                  pyy=pyy - cssq*press_loc - v_loc*v_loc
-                  pzz=pzz - cssq*press_loc - w_loc*w_loc
+                  pxx=pxx - u_loc*u_loc
+                  pyy=pyy - v_loc*v_loc
+                  pzz=pzz - w_loc*w_loc
                   pxy=pxy - u_loc*v_loc
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
@@ -1195,9 +1204,12 @@ contains
 				  
                   tau_loc=(visc_loc*invcssq + HALF) !è una tau
 				  
-		  forcex=forcex - (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forcey=forcey - (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
+		  forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
+		  forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
+		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
                   u_loc=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
@@ -1292,18 +1304,18 @@ contains
 #endif               
                   
 #if defined(DENSRATIO)	
-                  pxx=pxx - cssq*press_loc - u_loc*u_loc 
-                  pyy=pyy - cssq*press_loc - v_loc*v_loc
-                  pzz=pzz - cssq*press_loc - w_loc*w_loc 
+                  pxx=pxx - u_loc*u_loc 
+                  pyy=pyy - v_loc*v_loc
+                  pzz=pzz - w_loc*w_loc 
                   pxy=pxy - u_loc*v_loc
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  tforcex= tforcex - &
+		  tforcex= tforcex - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  tforcey= tforcey - &
+		  tforcey= tforcey - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  tforcez= tforcez - &
+		  tforcez= tforcez - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
@@ -1430,11 +1442,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 		  
-		  forcex = forcex + &
+		  forcex = forcex + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + &
+		  forcey = forcey + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + &
+		  forcez = forcez + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 
@@ -1467,11 +1479,11 @@ contains
 		  gradrhoy=(rho_r-rho_b)*gradfiy
 		  gradrhoz=(rho_r-rho_b)*gradfiz
 				  
-                  forcex=forcex - &
-                   press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
-                  forcey=forcey - &
-                   press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
-		  forcez=forcez - &
+          forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+           press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
+          forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+           press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
+		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
 		   press_loc*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
 		  !! from this point I compute the force terms that depend on the velocity
 		  !! these terms should be not included in force arrays since they must be computed with the updated velocity
@@ -1510,9 +1522,9 @@ contains
                   !1-2
                   !*1
                   ! 2nd order
-                  pxx=pxx - cssq*press_loc - u_loc*u_loc
-                  pyy=pyy - cssq*press_loc - v_loc*v_loc
-                  pzz=pzz - cssq*press_loc - w_loc*w_loc
+                  pxx=pxx - u_loc*u_loc
+                  pyy=pyy - v_loc*v_loc
+                  pzz=pzz - w_loc*w_loc
                   pxy=pxy - u_loc*v_loc
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
@@ -1521,9 +1533,12 @@ contains
 				  
                   tau_loc=(visc_loc*invcssq + HALF) !è una tau
 				  
-		  forcex=forcex - (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forcey=forcey - (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
+		  forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
+		  forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
+		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
                   u_loc=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
@@ -1618,18 +1633,18 @@ contains
 #endif               
                   
 #if defined(DENSRATIO)	
-                  pxx=pxx - cssq*press_loc - u_loc*u_loc 
-                  pyy=pyy - cssq*press_loc - v_loc*v_loc
-                  pzz=pzz - cssq*press_loc - w_loc*w_loc 
+                  pxx=pxx - u_loc*u_loc 
+                  pyy=pyy - v_loc*v_loc
+                  pzz=pzz - w_loc*w_loc 
                   pxy=pxy - u_loc*v_loc
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  tforcex= tforcex - &
+		  tforcex= tforcex - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  tforcey= tforcey - &
+		  tforcey= tforcey - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  tforcez= tforcez - &
+		  tforcez= tforcez - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
@@ -1756,11 +1771,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
-		  forcex = forcex + &
+		  forcex = forcex + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + &
+		  forcey = forcey + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + &
+		  forcez = forcez + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 
@@ -1793,11 +1808,11 @@ contains
 		  gradrhoy=(rho_r-rho_b)*gradfiy
 		  gradrhoz=(rho_r-rho_b)*gradfiz
 				  
-                  forcex=forcex - &
-                   press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
-                  forcey=forcey - &
-                   press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
-		  forcez=forcez - &
+          forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+           press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
+          forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+           press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
+		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
 		   press_loc*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
 		  !! from this point I compute the force terms that depend on the velocity
 		  !! these terms should be not included in force arrays since they must be computed with the updated velocity
@@ -1837,9 +1852,9 @@ contains
                   !1-2
                   !*1
                   ! 2nd order
-                  pxx=pxx - cssq*press_loc - u_loc*u_loc
-                  pyy=pyy - cssq*press_loc - v_loc*v_loc
-                  pzz=pzz - cssq*press_loc - w_loc*w_loc
+                  pxx=pxx - u_loc*u_loc
+                  pyy=pyy - v_loc*v_loc
+                  pzz=pzz - w_loc*w_loc
                   pxy=pxy - u_loc*v_loc
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
@@ -1848,9 +1863,12 @@ contains
 				  
                   tau_loc=(visc_loc*invcssq + HALF) !è una tau
 				  
-		  forcex=forcex - (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forcey=forcey - (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
+		  forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
+		  forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
+		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
                   u_loc=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
@@ -1945,18 +1963,18 @@ contains
 #endif               
                   
 #if defined(DENSRATIO)	
-                  pxx=pxx - cssq*press_loc - u_loc*u_loc 
-                  pyy=pyy - cssq*press_loc - v_loc*v_loc
-                  pzz=pzz - cssq*press_loc - w_loc*w_loc 
+                  pxx=pxx - u_loc*u_loc 
+                  pyy=pyy - v_loc*v_loc
+                  pzz=pzz - w_loc*w_loc 
                   pxy=pxy - u_loc*v_loc
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  tforcex= tforcex - &
+		  tforcex= tforcex - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  tforcey= tforcey - &
+		  tforcey= tforcey - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  tforcez= tforcez - &
+		  tforcez= tforcez - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
@@ -2083,11 +2101,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
-		  forcex = forcex + &
+		  forcex = forcex + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + &
+		  forcey = forcey + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + &
+		  forcez = forcez + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 
@@ -2120,11 +2138,11 @@ contains
 		  gradrhoy=(rho_r-rho_b)*gradfiy
 		  gradrhoz=(rho_r-rho_b)*gradfiz
 				  
-                  forcex=forcex - &
-                   press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
-                  forcey=forcey - &
-                   press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
-		  forcez=forcez - &
+          forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+           press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
+          forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+           press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
+		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
 		   press_loc*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
 		  !! from this point I compute the force terms that depend on the velocity
 		  !! these terms should be not included in force arrays since they must be computed with the updated velocity
@@ -2164,9 +2182,9 @@ contains
                   !1-2
                   !*1
                   ! 2nd order
-                  pxx=pxx - cssq*press_loc - u_loc*u_loc
-                  pyy=pyy - cssq*press_loc - v_loc*v_loc
-                  pzz=pzz - cssq*press_loc - w_loc*w_loc
+                  pxx=pxx - u_loc*u_loc
+                  pyy=pyy - v_loc*v_loc
+                  pzz=pzz - w_loc*w_loc
                   pxy=pxy - u_loc*v_loc
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
@@ -2175,9 +2193,12 @@ contains
 				  
                   tau_loc=(visc_loc*invcssq + HALF) !è una tau
 				  
-		  forcex=forcex - (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forcey=forcey - (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
+		  forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
+		  forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
+		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
                   u_loc=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
@@ -2273,18 +2294,18 @@ contains
 #endif               
                   
 #if defined(DENSRATIO)	
-                  pxx=pxx - cssq*press_loc - u_loc*u_loc 
-                  pyy=pyy - cssq*press_loc - v_loc*v_loc
-                  pzz=pzz - cssq*press_loc - w_loc*w_loc 
+                  pxx=pxx - u_loc*u_loc 
+                  pyy=pyy - v_loc*v_loc
+                  pzz=pzz - w_loc*w_loc 
                   pxy=pxy - u_loc*v_loc
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  tforcex= tforcex - &
+		  tforcex= tforcex - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  tforcey= tforcey - &
+		  tforcey= tforcey - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  tforcez= tforcez - &
+		  tforcez= tforcez - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
@@ -2411,11 +2432,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
-		  forcex = forcex + &
+		  forcex = forcex + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + &
+		  forcey = forcey + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + &
+		  forcez = forcez + FOUR*phi_loc*(ONE-phi_loc)* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 
@@ -2448,11 +2469,11 @@ contains
 		  gradrhoy=(rho_r-rho_b)*gradfiy
 		  gradrhoz=(rho_r-rho_b)*gradfiz
 				  
-                  forcex=forcex - &
-                   press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
-                  forcey=forcey - &
-                   press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
-		  forcez=forcez - &
+          forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+           press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
+          forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+           press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
+		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
 		   press_loc*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
 		  !! from this point I compute the force terms that depend on the velocity
 		  !! these terms should be not included in force arrays since they must be computed with the updated velocity
@@ -2492,9 +2513,9 @@ contains
                   !1-2
                   !*1
                   ! 2nd order
-                  pxx=pxx - cssq*press_loc - u_loc*u_loc
-                  pyy=pyy - cssq*press_loc - v_loc*v_loc
-                  pzz=pzz - cssq*press_loc - w_loc*w_loc
+                  pxx=pxx - u_loc*u_loc
+                  pyy=pyy - v_loc*v_loc
+                  pzz=pzz - w_loc*w_loc
                   pxy=pxy - u_loc*v_loc
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
@@ -2503,9 +2524,12 @@ contains
 				  
                   tau_loc=(visc_loc*invcssq + HALF) !è una tau
 				  
-		  forcex=forcex - (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forcey=forcey - (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forcez=forcez - (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
+		  forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
+		  forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
+		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
                   u_loc=real(hfields_s(ii,jj,kk,2,myblock),kind=db) !velocity
@@ -2600,18 +2624,18 @@ contains
 #endif               
                   
 #if defined(DENSRATIO)	
-                  pxx=pxx - cssq*press_loc - u_loc*u_loc 
-                  pyy=pyy - cssq*press_loc - v_loc*v_loc
-                  pzz=pzz - cssq*press_loc - w_loc*w_loc 
+                  pxx=pxx - u_loc*u_loc 
+                  pyy=pyy - v_loc*v_loc
+                  pzz=pzz - w_loc*w_loc 
                   pxy=pxy - u_loc*v_loc
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  tforcex= tforcex - &
+		  tforcex= tforcex - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  tforcey= tforcey - &
+		  tforcey= tforcey - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  tforcez= tforcez - &
+		  tforcez= tforcez - FOUR*phi_loc*(ONE-phi_loc)* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 

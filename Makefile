@@ -131,16 +131,16 @@ seqnvml:get_mem.o get_ram.o vars_module.o \
 	mpi_module.o profiling_m.o lb_cuda_vars_module.o \
 	lb_cuda_auxfields_module.o lb_cuda_repulsive_module.o lb_cuda_moments_module.o \
 	lb_cuda_fused_module.o lb_cuda_update_phi_module.o lb_cuda_boundary_module.o \
-	lb_cuda_driver_module.o boundary_cds_module.o init_conditions_module.o \
-	statistics.o print_module.o allocate_module.o integrator_module.o \
+	lb_cuda_driver_module.o boundary_cds_module.o statistics.o \
+	init_conditions_module.o print_module.o allocate_module.o integrator_module.o \
 	LBFAST.o
 	$(FC) $(LDFLAGS) $(EX) get_mem.o get_ram.o nvml_wrapper.o nvml_interface_module.o \
 	vars_module.o mpi_module.o \
 	profiling_m.o lb_cuda_vars_module.o lb_cuda_auxfields_module.o \
 	lb_cuda_repulsive_module.o lb_cuda_moments_module.o \
 	lb_cuda_fused_module.o lb_cuda_update_phi_module.o lb_cuda_boundary_module.o \
-	lb_cuda_driver_module.o boundary_cds_module.o init_conditions_module.o \
-	statistics.o print_module.o allocate_module.o integrator_module.o \
+	lb_cuda_driver_module.o boundary_cds_module.o statistics.o \
+	init_conditions_module.o print_module.o allocate_module.o integrator_module.o \
 	LBFAST.o -L$(NVML_LIB) -lnvidia-ml
 #	mv $(EXP) $(EXEP)
 
@@ -192,11 +192,11 @@ lb_cuda_driver_module.o:lb_cuda_driver_module.f90
 boundary_cds_module.o:boundary_cds_module.f90
 	$(FC) $(FFLAGS) -c boundary_cds_module.f90
 
-init_conditions_module.o:init_conditions_module.f90
-	$(FC) $(FFLAGS) -c init_conditions_module.f90
-
 statistics.o:statistics.f90
 	$(FC) $(FFLAGS) -c statistics.f90
+
+init_conditions_module.o:init_conditions_module.f90
+	$(FC) $(FFLAGS) -c init_conditions_module.f90
 
 print_module.o:print_module.f90
 	$(FC) $(FFLAGS) -c print_module.f90

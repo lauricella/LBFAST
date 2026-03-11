@@ -47,12 +47,13 @@ contains
 
 
 #if defined(INTERNAL_OBSTACLES)
-
+#ifndef BOUNCE_BACK
      call LB_int_boundary_cuda(hfields_in,hfields_out &
 #ifdef TWOCOMPONENT	       
      ,phifields_s &
 #endif     
      )
+#endif
      if(openbc==0)return
 !*****************************************
 
@@ -237,9 +238,9 @@ contains
 		           ou=ou + fpost*dex(l)
 	       	       ov=ov + fpost*dey(l)
 		           ow=ow + fpost*dez(l)
-		           opxx=opxx + fpost*dex(l)*dex(l)
-                   opyy=opyy + fpost*dey(l)*dey(l)
-                   opzz=opzz + fpost*dez(l)*dez(l)
+		           opxx=opxx + fpost*(dex(l)*dex(l)-cssq)
+                   opyy=opyy + fpost*(dey(l)*dey(l)-cssq)
+                   opzz=opzz + fpost*(dez(l)*dez(l)-cssq)
                    opxy=opxy + fpost*dex(l)*dey(l)
                    opxz=opxz + fpost*dex(l)*dez(l)
                    opyz=opyz + fpost*dey(l)*dez(l)
@@ -444,9 +445,9 @@ contains
 		           ou=ou + fpost*dex(l)
 	       	       ov=ov + fpost*dey(l)
 		           ow=ow + fpost*dez(l)
-		           opxx=opxx + fpost*dex(l)*dex(l)
-                   opyy=opyy + fpost*dey(l)*dey(l)
-                   opzz=opzz + fpost*dez(l)*dez(l)
+		           opxx=opxx + fpost*(dex(l)*dex(l)-cssq)
+                   opyy=opyy + fpost*(dey(l)*dey(l)-cssq)
+                   opzz=opzz + fpost*(dez(l)*dez(l)-cssq)
                    opxy=opxy + fpost*dex(l)*dey(l)
                    opxz=opxz + fpost*dex(l)*dez(l)
                    opyz=opyz + fpost*dey(l)*dez(l)
@@ -653,9 +654,9 @@ contains
 		           ou=ou + fpost*dex(l)
 	       	       ov=ov + fpost*dey(l)
 		           ow=ow + fpost*dez(l)
-		           opxx=opxx + fpost*dex(l)*dex(l)
-                   opyy=opyy + fpost*dey(l)*dey(l)
-                   opzz=opzz + fpost*dez(l)*dez(l)
+		           opxx=opxx + fpost*(dex(l)*dex(l)-cssq)
+                   opyy=opyy + fpost*(dey(l)*dey(l)-cssq)
+                   opzz=opzz + fpost*(dez(l)*dez(l)-cssq)
                    opxy=opxy + fpost*dex(l)*dey(l)
                    opxz=opxz + fpost*dex(l)*dez(l)
                    opyz=opyz + fpost*dey(l)*dez(l)
@@ -860,9 +861,9 @@ contains
 		           ou=ou + fpost*dex(l)
 	       	       ov=ov + fpost*dey(l)
 		           ow=ow + fpost*dez(l)
-		           opxx=opxx + fpost*dex(l)*dex(l)
-                   opyy=opyy + fpost*dey(l)*dey(l)
-                   opzz=opzz + fpost*dez(l)*dez(l)
+		           opxx=opxx + fpost*(dex(l)*dex(l)-cssq)
+                   opyy=opyy + fpost*(dey(l)*dey(l)-cssq)
+                   opzz=opzz + fpost*(dez(l)*dez(l)-cssq)
                    opxy=opxy + fpost*dex(l)*dey(l)
                    opxz=opxz + fpost*dex(l)*dez(l)
                    opyz=opyz + fpost*dey(l)*dez(l)
@@ -1070,9 +1071,9 @@ contains
 		           ou=ou + fpost*dex(l)
 	       	       ov=ov + fpost*dey(l)
 		           ow=ow + fpost*dez(l)
-		           opxx=opxx + fpost*dex(l)*dex(l)
-                   opyy=opyy + fpost*dey(l)*dey(l)
-                   opzz=opzz + fpost*dez(l)*dez(l)
+		           opxx=opxx + fpost*(dex(l)*dex(l)-cssq)
+                   opyy=opyy + fpost*(dey(l)*dey(l)-cssq)
+                   opzz=opzz + fpost*(dez(l)*dez(l)-cssq)
                    opxy=opxy + fpost*dex(l)*dey(l)
                    opxz=opxz + fpost*dex(l)*dez(l)
                    opyz=opyz + fpost*dey(l)*dez(l)
@@ -1278,9 +1279,9 @@ contains
 		           ou=ou + fpost*dex(l)
 	       	       ov=ov + fpost*dey(l)
 		           ow=ow + fpost*dez(l)
-		           opxx=opxx + fpost*dex(l)*dex(l)
-                   opyy=opyy + fpost*dey(l)*dey(l)
-                   opzz=opzz + fpost*dez(l)*dez(l)
+		           opxx=opxx + fpost*(dex(l)*dex(l)-cssq)
+                   opyy=opyy + fpost*(dey(l)*dey(l)-cssq)
+                   opzz=opzz + fpost*(dez(l)*dez(l)-cssq)
                    opxy=opxy + fpost*dex(l)*dey(l)
                    opxz=opxz + fpost*dex(l)*dez(l)
                    opyz=opyz + fpost*dey(l)*dez(l)
