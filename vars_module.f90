@@ -120,6 +120,10 @@
 #warning "POISEUILLE: activated"
 #endif
 
+#ifdef TWOPOISEUILLE
+#warning "TWOPOISEUILLE: activated"
+#endif
+
 #ifdef TAYLORGREEN
 #warning "TAYLORGREEN: activated"
 #endif

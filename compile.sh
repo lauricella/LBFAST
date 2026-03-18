@@ -19,7 +19,6 @@ expected_lines=(
 "#define LATTICE 27"
 "#define TWOCOMPONENT"
 "#define DENSRATIO"
-"#define INTERFACE_INCOMP"
 "#define PRC 8"
 "#define noMIXEDPRC"
 "#define STRPRC 8"
@@ -31,7 +30,6 @@ patterns=(
 '^#define[[:space:]]+LATTICE[[:space:]]+27[[:space:]]*$'
 '^#define[[:space:]]+TWOCOMPONENT[[:space:]]*$'
 '^#define[[:space:]]+DENSRATIO[[:space:]]*$'
-'^#define[[:space:]]+INTERFACE_INCOMP[[:space:]]*$'
 '^#define[[:space:]]+PRC[[:space:]]+8[[:space:]]*$'
 '^#define[[:space:]]+noMIXEDPRC[[:space:]]*$'
 '^#define[[:space:]]+STRPRC[[:space:]]+8[[:space:]]*$'
@@ -134,7 +132,6 @@ make clean
 sed -i \
 -e 's/^#define[[:space:]]\+TWOCOMPONENT/#define noTWOCOMPONENT/' \
 -e 's/^#define[[:space:]]\+DENSRATIO/#define noDENSRATIO/' \
--e 's/^#define[[:space:]]\+INTERFACE_INCOMP/#define noINTERFACE_INCOMP/' \
 defines.h
 make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
 mv main.x main_1c_15_sd.x
@@ -192,5 +189,4 @@ make clean
 sed -i \
 -e 's/^#define[[:space:]]\+noTWOCOMPONENT/#define TWOCOMPONENT/' \
 -e 's/^#define[[:space:]]\+noDENSRATIO/#define DENSRATIO/' \
--e 's/^#define[[:space:]]\+noINTERFACE_INCOMP/#define INTERFACE_INCOMP/' \
 defines.h

@@ -280,7 +280,7 @@ contains
 		jjj = j + ey(l)
 		kkk = k + ez(l)
 
-		if (isfluid(ii,jj,kk) .ne. -1) cycle  ! only fluid neighbor
+		if (isfluid(iii,jjj,kkk) .ne. -1) cycle  ! only fluid neighbor
 		
 		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
 		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     

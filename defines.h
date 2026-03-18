@@ -8,7 +8,6 @@
 #define DOXDMF
 #define noWRITEPRESS
 
-#define INTERFACE_INCOMP
 #define noREPULSIVE_FLUX
 
 #define noSMAGORINSKI
@@ -28,12 +27,19 @@
 
 #define noVELUNIFORMV
 #define noPOISEUILLE
+#define noTWOPOISEUILLE
 #define noTAYLORGREEN
 #define noUSEGNUPLOT
+#define noPRINTPHI
+
+#ifdef TWOPOISEUILLE
+#define INTERNAL_OBSTACLES
+#define TWOCOMPONENT
+#define DENSRATIO
+#endif
 
 #ifdef POISEUILLE
 #define INTERNAL_OBSTACLES
-#define BOUNCE_BACK
 #undef TWOCOMPONENT
 #undef DENSRATIO
 #undef INTERFACE_INCOMP
@@ -43,4 +49,8 @@
 #undef TWOCOMPONENT
 #undef DENSRATIO
 #undef INTERFACE_INCOMP
+#endif
+
+#ifdef DENSRATIO
+#define INTERFACE_INCOMP
 #endif

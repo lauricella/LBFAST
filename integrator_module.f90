@@ -157,6 +157,13 @@ contains
       endif
 #endif      
 
+      !************ thread-safe boundary condition setup
+#ifdef TWOCOMPONENT  
+      if(ldiagnostic)call start_timing2("LB","bcs_phi")
+      call bcs_mesoscopic_phifields(hfields_flip,phifields_flip)
+      if(ldiagnostic)call end_timing2("LB","bcs_phi") 
+#endif
+
       if(lprint .and. (.not. lrestart))then
 	     call copy_print(iframe,hfields_flip &
 #ifdef TWOCOMPONENT	      
@@ -215,12 +222,7 @@ contains
 	  if(ldiagnostic)call start_timing2("LB","ex_hfields_wait")
 	  call exchange_hfields_wait(hfields_flip)
 	  if(ldiagnostic)call end_timing2("LB","ex_hfields_wait")	  
-      !************ thread-safe boundary condition setup
-#ifdef TWOCOMPONENT  
-      if(ldiagnostic)call start_timing2("LB","bcs_phi")
-      call bcs_mesoscopic_phifields(hfields_flop,phifields_flop)
-      if(ldiagnostic)call end_timing2("LB","bcs_phi") 
-#endif
+
       ! start diagnostic if requested
       if(ldiagnostic)then
          !call print_timing_partial(1,1,itime_start,6)

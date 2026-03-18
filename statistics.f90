@@ -220,7 +220,138 @@ contains
       
       character(1), parameter :: bs = char(92)   ! backslash '\'
 	  
-#ifdef POISEUILLE
+#if defined(TWOCOMPONENT) && defined(TWOPOISEUILLE)
+
+      real(kind=db) :: H_pois,xc_pois,dist1,rhophi_loc,mytemp,distabs
+      real(kind=db) :: coefB_pois,coefL_pois,coefR_pois,phi_loc,wleft,wright
+      real(kind=db), allocatable, dimension(:) :: w_pois,w_num,i_num
+      integer :: xblock,yblock,zblock,myblock,ii,jj,kk
+
+      allocate(w_pois(lx),w_num(lx),i_num(lx))
+      w_num=ZERO;w_pois=ZERO;i_num=ZERO
+      
+#ifdef BOUNCE_BACK
+      H_pois  = 0.5_db * real(lx-2,db)
+#else
+      H_pois  = 0.5_db * real(lx-1,db)
+#endif
+      xc_pois = 0.5_db * real(lx+1,db)      
+#ifdef DENSRATIO
+      coefB_pois = fz * H_pois * H_pois * (rho_r + rho_b) / &
+                   (2.0_db * (rho_r*visc1 + rho_b*visc2))
+
+      coefL_pois = fz * H_pois * rho_b * (visc1 - visc2) / &
+                   (2.0_db * visc1 * (rho_r*visc1 + rho_b*visc2))
+
+      coefR_pois = fz * H_pois * rho_r * (visc1 - visc2) / &
+                   (2.0_db * visc2 * (rho_r*visc1 + rho_b*visc2))
+#else
+      coefB_pois = fz * H_pois * H_pois / (visc1 + visc2)
+
+      coefL_pois = fz * H_pois * (visc1 - visc2) / &
+                   (2.0_db * visc1 * (visc1 + visc2))
+
+      coefR_pois = fz * H_pois * (visc1 - visc2) / &
+                   (2.0_db * visc2 * (visc1 + visc2))
+#endif           
+      do gi = 1, lx
+	    dist1   = real(gi,db) - xc_pois
+	    distabs = abs(dist1)
+	    phi_loc=fcut_tanh(dist1,ZERO,width)
+!               if (dist1 <= ZERO) then
+!                  selphi(i,j,k,flip) = ONE
+!               else
+!                  selphi(i,j,k,flip) = ZERO
+!               endif
+
+#ifdef DENSRATIO
+	    rhophi_loc = rho_r*phi_loc + (ONE-phi_loc)*rho_b        
+#endif
+
+	    if (distabs <= H_pois) then
+		  !if (dist1 <= ZERO) then
+			 wleft = -(fz/(2.0_db*visc1)) * dist1*dist1 + &
+						 coefL_pois * dist1 + coefB_pois
+		  !else
+			 wright = -(fz/(2.0_db*visc2)) * dist1*dist1 + &
+						 coefR_pois * dist1 + coefB_pois
+		  !endif
+		  w_pois(gi)=wleft*phi_loc + (ONE-phi_loc)*wright   
+	    else
+		  w_pois(gi) = ZERO
+	    endif
+      enddo      
+
+      do k=1,nz
+         gk = nz*coords(3) + k
+		 zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+         do j=1,ny
+            gj=ny*coords(2)+j
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            do i=1,nx
+              gi=nx*coords(1)+i
+              xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+                
+              myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+              ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+              jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+              kk=k-zblock*TILE_DIMz+2*TILE_DIMz  
+                
+              mytemp=real(hfields_flip(ii,jj,kk,4,myblock),kind=db)
+              if(isfluid(i,j,k)==0)mytemp=ZERO
+              gi = nx*coords(1) + i  
+              w_num(gi)=w_num(gi) + mytemp
+              i_num(gi)=i_num(gi)+ONE
+            enddo
+          enddo
+       enddo
+       call sum_world_farr(lx,w_num)
+       call sum_world_farr(lx,i_num)
+       
+       do gi = 1, lx
+         w_num(gi)=w_num(gi)/i_num(gi)
+       enddo
+       if(myrank==0)then
+         open(unit=42,file='plot_twopoiseuille.dat',status='replace',action='write')
+#ifdef BOUNCE_BACK
+         gi=1
+         write(42,'(3g16.8)')1.5_db,w_num(gi),w_pois(gi)
+         do gi = 2, lx-1
+           write(42,'(3g16.8)')real(gi,db),w_num(gi),w_pois(gi)
+         enddo
+         gi=lx
+         write(42,'(3g16.8)')real(lx,db)-0.5_db,w_num(gi),w_pois(gi)
+#else         
+         do gi = 1, lx
+           write(42,'(3g16.8)')real(gi,db),w_num(gi),w_pois(gi)
+         enddo
+#endif
+         close(42)
+#ifdef USEGNUPLOT         
+         open(unit=42,file='plot_twopoiseuille.gp',status='replace',action='write')
+         write(42,'(a)')'# plot_twopoiseuille.gp'
+         write(42,'(a)')'set terminal pngcairo size 1400,900 enhanced font "Helvetica,20"'
+         write(42,'(a)')'set output "plot_twopoiseuille.png"'
+         write(42,'(4a,es12.4,a,es12.4,a,es12.4,3a,es12.4,a,es12.4,a)') &
+          'set title "Poiseuille: numerical vs analytical',bs,'n', &
+          'Fz=',fz,'  nu1=',visc1,'  nu2=',visc2,bs,'n', &
+          'rho1=',rho_r,'  rho2=',rho_b,'"'
+         write(42,'(a)')'set xlabel "i"'
+         write(42,'(a)')'set ylabel "u"'
+         write(42,'(a)')'set grid'
+         write(42,'(a)')'set key left top'
+         write(42,'(a)')'set autoscale'
+         write(42,'(a)') 'plot ' // char(92)
+         write(42,'(a)') '"plot_twopoiseuille.dat" using 1:2 with lines lw 3 title "numerical", ' // char(92)
+         write(42,'(a)')'"plot_twopoiseuille.dat" using 1:3 with lines lw 3 dt 2 title "analytical"'
+         write(42,'(a)')'unset output'
+         close(42)
+         call execute_command_line('gnuplot plot_twopoiseuille.gp', wait=.true.)
+#endif         
+       endif
+       deallocate(w_num,w_pois,i_num) 
+	  
+#elif defined(POISEUILLE)
  
       real(kind=db) :: H_pois,xc_pois,dist1,rhophi_loc,mytemp
       real(kind=db), allocatable, dimension(:) :: w_pois,w_num,i_num
@@ -229,10 +360,14 @@ contains
 
       allocate(w_pois(lx),w_num(lx),i_num(lx))
       w_num=ZERO;w_pois=ZERO;i_num=ZERO
+#ifdef BOUNCE_BACK
+      H_pois  = 0.5_db * real(lx-2,db)
+#else
+      H_pois  = 0.5_db * real(lx-1,db)
+#endif
+      xc_pois = 0.5_db * real(lx+1,db)         
       do gi = 1, lx
          rhophi_loc = 1.0_db
-         H_pois  = 0.5_db * real(lx-2,db)
-         xc_pois = 0.5_db * real(lx+1,db)
          dist1 = real(gi,db) - xc_pois
          dist1 = abs(dist1)
          if (dist1 <= H_pois) then

@@ -720,7 +720,7 @@ contains
                   jj=j*stepskip
                   kk=k*stepskip
 #ifdef INTERNAL_OBSTACLES
-                  if(isfluid(ii,jj,kk) == 0)cycle
+                  !if(isfluid(ii,jj,kk) == 0)cycle
 #endif
                   xblock=(ii+2*TILE_DIMx-1)/TILE_DIMx   
                   yblock=(jj+2*TILE_DIMy-1)/TILE_DIMy     
@@ -732,9 +732,15 @@ contains
                   kkk=kk-zblock*TILE_DIMz+2*TILE_DIMz                            
                   
 #if defined(DENSRATIO) && defined(TWOCOMPONENT)
+
+#ifdef PRINTPHI
+                  rhophi_loc=real(phifields_s(iii,jjj,kkk,1,myblock),kind=db)
+                  rhoprint(i,j,k)=real(rhophi_loc,kind=printdb)
+#else
                   rhophi_loc=real(phifields_s(iii,jjj,kkk,1,myblock),kind=db)
                   rhophi_loc=rho_r*rhophi_loc+(ONE-rhophi_loc)*rho_b
                   rhoprint(i,j,k)=real(rhophi_loc,kind=printdb)
+#endif                  
 #ifdef WRITEPRESS                 
                   pressprint(i,j,k)=real(hfields_s(iii,jjj,kkk,1,myblock),kind=printdb)
 #endif

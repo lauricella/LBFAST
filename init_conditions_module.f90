@@ -17,8 +17,9 @@ contains
       real(kind=db) :: dist1,dist2,sel1,sel2,dist
       real(kind=db),dimension(3) :: dist3d,dist3dout,invdim
       real(kind=db) :: fneq1,feq, rhophi_loc
-#ifdef POISEUILLE      
-      real(kind=db) :: H_pois,xc_pois
+#if defined(POISEUILLE) || defined(TWOPOISEUILLE)        
+      real(kind=db) :: H_pois,xc_pois,distabs, &
+       coefL_pois,coefB_pois,coefR_pois,wleft,wright
 #endif      
 
 #if defined(MULTIHIT)
@@ -157,30 +158,7 @@ contains
 		   end do
 		end do
 		
-#if defined(INTERNAL_OBSTACLES) && defined(TWOCOMPONENT)     
-		global_phi_sum_ini=ZERO
-		do k=1,nz
-		   gk = nz*coords(3) + k
-		   zblock=(k+2*TILE_DIMz-1)/TILE_DIMz		
-           do j=1,ny
-			  gj = ny*coords(2) + j
-			  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy         
-              do i=1,nx
-				 gi = nx*coords(1) + i
-				 xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
 
-                 myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
-                 ii=i-xblock*TILE_DIMx+2*TILE_DIMx
-                 jj=j-yblock*TILE_DIMy+2*TILE_DIMy
-                 kk=k-zblock*TILE_DIMz+2*TILE_DIMz
-
-			     global_phi_sum_ini=global_phi_sum_ini + real(phifields_flip(ii,jj,kk,1,myblock),kind=db)
-
-              enddo
-           enddo
-      enddo
-      call sum_world_float(global_phi_sum_ini)
-#endif
 
     
 
@@ -231,6 +209,35 @@ contains
        ! ampiezza del TG: scegli tu, ma resta a Mach basso
        ! es. uwall = u0tg = 0.02_db oppure 0.05_db
        stdev=0.0e-2
+#if defined(POISEUILLE) || defined(TWOPOISEUILLE)
+#ifdef BOUNCE_BACK
+       H_pois  = 0.5_db * real(lx-2,db)
+#else
+       H_pois  = 0.5_db * real(lx-1,db)
+#endif
+       xc_pois = 0.5_db * real(lx+1,db)
+#endif
+
+#if defined(TWOCOMPONENT) && defined(TWOPOISEUILLE)
+#ifdef DENSRATIO
+       coefB_pois = fz * H_pois * H_pois * (rho_r + rho_b) / &
+                   (2.0_db * (rho_r*visc1 + rho_b*visc2))
+
+       coefL_pois = fz * H_pois * rho_b * (visc1 - visc2) / &
+                   (2.0_db * visc1 * (rho_r*visc1 + rho_b*visc2))
+
+       coefR_pois = fz * H_pois * rho_r * (visc1 - visc2) / &
+                   (2.0_db * visc2 * (rho_r*visc1 + rho_b*visc2))
+#else
+       coefB_pois = fz * H_pois * H_pois / (visc1 + visc2)
+
+       coefL_pois = fz * H_pois * (visc1 - visc2) / &
+                   (2.0_db * visc1 * (visc1 + visc2))
+
+       coefR_pois = fz * H_pois * (visc1 - visc2) / &
+                   (2.0_db * visc2 * (visc1 + visc2))
+#endif
+#endif
        do k=1,nz
           gk = nz*coords(3) + k
 		  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -271,13 +278,40 @@ contains
                   ! pressione idrodinamica fluttuante, media nulla
                   loc_press = (uwall*uwall/SIXTEEN) * (c2x + c2y) * (TWO + c2z)
 
+#elif defined(TWOCOMPONENT) && defined(TWOPOISEUILLE)
+               dist   = real(gi,db) - xc_pois
+               distabs = abs(dist)
+               tempphi=fcut_tanh(dist,ZERO,width)
+               !tempphi = ONE - (0.5 + 0.5*TANH(2.0_db*(dist)/width))	
+!               if (dist <= ZERO) then
+!                  tempphi = ONE
+!               else
+!                  tempphi = ZERO
+!               endif
+
+#ifdef DENSRATIO
+               rhophi_loc=rho_r*tempphi+(ONE-tempphi)*rho_b       
+#endif
+
+               if (distabs <= H_pois) then
+                  !if (dist <= ZERO) then
+                     wleft = -(fz/(2.0_db*visc1)) * dist*dist + &
+                                 coefL_pois * dist + coefB_pois
+                  !else
+                     wright = -(fz/(2.0_db*visc2)) * dist*dist + &
+                                 coefR_pois * dist + coefB_pois
+                  !endif
+                  loc_w=wleft*tempphi + (ONE-tempphi)*wright   
+               else
+                  loc_w = ZERO
+               endif
+
+
 #elif defined(POISEUILLE)
-                  rhophi_loc = 1.0_db
-                  H_pois  = 0.5_db * real(lx-2,db)
-                  xc_pois = 0.5_db * real(lx+1,db)
+                  rhophi_loc = ONE     
                   dist = real(gi,db) - xc_pois
-                  dist = abs(dist)
-                  if (dist <= H_pois) then
+                  distabs = abs(dist)
+                  if (distabs <= H_pois) then
                     loc_w=(fz)/(TWO*visc1) * (H_pois*H_pois - dist*dist)+ stdev*randgauss_CPU()
                   else
                     loc_w=ZERO
@@ -331,6 +365,16 @@ contains
                 hfields_flip(ii,jj,kk,8,myblock)=real(loc_u*loc_v,kind=strdb)
                 hfields_flip(ii,jj,kk,9,myblock)=real(loc_u*loc_w,kind=strdb)
                 hfields_flip(ii,jj,kk,10,myblock)=real(loc_v*loc_w,kind=strdb)  
+
+#ifdef TWOCOMPONENT
+				 
+				 phifields_flip(ii,jj,kk,1,myblock)=real(tempphi,kind=strdb)
+				 
+				 auxfields(ii,jj,kk,1,myblock)=ZEROSTR
+				 auxfields(ii,jj,kk,2,myblock)=ZEROSTR
+				 auxfields(ii,jj,kk,3,myblock)=ZEROSTR
+				 auxfields(ii,jj,kk,4,myblock)=ZEROSTR
+#endif
            
                 endif
                 !if(j==jprobe .and. k==kprobe)write(6,*)'velocità iniziale', i,loc_w
@@ -338,6 +382,31 @@ contains
           enddo
        enddo
 
+#endif
+
+#if defined(INTERNAL_OBSTACLES) && defined(TWOCOMPONENT)     
+		global_phi_sum_ini=ZERO
+		do k=1,nz
+		   gk = nz*coords(3) + k
+		   zblock=(k+2*TILE_DIMz-1)/TILE_DIMz		
+           do j=1,ny
+			  gj = ny*coords(2) + j
+			  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy         
+              do i=1,nx
+				 gi = nx*coords(1) + i
+				 xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+
+                 myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+                 ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+                 jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+                 kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+                 if(abs(isfluid(i,j,k)).eq.1)then
+			       global_phi_sum_ini=global_phi_sum_ini + real(phifields_flip(ii,jj,kk,1,myblock),kind=db)
+                 endif
+              enddo
+           enddo
+      enddo
+      call sum_world_float(global_phi_sum_ini)
 #endif
 
 ! #if defined(MULTIHIT)
