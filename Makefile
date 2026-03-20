@@ -114,16 +114,16 @@ seq:get_mem.o get_ram.o vars_module.o \
 	mpi_module.o profiling_m.o lb_cuda_vars_module.o \
 	lb_cuda_auxfields_module.o lb_cuda_repulsive_module.o lb_cuda_moments_module.o \
 	lb_cuda_fused_module.o lb_cuda_update_phi_module.o lb_cuda_boundary_module.o \
-	lb_cuda_driver_module.o boundary_cds_module.o init_conditions_module.o \
-	statistics.o print_module.o allocate_module.o integrator_module.o \
+	lb_cuda_driver_module.o boundary_cds_module.o statistics.o init_conditions_module.o \
+	print_module.o allocate_module.o integrator_module.o \
 	LBFAST.o
 	$(FC) $(LDFLAGS) $(EX) get_mem.o get_ram.o \
 	vars_module.o mpi_module.o \
 	profiling_m.o lb_cuda_vars_module.o lb_cuda_auxfields_module.o \
 	lb_cuda_repulsive_module.o lb_cuda_moments_module.o \
 	lb_cuda_fused_module.o lb_cuda_update_phi_module.o lb_cuda_boundary_module.o \
-	lb_cuda_driver_module.o boundary_cds_module.o init_conditions_module.o \
-	statistics.o print_module.o allocate_module.o integrator_module.o \
+	lb_cuda_driver_module.o boundary_cds_module.o statistics.o init_conditions_module.o \
+	print_module.o allocate_module.o integrator_module.o \
 	LBFAST.o
 
 seqnvml:get_mem.o get_ram.o vars_module.o \

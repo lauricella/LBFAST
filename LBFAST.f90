@@ -39,6 +39,9 @@ program threadsafeLB
     
    namelist /fluid/ fx,fy,fz,visc1, &
     radius,width,center, &
+#ifdef LAMBTEST
+      lamb_eps, &
+#endif
 #ifdef TWOCOMPONENT
     tau_diff,sigma,wettab_r,wettab_b,visc2, &
 #ifdef MONOD	
@@ -417,6 +420,9 @@ program threadsafeLB
       write(6,'(a,g16.8)') 'u0tg',uwall 
 #else  
       write(6,'(a,g16.8)') 'uwall',uwall
+#endif
+#ifdef LAMBTEST
+      write(6,'(a,g16.8)') 'lamb_eps',lamb_eps
 #endif
       write(6,'(a)') '*******************INPUT data*****************'
       write(6,'(a,i8)') 'lx',lx

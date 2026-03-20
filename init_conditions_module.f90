@@ -3,7 +3,11 @@ module initial_condts
 
    use vars
    use mpi_template, only: coords,myoffset,sum_world_float,dostop
-   
+   use stat_module, only: Ekin0,Ekin, &
+#if defined(LAMBTEST) && defined(TWOCOMPONENT)   
+    lamb_A,lamb_visc, &
+#endif
+    probe_loc
    implicit none
 
 contains
@@ -16,12 +20,14 @@ contains
       integer:: subchords(3)
       real(kind=db) :: dist1,dist2,sel1,sel2,dist
       real(kind=db),dimension(3) :: dist3d,dist3dout,invdim
-      real(kind=db) :: fneq1,feq, rhophi_loc
+      real(kind=db) :: fneq1,feq, rhophi_loc,visc_loc,lamb_visc_temp  
 #if defined(POISEUILLE) || defined(TWOPOISEUILLE)        
       real(kind=db) :: H_pois,xc_pois,distabs, &
        coefL_pois,coefB_pois,coefR_pois,wleft,wright
-#endif      
-
+#endif    
+#ifdef LAMBTEST
+      real(kind=db) :: myp2,xx,yy,zz,rr,costh,rloc,eta0  
+#endif 
 #if defined(MULTIHIT)
 	  real(kind=db) :: k_zero
 #endif
@@ -209,6 +215,13 @@ contains
        ! ampiezza del TG: scegli tu, ma resta a Mach basso
        ! es. uwall = u0tg = 0.02_db oppure 0.05_db
        stdev=0.0e-2
+       
+#if defined(LAMBTEST) && defined(TWOCOMPONENT)
+       lamb_A=uwall / radius
+       lamb_visc=ZERO
+       lamb_visc_temp=ZERO
+#endif       
+       
 #if defined(POISEUILLE) || defined(TWOPOISEUILLE)
 #ifdef BOUNCE_BACK
        H_pois  = 0.5_db * real(lx-2,db)
@@ -317,6 +330,74 @@ contains
                     loc_w=ZERO
                   endif
                   loc_press=ZERO
+#elif defined(LAMBTEST) && defined(TWOCOMPONENT)
+#ifdef MILLER 
+				  dist3d(1)=real(gi,kind=db)-center(1)
+				  dist3d(2)=real(gj,kind=db)-center(2)
+				  dist3d(3)=real(gk,kind=db)-center(3)
+				  call pbc_images(invdim,dist3d,dist3dout)
+				
+				  xx = dist3dout(1)
+				  yy = dist3dout(2)
+				  zz = dist3dout(3)
+				
+				  rr = sqrt(xx**TWO + yy**TWO + zz**TWO)
+				
+				  if (rr > 1.0e-14_db) then
+				    costh = zz/rr
+				    myp2 = HALF*(THREE*costh**TWO - ONE)
+				  else
+				    myp2 = ONE
+				  endif
+				
+                  eta0 = lamb_eps*radius
+				
+				  rloc = radius + eta0*myp2
+				
+				  dist = rr*radius/rloc
+				
+				  tempphi = fcut_tanh(dist,radius,width)
+				
+				  loc_u = ZERO
+				  loc_v = ZERO
+				  loc_w = ZERO
+#else
+                  dist3d(1)=real(gi,kind=db)-center(1)
+				  dist3d(2)=real(gj,kind=db)-center(2)
+				  dist3d(3)=real(gk,kind=db)-center(3)
+				  call pbc_images(invdim,dist3d,dist3dout)
+					
+				  dist=sqrt(dist3dout(1)**TWO + dist3dout(2)**TWO + dist3dout(3)**TWO)
+					
+			  	  tempphi = fcut_tanh(dist,radius,width)				
+					
+				  loc_u =  TWO *lamb_A*dist3dout(1)*tempphi
+				  loc_v =  TWO *lamb_A*dist3dout(2)*tempphi
+				  loc_w = -FOUR*lamb_A*dist3dout(3)*tempphi
+#endif				  
+!                 if (dist <= radius) then
+!                    loc_u =  TWO *lamb_A*dist3dout(1)
+!                    loc_v =  TWO *lamb_A*dist3dout(2)
+!                    loc_w = -FOUR*lamb_A*dist3dout(3)
+!                 else
+!                    loc_u = ZERO
+!                    loc_v = ZERO
+!                    loc_w = ZERO
+!                 endif 
+#ifdef DENSRATIO
+                  rhophi_loc=rho_r*tempphi+(ONE-tempphi)*rho_b
+#else
+                  rhophi_loc = 1.0_db
+#endif	
+                  
+                  tempphi2 = tempphi*(sigma*TWO)/radius/(rhophi_loc*cssq)
+				  loc_press = loc_press + tempphi2
+                  
+                  visc_loc=(rho_r*visc1*tempphi+(1.0_db-tempphi)*visc2*rho_b)/rhophi_loc
+                  
+                  lamb_visc=lamb_visc+visc_loc*tempphi*(ONE-tempphi) 
+                  lamb_visc_temp=lamb_visc_temp+tempphi*(ONE-tempphi)
+
 #else
                    !dist=sqrt((float(gi)-lx/TWO)**TWO + (float(gj)-ly/TWO)**TWO+(float(gk)-(lz/TWO)+1.5*radius)**TWO)
                    dist3d(1)=real(gi,kind=db)-center(1)
@@ -327,6 +408,7 @@ contains
                    dist=sqrt(dist3dout(1)**TWO + dist3dout(2)**TWO + dist3dout(3)**TWO)
                    
                    tempphi=ONE*fcut_tanh(dist,radius,width)
+                   
 #ifdef TWOCOMPONENT
                    phifields_flip(ii,jj,kk,1,myblock)=real(tempphi,kind=strdb)
 #ifdef DENSRATIO
@@ -335,7 +417,7 @@ contains
                    rhophi_loc = 1.0_db
 #endif				  
 
-                  tempphi2 = tempphi*(sigma*TWO)/radius/(rhophi_loc/3.0_db)
+                  tempphi2 = tempphi*(sigma*TWO)/radius/(rhophi_loc*cssq)
 				  loc_press = loc_press + tempphi2
 				  loc_w=ZERO!fcut(dist,radius-width*0.5,radius+width*0.5)*uwall !   - fcut(dist2,radius-width*0.5,radius+width*0.5)*HALF*uwall
  !                if(gi==lx/2 .and. gj==ly/2 .and. gk==lz/2)phi(i,j,k)=ONE		 
@@ -381,6 +463,12 @@ contains
              enddo
           enddo
        enddo
+#if defined(LAMBTEST) && defined(TWOCOMPONENT)
+       call sum_world_float(lamb_visc)
+       call sum_world_float(lamb_visc_temp)
+       lamb_visc=lamb_visc/lamb_visc_temp
+#endif
+
 
 #endif
 

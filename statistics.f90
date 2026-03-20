@@ -2,12 +2,31 @@
 module stat_module
 
    use vars
-   use mpi_template, only : sum_world_farr,coords,myoffset,sum_world_float,dostop,myrank
+   use mpi_template, only : sum_world_farr,coords,myoffset,sum_world_float, &
+    dostop,myrank,doerror
    
    implicit none
    
    real(kind=db) :: Ekin,Ekin0
-
+#if defined(LAMBTEST) && defined(TWOCOMPONENT)   
+   real(kind=db) :: pos_x_int_left=ZERO
+   real(kind=db) :: pos_x_int_node_left=ZERO
+   real(kind=db) :: pos_x_int_right=ZERO
+   real(kind=db) :: pos_x_int_node_right=ZERO
+   real(kind=db) :: pos_z_int_left=ZERO
+   real(kind=db) :: pos_z_int_node_left=ZERO
+   real(kind=db) :: pos_z_int_right=ZERO
+   real(kind=db) :: pos_z_int_node_right=ZERO
+   real(kind=db) :: lamb_z,lamb_cm_z,lamb_x,lamb_cm_x
+   real(kind=db) :: lamb_dosc,lamb_A,lamb_visc
+#endif
+#ifdef LAPLACE
+   real(kind=db) :: pos_x_int_left=ZERO
+   real(kind=db) :: pos_x_int_node_left=ZERO
+   real(kind=db) :: pos_x_int_right=ZERO
+   real(kind=db) :: pos_x_int_node_right=ZERO   
+   real(kind=db) :: lamb_x,lamb_cm_x,laplace_rad
+#endif
 contains
 
    subroutine probe_loc(hfields_s &
@@ -483,7 +502,300 @@ contains
          call execute_command_line('gnuplot plot_taylorgreen.gp', wait=.true.)
 #endif
        endif
-#endif    
+
+
+#elif defined(LAMBTEST) && defined(TWOCOMPONENT)
+
+       real(kind=db) :: mytime, dosc_th,myfreq,fit_slope,fit_intercept,amp0, &
+        period_sum,tmean,omega_num,nrat,mu1,mu2,chi,myfreq_corr,zint0_minus_zcm
+       integer :: stepfit,maxn,npeaks,myn,ios,nfit
+       real(kind=db) :: dt, xfit, yfit, beta_num
+       real(kind=db) :: sx, sy, sxx, sxy
+       real(kind=db) :: lamb_x_tmp, lamb_z_tmp, lamb_cm_x_tmp, lamb_cm_z_tmp,my_tmp
+       real(kind=db) :: Aenv, t1
+       integer, allocatable :: mystep(:), pstep(:)
+       real(db), allocatable :: dosc(:), adosc(:), pval(:)
+       integer, parameter :: min_peak_dist = 2000
+ 
+		if(myrank==0)then
+		
+		  dt = ONE
+		
+		  myfreq = sqrt(TWENTYFOUR*sigma / (radius**THREE * (TWO*rho_b + THREE*rho_r)))
+		  nrat = rho_r/rho_b
+          mu1  = rho_r*visc1
+          mu2  = rho_b*visc2
+
+          chi = ((TWO*nrat + ONE)**TWO * sqrt(mu1*mu2*rho_r*rho_b)) / &
+           (TWO*radius * (nrat*rho_b + (nrat + ONE)*rho_r) * &
+           (sqrt(mu1*rho_r) + sqrt(mu2*rho_b)))
+		  myfreq_corr = myfreq - HALF*chi*sqrt(myfreq) + (ONE/FOUR)*chi**TWO
+		  
+		  maxn = nsteps/stamp_term + 1
+		
+		  allocate(mystep(0:maxn), dosc(0:maxn), adosc(0:maxn))
+		  allocate(pstep(maxn), pval(maxn))
+		
+		  mystep(:) = 0
+		  pstep(:)  = 0
+		  dosc(:)   = ZERO
+		  adosc(:)  = ZERO
+		  pval(:)   = ZERO
+		
+		  open(unit=142,file='lamb.dat',status='old',action='read',iostat=ios)
+		  if(ios /= 0) then
+		    write(6,*) 'Errore apertura lamb.dat'
+		    return
+		  endif
+		
+		  myn = 0
+		  do
+		    if(myn >= maxn) exit
+		    myn = myn + 1
+#ifdef MILLER 
+		    read(142,'(i8,7g16.8)',iostat=ios) mystep(myn),my_tmp, &
+		         lamb_x_tmp, lamb_z_tmp, lamb_cm_x_tmp, lamb_cm_z_tmp,dosc(myn)
+#else
+		    read(142,'(i8,6g16.8)',iostat=ios) mystep(myn), dosc(myn), &
+		         lamb_x_tmp, lamb_z_tmp, lamb_cm_x_tmp, lamb_cm_z_tmp,my_tmp
+#endif
+		    if(ios /= 0) then
+		      myn = myn - 1
+		      exit
+		    endif
+		  enddo
+		  close(142)
+		
+		  if(myn < 3) then
+		    write(6,*) 'Troppi pochi punti in lamb.dat'
+		    return
+		  endif
+		  
+		  mystep(0)=0
+		  dosc(0)=dosc(1)-ONE
+		  zint0_minus_zcm=dosc(1)
+          amp0 = zint0_minus_zcm - radius
+
+
+		  
+		  
+		
+		  do i = 0, myn
+		    adosc(i) = abs(dosc(i))
+		  enddo
+		
+#ifdef MILLER 
+                  npeaks = 0
+                  do i = 1, myn-1
+                    if ( dosc(i) < dosc(i-1) .and. dosc(i) <= dosc(i+1) .and. dosc(i) > 1.1*radius ) then
+                      if (npeaks == 0 .or. mystep(i)-pstep(npeaks) >= min_peak_dist) then
+                        npeaks = npeaks + 1
+                        pstep(npeaks) = mystep(i)
+                        pval(npeaks)  = dosc(i)
+                      endif
+                    endif
+                  enddo
+                  write(6,*)'internal sanity check',pval(1),amp0+radius
+#else                  
+                  npeaks = 0
+                  do i = 2, myn-1
+                    if ( dosc(i) < dosc(i-1) .and. dosc(i) <= dosc(i+1) .and. dosc(i) < -1.0e-3_db ) then
+                      if (npeaks == 0 .or. mystep(i)-pstep(npeaks) >= min_peak_dist) then
+                        npeaks = npeaks + 1
+                        pstep(npeaks) = mystep(i)
+                        pval(npeaks)  = -dosc(i)
+                      endif
+                    endif
+                  enddo
+#endif                		
+		  if (npeaks < 2) then
+		    write(6,*) 'Non ho trovato abbastanza picchi per stimare omega.'
+		    return
+		  endif
+		 
+     
+		  do i = 1, npeaks
+            if (pval(i) <= 1.0e-8_db) then
+              write(6,'(a,i8,a,g16.8,a,i12)') 'Picco troppo piccolo: indice picco = ', i, &
+              '  ampiezza = ', pval(i), '  step = ', pstep(i)
+               return
+            endif
+         enddo
+		
+		  ! Picchi di abs(dosc): distanza tra picchi consecutivi = mezzo periodo
+		  period_sum = ZERO
+                  do i = 1, npeaks-1
+                    period_sum = period_sum + real(pstep(i+1) - pstep(i), db) * dt
+                  enddo
+
+		
+		  tmean = period_sum / real(npeaks-1, db)
+		  omega_num = TWO*pi_greek / tmean
+#ifndef MILLER			
+		  ! Fit lineare di log(pval) = intercept - beta * t
+		  sx  = ZERO
+		  sy  = ZERO
+		  sxx = ZERO
+		  sxy = ZERO
+		  nfit = 0
+		
+		  do i = 1, npeaks
+		    if (pval(i) > ZERO) then
+		      xfit = real(pstep(i), db) * dt
+		      yfit = log(pval(i))
+		      sx   = sx  + xfit
+		      sy   = sy  + yfit
+		      sxx  = sxx + xfit*xfit
+		      sxy  = sxy + xfit*yfit
+		      nfit = nfit + 1
+		    endif
+		  enddo
+		
+		  if (nfit >= 2) then
+		    fit_slope = ( real(nfit,db)*sxy - sx*sy ) / ( real(nfit,db)*sxx - sx*sx )
+		    fit_intercept = ( sy - fit_slope*sx ) / real(nfit,db)
+		    beta_num = -fit_slope
+		  else
+		    fit_slope = ZERO
+		    fit_intercept = ZERO
+		    beta_num = ZERO
+		    write(6,*) 'Non abbastanza picchi validi per stimare beta.'
+		  endif
+#endif		
+		  write(6,'(a,i10)')    'Numero punti attesi             = ', maxn
+		  write(6,'(a,i10)')    'Numero punti letti              = ', myn
+		  write(6,'(a,i10)')    'Numero picchi trovati           = ', npeaks
+		  write(6,'(a,f20.10)') 'Omega teorica                   = ', myfreq_corr
+		  write(6,'(a,f20.10)') 'Periodo medio T_num             = ', tmean
+		  write(6,'(a,f20.10)') 'Frequenza angolare omega_num    = ', omega_num
+#ifndef MILLER		  
+		  write(6,'(a,f20.10)') 'Dissipazione beta_num           = ', beta_num
+		  write(6,'(a,f20.10)') 'Fit slope                       = ', fit_slope
+		  write(6,'(a,f20.10)') 'Fit intercept                   = ', fit_intercept
+#endif		  
+                  do i = 1, npeaks
+                    write(6,'(a,i6,a,i10,a,g16.8)') 'peak ',i,' step=',pstep(i),' amp=',pval(i)
+                  enddo
+         t1   = real(pstep(1),db)*dt
+#ifndef MILLER         
+         Aenv = pval(1)*exp(beta_num*t1)
+#endif
+         open(unit=42,file='lamb_theory.dat',status='replace',action='write')
+         
+         do i = 1, myn
+           mytime  = real(mystep(i),kind=db)*dt
+#ifdef MILLER 
+           dosc_th = radius + amp0 * cos(myfreq_corr * mytime)
+#else
+           dosc_th = -Aenv*sin(myfreq_corr*mytime)
+#endif
+           write(42,'(i8,g16.8)') mystep(i), dosc_th
+         enddo
+         close(42)
+  
+#ifdef USEGNUPLOT
+         open(unit=42,file='plot_lamb.gp',status='replace',action='write')
+         write(42,'(a)') '# plot_lamb.gp'
+         write(42,'(a)') 'set terminal pngcairo size 1400,900 enhanced font "Helvetica,20"'
+         write(42,'(a)') 'set output "plot_lamb.png"'
+         write(42,'(a,es12.4,a,es12.4,a,es12.4,a)') &
+              'set title "Lamb: numerical vs theoretical D'//bs//'n'// &
+              'u0=', uwall, '   \omega_{th}=', myfreq_corr, '   \omega_{fit}=',omega_num, '"'
+         write(42,'(a)') 'set title offset 0,-0.5'
+         write(42,'(a)') 'set xlabel "time step"'
+         write(42,'(a)') 'set ylabel "D"'
+         write(42,'(a)') 'set grid'
+         write(42,'(a)') 'set key right top'
+         write(42,'(a)') 'set autoscale'
+         write(42,'(a)') 'plot ' // char(92)
+#ifdef MILLER
+         write(42,'(a)') '"lamb.dat" using 1:7 with lines lw 3 title "numerical", ' // char(92)
+#else         
+         write(42,'(a)') '"lamb.dat" using 1:2 with lines lw 3 title "numerical", ' // char(92)
+#endif
+         write(42,'(a)') '"lamb_theory.dat" using 1:2 with lines lw 3 dt 2 title "theoretical"'
+         write(42,'(a)') 'unset output'
+         close(42)
+         call execute_command_line('gnuplot plot_lamb.gp', wait=.true.)
+#endif
+         deallocate(mystep, dosc, adosc, pstep, pval)
+       endif
+#elif defined(LAPLACE) && defined(TWOCOMPONENT)
+
+       real(kind=db) :: mytime
+       integer :: stepfit,maxn,npeaks,myn,ios,nfit,mystep
+       real(kind=db) :: dt,mysum,mysqsum,avg,std,avgP,stdP,avgR,stdR
+       real(kind=db) :: mysumP,mysqsumP,mysumR,mysqsumR
+       real(kind=db) :: sigma_eff,delta_p,laplace_rad,p_in,p_out
+       
+ 
+		if(myrank==0)then
+		
+		  dt = ONE
+
+		
+		  open(unit=142,file='laplace.dat',status='old',action='read',iostat=ios)
+		  if(ios /= 0) then
+		    write(6,*) 'Errore apertura laplace.dat'
+		    return
+		  endif
+		
+		  myn = 0
+		  mysum=ZERO
+		  mysqsum=ZERO
+		  mysumP=ZERO;mysqsumP=ZERO;mysumR=ZERO;mysqsumR=ZERO
+		  do
+		    read(142,'(i8,5g16.8)',iostat=ios) mystep, sigma_eff,delta_p,laplace_rad,p_in,p_out
+		    if(ios /= 0) then
+		      exit
+		    endif
+		    myn = myn + 1
+		    mysum=mysum+sigma_eff
+		    mysqsum=mysqsum+sigma_eff*sigma_eff
+		    mysumP=mysumP+delta_p
+		    mysqsumP=mysqsumP+delta_p*delta_p
+		    mysumR=mysumR+laplace_rad
+		    mysqsumR=mysqsumR+laplace_rad*laplace_rad
+		  enddo
+		  close(142)
+		
+		  if(myn < 3) then
+		    write(6,*) 'Troppi pochi punti in laplace.dat'
+		    return
+		  endif
+		  
+		  avg = mysum / real(myn, db)
+          std = sqrt( real(myn,db)*mysqsum - mysum*mysum ) / real(myn,db)
+          avgP = mysumP / real(myn, db)
+          stdP = sqrt( real(myn,db)*mysqsumP - mysumP*mysumP ) / real(myn,db)
+          avgR = mysumR / real(myn, db)
+          stdR = sqrt( real(myn,db)*mysqsumR - mysumR*mysumR ) / real(myn,db)
+		  
+		  write(6,'(a,3i10)')   'posizione interna               = ', nint(center(1:3))
+		  write(6,'(a,3i10)')   'posizione esterna               = ', iprobe,jprobe,kprobe
+		  write(6,'(a,i10)')    'Numero punti letti              = ', myn
+		  write(6,'(a,f20.10)') 'Sigma teorica                   = ', sigma
+		  write(6,'(a,f20.10,a,f20.10)') 'Sigma numerica                  = ', avg,' +- ',std
+		  write(6,'(a,f20.10,a,f20.10)') 'Press numerica                  = ', avgP,' +- ',stdP
+		  write(6,'(a,f20.10,a,f20.10)') 'Radius numerica                 = ', avgR,' +- ',stdR
+
+		  open(unit=142, file='laplace.dat', status='old', action='write', position='append', iostat=ios)
+		  if(ios /= 0) then
+		    write(6,*) 'Errore apertura laplace.dat'
+		    return
+		  endif
+		  write(142,'(a,3i10)')   '#posizione interna               = ', nint(center(1:3))
+		  write(142,'(a,3i10)')   '#posizione esterna               = ', iprobe,jprobe,kprobe
+		  write(142,'(a,i10)')    '#Numero punti letti              = ', myn
+		  write(142,'(a,f20.10)') '#Sigma teorica                   = ', sigma
+		  write(142,'(a,f20.10,a,f20.10)') '#Sigma numerica                  = ', avg,' +- ',std
+		  write(142,'(a,f20.10,a,f20.10)') '#Press numerica                  = ', avgP,' +- ',stdP
+		  write(142,'(a,f20.10,a,f20.10)') '#Radius numerica                 = ', avgR,' +- ',stdR
+		  close(142)
+       endif
+#endif  
+
+
     
     endsubroutine
 

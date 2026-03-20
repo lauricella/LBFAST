@@ -128,6 +128,22 @@
 #warning "TAYLORGREEN: activated"
 #endif
 
+#ifdef LAMBTEST
+#warning "LAMBTEST: activated"
+#endif
+
+#ifdef MILLER
+#warning "MILLER: activated"
+#endif
+
+#ifdef LAPLACE
+#warning "LAPLACE: activated"
+#endif
+
+#ifdef PRINTPHI
+#warning "PRINTPHI: activated"
+#endif
+
 #ifdef USEGNUPLOT
 #warning "USEGNUPLOT: activated"
 #endif
@@ -301,7 +317,9 @@ module vars
 #ifdef IMPOSED_PRESSURE_GRADIENT
    real(kind=db) :: rhoIN,rhoOUT
 #endif
-
+#ifdef LAMBTEST
+   real(kind=db) :: lamb_eps
+#endif
    real(kind=db), parameter :: cssq=real(1.d0/3.d0,kind=db)
    real(kind=db), parameter :: invcssq=real(3.d0,kind=db)
 

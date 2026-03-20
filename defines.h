@@ -29,8 +29,17 @@
 #define noPOISEUILLE
 #define noTWOPOISEUILLE
 #define noTAYLORGREEN
-#define noUSEGNUPLOT
-#define noPRINTPHI
+#define noLAMBTEST
+#define noMILLER
+#define LAPLACE
+
+#define USEGNUPLOT
+#define PRINTPHI
+
+#ifdef LAPLACE
+#define TWOCOMPONENT
+#define WRITEPRESS
+#endif
 
 #ifdef TWOPOISEUILLE
 #define INTERNAL_OBSTACLES
