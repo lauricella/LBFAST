@@ -2,7 +2,7 @@
    nsteps=50000
    stamp=1000
    stamp2D=500
-   stamp_term=20
+   stamp_term=100
    stepskip=1
    lreadisfluid=.false.   !metti true se leggi isfluid
    lreadinit=.false.  !metti true se leggi rho phi e u v w
