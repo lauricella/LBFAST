@@ -31,7 +31,7 @@
 #define noTAYLORGREEN
 #define noLAMBTEST
 #define noMILLER
-#define LAPLACE
+#define noLAPLACE
 
 #define USEGNUPLOT
 #define PRINTPHI
