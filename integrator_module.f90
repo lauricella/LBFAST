@@ -347,7 +347,8 @@ contains
         subchords(1)=(gi-1)/nx
         subchords(2)=(gj-1)/ny
         subchords(3)=(gk-1)/nz
-        pstar_in=ZERO        
+        pstar_in=ZERO 
+        rhophi_in=ZERO       
         if(all(subchords==coords))then
           i=gi/stepskip-skip_myoffset(1)
           j=gj/stepskip-skip_myoffset(2)
@@ -365,7 +366,8 @@ contains
         subchords(1)=(gi-1)/nx
         subchords(2)=(gj-1)/ny
         subchords(3)=(gk-1)/nz
-        pstar_out=ZERO        
+        pstar_out=ZERO    
+        rhophi_out=ZERO   
         if(all(subchords==coords))then
           i=gi/stepskip-skip_myoffset(1)
           j=gj/stepskip-skip_myoffset(2)
@@ -387,6 +389,7 @@ contains
         if(myrank==0)then
            open(unit=142,file='laplace.dat',action='write',status='replace')
            write(142,'(i8,3g16.8)')step,sigma_eff,delta_p,laplace_rad
+           call flush(142)
         endif  
 #endif
       endif
@@ -752,7 +755,8 @@ contains
 		        subchords(1)=(gi-1)/nx
 		        subchords(2)=(gj-1)/ny
 		        subchords(3)=(gk-1)/nz
-		        pstar_in=ZERO        
+		        pstar_in=ZERO  
+		        rhophi_in=ZERO      
 		        if(all(subchords==coords))then
 		          i=gi/stepskip-skip_myoffset(1)
 		          j=gj/stepskip-skip_myoffset(2)
@@ -770,7 +774,8 @@ contains
 		        subchords(1)=(gi-1)/nx
 		        subchords(2)=(gj-1)/ny
 		        subchords(3)=(gk-1)/nz
-		        pstar_out=ZERO        
+		        pstar_out=ZERO 
+		        rhophi_out=ZERO       
 		        if(all(subchords==coords))then
 		          i=gi/stepskip-skip_myoffset(1)
 		          j=gj/stepskip-skip_myoffset(2)
@@ -791,6 +796,7 @@ contains
 		        
 		        if(myrank==0)then
 		           write(142,'(i8,5g16.8)')step,sigma_eff,delta_p,laplace_rad,p_in,p_out
+		           call flush(142)
 		        endif  
 #endif
 
@@ -1213,7 +1219,8 @@ contains
 		        subchords(1)=(gi-1)/nx
 		        subchords(2)=(gj-1)/ny
 		        subchords(3)=(gk-1)/nz
-		        pstar_in=ZERO        
+		        pstar_in=ZERO     
+		        rhophi_in=ZERO   
 		        if(all(subchords==coords))then
 		          i=gi/stepskip-skip_myoffset(1)
 		          j=gj/stepskip-skip_myoffset(2)
@@ -1231,7 +1238,8 @@ contains
 		        subchords(1)=(gi-1)/nx
 		        subchords(2)=(gj-1)/ny
 		        subchords(3)=(gk-1)/nz
-		        pstar_out=ZERO        
+		        pstar_out=ZERO  
+		        rhophi_out=ZERO      
 		        if(all(subchords==coords))then
 		          i=gi/stepskip-skip_myoffset(1)
 		          j=gj/stepskip-skip_myoffset(2)
@@ -1252,6 +1260,7 @@ contains
 		        
 		        if(myrank==0)then
 		           write(142,'(i8,5g16.8)')step,sigma_eff,delta_p,laplace_rad,p_in,p_out
+		           call flush(142)
 		        endif  
 #endif
 
