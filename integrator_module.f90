@@ -56,17 +56,18 @@ module integrator_module
 #else
    get_totram
 #endif
-   use stat_module, only: Ekin0,Ekin,probe_loc, &
+   use stat_module, only: Ekin0,Ekin, &
 #if defined(LAMBTEST) && defined(TWOCOMPONENT)
     lamb_z,lamb_cm_z,lamb_x,lamb_cm_x, &
     lamb_dosc,lamb_A,pos_x_int_left,pos_x_int_node_left,pos_x_int_right, &
     pos_x_int_node_right,pos_z_int_left,pos_z_int_node_left, &
-    pos_z_int_right,pos_z_int_node_right
+    pos_z_int_right,pos_z_int_node_right, &
 #elif defined(LAPLACE)
     lamb_x,lamb_cm_x, &
     pos_x_int_left,pos_x_int_node_left,pos_x_int_right, &
-    pos_x_int_node_right
+    pos_x_int_node_right, &
 #endif
+    probe_loc
    implicit none
 
 contains

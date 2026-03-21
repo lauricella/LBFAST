@@ -106,8 +106,8 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
-		  mymask=ONE-fcut_tanh(phi_loc,0.015_db,0.005_db)
-          mymask=    fcut_tanh(phi_loc,0.995_db,0.005_db)*mymask
+		  mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
+		  mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -428,8 +428,8 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
-		  mymask=ONE-fcut_tanh(phi_loc,0.015_db,0.005_db)
-          mymask=    fcut_tanh(phi_loc,0.995_db,0.005_db)*mymask
+		  mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
+          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -759,8 +759,8 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
-		  mymask=ONE-fcut_tanh(phi_loc,0.015_db,0.005_db)
-          mymask=    fcut_tanh(phi_loc,0.995_db,0.005_db)*mymask
+		  mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
+          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -1091,8 +1091,8 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
-		  mymask=ONE-fcut_tanh(phi_loc,0.015_db,0.005_db)
-          mymask=    fcut_tanh(phi_loc,0.995_db,0.005_db)*mymask
+		  mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
+          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -1423,8 +1423,8 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
-		  mymask=ONE-fcut_tanh(phi_loc,0.015_db,0.005_db)
-          mymask=    fcut_tanh(phi_loc,0.995_db,0.005_db)*mymask
+		  mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
+          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -1754,8 +1754,8 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
-		  mymask=ONE-fcut_tanh(phi_loc,0.015_db,0.005_db)
-          mymask=    fcut_tanh(phi_loc,0.995_db,0.005_db)*mymask
+		  mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
+          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -2086,8 +2086,8 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
-		  mymask=ONE-fcut_tanh(phi_loc,0.015_db,0.005_db)
-          mymask=    fcut_tanh(phi_loc,0.995_db,0.005_db)*mymask
+		  mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
+          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -2419,8 +2419,8 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
-		  mymask=ONE-fcut_tanh(phi_loc,0.015_db,0.005_db)
-          mymask=    fcut_tanh(phi_loc,0.995_db,0.005_db)*mymask
+		  mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
+          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
