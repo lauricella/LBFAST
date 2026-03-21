@@ -362,6 +362,7 @@ contains
 #endif 
         endif
         call sum_world_float(pstar_in)
+        call sum_world_float(rhophi_in)
         gi=iprobe;gj=jprobe;gk=kprobe
         subchords(1)=(gi-1)/nx
         subchords(2)=(gj-1)/ny
@@ -375,12 +376,13 @@ contains
           pstar_out=pressprint(i,j,k)
 #ifdef PRINTPHI
           rhophi_out=rhoprint(i,j,k)
-          rhophi_out=rho_r*rhophi_in+(ONE-rhophi_in)*rho_b
+          rhophi_out=rho_r*rhophi_out+(ONE-rhophi_out)*rho_b
 #else
           rhophi_out=rhoprint(i,j,k)
 #endif 
         endif
         call sum_world_float(pstar_out)
+        call sum_world_float(rhophi_out)
         p_in  = rhophi_in  * cssq * pstar_in
         p_out = rhophi_out  * cssq * pstar_out
         delta_p   = p_in - p_out
@@ -770,6 +772,7 @@ contains
 #endif 
 		        endif
 		        call sum_world_float(pstar_in)
+		        call sum_world_float(rhophi_in)
 		        gi=iprobe;gj=jprobe;gk=kprobe
 		        subchords(1)=(gi-1)/nx
 		        subchords(2)=(gj-1)/ny
@@ -783,12 +786,13 @@ contains
 		          pstar_out=pressprint(i,j,k)
 #ifdef PRINTPHI
 		          rhophi_out=rhoprint(i,j,k)
-		          rhophi_out=rho_r*rhophi_in+(ONE-rhophi_in)*rho_b
+		          rhophi_out=rho_r*rhophi_out+(ONE-rhophi_out)*rho_b
 #else
 		          rhophi_out=rhoprint(i,j,k)
 #endif 
 		        endif
 		        call sum_world_float(pstar_out)
+                call sum_world_float(rhophi_out)
 		        p_in  = rhophi_in  * cssq * pstar_in
 		        p_out = rhophi_out  * cssq * pstar_out
 		        delta_p   = p_in - p_out
@@ -1219,8 +1223,8 @@ contains
 		        subchords(1)=(gi-1)/nx
 		        subchords(2)=(gj-1)/ny
 		        subchords(3)=(gk-1)/nz
-		        pstar_in=ZERO     
-		        rhophi_in=ZERO   
+		        pstar_in=ZERO  
+		        rhophi_in=ZERO      
 		        if(all(subchords==coords))then
 		          i=gi/stepskip-skip_myoffset(1)
 		          j=gj/stepskip-skip_myoffset(2)
@@ -1234,12 +1238,13 @@ contains
 #endif 
 		        endif
 		        call sum_world_float(pstar_in)
+		        call sum_world_float(rhophi_in)
 		        gi=iprobe;gj=jprobe;gk=kprobe
 		        subchords(1)=(gi-1)/nx
 		        subchords(2)=(gj-1)/ny
 		        subchords(3)=(gk-1)/nz
-		        pstar_out=ZERO  
-		        rhophi_out=ZERO      
+		        pstar_out=ZERO 
+		        rhophi_out=ZERO       
 		        if(all(subchords==coords))then
 		          i=gi/stepskip-skip_myoffset(1)
 		          j=gj/stepskip-skip_myoffset(2)
@@ -1247,12 +1252,13 @@ contains
 		          pstar_out=pressprint(i,j,k)
 #ifdef PRINTPHI
 		          rhophi_out=rhoprint(i,j,k)
-		          rhophi_out=rho_r*rhophi_in+(ONE-rhophi_in)*rho_b
+		          rhophi_out=rho_r*rhophi_out+(ONE-rhophi_out)*rho_b
 #else
 		          rhophi_out=rhoprint(i,j,k)
 #endif 
 		        endif
 		        call sum_world_float(pstar_out)
+                call sum_world_float(rhophi_out)
 		        p_in  = rhophi_in  * cssq * pstar_in
 		        p_out = rhophi_out  * cssq * pstar_out
 		        delta_p   = p_in - p_out

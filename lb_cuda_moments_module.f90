@@ -73,7 +73,7 @@ contains
       real(kind=db) :: tforcex,tforcey,tforcez
 
 #ifdef TWOCOMPONENT
-	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc
+	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc,mymask
 #endif
       
 #ifdef DENSRATIO
@@ -106,6 +106,8 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+		  mymask=ONE-fcut_tanh(phi_loc,0.015_db,0.005_db)
+          mymask=    fcut_tanh(phi_loc,0.995_db,0.005_db)*mymask
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -133,11 +135,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
-		  forcex = forcex + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcex = forcex + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcey = forcey + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez = forcez + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				
 				   				   
@@ -171,11 +173,11 @@ contains
                   gradrhoy=(rho_r-rho_b)*gradfiy
                   gradrhoz=(rho_r-rho_b)*gradfiz
 				  
-                  forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+                  forcex=forcex - mymask* &
                    press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
-                  forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+                  forcey=forcey - mymask* &
                    press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
-                  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+                  forcez=forcez - mymask* &
                    press_loc*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
 		  !! from this point I compute the force terms that depend on the velocity
 		  !! these terms should be not included in force arrays since they must be computed with the updated velocity
@@ -222,11 +224,11 @@ contains
 				  
                   tau_loc=(visc_loc*invcssq + HALF) !è una tau
 				  
-		  forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcex=forcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcey=forcey - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez=forcez - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
@@ -323,11 +325,11 @@ contains
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
                   
-                  tforcex = tforcex - FOUR*phi_loc*(ONE-phi_loc)* &
+                  tforcex = tforcex - mymask* &
                    (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-                  tforcey = tforcey - FOUR*phi_loc*(ONE-phi_loc)* &
+                  tforcey = tforcey - mymask* &
                    (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-                  tforcez = tforcez - FOUR*phi_loc*(ONE-phi_loc)* &
+                  tforcez = tforcez - mymask* &
                    (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif  
         
@@ -394,7 +396,7 @@ contains
       real(kind=db) :: tforcex,tforcey,tforcez
       
 #ifdef TWOCOMPONENT
-	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc
+	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc,mymask
 #endif
       
 #ifdef DENSRATIO
@@ -426,6 +428,8 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+		  mymask=ONE-fcut_tanh(phi_loc,0.015_db,0.005_db)
+          mymask=    fcut_tanh(phi_loc,0.995_db,0.005_db)*mymask
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -453,11 +457,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
-		  forcex = forcex + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcex = forcex + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcey = forcey + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez = forcez + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 
@@ -490,11 +494,11 @@ contains
 		  gradrhoy=(rho_r-rho_b)*gradfiy
 		  gradrhoz=(rho_r-rho_b)*gradfiz
 				  
-          forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+          forcex=forcex - mymask* &
            press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
-          forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+          forcey=forcey - mymask* &
            press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
-		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez=forcez - mymask* &
 		   press_loc*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
 		  !! from this point I compute the force terms that depend on the velocity
 		  !! these terms should be not included in force arrays since they must be computed with the updated velocity
@@ -545,11 +549,11 @@ contains
 				  
                   tau_loc=(visc_loc*invcssq + HALF) !è una tau
 				  
-		  forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcex=forcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcey=forcey - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez=forcez - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
@@ -651,11 +655,11 @@ contains
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  tforcex= tforcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcex= tforcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  tforcey= tforcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcey= tforcey - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  tforcez= tforcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcez= tforcez - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
@@ -722,7 +726,7 @@ contains
       real(kind=db) :: tforcex,tforcey,tforcez
       
 #ifdef TWOCOMPONENT
-	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc
+	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc,mymask
 #endif
       
 #ifdef DENSRATIO
@@ -755,6 +759,8 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+		  mymask=ONE-fcut_tanh(phi_loc,0.015_db,0.005_db)
+          mymask=    fcut_tanh(phi_loc,0.995_db,0.005_db)*mymask
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -782,11 +788,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
-		  forcex = forcex + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcex = forcex + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcey = forcey + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez = forcez + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 
@@ -819,11 +825,11 @@ contains
 		  gradrhoy=(rho_r-rho_b)*gradfiy
 		  gradrhoz=(rho_r-rho_b)*gradfiz
 				  
-          forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+          forcex=forcex - mymask* &
            press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
-          forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+          forcey=forcey - mymask* &
            press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
-		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez=forcez - mymask* &
 		   press_loc*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
 		  !! from this point I compute the force terms that depend on the velocity
 		  !! these terms should be not included in force arrays since they must be computed with the updated velocity
@@ -874,11 +880,11 @@ contains
 				  
                   tau_loc=(visc_loc*invcssq + HALF) !è una tau
 				  
-		  forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcex=forcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcey=forcey - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez=forcez - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
@@ -981,11 +987,11 @@ contains
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  tforcex= tforcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcex= tforcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  tforcey= tforcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcey= tforcey - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  tforcez= tforcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcez= tforcez - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
@@ -1052,7 +1058,7 @@ contains
       real(kind=db) :: tforcex,tforcey,tforcez
       
 #ifdef TWOCOMPONENT
-	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc
+	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc,mymask
 #endif
       
 #ifdef DENSRATIO
@@ -1085,6 +1091,8 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+		  mymask=ONE-fcut_tanh(phi_loc,0.015_db,0.005_db)
+          mymask=    fcut_tanh(phi_loc,0.995_db,0.005_db)*mymask
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -1112,11 +1120,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 		  
-		  forcex = forcex + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcex = forcex + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcey = forcey + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez = forcez + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 
@@ -1149,11 +1157,11 @@ contains
 		  gradrhoy=(rho_r-rho_b)*gradfiy
 		  gradrhoz=(rho_r-rho_b)*gradfiz
 				  
-          forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+          forcex=forcex - mymask* &
            press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
-          forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+          forcey=forcey - mymask* &
            press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
-		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez=forcez - mymask* &
 		   press_loc*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
 		  !! from this point I compute the force terms that depend on the velocity
 		  !! these terms should be not included in force arrays since they must be computed with the updated velocity
@@ -1204,11 +1212,11 @@ contains
 				  
                   tau_loc=(visc_loc*invcssq + HALF) !è una tau
 				  
-		  forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcex=forcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcey=forcey - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez=forcez - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
@@ -1311,11 +1319,11 @@ contains
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  tforcex= tforcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcex= tforcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  tforcey= tforcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcey= tforcey - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  tforcez= tforcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcez= tforcez - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
@@ -1382,7 +1390,7 @@ contains
       real(kind=db) :: tforcex,tforcey,tforcez
       
 #ifdef TWOCOMPONENT
-	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc
+	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc,mymask
 #endif
       
 #ifdef DENSRATIO
@@ -1415,6 +1423,8 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+		  mymask=ONE-fcut_tanh(phi_loc,0.015_db,0.005_db)
+          mymask=    fcut_tanh(phi_loc,0.995_db,0.005_db)*mymask
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -1442,11 +1452,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 		  
-		  forcex = forcex + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcex = forcex + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcey = forcey + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez = forcez + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 
@@ -1479,11 +1489,11 @@ contains
 		  gradrhoy=(rho_r-rho_b)*gradfiy
 		  gradrhoz=(rho_r-rho_b)*gradfiz
 				  
-          forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+          forcex=forcex - mymask* &
            press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
-          forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+          forcey=forcey - mymask* &
            press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
-		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez=forcez - mymask* &
 		   press_loc*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
 		  !! from this point I compute the force terms that depend on the velocity
 		  !! these terms should be not included in force arrays since they must be computed with the updated velocity
@@ -1533,11 +1543,11 @@ contains
 				  
                   tau_loc=(visc_loc*invcssq + HALF) !è una tau
 				  
-		  forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcex=forcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcey=forcey - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez=forcez - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
@@ -1640,11 +1650,11 @@ contains
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  tforcex= tforcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcex= tforcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  tforcey= tforcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcey= tforcey - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  tforcez= tforcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcez= tforcez - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
@@ -1711,7 +1721,7 @@ contains
       real(kind=db) :: tforcex,tforcey,tforcez
       
 #ifdef TWOCOMPONENT
-	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc
+	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc,mymask
 #endif
       
 #ifdef DENSRATIO
@@ -1744,6 +1754,8 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+		  mymask=ONE-fcut_tanh(phi_loc,0.015_db,0.005_db)
+          mymask=    fcut_tanh(phi_loc,0.995_db,0.005_db)*mymask
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -1771,11 +1783,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
-		  forcex = forcex + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcex = forcex + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcey = forcey + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez = forcez + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 
@@ -1808,11 +1820,11 @@ contains
 		  gradrhoy=(rho_r-rho_b)*gradfiy
 		  gradrhoz=(rho_r-rho_b)*gradfiz
 				  
-          forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+          forcex=forcex - mymask* &
            press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
-          forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+          forcey=forcey - mymask* &
            press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
-		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez=forcez - mymask* &
 		   press_loc*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
 		  !! from this point I compute the force terms that depend on the velocity
 		  !! these terms should be not included in force arrays since they must be computed with the updated velocity
@@ -1863,11 +1875,11 @@ contains
 				  
                   tau_loc=(visc_loc*invcssq + HALF) !è una tau
 				  
-		  forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcex=forcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcey=forcey - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez=forcez - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
@@ -1970,11 +1982,11 @@ contains
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  tforcex= tforcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcex= tforcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  tforcey= tforcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcey= tforcey - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  tforcez= tforcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcez= tforcez - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
@@ -2041,7 +2053,7 @@ contains
       real(kind=db) :: tforcex,tforcey,tforcez
       
 #ifdef TWOCOMPONENT
-	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc
+	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc,mymask
 #endif
       
 #ifdef DENSRATIO
@@ -2074,6 +2086,8 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+		  mymask=ONE-fcut_tanh(phi_loc,0.015_db,0.005_db)
+          mymask=    fcut_tanh(phi_loc,0.995_db,0.005_db)*mymask
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -2101,11 +2115,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
-		  forcex = forcex + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcex = forcex + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcey = forcey + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez = forcez + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 
@@ -2138,11 +2152,11 @@ contains
 		  gradrhoy=(rho_r-rho_b)*gradfiy
 		  gradrhoz=(rho_r-rho_b)*gradfiz
 				  
-          forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+          forcex=forcex - mymask* &
            press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
-          forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+          forcey=forcey - mymask* &
            press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
-		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez=forcez - mymask* &
 		   press_loc*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
 		  !! from this point I compute the force terms that depend on the velocity
 		  !! these terms should be not included in force arrays since they must be computed with the updated velocity
@@ -2193,11 +2207,11 @@ contains
 				  
                   tau_loc=(visc_loc*invcssq + HALF) !è una tau
 				  
-		  forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcex=forcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcey=forcey - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez=forcez - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
@@ -2301,11 +2315,11 @@ contains
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  tforcex= tforcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcex= tforcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  tforcey= tforcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcey= tforcey - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  tforcez= tforcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcez= tforcez - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
@@ -2372,7 +2386,7 @@ contains
       real(kind=db) :: tforcex,tforcey,tforcez
 
 #ifdef TWOCOMPONENT
-	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc
+	  real(kind=db) ::gradfix,gradfiy,gradfiz,wet_loc,phi_loc,lap_phi_loc,mymask
 #endif
       
 #ifdef DENSRATIO
@@ -2405,6 +2419,8 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
+		  mymask=ONE-fcut_tanh(phi_loc,0.015_db,0.005_db)
+          mymask=    fcut_tanh(phi_loc,0.995_db,0.005_db)*mymask
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -2432,11 +2448,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
-		  forcex = forcex + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcex = forcex + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcey = forcey + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez = forcez + mymask* &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 
@@ -2469,11 +2485,11 @@ contains
 		  gradrhoy=(rho_r-rho_b)*gradfiy
 		  gradrhoz=(rho_r-rho_b)*gradfiz
 				  
-          forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+          forcex=forcex - mymask* &
            press_loc*cssq*gradrhox   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fx
-          forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+          forcey=forcey - mymask* &
            press_loc*cssq*gradrhoy   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fy
-		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez=forcez - mymask* &
 		   press_loc*cssq*gradrhoz   !+ (rhophi_loc-(rho_r+rho_b)*HALF)*fz
 		  !! from this point I compute the force terms that depend on the velocity
 		  !! these terms should be not included in force arrays since they must be computed with the updated velocity
@@ -2524,11 +2540,11 @@ contains
 				  
                   tau_loc=(visc_loc*invcssq + HALF) !è una tau
 				  
-		  forcex=forcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcex=forcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  forcey=forcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcey=forcey - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  forcez=forcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  forcez=forcez - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif	
                   !I compute the new velocities
@@ -2631,11 +2647,11 @@ contains
                   pxz=pxz - u_loc*w_loc
                   pyz=pyz - v_loc*w_loc
 		  
-		  tforcex= tforcex - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcex= tforcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
-		  tforcey= tforcey - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcey= tforcey - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pyy*gradrhoy + pxy*gradrhox + pyz*gradrhoz)
-		  tforcez= tforcez - FOUR*phi_loc*(ONE-phi_loc)* &
+		  tforcez= tforcez - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pzz*gradrhoz + pxz*gradrhox + pyz*gradrhoy)
 #endif               
 
