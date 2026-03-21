@@ -512,7 +512,7 @@ contains
        real(kind=db) :: dt, xfit, yfit, beta_num
        real(kind=db) :: sx, sy, sxx, sxy
        real(kind=db) :: lamb_x_tmp, lamb_z_tmp, lamb_cm_x_tmp, lamb_cm_z_tmp,my_tmp
-       real(kind=db) :: Aenv, t1
+       real(kind=db) :: Aenv, t1,myperiod
        integer, allocatable :: mystep(:), pstep(:)
        real(db), allocatable :: dosc(:), adosc(:), pval(:)
        integer, parameter :: min_peak_dist = 2000
@@ -530,6 +530,8 @@ contains
            (TWO*radius * (nrat*rho_b + (nrat + ONE)*rho_r) * &
            (sqrt(mu1*rho_r) + sqrt(mu2*rho_b)))
 		  myfreq_corr = myfreq - HALF*chi*sqrt(myfreq) + (ONE/FOUR)*chi**TWO
+
+          myperiod = TWO*pi_greek / myfreq_corr
 		  
 		  maxn = nsteps/stamp_term + 1
 		

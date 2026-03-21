@@ -2,7 +2,7 @@
 module initial_condts
 
    use vars
-   use mpi_template, only: coords,myoffset,sum_world_float,dostop
+   use mpi_template, only: coords,myoffset,sum_world_float,dostop,myrank
    use stat_module, only: Ekin0,Ekin, &
 #if defined(LAMBTEST) && defined(TWOCOMPONENT)   
     lamb_A,lamb_visc, &
@@ -27,6 +27,7 @@ contains
 #endif    
 #ifdef LAMBTEST
       real(kind=db) :: myp2,xx,yy,zz,rr,costh,rloc,eta0  
+      real(kind=db) :: myfreq,nrat,mu1,mu2,chi,myfreq_corr,myperiod
 #endif 
 #if defined(MULTIHIT)
 	  real(kind=db) :: k_zero
@@ -220,6 +221,22 @@ contains
        lamb_A=uwall / radius
        lamb_visc=ZERO
        lamb_visc_temp=ZERO
+       myfreq = sqrt(TWENTYFOUR*sigma / (radius**THREE * (TWO*rho_b + THREE*rho_r)))
+	   nrat = rho_r/rho_b
+       mu1  = rho_r*visc1
+       mu2  = rho_b*visc2
+
+       chi = ((TWO*nrat + ONE)**TWO * sqrt(mu1*mu2*rho_r*rho_b)) / &
+        (TWO*radius * (nrat*rho_b + (nrat + ONE)*rho_r) * &
+        (sqrt(mu1*rho_r) + sqrt(mu2*rho_b)))
+	   myfreq_corr = myfreq - HALF*chi*sqrt(myfreq) + (ONE/FOUR)*chi**TWO
+
+       myperiod = TWO*pi_greek / myfreq_corr
+       
+       if(myrank==0)then
+          write(6,'(a,f.20.10)')'LAMB: myfreq_corr',myfreq_corr
+          write(6,'(a,f.20.10)')'LAMB: myperiod',myperiod
+       endif
 #endif       
        
 #if defined(POISEUILLE) || defined(TWOPOISEUILLE)
