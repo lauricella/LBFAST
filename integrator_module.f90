@@ -299,6 +299,7 @@ contains
         if(myrank==0)then
            open(unit=142,file='lamb.dat',action='write',status='replace')
            write(142,'(i8,7g16.8)')step,lamb_dosc,lamb_x,lamb_z,lamb_cm_x,lamb_cm_z,pos_z_int_right-lamb_cm_z
+           call flush(142)
         endif         
 #endif
 #ifdef LAPLACE
@@ -622,7 +623,10 @@ contains
                Ekin=HALF*Ekin/real(nxskip*nyskip*nzskip,kind=db)
                call sum_world_float(Ekin)
                Ekin=Ekin/real(nprocs,kind=db)
-               if(myrank==0)write(142,'(i12,2es20.10)') step, Ekin/Ekin0, log(Ekin/Ekin0)
+               if(myrank==0)then
+                 write(142,'(i12,2es20.10)') step, Ekin/Ekin0, log(Ekin/Ekin0)
+                 call flush(142)
+               endif
 #endif
 #if defined(LAMBTEST) && defined(TWOCOMPONENT)
 		         gi=lx/2
@@ -709,6 +713,7 @@ contains
 		        
 		        if(myrank==0)then
 		           write(142,'(i8,7g16.8)')step,lamb_dosc,lamb_x,lamb_z,lamb_cm_x,lamb_cm_z,pos_z_int_right-lamb_cm_z
+		           call flush(142)
 		        endif         
 #endif
 #ifdef LAPLACE
@@ -1088,7 +1093,10 @@ contains
                Ekin=HALF*Ekin/real(nxskip*nyskip*nzskip,kind=db)
                call sum_world_float(Ekin)
                Ekin=Ekin/real(nprocs,kind=db)
-               if(myrank==0)write(142,'(i12,2es20.10)') step, Ekin/Ekin0, log(Ekin/Ekin0)
+               if(myrank==0)then
+                 write(142,'(i12,2es20.10)') step, Ekin/Ekin0, log(Ekin/Ekin0)
+                 call flush(142)
+               endif
 #endif
 #if defined(LAMBTEST) && defined(TWOCOMPONENT)
 		         gi=lx/2
@@ -1175,6 +1183,7 @@ contains
 		        
 		        if(myrank==0)then
 		           write(142,'(i8,7g16.8)')step,lamb_dosc,lamb_x,lamb_z,lamb_cm_x,lamb_cm_z,pos_z_int_right-lamb_cm_z
+		           call flush(142)
 		        endif         
 #endif
 #ifdef LAPLACE

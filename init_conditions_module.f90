@@ -234,8 +234,8 @@ contains
        myperiod = TWO*pi_greek / myfreq_corr
        
        if(myrank==0)then
-          write(6,'(a,f.20.10)')'LAMB: myfreq_corr',myfreq_corr
-          write(6,'(a,f.20.10)')'LAMB: myperiod',myperiod
+          write(6,'(a,f20.10)')'LAMB: myfreq_corr',myfreq_corr
+          write(6,'(a,f20.10)')'LAMB: myperiod',myperiod
        endif
 #endif       
        
