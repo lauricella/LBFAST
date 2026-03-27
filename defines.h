@@ -34,11 +34,12 @@
 #define noLAPLACE
 
 #define USEGNUPLOT
-#define PRINTPHI
+#define noPRINTPHI
 
 #ifdef LAPLACE
 #define TWOCOMPONENT
 #define WRITEPRESS
+#define PRINTPHI
 #endif
 
 #ifdef TWOPOISEUILLE

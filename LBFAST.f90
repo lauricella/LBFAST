@@ -418,6 +418,8 @@ program threadsafeLB
       write(6,'(a,g16.8)') 'rho_b',rho_b
 #if defined(TAYLORGREEN) && !defined(TWOCOMPONENT)    
       write(6,'(a,g16.8)') 'u0tg',uwall 
+      write(6,*) 'Reynolds = ', uwall*(real(lx,kind=db)/(TWO*acos(-ONE)))/visc1
+      write(6,*) 'Lchar = ', real(lx,kind=db)/(TWO*acos(-ONE))
 #else  
       write(6,'(a,g16.8)') 'uwall',uwall
 #endif

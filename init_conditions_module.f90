@@ -306,7 +306,7 @@ contains
                   c2z = cos(TWO*z)
 
                   ! pressione idrodinamica fluttuante, media nulla
-                  loc_press = (uwall*uwall/SIXTEEN) * (c2x + c2y) * (TWO + c2z)
+                  loc_press = ((uwall*uwall/SIXTEEN) * (c2x + c2y) * (TWO + c2z))/(rhophi_loc*cssq)
 
 #elif defined(TWOCOMPONENT) && defined(TWOPOISEUILLE)
                dist   = real(gi,db) - xc_pois
