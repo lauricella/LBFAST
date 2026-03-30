@@ -106,8 +106,9 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
-		  mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
-		  mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
+!          mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
+!          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
+          mymask=FOUR*phi_loc*(ONE-phi_loc)
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -135,11 +136,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
-		  forcex = forcex + mymask* &
+		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + mymask* &
+		  forcey = forcey + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + mymask* &
+		  forcez = forcez + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				
 				   				   
@@ -428,8 +429,9 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
-		  mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
-          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
+!          mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
+!          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
+          mymask=FOUR*phi_loc*(ONE-phi_loc)
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -457,11 +459,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
-		  forcex = forcex + mymask* &
+		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + mymask* &
+		  forcey = forcey + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + mymask* &
+		  forcez = forcez + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 
@@ -759,8 +761,9 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
-		  mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
-          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
+!          mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
+!          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
+          mymask=FOUR*phi_loc*(ONE-phi_loc)
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -788,11 +791,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
-		  forcex = forcex + mymask* &
+		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + mymask* &
+		  forcey = forcey + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + mymask* &
+		  forcez = forcez + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 
@@ -1091,8 +1094,9 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
-		  mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
-          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
+!          mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
+!          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
+          mymask=FOUR*phi_loc*(ONE-phi_loc)
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -1120,11 +1124,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 		  
-		  forcex = forcex + mymask* &
+		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + mymask* &
+		  forcey = forcey + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + mymask* &
+		  forcez = forcez + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 
@@ -1423,8 +1427,9 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
-		  mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
-          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
+!          mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
+!          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
+          mymask=FOUR*phi_loc*(ONE-phi_loc)
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -1452,11 +1457,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 		  
-		  forcex = forcex + mymask* &
+		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + mymask* &
+		  forcey = forcey + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + mymask* &
+		  forcez = forcez + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 
@@ -1754,8 +1759,9 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
-		  mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
-          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
+!          mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
+!          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
+          mymask=FOUR*phi_loc*(ONE-phi_loc)
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -1783,11 +1789,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
-		  forcex = forcex + mymask* &
+		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + mymask* &
+		  forcey = forcey + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + mymask* &
+		  forcez = forcez + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 
@@ -2086,8 +2092,9 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
-		  mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
-          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
+!          mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
+!          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
+          mymask=FOUR*phi_loc*(ONE-phi_loc)
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -2115,11 +2122,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
-		  forcex = forcex + mymask* &
+		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + mymask* &
+		  forcey = forcey + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + mymask* &
+		  forcez = forcez + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 
@@ -2419,8 +2426,9 @@ contains
 #ifdef TWOCOMPONENT
 		  phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
-		  mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
-          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
+!          mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
+!          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
+          mymask=FOUR*phi_loc*(ONE-phi_loc)
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -2448,11 +2456,11 @@ contains
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
-		  forcex = forcex + mymask* &
+		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
-		  forcey = forcey + mymask* &
+		  forcey = forcey + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
-		  forcez = forcez + mymask* &
+		  forcez = forcez + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
 				   				   
 

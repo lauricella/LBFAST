@@ -378,6 +378,20 @@ contains
 				  loc_u = ZERO
 				  loc_v = ZERO
 				  loc_w = ZERO
+#elif defined(ELIPSLAMB) 
+
+                  dist3d(1)=real(gi,kind=db)-center(1)
+                  dist3d(2)=real(gj,kind=db)-center(2)
+                  dist3d(3)=real(gk,kind=db)-center(3)
+                  call pbc_images(invdim,dist3d,dist3dout)
+                   
+                  dist=sqrt((dist3dout(1)/(ONE+lamb_eps))**TWO + dist3dout(2)**TWO + dist3dout(3)**TWO)
+                   
+                  tempphi=ONE*fcut_tanh(dist,radius,width)
+                   
+				  loc_u = ZERO
+				  loc_v = ZERO
+				  loc_w = ZERO
 #else
                   dist3d(1)=real(gi,kind=db)-center(1)
 				  dist3d(2)=real(gj,kind=db)-center(2)
@@ -391,6 +405,7 @@ contains
 				  loc_u =  TWO *lamb_A*dist3dout(1)*tempphi
 				  loc_v =  TWO *lamb_A*dist3dout(2)*tempphi
 				  loc_w = -FOUR*lamb_A*dist3dout(3)*tempphi
+                   	  
 #endif				  
 !                 if (dist <= radius) then
 !                    loc_u =  TWO *lamb_A*dist3dout(1)

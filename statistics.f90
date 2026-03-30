@@ -145,12 +145,8 @@ contains
           j=gj/stepskip-skip_myoffset(2)
           k=gk/stepskip-skip_myoffset(3)
           pstar_in=pressprint(i,j,k)
-#ifdef PRINTPHI
           rhophi_in=rhoprint(i,j,k)
           rhophi_in=rho_r*rhophi_in+(ONE-rhophi_in)*rho_b
-#else
-          rhophi_in=rhoprint(i,j,k)
-#endif 
         endif
         call sum_world_float(pstar_in)
         call sum_world_float(rhophi_in)
@@ -165,12 +161,8 @@ contains
           j=gj/stepskip-skip_myoffset(2)
           k=gk/stepskip-skip_myoffset(3)
           pstar_out=pressprint(i,j,k)
-#ifdef PRINTPHI
           rhophi_out=rhoprint(i,j,k)
           rhophi_out=rho_r*rhophi_out+(ONE-rhophi_out)*rho_b
-#else
-          rhophi_out=rhoprint(i,j,k)
-#endif 
         endif
         call sum_world_float(pstar_out)
         call sum_world_float(rhophi_out)
@@ -249,12 +241,8 @@ contains
 		          j=gj/stepskip-skip_myoffset(2)
 		          k=gk/stepskip-skip_myoffset(3)
 		          pstar_in=pressprint(i,j,k)
-#ifdef PRINTPHI
 		          rhophi_in=rhoprint(i,j,k)
 		          rhophi_in=rho_r*rhophi_in+(ONE-rhophi_in)*rho_b
-#else
-		          rhophi_in=rhoprint(i,j,k)
-#endif 
 		        endif
 		        call sum_world_float(pstar_in)
 		        call sum_world_float(rhophi_in)
@@ -269,12 +257,8 @@ contains
 		          j=gj/stepskip-skip_myoffset(2)
 		          k=gk/stepskip-skip_myoffset(3)
 		          pstar_out=pressprint(i,j,k)
-#ifdef PRINTPHI
 		          rhophi_out=rhoprint(i,j,k)
 		          rhophi_out=rho_r*rhophi_out+(ONE-rhophi_out)*rho_b
-#else
-		          rhophi_out=rhoprint(i,j,k)
-#endif 
 		        endif
 		        call sum_world_float(pstar_out)
                 call sum_world_float(rhophi_out)
@@ -980,7 +964,7 @@ contains
        real(kind=db) :: dt, xfit, yfit, beta_num
        real(kind=db) :: sx, sy, sxx, sxy
        real(kind=db) :: lamb_x_tmp, lamb_z_tmp, lamb_cm_x_tmp, lamb_cm_z_tmp,my_tmp
-       real(kind=db) :: Aenv, t1,myperiod
+       real(kind=db) :: Aenv, t1,myperiod,period_th,freq_th
        integer, allocatable :: mystep(:), pstep(:)
        real(db), allocatable :: dosc(:), adosc(:), pval(:)
        integer, parameter :: min_peak_dist = 2000
@@ -994,12 +978,16 @@ contains
           mu1  = rho_r*visc1
           mu2  = rho_b*visc2
 
-          chi = ((TWO*nrat + ONE)**TWO * sqrt(mu1*mu2*rho_r*rho_b)) / &
-           (TWO*radius * (nrat*rho_b + (nrat + ONE)*rho_r) * &
+          chi = (((TWO*TWO + ONE)**TWO) * sqrt(mu1*mu2*rho_r*rho_b)) / &
+           (sqrt(TWO)*radius * (TWO*rho_b + (TWO + ONE)*rho_r) * &
            (sqrt(mu1*rho_r) + sqrt(mu2*rho_b)))
+ 
+           
 		  myfreq_corr = myfreq - HALF*chi*sqrt(myfreq) + (ONE/FOUR)*chi**TWO
+		  
+		  period_th = TWO*pi_greek / myfreq_corr
+          freq_th     = 1 / period_th
 
-          myperiod = TWO*pi_greek / myfreq_corr
 		  
 		  maxn = nsteps/stamp_term + 1
 		
@@ -1022,7 +1010,7 @@ contains
 		  do
 		    if(myn >= maxn) exit
 		    myn = myn + 1
-#ifdef MILLER 
+#if defined(MILLER) || defined(ELIPSLAMB)
 		    read(142,'(i8,7g16.8)',iostat=ios) mystep(myn),my_tmp, &
 		         lamb_x_tmp, lamb_z_tmp, lamb_cm_x_tmp, lamb_cm_z_tmp,dosc(myn)
 #else
@@ -1054,7 +1042,7 @@ contains
 		    adosc(i) = abs(dosc(i))
 		  enddo
 		
-#ifdef MILLER 
+#if defined(MILLER) || defined(ELIPSLAMB)
                   npeaks = 0
                   do i = 1, myn-1
                     if ( dosc(i) < dosc(i-1) .and. dosc(i) <= dosc(i+1) .and. dosc(i) > 1.1*radius ) then
@@ -1101,7 +1089,7 @@ contains
 		
 		  tmean = period_sum / real(npeaks-1, db)
 		  omega_num = TWO*pi_greek / tmean
-#ifndef MILLER			
+#if !defined(MILLER) && !defined(ELIPSLAMB)
 		  ! Fit lineare di log(pval) = intercept - beta * t
 		  sx  = ZERO
 		  sy  = ZERO
@@ -1135,10 +1123,11 @@ contains
 		  write(6,'(a,i10)')    'Numero punti attesi             = ', maxn
 		  write(6,'(a,i10)')    'Numero punti letti              = ', myn
 		  write(6,'(a,i10)')    'Numero picchi trovati           = ', npeaks
+		  write(6,'(a,f20.10)') 'Periodo teorico                 = ', period_th
 		  write(6,'(a,f20.10)') 'Omega teorica                   = ', myfreq_corr
 		  write(6,'(a,f20.10)') 'Periodo medio T_num             = ', tmean
 		  write(6,'(a,f20.10)') 'Frequenza angolare omega_num    = ', omega_num
-#ifndef MILLER		  
+#if !defined(MILLER) && !defined(ELIPSLAMB)  
 		  write(6,'(a,f20.10)') 'Dissipazione beta_num           = ', beta_num
 		  write(6,'(a,f20.10)') 'Fit slope                       = ', fit_slope
 		  write(6,'(a,f20.10)') 'Fit intercept                   = ', fit_intercept
@@ -1147,14 +1136,14 @@ contains
                     write(6,'(a,i6,a,i10,a,g16.8)') 'peak ',i,' step=',pstep(i),' amp=',pval(i)
                   enddo
          t1   = real(pstep(1),db)*dt
-#ifndef MILLER         
+#if !defined(MILLER) && !defined(ELIPSLAMB) 
          Aenv = pval(1)*exp(beta_num*t1)
 #endif
          open(unit=42,file='lamb_theory.dat',status='replace',action='write')
          
          do i = 1, myn
            mytime  = real(mystep(i),kind=db)*dt
-#ifdef MILLER 
+#if defined(MILLER) || defined(ELIPSLAMB)
            dosc_th = radius + amp0 * cos(myfreq_corr * mytime)
 #else
            dosc_th = -Aenv*sin(myfreq_corr*mytime)
@@ -1178,7 +1167,7 @@ contains
          write(42,'(a)') 'set key right top'
          write(42,'(a)') 'set autoscale'
          write(42,'(a)') 'plot ' // char(92)
-#ifdef MILLER
+#if defined(MILLER) || defined(ELIPSLAMB)
          write(42,'(a)') '"lamb.dat" using 1:7 with lines lw 3 title "numerical", ' // char(92)
 #else         
          write(42,'(a)') '"lamb.dat" using 1:2 with lines lw 3 title "numerical", ' // char(92)

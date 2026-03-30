@@ -30,7 +30,6 @@
 #define noTWOPOISEUILLE
 #define noTAYLORGREEN
 #define noLAMBTEST
-#define noMILLER
 #define noLAPLACE
 
 #define USEGNUPLOT
@@ -38,14 +37,25 @@
 
 #ifdef LAPLACE
 #define TWOCOMPONENT
-#define WRITEPRESS
+#define DENSRATIO
 #define PRINTPHI
+#define WRITEPRESS
+#endif
+
+#ifdef LAMBTEST
+#define TWOCOMPONENT
+#define DENSRATIO
+#define PRINTPHI
+#define WRITEPRESS
+#define ELIPSLAMB
+#define noMILLER
 #endif
 
 #ifdef TWOPOISEUILLE
 #define INTERNAL_OBSTACLES
 #define TWOCOMPONENT
 #define DENSRATIO
+#define PRINTPHI
 #endif
 
 #ifdef POISEUILLE
