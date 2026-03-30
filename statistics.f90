@@ -3,7 +3,7 @@ module stat_module
 
    use vars
    use mpi_template, only : sum_world_farr,coords,myoffset,sum_world_float, &
-    dostop,myrank,doerror
+    dostop,myrank,doerror,nprocs,skip_myoffset
    
    implicit none
    
@@ -26,9 +26,477 @@ module stat_module
    real(kind=db) :: pos_x_int_right=ZERO
    real(kind=db) :: pos_x_int_node_right=ZERO   
    real(kind=db) :: lamb_x,lamb_cm_x,laplace_rad
+   real(kind=db) :: rhophi_in,pstar_in,p_in
+   real(kind=db) :: rhophi_out,pstar_out,p_out
+   real(kind=db) :: delta_p,laplace_rad
+   real(kind=db) :: sigma_eff  
 #endif
 contains
-
+   
+   subroutine open_taylorgreen(myio)
+   
+      implicit none
+      
+      integer, intent(in) :: myio
+      
+         Ekin0=ZERO
+         do k=1,nzskip
+            do j=1,nyskip
+               do i=1,nxskip  
+                 Ekin0=Ekin0+real((velprint(1,i,j,k)**TWO + velprint(2,i,j,k)**TWO + &
+                  velprint(3,i,j,k)**TWO),kind=db)   
+               enddo
+            enddo
+         enddo   
+         Ekin0=HALF*Ekin0/real(nxskip*nyskip*nzskip,kind=db)
+         call sum_world_float(Ekin0)  
+         Ekin0=Ekin0/real(nprocs,kind=db)
+         if(myrank==0)then
+           open(unit=myio,file='taylorgreen.dat',action='write',status='replace')
+           !write(myio,'(i12,2es20.10)') 0, ONE, ZERO
+         endif
+      
+      
+      
+   end subroutine open_taylorgreen
+   
+   subroutine print_taylorgreen(myio)
+   
+      implicit none
+      
+      integer, intent(in) :: myio
+         
+               Ekin=ZERO
+               do k=1,nzskip
+                 do j=1,nyskip
+                   do i=1,nxskip  
+                     Ekin=Ekin+real((velprint(1,i,j,k)**TWO + velprint(2,i,j,k)**TWO + &
+                      velprint(3,i,j,k)**TWO),kind=db)   
+                   enddo
+                 enddo
+               enddo   
+               Ekin=HALF*Ekin/real(nxskip*nyskip*nzskip,kind=db)
+               call sum_world_float(Ekin)
+               Ekin=Ekin/real(nprocs,kind=db)
+               if(myrank==0)then
+                 write(myio,'(i12,2es20.10)') step, Ekin/Ekin0, log(Ekin/Ekin0)
+                 call flush(myio)
+               endif
+               
+   end subroutine print_taylorgreen
+#ifdef LAPLACE   
+   subroutine open_laplace(myio)
+   
+      implicit none
+      
+      integer, intent(in) :: myio
+      integer :: subchords(3)
+      
+         gj=ly/2
+         gk=lz/2
+         pos_x_int_left=ZERO
+         pos_x_int_node_left=ZERO
+         do gi=1,lx/2
+           subchords(1)=(gi-1)/nx
+           subchords(2)=(gj-1)/ny
+           subchords(3)=(gk-1)/nz
+           if(all(subchords==coords))then
+             i=gi/stepskip-skip_myoffset(1)
+             j=gj/stepskip-skip_myoffset(2)
+             k=gk/stepskip-skip_myoffset(3)
+             pos_x_int_left=pos_x_int_left+real(gi,db)*rhoprint(i,j,k)*(ONE-rhoprint(i,j,k)) 
+             pos_x_int_node_left=pos_x_int_node_left+rhoprint(i,j,k)*(ONE-rhoprint(i,j,k))
+           endif
+         enddo
+         pos_x_int_right=ZERO
+         pos_x_int_node_right=ZERO
+         do gi=lx/2+1,lx
+           subchords(1)=(gi-1)/nx
+           subchords(2)=(gj-1)/ny
+           subchords(3)=(gk-1)/nz
+           if(all(subchords==coords))then
+             i=gi/stepskip-skip_myoffset(1)
+             j=gj/stepskip-skip_myoffset(2)
+             k=gk/stepskip-skip_myoffset(3)   
+             pos_x_int_right=pos_x_int_right+real(gi,db)*rhoprint(i,j,k)*(ONE-rhoprint(i,j,k)) 
+             pos_x_int_node_right=pos_x_int_node_right+rhoprint(i,j,k)*(ONE-rhoprint(i,j,k))        
+           endif
+         enddo
+        call sum_world_float(pos_x_int_left)
+        call sum_world_float(pos_x_int_node_left)
+        call sum_world_float(pos_x_int_right)
+        call sum_world_float(pos_x_int_node_right)
+        pos_x_int_left=pos_x_int_left/pos_x_int_node_left
+        pos_x_int_right=pos_x_int_right/pos_x_int_node_right  
+        
+        lamb_x=pos_x_int_right-pos_x_int_left
+        lamb_cm_x=HALF*(pos_x_int_right+pos_x_int_left)
+        
+        laplace_rad = pos_x_int_right-lamb_cm_x
+        
+        gi=nint(center(1));gj=nint(center(2));gk=nint(center(3))
+        subchords(1)=(gi-1)/nx
+        subchords(2)=(gj-1)/ny
+        subchords(3)=(gk-1)/nz
+        pstar_in=ZERO 
+        rhophi_in=ZERO       
+        if(all(subchords==coords))then
+          i=gi/stepskip-skip_myoffset(1)
+          j=gj/stepskip-skip_myoffset(2)
+          k=gk/stepskip-skip_myoffset(3)
+          pstar_in=pressprint(i,j,k)
+#ifdef PRINTPHI
+          rhophi_in=rhoprint(i,j,k)
+          rhophi_in=rho_r*rhophi_in+(ONE-rhophi_in)*rho_b
+#else
+          rhophi_in=rhoprint(i,j,k)
+#endif 
+        endif
+        call sum_world_float(pstar_in)
+        call sum_world_float(rhophi_in)
+        gi=iprobe;gj=jprobe;gk=kprobe
+        subchords(1)=(gi-1)/nx
+        subchords(2)=(gj-1)/ny
+        subchords(3)=(gk-1)/nz
+        pstar_out=ZERO    
+        rhophi_out=ZERO   
+        if(all(subchords==coords))then
+          i=gi/stepskip-skip_myoffset(1)
+          j=gj/stepskip-skip_myoffset(2)
+          k=gk/stepskip-skip_myoffset(3)
+          pstar_out=pressprint(i,j,k)
+#ifdef PRINTPHI
+          rhophi_out=rhoprint(i,j,k)
+          rhophi_out=rho_r*rhophi_out+(ONE-rhophi_out)*rho_b
+#else
+          rhophi_out=rhoprint(i,j,k)
+#endif 
+        endif
+        call sum_world_float(pstar_out)
+        call sum_world_float(rhophi_out)
+        p_in  = rhophi_in  * cssq * pstar_in
+        p_out = rhophi_out  * cssq * pstar_out
+        delta_p   = p_in - p_out
+        sigma_eff = delta_p * laplace_rad * HALF
+        
+        if(myrank==0)then
+           open(unit=myio,file='laplace.dat',action='write',status='replace')
+           write(myio,'(i8,3g16.8)')step,sigma_eff,delta_p,laplace_rad
+           call flush(myio)
+        endif  
+      
+      
+      
+   end subroutine open_laplace
+   
+   subroutine print_laplace(myio)
+   
+      implicit none
+      
+      integer, intent(in) :: myio
+      integer :: subchords(3)
+         
+      		     gj=ly/2
+		         gk=lz/2
+		         pos_x_int_left=ZERO
+		         pos_x_int_node_left=ZERO
+		         do gi=1,lx/2
+		           subchords(1)=(gi-1)/nx
+		           subchords(2)=(gj-1)/ny
+		           subchords(3)=(gk-1)/nz
+		           if(all(subchords==coords))then
+		             i=gi/stepskip-skip_myoffset(1)
+		             j=gj/stepskip-skip_myoffset(2)
+		             k=gk/stepskip-skip_myoffset(3)
+		             pos_x_int_left=pos_x_int_left+real(gi,db)*rhoprint(i,j,k)*(ONE-rhoprint(i,j,k)) 
+		             pos_x_int_node_left=pos_x_int_node_left+rhoprint(i,j,k)*(ONE-rhoprint(i,j,k))
+		           endif
+		         enddo
+		         pos_x_int_right=ZERO
+		         pos_x_int_node_right=ZERO
+		         do gi=lx/2+1,lx
+		           subchords(1)=(gi-1)/nx
+		           subchords(2)=(gj-1)/ny
+		           subchords(3)=(gk-1)/nz
+		           if(all(subchords==coords))then
+		             i=gi/stepskip-skip_myoffset(1)
+		             j=gj/stepskip-skip_myoffset(2)
+		             k=gk/stepskip-skip_myoffset(3)   
+		             pos_x_int_right=pos_x_int_right+real(gi,db)*rhoprint(i,j,k)*(ONE-rhoprint(i,j,k)) 
+		             pos_x_int_node_right=pos_x_int_node_right+rhoprint(i,j,k)*(ONE-rhoprint(i,j,k))        
+		           endif
+		         enddo
+		        call sum_world_float(pos_x_int_left)
+		        call sum_world_float(pos_x_int_node_left)
+		        call sum_world_float(pos_x_int_right)
+		        call sum_world_float(pos_x_int_node_right)
+		        pos_x_int_left=pos_x_int_left/pos_x_int_node_left
+		        pos_x_int_right=pos_x_int_right/pos_x_int_node_right  
+		        
+		        lamb_x=pos_x_int_right-pos_x_int_left
+		        lamb_cm_x=HALF*(pos_x_int_right+pos_x_int_left)
+		        
+		        laplace_rad = pos_x_int_right-lamb_cm_x
+		        
+		        gi=nint(center(1));gj=nint(center(2));gk=nint(center(3))
+		        subchords(1)=(gi-1)/nx
+		        subchords(2)=(gj-1)/ny
+		        subchords(3)=(gk-1)/nz
+		        pstar_in=ZERO  
+		        rhophi_in=ZERO      
+		        if(all(subchords==coords))then
+		          i=gi/stepskip-skip_myoffset(1)
+		          j=gj/stepskip-skip_myoffset(2)
+		          k=gk/stepskip-skip_myoffset(3)
+		          pstar_in=pressprint(i,j,k)
+#ifdef PRINTPHI
+		          rhophi_in=rhoprint(i,j,k)
+		          rhophi_in=rho_r*rhophi_in+(ONE-rhophi_in)*rho_b
+#else
+		          rhophi_in=rhoprint(i,j,k)
+#endif 
+		        endif
+		        call sum_world_float(pstar_in)
+		        call sum_world_float(rhophi_in)
+		        gi=iprobe;gj=jprobe;gk=kprobe
+		        subchords(1)=(gi-1)/nx
+		        subchords(2)=(gj-1)/ny
+		        subchords(3)=(gk-1)/nz
+		        pstar_out=ZERO 
+		        rhophi_out=ZERO       
+		        if(all(subchords==coords))then
+		          i=gi/stepskip-skip_myoffset(1)
+		          j=gj/stepskip-skip_myoffset(2)
+		          k=gk/stepskip-skip_myoffset(3)
+		          pstar_out=pressprint(i,j,k)
+#ifdef PRINTPHI
+		          rhophi_out=rhoprint(i,j,k)
+		          rhophi_out=rho_r*rhophi_out+(ONE-rhophi_out)*rho_b
+#else
+		          rhophi_out=rhoprint(i,j,k)
+#endif 
+		        endif
+		        call sum_world_float(pstar_out)
+                call sum_world_float(rhophi_out)
+		        p_in  = rhophi_in  * cssq * pstar_in
+		        p_out = rhophi_out  * cssq * pstar_out
+		        delta_p   = p_in - p_out
+		        sigma_eff = delta_p * laplace_rad * HALF
+		        
+		        if(myrank==0)then
+		           write(142,'(i8,5g16.8)')step,sigma_eff,delta_p,laplace_rad,p_in,p_out
+		           call flush(142)
+		        endif  
+               
+   end subroutine print_laplace  
+#endif   
+#if defined(LAMBTEST) && defined(TWOCOMPONENT)     
+   subroutine open_lamb(myio)
+   
+      implicit none
+      
+      integer, intent(in) :: myio
+      integer :: subchords(3)
+      
+         gi=lx/2
+         gj=ly/2
+         pos_z_int_left=ZERO
+         pos_z_int_node_left=ZERO
+         do gk=1,lz/2
+           subchords(1)=(gi-1)/nx
+           subchords(2)=(gj-1)/ny
+           subchords(3)=(gk-1)/nz
+           if(all(subchords==coords))then
+             i=gi/stepskip-skip_myoffset(1)
+             j=gj/stepskip-skip_myoffset(2)
+             k=gk/stepskip-skip_myoffset(3)
+             pos_z_int_left=pos_z_int_left+real(gk,db)*rhoprint(i,j,k)*(ONE-rhoprint(i,j,k)) 
+             pos_z_int_node_left=pos_z_int_node_left+rhoprint(i,j,k)*(ONE-rhoprint(i,j,k))
+           endif
+         enddo
+         pos_z_int_right=ZERO
+         pos_z_int_node_right=ZERO
+         do gk=lz/2+1,lz
+           subchords(1)=(gi-1)/nx
+           subchords(2)=(gj-1)/ny
+           subchords(3)=(gk-1)/nz
+           if(all(subchords==coords))then
+             i=gi/stepskip-skip_myoffset(1)
+             j=gj/stepskip-skip_myoffset(2)
+             k=gk/stepskip-skip_myoffset(3)   
+             pos_z_int_right=pos_z_int_right+real(gk,db)*rhoprint(i,j,k)*(ONE-rhoprint(i,j,k)) 
+             pos_z_int_node_right=pos_z_int_node_right+rhoprint(i,j,k)*(ONE-rhoprint(i,j,k))        
+           endif
+         enddo
+        call sum_world_float(pos_z_int_left)
+        call sum_world_float(pos_z_int_node_left)
+        call sum_world_float(pos_z_int_right)
+        call sum_world_float(pos_z_int_node_right)
+        pos_z_int_left=pos_z_int_left/pos_z_int_node_left
+        pos_z_int_right=pos_z_int_right/pos_z_int_node_right
+        
+         gj=ly/2
+         gk=lz/2
+         pos_x_int_left=ZERO
+         pos_x_int_node_left=ZERO
+         do gi=1,lx/2
+           subchords(1)=(gi-1)/nx
+           subchords(2)=(gj-1)/ny
+           subchords(3)=(gk-1)/nz
+           if(all(subchords==coords))then
+             i=gi/stepskip-skip_myoffset(1)
+             j=gj/stepskip-skip_myoffset(2)
+             k=gk/stepskip-skip_myoffset(3)
+             pos_x_int_left=pos_x_int_left+real(gi,db)*rhoprint(i,j,k)*(ONE-rhoprint(i,j,k)) 
+             pos_x_int_node_left=pos_x_int_node_left+rhoprint(i,j,k)*(ONE-rhoprint(i,j,k))
+           endif
+         enddo
+         pos_x_int_right=ZERO
+         pos_x_int_node_right=ZERO
+         do gi=lx/2+1,lx
+           subchords(1)=(gi-1)/nx
+           subchords(2)=(gj-1)/ny
+           subchords(3)=(gk-1)/nz
+           if(all(subchords==coords))then
+             i=gi/stepskip-skip_myoffset(1)
+             j=gj/stepskip-skip_myoffset(2)
+             k=gk/stepskip-skip_myoffset(3)   
+             pos_x_int_right=pos_x_int_right+real(gi,db)*rhoprint(i,j,k)*(ONE-rhoprint(i,j,k)) 
+             pos_x_int_node_right=pos_x_int_node_right+rhoprint(i,j,k)*(ONE-rhoprint(i,j,k))        
+           endif
+         enddo
+        call sum_world_float(pos_x_int_left)
+        call sum_world_float(pos_x_int_node_left)
+        call sum_world_float(pos_x_int_right)
+        call sum_world_float(pos_x_int_node_right)
+        pos_x_int_left=pos_x_int_left/pos_x_int_node_left
+        pos_x_int_right=pos_x_int_right/pos_x_int_node_right  
+        
+        lamb_z=pos_z_int_right-pos_z_int_left
+        lamb_cm_z=HALF*(pos_z_int_right+pos_z_int_left)
+        
+        lamb_x=pos_x_int_right-pos_x_int_left
+        lamb_cm_x=HALF*(pos_x_int_right+pos_x_int_left)
+        
+        lamb_dosc = (lamb_z - lamb_x) / (lamb_z + lamb_x)
+        
+        if(myrank==0)then
+           open(unit=142,file='lamb.dat',action='write',status='replace')
+           write(142,'(i8,7g16.8)')step,lamb_dosc,lamb_x,lamb_z,lamb_cm_x,lamb_cm_z,pos_z_int_right-lamb_cm_z
+           call flush(142)
+        endif   
+      
+      
+      
+   end subroutine open_lamb
+   
+   subroutine print_lamb(myio)
+   
+      implicit none
+      
+      integer, intent(in) :: myio
+      integer :: subchords(3)
+         
+		         gi=lx/2
+		         gj=ly/2
+		         pos_z_int_left=ZERO
+		         pos_z_int_node_left=ZERO
+		         do gk=1,lz/2
+		           subchords(1)=(gi-1)/nx
+		           subchords(2)=(gj-1)/ny
+		           subchords(3)=(gk-1)/nz
+		           if(all(subchords==coords))then
+		             i=gi/stepskip-skip_myoffset(1)
+		             j=gj/stepskip-skip_myoffset(2)
+		             k=gk/stepskip-skip_myoffset(3)
+		             pos_z_int_left=pos_z_int_left+real(gk,db)*rhoprint(i,j,k)*(ONE-rhoprint(i,j,k)) 
+		             pos_z_int_node_left=pos_z_int_node_left+rhoprint(i,j,k)*(ONE-rhoprint(i,j,k))
+		           endif
+		         enddo
+		         pos_z_int_right=ZERO
+		         pos_z_int_node_right=ZERO
+		         do gk=lz/2+1,lz
+		           subchords(1)=(gi-1)/nx
+		           subchords(2)=(gj-1)/ny
+		           subchords(3)=(gk-1)/nz
+		           if(all(subchords==coords))then
+		             i=gi/stepskip-skip_myoffset(1)
+		             j=gj/stepskip-skip_myoffset(2)
+		             k=gk/stepskip-skip_myoffset(3)   
+		             pos_z_int_right=pos_z_int_right+real(gk,db)*rhoprint(i,j,k)*(ONE-rhoprint(i,j,k)) 
+		             pos_z_int_node_right=pos_z_int_node_right+rhoprint(i,j,k)*(ONE-rhoprint(i,j,k))        
+		           endif
+		         enddo
+		        call sum_world_float(pos_z_int_left)
+		        call sum_world_float(pos_z_int_node_left)
+		        call sum_world_float(pos_z_int_right)
+		        call sum_world_float(pos_z_int_node_right)
+		        pos_z_int_left=pos_z_int_left/pos_z_int_node_left
+		        pos_z_int_right=pos_z_int_right/pos_z_int_node_right
+		        
+		         gj=ly/2
+		         gk=lz/2
+		         pos_x_int_left=ZERO
+		         pos_x_int_node_left=ZERO
+		         do gi=1,lx/2
+		           subchords(1)=(gi-1)/nx
+		           subchords(2)=(gj-1)/ny
+		           subchords(3)=(gk-1)/nz
+		           if(all(subchords==coords))then
+		             i=gi/stepskip-skip_myoffset(1)
+		             j=gj/stepskip-skip_myoffset(2)
+		             k=gk/stepskip-skip_myoffset(3)
+		             pos_x_int_left=pos_x_int_left+real(gi,db)*rhoprint(i,j,k)*(ONE-rhoprint(i,j,k)) 
+		             pos_x_int_node_left=pos_x_int_node_left+rhoprint(i,j,k)*(ONE-rhoprint(i,j,k))
+		           endif
+		         enddo
+		         pos_x_int_right=ZERO
+		         pos_x_int_node_right=ZERO
+		         do gi=lx/2+1,lx
+		           subchords(1)=(gi-1)/nx
+		           subchords(2)=(gj-1)/ny
+		           subchords(3)=(gk-1)/nz
+		           if(all(subchords==coords))then
+		             i=gi/stepskip-skip_myoffset(1)
+		             j=gj/stepskip-skip_myoffset(2)
+		             k=gk/stepskip-skip_myoffset(3)   
+		             pos_x_int_right=pos_x_int_right+real(gi,db)*rhoprint(i,j,k)*(ONE-rhoprint(i,j,k)) 
+		             pos_x_int_node_right=pos_x_int_node_right+rhoprint(i,j,k)*(ONE-rhoprint(i,j,k))        
+		           endif
+		         enddo
+		        call sum_world_float(pos_x_int_left)
+		        call sum_world_float(pos_x_int_node_left)
+		        call sum_world_float(pos_x_int_right)
+		        call sum_world_float(pos_x_int_node_right)
+		        pos_x_int_left=pos_x_int_left/pos_x_int_node_left
+		        pos_x_int_right=pos_x_int_right/pos_x_int_node_right  
+		        
+		        lamb_z=pos_z_int_right-pos_z_int_left
+		        lamb_cm_z=HALF*(pos_z_int_right+pos_z_int_left)
+		        
+		        lamb_x=pos_x_int_right-pos_x_int_left
+		        lamb_cm_x=HALF*(pos_x_int_right+pos_x_int_left)
+		        
+		        lamb_dosc = (lamb_z - lamb_x) / (lamb_z + lamb_x)
+		        
+		        if(myrank==0)then
+		           write(142,'(i8,7g16.8)')step,lamb_dosc,lamb_x,lamb_z,lamb_cm_x,lamb_cm_z,pos_z_int_right-lamb_cm_z
+		           call flush(142)
+		        endif       
+               
+   end subroutine print_lamb
+#endif   
+   subroutine close_benchmark(myio)
+   
+      implicit none
+      
+      integer, intent(in) :: myio
+         
+      if(myrank==0)close(myio) 
+               
+   end subroutine close_benchmark
+   
+   
    subroutine probe_loc(hfields_s &
 #ifdef TWOCOMPONENT	       
      ,phifields_s &
