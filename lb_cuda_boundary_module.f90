@@ -249,11 +249,27 @@ contains
       integer :: gi,gj,gk
       integer :: myblock,ii,jj,kk
       integer :: iii,jjj,kkk
-      real(kind=db) :: gradfix,gradfiy,gradfiz,grad_parallel,modgrad,phi_fluid,phi_ghost
-      real(kind=db) :: loc_u,loc_v,loc_w,loc_phi,theta_rad,cot_theta,dphi_dz
+      real(kind=db) :: grad_x,grad_y,grad_z,grad_parallel,modgrad,phi_fluid,phi_ghost
+      real(kind=db) :: theta_rad,cot_theta
       integer :: oii,ojj,okk
       integer :: oxblock,oyblock,ozblock,omyblock
       real(kind=db) :: wettab_r_sub=90.0_db
+      integer :: link_id
+      
+      real(db), parameter :: eps_norm   = 1.0e-14_db
+	  real(db), parameter :: huge_cot   = 1.0e14_db
+	  real(db), parameter :: inv_sqrt2  = 0.70710678118654752440_db
+	  real(db), parameter :: inv_sqrt3  = 0.57735026918962576450_db
+	  real(db), parameter :: half_val   = 0.5_db
+	  real(db), parameter :: third_val  = 1.0_db/3.0_db
+	  real(kind=db) :: link_shift_x,link_shift_y,link_shift_z,link_scale
+	  real(kind=db) :: wall_nx,wall_ny,wall_nz,wall_norm,best_score
+	  real(kind=db) :: best_shift_x,best_shift_y,best_shift_z
+	  real(kind=db) :: link_score,grad_dot_wall
+	  real(kind=db) :: grad_tan_x,grad_tan_y,grad_tan_z
+	  real(kind=db) :: grad_bc_x,grad_bc_y,grad_bc_z
+	  real(kind=db) :: grad_tan_mag,sin_theta,cos_theta,dphi_dn
+      integer :: link_dist2,nei_x,nei_y,nei_z,donor_x,donor_y,donor_z
     
       i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
       j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
@@ -273,59 +289,170 @@ contains
 	   
 #ifdef WETTABILITY       
       wettab_r_sub=wettab_r
-#endif                    
+#endif           
       
-	  do l = 1, nlinks
-		iii = i + ex(l)
-		jjj = j + ey(l)
-		kkk = k + ez(l)
+      phi_ghost=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+	  ! ----------------------------------------------------
+	  ! 1) Reconstruct local wall normal
+	  ! ----------------------------------------------------
+	  wall_nx = 0.0_db
+	  wall_ny = 0.0_db
+	  wall_nz = 0.0_db
+	 
+	  do link_id = 1, nlinks
 
-		if (isfluid(iii,jjj,kkk) .ne. -1) cycle  ! only fluid neighbor
-		
-		oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
-		oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
-		ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
-		omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
-		oii=iii-oxblock*TILE_DIMx+2*TILE_DIMx
-		ojj=jjj-oyblock*TILE_DIMy+2*TILE_DIMy
-		okk=kkk-ozblock*TILE_DIMz+2*TILE_DIMz
+		link_dist2 = ex(link_id)*ex(link_id) + ey(link_id)*ey(link_id) + ez(link_id)*ez(link_id)
+		if (link_dist2 == 0) cycle
 
-		! Found fluid neighbor: enforce contact angle via ghost node extrapolation
-		phi_fluid = real(phifields_s(oii,ojj,okk,1,omyblock),kind=db)
-		
-		
-		! Estimate gradient parallel to wall
-		modgrad=real(auxfields_s(oii,ojj,okk,4,omyblock),kind=db) !modgrad
-		gradfix=real(auxfields_s(oii,ojj,okk,1,omyblock),kind=db)*modgrad !normx*modgrad
-		gradfiy=real(auxfields_s(oii,ojj,okk,2,omyblock),kind=db)*modgrad !normy*modgrad
-		gradfiz=real(auxfields_s(oii,ojj,okk,3,omyblock),kind=db)*modgrad !normz*modgrad      
-      
-        grad_parallel=ZERO
-		if(l.eq.1 .or. l.eq.2)then
-			grad_parallel = sqrt(gradfiy**2 + gradfiz**2)
-		elseif(l.eq.3 .or. l.eq.4)then
-			grad_parallel = sqrt(gradfix**2 + gradfiz**2)
-		elseif(l.eq.5 .or. l.eq.6)then
-			grad_parallel = sqrt(gradfix**2 + gradfiy**2)
-		endif
-		
-		! Contact angle correction
-		theta_rad = (180.0_db-wettab_r_sub) * pi_greek / 180.0_db
-		cot_theta = 1.0_db / tan(theta_rad)
+		nei_x = i + ex(link_id)
+		nei_y = j + ey(link_id)
+		nei_z = k + ez(link_id)
 
-		dphi_dz = - grad_parallel * cot_theta 
+!		if (nei_x < 1 .or. nei_x > nx) cycle
+!		if (nei_y < 1 .or. nei_y > ny) cycle
+!		if (nei_z < 1 .or. nei_z > nz) cycle
 
-		  
+		if (isfluid(nei_x,nei_y,nei_z) == 0) cycle
 
-		phi_ghost = phi_fluid + dphi_dz  ! extrapolate from fluid node
+		if (link_dist2 == 1) then
+		   link_scale = 1.0_db
+		elseif (link_dist2 == 2) then
+		   link_scale = half_val
+		else
+		   link_scale = third_val
+		end if
 
-		! Clamp to [0,1]
-		loc_phi = max(0.0_db, min(1.0_db, phi_ghost))
-		
-		exit
+		link_shift_x = -real(ex(link_id), db)
+		link_shift_y = -real(ey(link_id), db)
+		link_shift_z = -real(ez(link_id), db)
+
+		wall_nx = wall_nx + link_scale*link_shift_x
+		wall_ny = wall_ny + link_scale*link_shift_y
+		wall_nz = wall_nz + link_scale*link_shift_z
+
 	  end do
 
-      phifields_s(ii,jj,kk,1,myblock)=real(loc_phi,kind=strdb)
+	  wall_norm = sqrt(wall_nx*wall_nx + wall_ny*wall_ny + wall_nz*wall_nz)
+	  if (wall_norm < eps_norm) return
+
+	  wall_nx = wall_nx / wall_norm
+	  wall_ny = wall_ny / wall_norm
+	  wall_nz = wall_nz / wall_norm
+
+	  ! ----------------------------------------------------
+	  ! 2) Choose donor: first prefer isfluid = -1
+	  ! ----------------------------------------------------
+	  best_score   = -1.0e30_db
+	  donor_x      = 0
+	  donor_y      = 0
+	  donor_z      = 0
+	  best_shift_x = 0.0_db
+	  best_shift_y = 0.0_db
+	  best_shift_z = 0.0_db
+	 
+	  do link_id = 1, nlinks
+
+		link_dist2 = ex(link_id)*ex(link_id) + ey(link_id)*ey(link_id) + ez(link_id)*ez(link_id)
+		if (link_dist2 == 0) cycle
+
+		nei_x = i + ex(link_id)
+		nei_y = j + ey(link_id)
+		nei_z = k + ez(link_id)
+
+		!if (nei_x < 1 .or. nei_x > nx) cycle
+		!if (nei_y < 1 .or. nei_y > ny) cycle
+		!if (nei_z < 1 .or. nei_z > nz) cycle
+
+		if (abs(isfluid(nei_x,nei_y,nei_z)) /= 1) cycle
+
+		if (link_dist2 == 1) then
+		   link_scale = 1.0_db
+		elseif (link_dist2 == 2) then
+		   link_scale = inv_sqrt2
+		else
+		   link_scale = inv_sqrt3
+		end if
+
+		link_shift_x = -real(ex(link_id), db)
+		link_shift_y = -real(ey(link_id), db)
+		link_shift_z = -real(ez(link_id), db)
+
+		link_score = (link_shift_x*wall_nx + link_shift_y*wall_ny + link_shift_z*wall_nz) * link_scale
+
+		if (link_score > best_score) then
+		   best_score   = link_score
+		   donor_x      = nei_x
+		   donor_y      = nei_y
+		   donor_z      = nei_z
+		   best_shift_x = link_shift_x
+		   best_shift_y = link_shift_y
+		   best_shift_z = link_shift_z
+		end if
+
+	  end do
+
+	  ! fallback: skip
+	  if (donor_x==0 .or. donor_y==0 .or. donor_z==0) return
+
+
+	  ! ----------------------------------------------------
+	  ! 3) phi and grad(phi) at donor fluid node
+	  ! ----------------------------------------------------
+	  oxblock=(donor_x+2*TILE_DIMx-1)/TILE_DIMx   
+	  oyblock=(donor_y+2*TILE_DIMy-1)/TILE_DIMy     
+	  ozblock=(donor_z+2*TILE_DIMz-1)/TILE_DIMz 
+	  omyblock=(oxblock-1)+(oyblock-1)*nxblock_d+(ozblock-1)*nxyblock_d+1
+	  oii=donor_x-oxblock*TILE_DIMx+2*TILE_DIMx
+	  ojj=donor_y-oyblock*TILE_DIMy+2*TILE_DIMy
+	  okk=donor_z-ozblock*TILE_DIMz+2*TILE_DIMz
+	  phi_fluid = real(phifields_s(oii,ojj,okk,1,omyblock),kind=db)
+	 
+	  ! Estimate gradient parallel to wall
+	  modgrad=real(auxfields_s(oii,ojj,okk,4,omyblock),kind=db) !modgrad
+	  grad_x=real(auxfields_s(oii,ojj,okk,1,omyblock),kind=db)*modgrad !normx*modgrad
+	  grad_y=real(auxfields_s(oii,ojj,okk,2,omyblock),kind=db)*modgrad !normy*modgrad
+	  grad_z=real(auxfields_s(oii,ojj,okk,3,omyblock),kind=db)*modgrad !normz*modgrad    
+
+	  ! ----------------------------------------------------
+	  ! 4) Tangential component wrt wall normal
+	  ! ----------------------------------------------------
+	  grad_dot_wall = grad_x*wall_nx + grad_y*wall_ny + grad_z*wall_nz
+
+	  grad_tan_x = grad_x - grad_dot_wall*wall_nx
+	  grad_tan_y = grad_y - grad_dot_wall*wall_ny
+	  grad_tan_z = grad_z - grad_dot_wall*wall_nz
+
+	  grad_tan_mag = sqrt(grad_tan_x*grad_tan_x + grad_tan_y*grad_tan_y + grad_tan_z*grad_tan_z)
+
+	  ! ----------------------------------------------------
+	  ! 5) Impose contact angle
+	  ! ----------------------------------------------------
+	  ! ------------------------------------------------------------
+	  ! Contact-angle coefficient: compute once
+	  ! ------------------------------------------------------------
+	  theta_rad = (180.0_db - wettab_r_sub) * pi_greek / 180.0_db
+	  sin_theta = sin(theta_rad)
+	  cos_theta = cos(theta_rad)
+
+	  if (abs(sin_theta) < eps_norm) then
+		   cot_theta = sign(huge_cot, cos_theta)
+	  else
+		   cot_theta = cos_theta / sin_theta
+	  end if
+	  dphi_dn = - grad_tan_mag * cot_theta
+
+	  grad_bc_x = grad_tan_x + dphi_dn*wall_nx
+	  grad_bc_y = grad_tan_y + dphi_dn*wall_ny
+	  grad_bc_z = grad_tan_z + dphi_dn*wall_nz
+
+	  ! ----------------------------------------------------
+	  ! 6) Extrapolate from donor to solid node
+	  ! ----------------------------------------------------
+	  phi_ghost = phi_fluid + (grad_bc_x*best_shift_x + grad_bc_y*best_shift_y + grad_bc_z*best_shift_z)*(4.0*phi_ghost*(1.0-phi_ghost))
+	 
+	  phi_ghost = max(0.0_db, min(1.0_db, phi_ghost))
+	  phifields_s(ii,jj,kk,1,myblock)=real(phi_ghost,kind=strdb)
+
       
       return
       

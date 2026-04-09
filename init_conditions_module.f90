@@ -40,8 +40,13 @@ contains
 	integer, allocatable :: buffer(:),ierr
 #endif
     
-    integer :: xblock,yblock,zblock,myblock,ii,jj,kk
-    real(kind=db) :: tempphi,tempphi2,loc_u,loc_v,loc_w,loc_press,stdev
+    integer :: xblock,yblock,zblock,myblock,ii,jj,kk,link_dist2
+    integer :: oii,ojj,okk,link_id,nei_x,nei_y,nei_z
+    integer :: oxblock,oyblock,ozblock,omyblock
+    real(kind=db) :: tempphi,tempphi2,loc_u,loc_v,loc_w,loc_press,stdev, &
+     link_scale
+    real(db), parameter :: inv_sqrt2  = 0.70710678118654752440_db
+    real(db), parameter :: inv_sqrt3  = 0.57735026918962576450_db
 #if defined(TAYLORGREEN) && !defined(TWOCOMPONENT)     
     real(kind=db) :: c2x,c2y,c2z,x,y,z
 #endif      
@@ -483,6 +488,57 @@ contains
            enddo
       enddo
       call sum_world_float(global_phi_sum_ini)
+      
+      do k=1,nz
+		   gk = nz*coords(3) + k
+		   zblock=(k+2*TILE_DIMz-1)/TILE_DIMz		
+           do j=1,ny
+			  gj = ny*coords(2) + j
+			  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy         
+              do i=1,nx
+				 gi = nx*coords(1) + i
+				 xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+
+                 myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+                 ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+                 jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+                 kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+                 if(isfluid(i,j,k).eq.0)then
+                   tempphi=ZERO
+                   tempphi2=ZERO
+                   do link_id = 1, nlinks
+		             link_dist2 = ex(link_id)*ex(link_id) + ey(link_id)*ey(link_id) + ez(link_id)*ez(link_id)
+		             if (link_dist2 == 0) cycle
+		             nei_x = i + ex(link_id)
+		             nei_y = j + ey(link_id)
+		             nei_z = k + ez(link_id)
+                     if (nei_x < 1 .or. nei_x > nx) cycle
+		             if (nei_y < 1 .or. nei_y > ny) cycle
+		             if (nei_z < 1 .or. nei_z > nz) cycle
+		             if (isfluid(nei_x,nei_y,nei_z) == 0) cycle
+		             if (link_dist2 == 1) then
+		               link_scale = 1.0_db
+		             elseif (link_dist2 == 2) then
+		               link_scale = inv_sqrt2
+		             else
+		               link_scale = inv_sqrt3
+		             end if
+		             oxblock=(nei_x+2*TILE_DIMx-1)/TILE_DIMx   
+	                 oyblock=(nei_y+2*TILE_DIMy-1)/TILE_DIMy     
+	                 ozblock=(nei_z+2*TILE_DIMz-1)/TILE_DIMz 
+	                 omyblock=(oxblock-1)+(oyblock-1)*nxblock+(ozblock-1)*nxyblock+1
+	                 oii=nei_x-oxblock*TILE_DIMx+2*TILE_DIMx
+	                 ojj=nei_y-oyblock*TILE_DIMy+2*TILE_DIMy
+	                 okk=nei_z-ozblock*TILE_DIMz+2*TILE_DIMz
+	                 tempphi = tempphi + link_scale*real(phifields_flip(oii,ojj,okk,1,omyblock),kind=db)
+	                 tempphi2 = tempphi2 + link_scale
+			       enddo
+			       tempphi=tempphi/tempphi2
+			       phifields_flip(ii,jj,kk,1,myblock)=real(tempphi,kind=strdb)
+                 endif
+              enddo
+           enddo
+      enddo
 #endif
 
 ! #if defined(MULTIHIT)
@@ -526,7 +582,7 @@ contains
 
 
      hfields_flop=hfields_flip
-#ifdef TWOCOMPONENT     
+#ifdef TWOCOMPONENT
      phifields_flop=phifields_flip
 #endif     
      
