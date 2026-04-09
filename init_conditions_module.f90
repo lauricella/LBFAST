@@ -220,7 +220,7 @@ contains
 
        ! ampiezza del TG: scegli tu, ma resta a Mach basso
        ! es. uwall = u0tg = 0.02_db oppure 0.05_db
-       stdev=0.0e-2
+       stdev=1.0e-3
        
 #if defined(LAMBTEST) && defined(TWOCOMPONENT)
        lamb_A=uwall / radius
@@ -336,7 +336,7 @@ contains
                      wright = -(fz/(2.0_db*visc2)) * dist*dist + &
                                  coefR_pois * dist + coefB_pois
                   !endif
-                  loc_w=wleft*tempphi + (ONE-tempphi)*wright   
+                  loc_w=wleft*tempphi + (ONE-tempphi)*wright+ stdev*randgauss_CPU()   
                else
                   loc_w = ZERO
                endif
@@ -360,7 +360,7 @@ contains
                   dist3d(3)=real(gk,kind=db)-center(3)
                   call pbc_images(invdim,dist3d,dist3dout)
                    
-                  dist=sqrt((dist3dout(1)/(ONE+lamb_eps))**TWO + dist3dout(2)**TWO + dist3dout(3)**TWO)
+                  dist=sqrt((dist3dout(1)*HALF)**TWO + dist3dout(2)**TWO + dist3dout(3)**TWO)
                    
                   tempphi=ONE*fcut_tanh(dist,radius,width)
                    

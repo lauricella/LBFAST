@@ -313,9 +313,6 @@ module vars
 #ifdef IMPOSED_PRESSURE_GRADIENT
    real(kind=db) :: rhoIN,rhoOUT
 #endif
-#ifdef LAMBTEST
-   real(kind=db) :: lamb_eps
-#endif
    real(kind=db), parameter :: cssq=real(1.d0/3.d0,kind=db)
    real(kind=db), parameter :: invcssq=real(3.d0,kind=db)
 

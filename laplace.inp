@@ -36,7 +36,6 @@
    radius=64
    width=4.0e0
    center= 256.0, 256.0, 256.0
-   !lamb_eps=0.25
    sigma=0.03e0
    wettab_r=90.0  !in degrees da 30 --> 130
    !wettab_b=1.0e0
