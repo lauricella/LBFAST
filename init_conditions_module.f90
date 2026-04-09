@@ -348,37 +348,7 @@ contains
                   endif
                   loc_press=ZERO
 #elif defined(LAMBTEST) && defined(TWOCOMPONENT)
-#ifdef MILLER 
-				  dist3d(1)=real(gi,kind=db)-center(1)
-				  dist3d(2)=real(gj,kind=db)-center(2)
-				  dist3d(3)=real(gk,kind=db)-center(3)
-				  call pbc_images(invdim,dist3d,dist3dout)
-				
-				  xx = dist3dout(1)
-				  yy = dist3dout(2)
-				  zz = dist3dout(3)
-				
-				  rr = sqrt(xx**TWO + yy**TWO + zz**TWO)
-				
-				  if (rr > 1.0e-14_db) then
-				    costh = zz/rr
-				    myp2 = HALF*(THREE*costh**TWO - ONE)
-				  else
-				    myp2 = ONE
-				  endif
-				
-                  eta0 = lamb_eps*radius
-				
-				  rloc = radius + eta0*myp2
-				
-				  dist = rr*radius/rloc
-				
-				  tempphi = fcut_tanh(dist,radius,width)
-				
-				  loc_u = ZERO
-				  loc_v = ZERO
-				  loc_w = ZERO
-#elif defined(ELIPSLAMB) 
+
 
                   dist3d(1)=real(gi,kind=db)-center(1)
                   dist3d(2)=real(gj,kind=db)-center(2)
@@ -392,21 +362,7 @@ contains
 				  loc_u = ZERO
 				  loc_v = ZERO
 				  loc_w = ZERO
-#else
-                  dist3d(1)=real(gi,kind=db)-center(1)
-				  dist3d(2)=real(gj,kind=db)-center(2)
-				  dist3d(3)=real(gk,kind=db)-center(3)
-				  call pbc_images(invdim,dist3d,dist3dout)
-					
-				  dist=sqrt(dist3dout(1)**TWO + dist3dout(2)**TWO + dist3dout(3)**TWO)
-					
-			  	  tempphi = fcut_tanh(dist,radius,width)				
-					
-				  loc_u =  TWO *lamb_A*dist3dout(1)*tempphi
-				  loc_v =  TWO *lamb_A*dist3dout(2)*tempphi
-				  loc_w = -FOUR*lamb_A*dist3dout(3)*tempphi
-                   	  
-#endif				  
+			  
 !                 if (dist <= radius) then
 !                    loc_u =  TWO *lamb_A*dist3dout(1)
 !                    loc_v =  TWO *lamb_A*dist3dout(2)

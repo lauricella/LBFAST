@@ -132,10 +132,6 @@
 #warning "LAMBTEST: activated"
 #endif
 
-#ifdef MILLER
-#warning "MILLER: activated"
-#endif
-
 #ifdef LAPLACE
 #warning "LAPLACE: activated"
 #endif

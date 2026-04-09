@@ -961,7 +961,7 @@ contains
        real(kind=db) :: mytime, dosc_th,myfreq,fit_slope,fit_intercept,amp0, &
         period_sum,tmean,omega_num,nrat,mu1,mu2,chi,myfreq_corr,zint0_minus_zcm
        integer :: stepfit,maxn,npeaks,myn,ios,nfit
-       real(kind=db) :: dt, xfit, yfit, beta_num
+       real(kind=db) :: dt, xfit, yfit
        real(kind=db) :: sx, sy, sxx, sxy
        real(kind=db) :: lamb_x_tmp, lamb_z_tmp, lamb_cm_x_tmp, lamb_cm_z_tmp,my_tmp
        real(kind=db) :: Aenv, t1,myperiod,period_th,freq_th
@@ -1010,13 +1010,8 @@ contains
 		  do
 		    if(myn >= maxn) exit
 		    myn = myn + 1
-#if defined(MILLER) || defined(ELIPSLAMB)
 		    read(142,'(i8,7g16.8)',iostat=ios) mystep(myn),my_tmp, &
 		         lamb_x_tmp, lamb_z_tmp, lamb_cm_x_tmp, lamb_cm_z_tmp,dosc(myn)
-#else
-		    read(142,'(i8,6g16.8)',iostat=ios) mystep(myn), dosc(myn), &
-		         lamb_x_tmp, lamb_z_tmp, lamb_cm_x_tmp, lamb_cm_z_tmp,my_tmp
-#endif
 		    if(ios /= 0) then
 		      myn = myn - 1
 		      exit
@@ -1041,8 +1036,7 @@ contains
 		  do i = 0, myn
 		    adosc(i) = abs(dosc(i))
 		  enddo
-		
-#if defined(MILLER) || defined(ELIPSLAMB)
+
                   npeaks = 0
                   do i = 1, myn-1
                     if ( dosc(i) < dosc(i-1) .and. dosc(i) <= dosc(i+1) .and. dosc(i) > 1.1*radius ) then
@@ -1053,19 +1047,7 @@ contains
                       endif
                     endif
                   enddo
-                  write(6,*)'internal sanity check',pval(1),amp0+radius
-#else                  
-                  npeaks = 0
-                  do i = 2, myn-1
-                    if ( dosc(i) < dosc(i-1) .and. dosc(i) <= dosc(i+1) .and. dosc(i) < -1.0e-3_db ) then
-                      if (npeaks == 0 .or. mystep(i)-pstep(npeaks) >= min_peak_dist) then
-                        npeaks = npeaks + 1
-                        pstep(npeaks) = mystep(i)
-                        pval(npeaks)  = -dosc(i)
-                      endif
-                    endif
-                  enddo
-#endif                		
+                  write(6,*)'internal sanity check',pval(1),amp0+radius            		
 		  if (npeaks < 2) then
 		    write(6,*) 'Non ho trovato abbastanza picchi per stimare omega.'
 		    return
@@ -1089,65 +1071,24 @@ contains
 		
 		  tmean = period_sum / real(npeaks-1, db)
 		  omega_num = TWO*pi_greek / tmean
-#if !defined(MILLER) && !defined(ELIPSLAMB)
-		  ! Fit lineare di log(pval) = intercept - beta * t
-		  sx  = ZERO
-		  sy  = ZERO
-		  sxx = ZERO
-		  sxy = ZERO
-		  nfit = 0
-		
-		  do i = 1, npeaks
-		    if (pval(i) > ZERO) then
-		      xfit = real(pstep(i), db) * dt
-		      yfit = log(pval(i))
-		      sx   = sx  + xfit
-		      sy   = sy  + yfit
-		      sxx  = sxx + xfit*xfit
-		      sxy  = sxy + xfit*yfit
-		      nfit = nfit + 1
-		    endif
-		  enddo
-		
-		  if (nfit >= 2) then
-		    fit_slope = ( real(nfit,db)*sxy - sx*sy ) / ( real(nfit,db)*sxx - sx*sx )
-		    fit_intercept = ( sy - fit_slope*sx ) / real(nfit,db)
-		    beta_num = -fit_slope
-		  else
-		    fit_slope = ZERO
-		    fit_intercept = ZERO
-		    beta_num = ZERO
-		    write(6,*) 'Non abbastanza picchi validi per stimare beta.'
-		  endif
-#endif		
+	
 		  write(6,'(a,i10)')    'Numero punti attesi             = ', maxn
 		  write(6,'(a,i10)')    'Numero punti letti              = ', myn
 		  write(6,'(a,i10)')    'Numero picchi trovati           = ', npeaks
 		  write(6,'(a,f20.10)') 'Periodo teorico                 = ', period_th
 		  write(6,'(a,f20.10)') 'Omega teorica                   = ', myfreq_corr
 		  write(6,'(a,f20.10)') 'Periodo medio T_num             = ', tmean
-		  write(6,'(a,f20.10)') 'Frequenza angolare omega_num    = ', omega_num
-#if !defined(MILLER) && !defined(ELIPSLAMB)  
-		  write(6,'(a,f20.10)') 'Dissipazione beta_num           = ', beta_num
-		  write(6,'(a,f20.10)') 'Fit slope                       = ', fit_slope
-		  write(6,'(a,f20.10)') 'Fit intercept                   = ', fit_intercept
-#endif		  
+		  write(6,'(a,f20.10)') 'Frequenza angolare omega_num    = ', omega_num		  
                   do i = 1, npeaks
                     write(6,'(a,i6,a,i10,a,g16.8)') 'peak ',i,' step=',pstep(i),' amp=',pval(i)
                   enddo
          t1   = real(pstep(1),db)*dt
-#if !defined(MILLER) && !defined(ELIPSLAMB) 
-         Aenv = pval(1)*exp(beta_num*t1)
-#endif
+
          open(unit=42,file='lamb_theory.dat',status='replace',action='write')
          
          do i = 1, myn
            mytime  = real(mystep(i),kind=db)*dt
-#if defined(MILLER) || defined(ELIPSLAMB)
            dosc_th = radius + amp0 * cos(myfreq_corr * mytime)
-#else
-           dosc_th = -Aenv*sin(myfreq_corr*mytime)
-#endif
            write(42,'(i8,g16.8)') mystep(i), dosc_th
          enddo
          close(42)
@@ -1167,11 +1108,7 @@ contains
          write(42,'(a)') 'set key right top'
          write(42,'(a)') 'set autoscale'
          write(42,'(a)') 'plot ' // char(92)
-#if defined(MILLER) || defined(ELIPSLAMB)
          write(42,'(a)') '"lamb.dat" using 1:7 with lines lw 3 title "numerical", ' // char(92)
-#else         
-         write(42,'(a)') '"lamb.dat" using 1:2 with lines lw 3 title "numerical", ' // char(92)
-#endif
          write(42,'(a)') '"lamb_theory.dat" using 1:2 with lines lw 3 dt 2 title "theoretical"'
          write(42,'(a)') 'unset output'
          close(42)
@@ -1179,6 +1116,7 @@ contains
 #endif
          deallocate(mystep, dosc, adosc, pstep, pval)
        endif
+       
 #elif defined(LAPLACE) && defined(TWOCOMPONENT)
 
        real(kind=db) :: mytime

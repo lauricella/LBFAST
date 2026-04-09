@@ -47,8 +47,6 @@
 #define DENSRATIO
 #define PRINTPHI
 #define WRITEPRESS
-#define ELIPSLAMB
-#define noMILLER
 #endif
 
 #ifdef TWOPOISEUILLE
