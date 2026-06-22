@@ -60,8 +60,8 @@ The high-order reconstruction is enabled by defining `HIGHORDER`. If
 The code is two-component when `TWOCOMPONENT` is active. High-density-ratio
 simulations are enabled by `DENSRATIO`. When `DENSRATIO` is defined, the
 incompressible-interface formulation is enabled automatically through
-`INTERFACE_INCOMP`. When the `DOXDMF` macro is defined, XDMF metadata files 
-are also written for each raw output data (see below).
+`INTERFACE_INCOMP`. When the `DOXDMF` macro is defined, XDMF metadata file 
+is also written for each raw output file (see below).
 
 Benchmark-specific configurations are also controlled by macros in `defines.h`.
 
