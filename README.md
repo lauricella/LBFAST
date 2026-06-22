@@ -27,23 +27,86 @@ For commercial licensing, please contact: lauricella.marco@gmail.com or technolo
 
 ## Structure
 
-*LBFAST* is supplied as a main UNIX directory with subdirectories.
+*LBFAST* is distributed as a single UNIX directory containing the full source
+code, input files, utility programs, compilation scripts, and run scripts.
 
-All source files are contained in the `source` sub-directory. The `test_cases`
-sub-directory contains example input files that can help the user prepare new
-simulations. The `execute` sub-directory is intended as the working directory
-from which jobs are submitted and output data are collected.
+The main program is `LBFAST.f90`, while the supporting Fortran and C source
+files are stored in the same directory. Example input files, such as
+`taylorgreen.inp`, `laplace.inp`, `poiseuille.inp`, `twopoiseuille.inp`, and
+benchmark input files, are also provided in the main directory. These input
+files must be used together with the corresponding compile-time macro
+configuration in `defines.h`.
+
+The code is compiled directly from the main *LBFAST* directory using the
+supplied `Makefile`. The executable produced by the compilation is named
+`main.x`.
+
+## Configuration Macros
+
+The physical model, benchmark type, lattice stencil, precision, and optional
+features are selected at compile time through the preprocessor macros defined
+in `defines.h`.
+
+The current default configuration is a two-component, high-density-ratio,
+high-order D3Q27 setup, corresponding to `#define LATTICE 27`,
+`#define HIGHORDER`, `#define TWOCOMPONENT`, and `#define DENSRATIO`.
+
+The lattice stencil is selected through the `LATTICE` macro. Use
+`#define LATTICE 27` for D3Q27, or `#define LATTICE 19` for D3Q19.
+
+The high-order reconstruction is enabled by defining `HIGHORDER`. If
+`HIGHORDER` is not defined, the standard lower-order reconstruction is used.
+
+The code is two-component when `TWOCOMPONENT` is active. High-density-ratio
+simulations are enabled by `DENSRATIO`. When `DENSRATIO` is defined, the
+incompressible-interface formulation is enabled automatically through
+`INTERFACE_INCOMP`.
+
+Benchmark-specific configurations are also controlled by macros in `defines.h`.
+
+| Macro | Purpose |
+|---|---|
+| `LAPLACE` | Activates the two-component Laplace benchmark. |
+| `LAMBTEST` | Activates the two-component Lamb oscillating-droplet benchmark. |
+| `TWOPOISEUILLE` | Activates the two-component Poiseuille benchmark with internal obstacles. |
+| `POISEUILLE` | Activates the one-component Poiseuille benchmark. |
+| `TAYLORGREEN` | Activates the one-component Taylor-Green benchmark. |
+
+The corresponding input files, such as `laplace.inp`, `lamb.inp`,
+`poiseuille.inp`, `twopoiseuille.inp`, and `taylorgreen.inp`, should be used
+together with the matching macro configuration in `defines.h`.
+
+For the Taylor-Green benchmark, define `TAYLORGREEN`. This disables
+`TWOCOMPONENT`, `DENSRATIO`, and `INTERFACE_INCOMP` through the conditional
+logic in `defines.h`.
+
+For the Laplace benchmark, define `LAPLACE`. This activates `TWOCOMPONENT`,
+`DENSRATIO`, `PRINTPHI`, and `WRITEPRESS` through the conditional logic in
+`defines.h`.
+
+For the Lamb oscillating-droplet benchmark, define `LAMBTEST`. This activates
+`TWOCOMPONENT`, `DENSRATIO`, `PRINTPHI`, and `WRITEPRESS`.
+
+For the one-component Poiseuille benchmark, define `POISEUILLE`. This activates
+`INTERNAL_OBSTACLES` and disables `TWOCOMPONENT`, `DENSRATIO`, and
+`INTERFACE_INCOMP`.
+
+For the two-component Poiseuille benchmark, define `TWOPOISEUILLE`. This
+activates `INTERNAL_OBSTACLES`, `TWOCOMPONENT`, `DENSRATIO`, and `PRINTPHI`.
+
+After changing `defines.h`, the code must be recompiled.
 
 ## Compiling *LBFAST*
 
 **Important note:** *LBFAST* requires CUDA Fortran and must be compiled with the
 NVIDIA HPC SDK, using the `nvfortran` compiler. The code also uses OpenACC
 directives and CUDA-enabled compilation flags. For MPI builds, the MPI compiler
-wrappers should be compatible with the NVIDIA HPC SDK and, on multi-GPU systems,
-CUDA-aware MPI is recommended.
+wrappers should be compatible with the NVIDIA HPC SDK and, on multi-GPU
+systems, CUDA-aware MPI is recommended.
 
-The `source` sub-directory contains a UNIX `Makefile` that builds the executable
-version of the code in single-process, MPI, debug, and NVML-enabled variants.
+The main *LBFAST* directory contains a UNIX `Makefile` that builds the
+executable version of the code in single-process, MPI, debug, and NVML-enabled
+variants.
 
 The GPU architecture can be selected through the `GPUCC` variable. For example,
 for NVIDIA A100 GPUs, one can compile the MPI version with:
@@ -78,6 +141,30 @@ Available targets are:
 | `clean-all` | Remove object files, module files, executable files, data files, and intermediate preprocessed files. |
 
 The executable produced by the `Makefile` is named `main.x`.
+
+## Running *LBFAST*
+
+*LBFAST* is run from the directory containing the selected input file. In MPI
+mode, the executable expects the MPI domain decomposition along the \(x\),
+\(y\), and \(z\) directions, followed by the input filename.
+
+For example:
+
+```bash
+mpirun -np 4 ./main.x 1 1 4 input.in
+```
+
+Here, `1 1 4` specifies the MPI decomposition along the \(x\), \(y\), and
+\(z\) axes, respectively. The product of the three decomposition integers must
+match the number of MPI processes:
+
+```text
+Nprocs = Px x Py x Pz
+```
+
+Output files are written to an `output` directory, which is created
+automatically in the directory from which the run is launched.
+
 
 ## Scalability
 
