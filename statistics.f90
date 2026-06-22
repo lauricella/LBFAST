@@ -964,158 +964,154 @@ contains
        real(kind=db) :: dt, xfit, yfit
        real(kind=db) :: sx, sy, sxx, sxy
        real(kind=db) :: lamb_x_tmp, lamb_z_tmp, lamb_cm_x_tmp, lamb_cm_z_tmp,my_tmp
-       real(kind=db) :: Aenv, t1,myperiod,period_th,freq_th
+       real(kind=db) :: Aenv, t1,myperiod,period_th,freq_th,radius_eq,t0
        integer, allocatable :: mystep(:), pstep(:)
        real(db), allocatable :: dosc(:), adosc(:), pval(:)
        integer, parameter :: min_peak_dist = 2000
  
-		if(myrank==0)then
+		
+	   if (myrank == 0) then
 		
 		  dt = ONE
 		
-		  myfreq = sqrt(TWENTYFOUR*sigma / (radius**THREE * (TWO*rho_b + THREE*rho_r)))
-		  nrat = rho_r/rho_b
-          mu1  = rho_r*visc1
-          mu2  = rho_b*visc2
-
-          chi = (((TWO*TWO + ONE)**TWO) * sqrt(mu1*mu2*rho_r*rho_b)) / &
-           (sqrt(TWO)*radius * (TWO*rho_b + (TWO + ONE)*rho_r) * &
-           (sqrt(mu1*rho_r) + sqrt(mu2*rho_b)))
- 
-           
+		  radius_eq = radius !* TWO**(ONE/THREE)  
+		
+		  mu1 = rho_r*visc1
+		  mu2 = rho_b*visc2
+		
+		  myfreq = sqrt(TWENTYFOUR*sigma / &
+		       (radius_eq**THREE * (TWO*rho_b + THREE*rho_r)))
+		
+		  chi = (((TWO*TWO + ONE)**TWO) * sqrt(mu1*mu2*rho_r*rho_b)) / &
+		       (sqrt(TWO)*radius_eq * (TWO*rho_b + THREE*rho_r) * &
+		       (sqrt(mu1*rho_r) + sqrt(mu2*rho_b)))
+		
 		  myfreq_corr = myfreq - HALF*chi*sqrt(myfreq) + (ONE/FOUR)*chi**TWO
-		  
+		
 		  period_th = TWO*pi_greek / myfreq_corr
-          freq_th     = 1 / period_th
-
-		  
+		  freq_th   = ONE / period_th
+		
 		  maxn = nsteps/stamp_term + 1
 		
-		  allocate(mystep(0:maxn), dosc(0:maxn), adosc(0:maxn))
+		  allocate(mystep(maxn), dosc(maxn))
 		  allocate(pstep(maxn), pval(maxn))
 		
 		  mystep(:) = 0
 		  pstep(:)  = 0
 		  dosc(:)   = ZERO
-		  adosc(:)  = ZERO
 		  pval(:)   = ZERO
 		
 		  open(unit=142,file='lamb.dat',status='old',action='read',iostat=ios)
-		  if(ios /= 0) then
-		    write(6,*) 'Errore apertura lamb.dat'
+		  if (ios /= 0) then
+		    write(6,*) 'Error in opening lamb.dat'
 		    return
 		  endif
 		
 		  myn = 0
 		  do
-		    if(myn >= maxn) exit
+		    if (myn >= maxn) exit
 		    myn = myn + 1
-		    read(142,'(i8,7g16.8)',iostat=ios) mystep(myn),my_tmp, &
-		         lamb_x_tmp, lamb_z_tmp, lamb_cm_x_tmp, lamb_cm_z_tmp,dosc(myn)
-		    if(ios /= 0) then
+		
+		    read(142,'(i8,7g16.8)',iostat=ios) mystep(myn), my_tmp, &
+		         lamb_x_tmp, lamb_z_tmp, lamb_cm_x_tmp, lamb_cm_z_tmp, dosc(myn)
+		
+		    if (ios /= 0) then
 		      myn = myn - 1
 		      exit
 		    endif
 		  enddo
 		  close(142)
 		
-		  if(myn < 3) then
-		    write(6,*) 'Troppi pochi punti in lamb.dat'
+		  if (myn < 3) then
+		    write(6,*) 'Too few points in lamb.dat'
 		    return
 		  endif
-		  
-		  mystep(0)=0
-		  dosc(0)=dosc(1)-ONE
-		  zint0_minus_zcm=dosc(1)
-          amp0 = zint0_minus_zcm - radius
-
-
-		  
-		  
 		
-		  do i = 0, myn
-		    adosc(i) = abs(dosc(i))
+		  zint0_minus_zcm = dosc(1)
+		  amp0 = zint0_minus_zcm - radius_eq
+		  t0 = real(mystep(1),db)*dt
+		
+		  npeaks = 0
+		  do i = 2, myn-1
+		    if (dosc(i) > dosc(i-1) .and. dosc(i) >= dosc(i+1) .and. &
+		        dosc(i) > radius_eq) then
+		
+		      if (npeaks == 0) then
+		        npeaks = 1
+		        pstep(npeaks) = mystep(i)
+		        pval(npeaks)  = dosc(i)
+		
+		      else if (mystep(i)-pstep(npeaks) >= min_peak_dist) then
+		        npeaks = npeaks + 1
+		        pstep(npeaks) = mystep(i)
+		        pval(npeaks)  = dosc(i)
+		      endif
+		
+		    endif
 		  enddo
-
-                  npeaks = 0
-                  do i = 1, myn-1
-                    if ( dosc(i) < dosc(i-1) .and. dosc(i) <= dosc(i+1) .and. dosc(i) > 1.1*radius ) then
-                      if (npeaks == 0 .or. mystep(i)-pstep(npeaks) >= min_peak_dist) then
-                        npeaks = npeaks + 1
-                        pstep(npeaks) = mystep(i)
-                        pval(npeaks)  = dosc(i)
-                      endif
-                    endif
-                  enddo
-                  write(6,*)'internal sanity check',pval(1),amp0+radius            		
+		
 		  if (npeaks < 2) then
-		    write(6,*) 'Non ho trovato abbastanza picchi per stimare omega.'
+		    write(6,*) 'Not enough peaks found to estimate omega.'
 		    return
 		  endif
-		 
-     
-		  do i = 1, npeaks
-            if (pval(i) <= 1.0e-8_db) then
-              write(6,'(a,i8,a,g16.8,a,i12)') 'Picco troppo piccolo: indice picco = ', i, &
-              '  ampiezza = ', pval(i), '  step = ', pstep(i)
-               return
-            endif
-         enddo
 		
-		  ! Picchi di abs(dosc): distanza tra picchi consecutivi = mezzo periodo
 		  period_sum = ZERO
-                  do i = 1, npeaks-1
-                    period_sum = period_sum + real(pstep(i+1) - pstep(i), db) * dt
-                  enddo
-
+		  do i = 1, npeaks-1
+		    period_sum = period_sum + real(pstep(i+1)-pstep(i),db)*dt
+		  enddo
 		
-		  tmean = period_sum / real(npeaks-1, db)
+		  tmean = period_sum / real(npeaks-1,db)
 		  omega_num = TWO*pi_greek / tmean
-	
-		  write(6,'(a,i10)')    'Numero punti attesi             = ', maxn
-		  write(6,'(a,i10)')    'Numero punti letti              = ', myn
-		  write(6,'(a,i10)')    'Numero picchi trovati           = ', npeaks
-		  write(6,'(a,f20.10)') 'Periodo teorico                 = ', period_th
-		  write(6,'(a,f20.10)') 'Omega teorica                   = ', myfreq_corr
-		  write(6,'(a,f20.10)') 'Periodo medio T_num             = ', tmean
-		  write(6,'(a,f20.10)') 'Frequenza angolare omega_num    = ', omega_num		  
-                  do i = 1, npeaks
-                    write(6,'(a,i6,a,i10,a,g16.8)') 'peak ',i,' step=',pstep(i),' amp=',pval(i)
-                  enddo
-         t1   = real(pstep(1),db)*dt
-
-         open(unit=42,file='lamb_theory.dat',status='replace',action='write')
-         
-         do i = 1, myn
-           mytime  = real(mystep(i),kind=db)*dt
-           dosc_th = radius + amp0 * cos(myfreq_corr * mytime)
-           write(42,'(i8,g16.8)') mystep(i), dosc_th
-         enddo
-         close(42)
-  
+		
+		  write(6,'(a,i10)')    'Expected number of points       = ', maxn
+		  write(6,'(a,i10)')    'Number of points read           = ', myn
+		  write(6,'(a,i10)')    'Number of peaks found           = ', npeaks
+		  write(6,'(a,f20.10)') 'Equivalent radius               = ', radius_eq
+		  write(6,'(a,f20.10)') 'Theoretical period              = ', period_th
+		  write(6,'(a,f20.10)') 'Theoretical omega               = ', myfreq_corr
+		  write(6,'(a,f20.10)') 'Mean numerical period T_num     = ', tmean
+		  write(6,'(a,f20.10)') 'Angular frequency omega_num     = ', omega_num
+		  write(6,'(a,f20.10)') 'zint0-zcm                       = ', zint0_minus_zcm
+		  write(6,'(a,f20.10)') 'amp0                            = ', amp0
+		
+		  do i = 1, npeaks
+		    write(6,'(a,i6,a,i10,a,g16.8)') 'peak ',i,' step=',pstep(i), &
+		         ' zint-zcm=',pval(i)
+		  enddo
+		
+		  open(unit=42,file='lamb_theory.dat',status='replace',action='write')
+		  do i = 1, myn
+		    mytime  = real(mystep(i),db)*dt
+		    dosc_th = radius_eq + amp0*cos(myfreq_corr*(mytime-t0))
+		    write(42,'(i8,g16.8)') mystep(i), dosc_th
+		  enddo
+		  close(42)
+		
 #ifdef USEGNUPLOT
-         open(unit=42,file='plot_lamb.gp',status='replace',action='write')
-         write(42,'(a)') '# plot_lamb.gp'
-         write(42,'(a)') 'set terminal pngcairo size 1400,900 enhanced font "Helvetica,20"'
-         write(42,'(a)') 'set output "plot_lamb.png"'
-         write(42,'(a,es12.4,a,es12.4,a,es12.4,a)') &
-              'set title "Lamb: numerical vs theoretical D'//bs//'n'// &
-              'u0=', uwall, '   \omega_{th}=', myfreq_corr, '   \omega_{fit}=',omega_num, '"'
-         write(42,'(a)') 'set title offset 0,-0.5'
-         write(42,'(a)') 'set xlabel "time step"'
-         write(42,'(a)') 'set ylabel "D"'
-         write(42,'(a)') 'set grid'
-         write(42,'(a)') 'set key right top'
-         write(42,'(a)') 'set autoscale'
-         write(42,'(a)') 'plot ' // char(92)
-         write(42,'(a)') '"lamb.dat" using 1:7 with lines lw 3 title "numerical", ' // char(92)
-         write(42,'(a)') '"lamb_theory.dat" using 1:2 with lines lw 3 dt 2 title "theoretical"'
-         write(42,'(a)') 'unset output'
-         close(42)
-         call execute_command_line('gnuplot plot_lamb.gp', wait=.true.)
+		  open(unit=42,file='plot_lamb.gp',status='replace',action='write')
+		  write(42,'(a)') '# plot_lamb.gp'
+		  write(42,'(a,es22.14)') 'Req = ', radius_eq
+		  write(42,'(a)') 'set terminal pngcairo size 1400,900 enhanced font "Helvetica,20"'
+		  write(42,'(a)') 'set output "plot_lamb.png"'
+		  write(42,'(a,es12.4,a,es12.4,a)') &
+		       'set title "Lamb: numerical vs theoretical interface location; omega_th=', &
+		       myfreq_corr, ' omega_num=', omega_num, '"'
+		  write(42,'(a)') 'set xlabel "time step"'
+		  write(42,'(a)') 'set ylabel "(z_int - z_c)/R_e"'
+		  write(42,'(a)') 'set grid'
+		  write(42,'(a)') 'set key right top'
+		  write(42,'(a)') 'plot ' // char(92)
+		  write(42,'(a)') '"lamb.dat" using 1:($7/Req) with lines lw 3 title "numerical", ' // char(92)
+		  write(42,'(a)') '"lamb_theory.dat" using 1:($2/Req) with lines lw 3 dt 2 title "theoretical"'
+		  write(42,'(a)') 'unset output'
+		  close(42)
+		
+		  call execute_command_line('gnuplot plot_lamb.gp', wait=.true.)
 #endif
-         deallocate(mystep, dosc, adosc, pstep, pval)
-       endif
+		
+		  deallocate(mystep, dosc, pstep, pval)
+		
+	   endif
        
 #elif defined(LAPLACE) && defined(TWOCOMPONENT)
 
@@ -1133,7 +1129,7 @@ contains
 		
 		  open(unit=142,file='laplace.dat',status='old',action='read',iostat=ios)
 		  if(ios /= 0) then
-		    write(6,*) 'Errore apertura laplace.dat'
+		    write(6,*) 'Error in opening laplace.dat'
 		    return
 		  endif
 		
@@ -1157,7 +1153,7 @@ contains
 		  close(142)
 		
 		  if(myn < 3) then
-		    write(6,*) 'Troppi pochi punti in laplace.dat'
+		    write(6,*) 'too few points in laplace.dat'
 		    return
 		  endif
 		  
@@ -1168,26 +1164,26 @@ contains
           avgR = mysumR / real(myn, db)
           stdR = sqrt( real(myn,db)*mysqsumR - mysumR*mysumR ) / real(myn,db)
 		  
-		  write(6,'(a,3i10)')   'posizione interna               = ', nint(center(1:3))
-		  write(6,'(a,3i10)')   'posizione esterna               = ', iprobe,jprobe,kprobe
-		  write(6,'(a,i10)')    'Numero punti letti              = ', myn
-		  write(6,'(a,f20.10)') 'Sigma teorica                   = ', sigma
-		  write(6,'(a,f20.10,a,f20.10)') 'Sigma numerica                  = ', avg,' +- ',std
-		  write(6,'(a,f20.10,a,f20.10)') 'Press numerica                  = ', avgP,' +- ',stdP
-		  write(6,'(a,f20.10,a,f20.10)') 'Radius numerica                 = ', avgR,' +- ',stdR
+		  write(6,'(a,3i10)')   'Internal position               = ', nint(center(1:3))
+		  write(6,'(a,3i10)')   'External position               = ', iprobe,jprobe,kprobe
+		  write(6,'(a,i10)')    'Number of points read           = ', myn
+		  write(6,'(a,f20.10)') 'Theoretical sigma               = ', sigma
+		  write(6,'(a,f20.10,a,f20.10)') 'Numerical sigma                 = ', avg,' +- ',std
+		  write(6,'(a,f20.10,a,f20.10)') 'Numerical pressure              = ', avgP,' +- ',stdP
+		  write(6,'(a,f20.10,a,f20.10)') 'Numerical radius                = ', avgR,' +- ',stdR
 
 		  open(unit=142, file='laplace.dat', status='old', action='write', position='append', iostat=ios)
 		  if(ios /= 0) then
-		    write(6,*) 'Errore apertura laplace.dat'
+		    write(6,*) 'Error in opening laplace.dat'
 		    return
 		  endif
-		  write(142,'(a,3i10)')   '#posizione interna               = ', nint(center(1:3))
-		  write(142,'(a,3i10)')   '#posizione esterna               = ', iprobe,jprobe,kprobe
-		  write(142,'(a,i10)')    '#Numero punti letti              = ', myn
-		  write(142,'(a,f20.10)') '#Sigma teorica                   = ', sigma
-		  write(142,'(a,f20.10,a,f20.10)') '#Sigma numerica                  = ', avg,' +- ',std
-		  write(142,'(a,f20.10,a,f20.10)') '#Press numerica                  = ', avgP,' +- ',stdP
-		  write(142,'(a,f20.10,a,f20.10)') '#Radius numerica                 = ', avgR,' +- ',stdR
+		  write(142,'(a,3i10)')   '#Internal position               = ', nint(center(1:3))
+		  write(142,'(a,3i10)')   '#External position               = ', iprobe,jprobe,kprobe
+		  write(142,'(a,i10)')    '#Number of points read           = ', myn
+		  write(142,'(a,f20.10)') '#Theoretical sigma               = ', sigma
+		  write(142,'(a,f20.10,a,f20.10)') '#Numerical sigma                 = ', avg,' +- ',std
+		  write(142,'(a,f20.10,a,f20.10)') '#Numerical pressure              = ', avgP,' +- ',stdP
+		  write(142,'(a,f20.10,a,f20.10)') '#Numerical radius                = ', avgR,' +- ',stdR
 		  close(142)
        endif
 #endif  
