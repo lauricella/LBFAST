@@ -83,11 +83,11 @@ The executable produced by the `Makefile` is named `main.x`.
 
 ## Scalability
 
-## One-component model
+# One-component model
 
-## Performance in Strong Scaling
+# Performance in Strong Scaling
 
-## Table 1: Performance in Strong Scaling
+# Table 1: Performance in Strong Scaling
 
 **Table 1**: MPI decomposition along the \(x, y, z\) axes and GLUPS versus the number of computing GPU devices \(N_{\mathrm{procs}}\) for a one-component fluid simulation in **strong scaling**.  
 Results refer to the Taylor-Green benchmark on a fixed cubic box of side 512 lattice points.
@@ -113,9 +113,9 @@ Results refer to the Taylor-Green benchmark on a fixed cubic box of side 512 lat
 | 🔵 NVIDIA A100 64GB | 512 | 1 × 16 × 32 | 62.3 | 55.9 | 55.1 | 56.1 | 53.9 | 46.9 |
 | 🔵 NVIDIA A100 64GB | 512 | 8 × 8 × 8   | 48.1 | 46.0 | 44.5 | 48.3 | 47.4 | 42.7 |
 
-## Performance in Weak Scaling
+# Performance in Weak Scaling
 
-## Table 2: Performance in Weak Scaling
+# Table 2: Performance in Weak Scaling
 
 **Table 2**: MPI decomposition along the \(x, y, z\) axes and GLUPS versus the number of computing GPU devices \(N_{\mathrm{procs}}\) for a one-component fluid simulation in **weak scaling**.  
 Results refer to the Taylor-Green benchmark with a fixed cubic sub-domain of side 512 lattice points assigned to each GPU device.
@@ -148,11 +148,11 @@ Results refer to the Taylor-Green benchmark with a fixed cubic sub-domain of sid
 | 🔵 NVIDIA A100 64GB | 512 | 1 × 16 × 32   | 1001.5 | 797.7 | 430.5 | 582.2 | 457.3 | 191.5 |
 | 🔵 NVIDIA A100 64GB | 512 | 8 × 8 × 8     | 960.5  | 770.7 | 421.1 | 556.2 | 440.6 | 187.1 |
 
-## Two-component model
+# Two-component model
 
-## Performance in Strong Scaling
+# Performance in Strong Scaling
 
-## Table 3: Performance in Strong Scaling
+# Table 3: Performance in Strong Scaling
 
 **Table 3**: MPI decomposition along the \(x, y, z\) axes and GLUPS versus the number of computing GPU devices \(N_{\mathrm{procs}}\) for a two-component fluid simulation in **strong scaling**.  
 Results refer to the Laplace benchmark on a fixed cubic box of side 512 lattice points.
@@ -178,9 +178,9 @@ Results refer to the Laplace benchmark on a fixed cubic box of side 512 lattice 
 | 🔵 NVIDIA A100 64GB | 512 | 1 × 16 × 32 | 27.3 | 24.8 | 24.5 | 23.4 | 23.2 | 20.7 |
 | 🔵 NVIDIA A100 64GB | 512 | 8 × 8 × 8   | 21.8 | 19.4 | 21.5 | 20.4 | 19.0 | 20.5 |
 
-## Performance in Weak Scaling
+# Performance in Weak Scaling
 
-## Table 4: Performance in Weak Scaling
+# Table 4: Performance in Weak Scaling
 
 **Table 4**: MPI decomposition along the \(x, y, z\) axes and GLUPS versus the number of computing GPU devices \(N_{\mathrm{procs}}\) for a two-component fluid simulation in **weak scaling**.  
 Results refer to the Laplace benchmark with a fixed cubic sub-domain of side 512 lattice points assigned to each GPU device.
