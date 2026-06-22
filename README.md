@@ -96,6 +96,159 @@ activates `INTERNAL_OBSTACLES`, `TWOCOMPONENT`, `DENSRATIO`, and `PRINTPHI`.
 
 After changing `defines.h`, the code must be recompiled.
 
+## Input File Namelists
+
+Runtime parameters are read from input files through Fortran namelists. The two
+main public namelists are `simulation` and `fluid`.
+
+Some input variables are available only when the corresponding compile-time
+macros are active. The input file should therefore be consistent with the
+configuration selected in `defines.h`.
+
+### `simulation` Namelist
+
+The `simulation` namelist controls the domain size, time stepping, I/O,
+restart, probe output, boundary conditions, and optional weak-scaling mode.
+
+| Variable | Meaning |
+|---|---|
+| `lx`, `ly`, `lz` | Global domain size along the `x`, `y`, and `z` directions. |
+| `nsteps` | Number of time steps requested for the simulation. |
+| `stamp` | Output interval for full 3D fields. |
+| `stamp2D` | Output interval for 2D planes. |
+| `stepskip` | Stride used for selected output operations. |
+| `stamp_term` | Interval, in time steps, at which probe values are printed to the terminal. |
+| `time_limit` | Wall-clock time limit in seconds. If reached before `nsteps`, the code exits cleanly and writes restart files when restart writing is enabled. |
+| `every_time_check` | Number of time steps between two checks of the wall-clock time limit. |
+| `lprint` | If true, prints probe pressure and velocity to the terminal every `stamp_term` steps. |
+| `lvtk` | If true, writes VTK output. |
+| `lraw` | If true, writes RAW output. When `DOXDMF` is defined, matching XDMF metadata files are also written. |
+| `lrestart` | If true, starts the simulation from restart files. |
+| `lwriterestart` | If true, writes restart files during a normal or time-limited shutdown. |
+| `lreadisfluid` | If true, reads the solid/fluid geometry from `isfluid.raw`. |
+| `lreadinit` | If true, reads initial macroscopic fields from RAW files. |
+| `lweakscaling` | If true, activates weak-scaling mode by replicating the input domain according to the MPI decomposition. |
+| `iprobe`, `jprobe`, `kprobe` | Coordinates of the probe point where pressure and velocity are sampled for terminal output. |
+
+When `lreadisfluid` is true, the code expects a file named `isfluid.raw`.
+This file must be a single-precision RAW scalar field in Fortran order
+`i,j,k`, with value `1` for fluid nodes and `0` for wall nodes.
+
+When `lreadinit` is true, the code expects the initial macroscopic fields to be
+provided as single-precision RAW scalar fields in Fortran order `i,j,k`. The
+required filenames are:
+
+| File | Field |
+|---|---|
+| `rho.raw` | Density field. |
+| `u.raw` | Velocity component along `x`. |
+| `v.raw` | Velocity component along `y`. |
+| `w.raw` | Velocity component along `z`. |
+| `phi.raw` | Phase-field variable, required only for two-component simulations. |
+
+### Periodic Boundary Conditions
+
+The variables `pbc_x`, `pbc_y`, and `pbc_z` control periodicity along the three
+Cartesian directions.
+
+| Variable value | Meaning |
+|---|---|
+| `1` | Periodic boundary condition is active along that direction. |
+| `0` | The direction is non-periodic. |
+
+For example, `pbc_x = 1` makes the domain periodic along `x`, while
+`pbc_x = 0` makes the `x` direction non-periodic.
+
+### Open Boundary Conditions
+
+Open boundary conditions are enabled when `openbc = 1`. The type of open
+boundary is selected independently on the two sides of each Cartesian
+direction through:
+
+| Variable | Boundary sides |
+|---|---|
+| `openbc_type_x(1:2)` | Rear and front sides along `x`. |
+| `openbc_type_y(1:2)` | Rear and front sides along `y`. |
+| `openbc_type_z(1:2)` | Rear and front sides along `z`. |
+
+The index convention is:
+
+| Index | Meaning |
+|---|---|
+| `1` | Lower/rear side of the selected direction. |
+| `2` | Upper/front side of the selected direction. |
+
+The boundary type is selected as follows:
+
+| Value | Meaning |
+|---|---|
+| `2` | Zero-gradient boundary. Pressure and velocity are copied from the local fluid state. |
+| `1` | Constant-pressure boundary. Pressure is imposed, while velocity is copied from the local fluid state. |
+| Other values | Constant-velocity boundary. Velocity is imposed, while pressure is copied from the local fluid state. |
+
+For the `x` direction, the imposed pressure and velocity values are stored in:
+
+| Variable | Meaning |
+|---|---|
+| `openbc_press_x(1:2)` | Imposed pressure values on the two `x` boundaries. |
+| `openbc_u_x(1:2)` | Imposed `u` values on the two `x` boundaries. |
+| `openbc_v_x(1:2)` | Imposed `v` values on the two `x` boundaries. |
+| `openbc_w_x(1:2)` | Imposed `w` values on the two `x` boundaries. |
+
+The same convention applies to `openbc_press_y`, `openbc_u_y`, `openbc_v_y`,
+`openbc_w_y`, and to `openbc_press_z`, `openbc_u_z`, `openbc_v_z`,
+`openbc_w_z`.
+
+### 2D Plane Output
+
+The variable `nplanes` sets the number of 2D planes to be written. These planes
+are written only in RAW format, with XDMF metadata when the `DOXDMF` macro is
+defined.
+
+For each plane, `ndir` selects the axis perpendicular to the plane, while
+`npoint` selects the position along that axis.
+
+| `ndir` value | Plane orientation |
+|---|---|
+| `1` | Plane perpendicular to `x`. |
+| `2` | Plane perpendicular to `y`. |
+| `3` | Plane perpendicular to `z`. |
+
+For example, if `ndir = 1` and `npoint = 16`, the output plane contains all
+points with fixed `i = 16`, while `j` and `k` span the plane.
+
+### Weak-Scaling Mode
+
+When `lweakscaling` is true, the domain specified in the input file is treated
+as the per-MPI-rank or per-decomposition-block domain and is replicated
+according to the MPI decomposition supplied on the command line.
+
+For example:
+
+```bash
+mpirun -np 4 ./main.x 1 1 4 input.in
+```
+
+with `lweakscaling = .true.` replicates the input domain along the direction
+associated with the `1 1 4` MPI decomposition.
+
+### `fluid` Namelist
+
+The `fluid` namelist contains the physical parameters of the flow and, when
+compiled in two-component mode, of the phase-field model.
+
+| Variable | Meaning |
+|---|---|
+| `fx`, `fy`, `fz` | Constant external accelerations in lattice-Boltzmann units. |
+| `visc1` | Kinematic viscosity of the fluid, or of component 1 in two-component simulations, in lattice-Boltzmann units. |
+| `radius` | Initial droplet radius, used for droplet benchmarks such as Laplace and Lamb tests. |
+| `width` | Diffuse-interface thickness used in two-component cases such as layered Poiseuille, Laplace, and Lamb tests. |
+| `center` | Initial droplet center or reference position for benchmark initial conditions. |
+| `tau_diff` | Interface diffusivity in the conservative Allen-Cahn phase-field model. Available in two-component mode. |
+| `sigma` | Surface tension in lattice-Boltzmann units. Available in two-component mode. |
+| `visc2` | Kinematic viscosity of component 2 in lattice-Boltzmann units. Available in two-component mode. |
+| `rho_r`, `rho_b` | Component densities in lattice-Boltzmann units, used in two-component density-ratio simulations. |
+
 ## Compiling *LBFAST*
 
 **Important note:** *LBFAST* requires CUDA Fortran and must be compiled with the
@@ -139,8 +292,6 @@ Available targets are:
 | `nvfortran-nvml-mpi` | Compile a parallel MPI GPU version with both `_NVML` and `-DMPI` enabled. |
 | `clean` | Remove object files, module files, and intermediate preprocessed files. |
 | `clean-all` | Remove object files, module files, executable files, data files, and intermediate preprocessed files. |
-
-The executable produced by the `Makefile` is named `main.x`.
 
 ## Running *LBFAST*
 
