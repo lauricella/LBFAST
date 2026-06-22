@@ -13,10 +13,7 @@ The code was developed by:
 - Massimo Bernaschi, IAC-CNR, Rome, Italy
 - Sauro Succi, IIT, Rome, Italy 
 
-The software development process has received support from the Italian
-Government through the PRIN grant MOBIOS, ID: 2022N4ZNH3,
-CUP: F53C24001000006, from CINECA through the ISCRA-B project MIPLAST
-HP10BZY7BK, from GNFM-INdAM, and from the European Research Council
+The software development process has received support from the European Research Council
 through the ERC Proof of Concept Grant No. 101187935, *LBFAST*.
 
 This is an experimental code. The authors accept no responsibility for the
@@ -26,6 +23,7 @@ The code is licensed under the **Non-Commercial Research License – Version 1.0
 Use, copy, and modification are permitted for research, educational, and other
 non-commercial purposes only. Commercial use requires a separate written
 agreement with the copyright holders.
+For commercial licensing, please contact: lauricella.marco@gmail.com or technology.transfer@iit.it
 
 ## Structure
 
