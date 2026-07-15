@@ -25,6 +25,12 @@ non-commercial purposes only. Commercial use requires a separate written
 agreement with the copyright holders.
 For commercial licensing, please contact: lauricella.marco@gmail.com or technology.transfer@iit.it
 
+## Citation
+
+If you use this code, please cite both the associated LBFAST publication and this software release.
+
+> Lauricella, M., Montessori, A., Amati, G., Spiga, F., Tiribocchi, A., Bernaschi, M., & Succi, S. (2026, July 1). *LBFAST: A Lightweight Moment-Represented Lattice Boltzmann Solver for Multi-GPU Architectures*. EuroHPC User Days 2026, Clayton Hotel Burlington Road, Dublin, Ireland. https://doi.org/10.5281/zenodo.21106853
+
 ## Structure
 
 *LBFAST* is distributed as a single UNIX directory containing the full source
