@@ -1,0 +1,53 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "LBFAST"
+type: software
+authors: &authors
+  - family-names: "Lauricella"
+    given-names: "Marco"
+    affiliation: "Istituto Italiano di Tecnologia (IIT)"
+    email: "lauricella.marco@gmail.com"
+  - family-names: "Montessori"
+    given-names: "Andrea"
+  - family-names: "Amati"
+    given-names: "Giorgio"
+  - family-names: "Spiga"
+    given-names: "Filippo"
+  - family-names: "Tiribocchi"
+    given-names: "Adriano"
+  - family-names: "Bernaschi"
+    given-names: "Massimo"
+  - family-names: "Succi"
+    given-names: "Sauro"
+repository-code: "https://github.com/lauricella/LBFAST"
+license: "LicenseRef-NonCommercial-Research-1.0"
+license-url: "https://github.com/lauricella/LBFAST/blob/main/LICENSE.md"
+version: "1.0.0"
+date-released: "2025"
+keywords:
+  - "Lattice Boltzmann Method"
+  - "computational fluid dynamics"
+  - "high-performance computing"
+  - "GPU computing"
+  - "Fortran"
+abstract: >-
+  LBFAST is a research software implementing a lightweight
+  moment-represented Lattice Boltzmann solver for
+  multi-GPU architectures, developed at the Istituto
+  Italiano di Tecnologia (IIT). Released under a
+  Non-Commercial Research License for research,
+  educational, and non-commercial purposes.
+preferred-citation:
+  type: conference-paper
+  title: "LBFAST: A Lightweight Moment-Represented Lattice Boltzmann Solver for Multi-GPU Architectures"
+  authors: *authors
+  conference:
+    name: "EuroHPC User Days 2026"
+    city: "Dublin"
+    region: "Clayton Hotel Burlington Road"
+    country: "IE"
+  year: 2026
+  month: 7
+  date-released: "2026-07-01"
+  doi: "10.5281/zenodo.21106853"
+  url: "https://doi.org/10.5281/zenodo.21106853"
