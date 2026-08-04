@@ -7,9 +7,11 @@
    lreadisfluid=.false.   !metti true se leggi isfluid
    lreadinit=.false.  !metti true se leggi rho phi e u v w
    lwriterestart=.false.
-   lx=41
-   ly=41
-   lz=41
+   ! LBFAST requires each global dimension to be a multiple of TILE_DIM=8.
+   ! Use 40^3, the nearest compatible domain to Saito's 41^3 lattice.
+   lx=40
+   ly=40
+   lz=40
    iprobe=20
    jprobe=20
    kprobe=20
