@@ -1,18 +1,18 @@
 &simulation
-   nsteps=50000
-   stamp=1000
-   stamp2D=500
-   stamp_term=20
+   nsteps=20000
+   stamp=100
+   stamp2D=100
+   stamp_term=10
    stepskip=1
    lreadisfluid=.false.   !metti true se leggi isfluid
    lreadinit=.false.  !metti true se leggi rho phi e u v w
    lwriterestart=.false.
-   lx=256
-   ly=256
-   lz=256
-   iprobe=128
-   jprobe=128
-   kprobe=108
+   lx=41
+   ly=41
+   lz=41
+   iprobe=20
+   jprobe=20
+   kprobe=20
    lprint=.true.
    lvtk=.false.
    lraw=.true.
@@ -26,20 +26,23 @@
    nplanes=0
 &end
 &fluid
-   uwall=0.0e-2
-   fx=0.0e-6
-   fy=0.0e-6
-   fz=0.0e-6
+   uwall=0.0e0
+   fx=0.0e0
+   fy=0.0e0
+   fz=0.0e0
    !rhoIN=0.0022
    !rhoOUT=-0.0022
    tau_diff=0.1e0
-   radius=20
-   width=5.0e0
-   center= 128.0, 128.0, 128.0
-   sigma=0.03e0
+   ! Equivalent radius Re=(11*11*15)^(1/3), used by Miller-Scriven
+   radius=12.1981005732343e0
+   ! Saito et al. use the same diffuse-interface width W=4
+   width=4.0e0
+   center=20.0, 20.0, 20.0
+   ! First high-surface-tension case in Table II
+   sigma=2.27e-3
    wettab_r=90.0  !in degrees da 30 --> 130
    !wettab_b=1.0e0
-   visc1= 0.001 
+   visc1=3.333e-3
    !nnewt_K = 1.0e-3
    !nnewt_n = 0.5   ! oppure 0.5 o 0.75
    !nnewt_tauy = 1.21e-5
@@ -47,11 +50,11 @@
    !nnewt_niter=10
    !tau_min=0.5001
    !tau_max=20.0
-   visc2= 0.001 
+   visc2=3.333e-3
    !A_rep=-0.04
    !q_th=0.125
    !cosOppT=-0.8
-   rho_r=1.0e0
+   rho_r=4.0e0
    rho_b=1.0e0
    !npoint = 2
    !ndir = 2
