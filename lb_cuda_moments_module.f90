@@ -108,7 +108,7 @@ contains
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
 !          mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
 !          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
-          mymask=FOUR*phi_loc*(ONE-phi_loc)
+          mymask=sqrt(max(ZERO,FOUR*phi_loc*(ONE-phi_loc)))
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -431,7 +431,7 @@ contains
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
 !          mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
 !          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
-          mymask=FOUR*phi_loc*(ONE-phi_loc)
+          mymask=sqrt(max(ZERO,FOUR*phi_loc*(ONE-phi_loc)))
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -763,7 +763,7 @@ contains
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
 !          mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
 !          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
-          mymask=FOUR*phi_loc*(ONE-phi_loc)
+          mymask=sqrt(max(ZERO,FOUR*phi_loc*(ONE-phi_loc)))
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -1096,7 +1096,7 @@ contains
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
 !          mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
 !          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
-          mymask=FOUR*phi_loc*(ONE-phi_loc)
+          mymask=sqrt(max(ZERO,FOUR*phi_loc*(ONE-phi_loc)))
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -1429,7 +1429,7 @@ contains
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
 !          mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
 !          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
-          mymask=FOUR*phi_loc*(ONE-phi_loc)
+          mymask=sqrt(max(ZERO,FOUR*phi_loc*(ONE-phi_loc)))
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -1761,7 +1761,7 @@ contains
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
 !          mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
 !          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
-          mymask=FOUR*phi_loc*(ONE-phi_loc)
+          mymask=sqrt(max(ZERO,FOUR*phi_loc*(ONE-phi_loc)))
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -2094,7 +2094,7 @@ contains
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
 !          mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
 !          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
-          mymask=FOUR*phi_loc*(ONE-phi_loc)
+          mymask=sqrt(max(ZERO,FOUR*phi_loc*(ONE-phi_loc)))
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
@@ -2428,7 +2428,7 @@ contains
 		  lap_phi_loc=real(locauxfields_s(ii,jj,kk,1,myblock),kind=db)
 !          mymask=ONE-HALF*(ONE-tanh((phi_loc-0.015_db)/(HALF*0.005_db)))
 !          mymask=    HALF*(ONE-tanh((phi_loc-0.995_db)/(HALF*0.005_db)))*mymask
-          mymask=FOUR*phi_loc*(ONE-phi_loc)
+          mymask=sqrt(max(ZERO,FOUR*phi_loc*(ONE-phi_loc)))
 #endif
 #ifdef DENSRATIO
 		  rhophi_loc = rho_r*phi_loc+(ONE-phi_loc)*rho_b 
