@@ -27,7 +27,11 @@ contains
 #endif    
 #ifdef LAMBTEST
       real(kind=db) :: myp2,xx,yy,zz,rr,costh,rloc,eta0  
-      real(kind=db) :: myfreq,nrat,mu1,mu2,chi,myfreq_corr,myperiod
+      real(kind=db) :: myfreq,mu1,mu2,chi,myfreq_corr,myperiod
+      real(kind=db), parameter :: lamb_rmin=11.0_db
+      real(kind=db), parameter :: lamb_rmax=15.0_db
+      real(kind=db), parameter :: lamb_req= &
+       (11.0_db*11.0_db*15.0_db)**(1.0_db/3.0_db)
 #endif 
 #if defined(MULTIHIT)
 	  real(kind=db) :: k_zero
@@ -223,22 +227,24 @@ contains
        stdev=1.0e-3
        
 #if defined(LAMBTEST) && defined(TWOCOMPONENT)
-       lamb_A=uwall / radius
+       lamb_A=uwall/lamb_req
        lamb_visc=ZERO
        lamb_visc_temp=ZERO
-       myfreq = sqrt(TWENTYFOUR*sigma / (radius**THREE * (TWO*rho_b + THREE*rho_r)))
-	   nrat = rho_r/rho_b
+       myfreq = sqrt(TWENTYFOUR*sigma / &
+        (lamb_req**THREE * (TWO*rho_b + THREE*rho_r)))
        mu1  = rho_r*visc1
        mu2  = rho_b*visc2
 
-       chi = ((TWO*nrat + ONE)**TWO * sqrt(mu1*mu2*rho_r*rho_b)) / &
-        (TWO*radius * (nrat*rho_b + (nrat + ONE)*rho_r) * &
+       chi = 25.0_db*sqrt(mu1*mu2*rho_r*rho_b) / &
+        (sqrt(TWO)*lamb_req*(TWO*rho_b + THREE*rho_r) * &
         (sqrt(mu1*rho_r) + sqrt(mu2*rho_b)))
-	   myfreq_corr = myfreq - HALF*chi*sqrt(myfreq) + (ONE/FOUR)*chi**TWO
+       myfreq_corr = myfreq - HALF*chi*sqrt(myfreq) + &
+        (ONE/FOUR)*chi**TWO
 
-       myperiod = TWO*pi_greek / myfreq_corr
+       myperiod = TWO*pi_greek/myfreq_corr
        
        if(myrank==0)then
+          write(6,'(a,f20.10)')'LAMB: equivalent radius',lamb_req
           write(6,'(a,f20.10)')'LAMB: myfreq_corr',myfreq_corr
           write(6,'(a,f20.10)')'LAMB: myperiod',myperiod
        endif
@@ -269,8 +275,8 @@ contains
        coefL_pois = fz * H_pois * (visc1 - visc2) / &
                    (2.0_db * visc1 * (visc1 + visc2))
 
-       coefR_pois = fz * H_pois * (visc1 - visc2) / &
-                   (2.0_db * visc2 * (visc1 + visc2))
+       coefR_pois = fz * H_pois * rho_r * (visc1 - visc2) / &
+                   (2.0_db * visc2 * (rho_r*visc1 + rho_b*visc2))
 #endif
 #endif
        do k=1,nz
@@ -359,32 +365,28 @@ contains
                   dist3d(2)=real(gj,kind=db)-center(2)
                   dist3d(3)=real(gk,kind=db)-center(3)
                   call pbc_images(invdim,dist3d,dist3dout)
-                   
-                  dist=sqrt((dist3dout(1)*HALF)**TWO + dist3dout(2)**TWO + dist3dout(3)**TWO)
-                   
-                  tempphi=ONE*fcut_tanh(dist,radius,width)
+
+                  ! Saito et al.: prolate spheroid with semi-axes
+                  ! 11, 11 and 15. The same tanh profile used for the
+                  ! static interface is applied to the ellipsoidal radius.
+                  dist=lamb_rmin*sqrt( &
+                   (dist3dout(1)/lamb_rmin)**TWO + &
+                   (dist3dout(2)/lamb_rmin)**TWO + &
+                   (dist3dout(3)/lamb_rmax)**TWO)
+                  tempphi=fcut_tanh(dist,lamb_rmin,width)
                    
 				  loc_u = ZERO
 				  loc_v = ZERO
 				  loc_w = ZERO
-			  
-!                 if (dist <= radius) then
-!                    loc_u =  TWO *lamb_A*dist3dout(1)
-!                    loc_v =  TWO *lamb_A*dist3dout(2)
-!                    loc_w = -FOUR*lamb_A*dist3dout(3)
-!                 else
-!                    loc_u = ZERO
-!                    loc_v = ZERO
-!                    loc_w = ZERO
-!                 endif 
 #ifdef DENSRATIO
                   rhophi_loc=rho_r*tempphi+(ONE-tempphi)*rho_b
 #else
                   rhophi_loc = 1.0_db
 #endif	
-                  
-                  tempphi2 = tempphi*(sigma*TWO)/radius/(rhophi_loc*cssq)
-				  loc_press = loc_press + tempphi2
+
+                  ! No spherical Laplace-pressure jump is imposed on
+                  ! the initially prolate droplet.
+                  loc_press=ZERO
                   
                   visc_loc=(rho_r*visc1*tempphi+(1.0_db-tempphi)*visc2*rho_b)/rhophi_loc
                   
