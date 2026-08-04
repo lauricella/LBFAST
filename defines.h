@@ -29,8 +29,8 @@
 #define noPOISEUILLE
 #define noTWOPOISEUILLE
 #define noTAYLORGREEN
-#define LAMBTEST
-#define noLAPLACE
+#define noLAMBTEST
+#define LAPLACE
 
 #define USEGNUPLOT
 #define noPRINTPHI
