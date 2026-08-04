@@ -29,7 +29,7 @@
 #define noPOISEUILLE
 #define noTWOPOISEUILLE
 #define noTAYLORGREEN
-#define noLAMBTEST
+#define LAMBTEST
 #define noLAPLACE
 
 #define USEGNUPLOT
