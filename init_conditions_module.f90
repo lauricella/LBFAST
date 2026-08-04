@@ -275,8 +275,8 @@ contains
        coefL_pois = fz * H_pois * (visc1 - visc2) / &
                    (2.0_db * visc1 * (visc1 + visc2))
 
-       coefR_pois = fz * H_pois * rho_r * (visc1 - visc2) / &
-                   (2.0_db * visc2 * (rho_r*visc1 + rho_b*visc2))
+       coefR_pois = fz * H_pois * (visc1 - visc2) / &
+                   (2.0_db * visc2 * (visc1 + visc2))
 #endif
 #endif
        do k=1,nz
