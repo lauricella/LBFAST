@@ -85,7 +85,7 @@ Important CSV fields include `omega_theory`, `omega_numerical`, `frequency_error
 
 ## Validation result
 
-For the canonical case after correcting the phase-advection coefficient:
+For the canonical case:
 
 | Quantity | Result |
 |---|---:|
@@ -99,22 +99,12 @@ For the canonical case after correcting the phase-advection coefficient:
 
 The force and kinematic checks show that the remaining frequency error is a numerical error of this diffuse-interface configuration rather than a loss of effective surface tension or an incorrect phase-advection speed.
 
-## Phase-advection defect found by this benchmark
+## Phase-field kinematic check
 
-The published conservative Allen–Cahn equation contains the unit-coefficient advection term
+The conservative Allen–Cahn equation contains the advection term
 
 ```text
 partial_t phi + u dot grad(phi) = diffusion + interface compression.
 ```
 
-The previous LBFAST implementation multiplied `u dot grad(phi)` by `0.5` in the full, interior, and six MPI-halo kernels. Consequently, the interface travelled at half the fluid velocity and the wave frequency was underestimated by approximately 36 percent.
-
-All eight kernels now use
-
-```fortran
-phi_out = phi_loc &
-  - loc_u*gradfix - loc_v*gradfiy &
-  - loc_w*gradfiz + tau_diff*lap_phi_loc + mytemp
-```
-
-The kinematic diagnostic is retained as a regression check: its gain should remain close to one.
+The diagnostic compares the measured amplitude derivative with the Fourier mode of the normal fluid velocity at the interface. Their least-squares gain should remain close to one, providing a direct regression check of phase-field advection.

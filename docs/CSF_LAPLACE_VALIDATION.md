@@ -2,29 +2,10 @@
 
 ## Purpose
 
-This document describes the implementation and validation of a geometric
+This document describes the implementation and validation of the geometric
 continuum-surface-force (CSF) model in the two-component LBFAST solver. The
-work was performed on the `lamb` branch to determine whether the effective
-surface tension explains the long period observed in the oscillating-droplet
-benchmark.
-
-The original LBFAST capillary coupling uses the Jacqmin chemical-potential
-force
-
-```text
-mu = 4 beta phi (phi - 1) (phi - 1/2) - kappa laplacian(phi)
-F_sigma = mu grad(phi),
-```
-
-with
-
-```text
-beta  = 12 sigma / W,
-kappa = 3 sigma W / 2.
-```
-
-The new implementation retains Jacqmin as the default alternative and selects
-the geometric CSF formulation at compile time with `CSF` in `defines.h`.
+model is selected at compile time with `CSF` in `defines.h` and is validated
+against the three-dimensional Laplace pressure jump.
 
 ## CSF formulation
 
@@ -99,17 +80,14 @@ The initial condition preloads the theoretical spherical pressure jump. The
 step-zero sample is therefore not an independent capillary validation. Results
 below use the stationary window from step 5000 through step 10000.
 
-### Single-radius comparison
+### Single-radius result
 
-| Model | `Delta p` | `sigma_eff` | Relative surface-tension error |
-|---|---:|---:|---:|
-| Jacqmin | `0.00350531` | `0.0280646` | `-6.45%` |
-| CSF | `0.00380989` | `0.0305051` | `+1.68%` |
+| `Delta p` | `sigma_eff` | Relative surface-tension error |
+|---:|---:|---:|
+| `0.00380989` | `0.0305051` | `+1.68%` |
 
-The CSF model substantially reduces the static surface-tension error and
-changes it from a deficit to a small excess. The result is stationary by step
-5000; averages over steps 5000--10000 and 7500--10000 agree to much better than
-the measured model error.
+The result is stationary by step 5000; averages over steps 5000--10000 and
+7500--10000 agree to much better than the measured model error.
 
 ## Radius sweep
 
@@ -181,13 +159,3 @@ laplace_csf_sweep/laplace_csf_fit.txt
 
 Generated binaries, object files, logs, and numerical output directories are
 validation artifacts and are not part of the source commit.
-
-## Interpretation for the oscillating droplet
-
-The original oscillating case had an equivalent radius of approximately
-`12.198` and `W=4`, hence `R/W` was only about `3.05`. Correcting the Jacqmin
-static tension deficit alone changes a capillary frequency only through
-`omega proportional to sqrt(sigma)` and cannot explain the much larger observed
-frequency deficit. The static tests instead support investigating finite
-interface-thickness effects and repeating the oscillating benchmark with a
-larger `R/W`, now comparing Jacqmin and CSF under otherwise identical settings.
