@@ -10,6 +10,61 @@ from typing import Dict, List, Tuple
 
 
 RADII = (16, 24, 32)
+REQUIRED_DEFINES = {
+    "LATTICE": "27",
+    "HIGHORDER": None,
+    "TWOCOMPONENT": None,
+    "DENSRATIO": None,
+    "CSF": None,
+    "DOBENCHMARK": None,
+    "LAPLACE": None,
+}
+DISABLED_CASES = ("LAMBTEST", "POISEUILLE", "TWOPOISEUILLE", "TAYLORGREEN")
+
+
+def set_define(text: str, name: str, value: str = None) -> str:
+    """Enable one top-level option while preserving the defines.h layout."""
+    replacement = f"#define {name}" + (f" {value}" if value is not None else "")
+    pattern = re.compile(
+        rf"(?m)^[ \t]*#define[ \t]+(?:no)?{re.escape(name)}"
+        rf"(?:[ \t]+[^\n]*)?[ \t]*$"
+    )
+    updated, count = pattern.subn(replacement, text, count=1)
+    if count:
+        return updated
+    return text.rstrip() + f"\n{replacement}\n"
+
+
+def disable_define(text: str, name: str) -> str:
+    """Disable an active top-level benchmark selector if it is present."""
+    pattern = re.compile(
+        rf"(?m)^[ \t]*#define[ \t]+{re.escape(name)}[ \t]*$"
+    )
+    return pattern.sub(f"#define no{name}", text, count=1)
+
+
+def configure_defines(path: Path) -> None:
+    text = path.read_text()
+    configured = text
+    for name, value in REQUIRED_DEFINES.items():
+        configured = set_define(configured, name, value)
+    for name in DISABLED_CASES:
+        configured = disable_define(configured, name)
+    if configured != text:
+        path.write_text(configured)
+        print(f"Updated CSF Laplace macros in {path}", flush=True)
+    else:
+        print(f"CSF Laplace macros already configured in {path}", flush=True)
+
+
+def build_solver(root: Path, defines: Path, gpu_cc: str, target: str) -> None:
+    configure_defines(defines)
+    commands = (["make", "clean"], ["make", target, f"GPUCC={gpu_cc}"])
+    for command in commands:
+        print("+ " + " ".join(command), flush=True)
+        completed = subprocess.run(command, cwd=root, check=False)
+        if completed.returncode != 0:
+            raise SystemExit(f"Build command failed: {' '.join(command)}")
 
 
 def replace_parameter(text: str, name: str, value: str) -> str:
@@ -91,17 +146,28 @@ def fit_results(rows: List[Dict[str, float]], sigma: float) -> Dict[str, float]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", type=Path, default=Path("main.x"))
+    parser.add_argument("--defines", type=Path, default=Path("defines.h"))
     parser.add_argument("--template", type=Path, default=Path("laplace.inp"))
     parser.add_argument("--output", type=Path, default=Path("laplace_csf_sweep"))
     parser.add_argument("--nsteps", type=int, default=10_000)
     parser.add_argument("--plateau-start", type=float, default=0.5)
+    parser.add_argument("--gpu-cc", default="80", help="NVIDIA compute capability")
+    parser.add_argument("--make-target", default="nvfortran")
+    parser.add_argument(
+        "--skip-build", action="store_true", help="reuse an existing executable"
+    )
     parser.add_argument("--force", action="store_true", help="rerun completed cases")
     args = parser.parse_args()
 
     root = Path.cwd()
     binary = (root / args.binary).resolve()
+    defines = (root / args.defines).resolve()
     template_path = (root / args.template).resolve()
     output = (root / args.output).resolve()
+    if not args.skip_build:
+        if not defines.is_file():
+            raise SystemExit(f"Definitions file not found: {defines}")
+        build_solver(root, defines, args.gpu_cc, args.make_target)
     if not binary.is_file():
         raise SystemExit(f"Binary not found: {binary}")
     if not 0.0 <= args.plateau_start < 1.0:

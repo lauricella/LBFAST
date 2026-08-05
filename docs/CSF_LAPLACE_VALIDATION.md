@@ -146,9 +146,11 @@ hydrodynamic discretizations, and physical parameters.
 
 ## Reproduction
 
-Compile the CSF configuration with
+By default, the sweep script configures the required CSF Laplace macros in
+`defines.h`, performs a clean build equivalent to
 
 ```bash
+make clean
 make nvfortran GPUCC=80
 ```
 
@@ -164,6 +166,11 @@ Run or repeat the radius sweep with
 python3 run_laplace_csf_sweep.py
 python3 run_laplace_csf_sweep.py --force
 ```
+
+The GPU compute capability can be selected, for example, with `--gpu-cc 90`.
+An already compiled executable can be reused explicitly with `--skip-build`.
+In that mode the user is responsible for ensuring that it was built with the
+correct `defines.h` configuration.
 
 The script is compatible with Python 3.6. It creates one directory per case
 under `laplace_csf_sweep/`, preserves each generated input, `laplace.dat`, and
