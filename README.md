@@ -59,6 +59,7 @@ Detailed build and validation guides are available in the `docs` directory:
 | [`LAMB_OSCILLATION_VALIDATION.md`](docs/LAMB_OSCILLATION_VALIDATION.md) | Ellipsoidal-droplet oscillation benchmark, Miller--Scriven comparison, resolved `80^3` configuration, current period error, and automated workflow. |
 | [`TAYLOR_GREEN_128_VALIDATION.md`](docs/TAYLOR_GREEN_128_VALIDATION.md) | Single-component FP64 Taylor--Green viscous-decay test on a `128^3` lattice, initialization, viscosity fit, A30 memory use, and automated workflow. |
 | [`POISEUILLE_FORCE_VALIDATION.md`](docs/POISEUILLE_FORCE_VALIDATION.md) | Single-component FP64 body-force validation from a quiescent fluid, analytical Poiseuille profile, error norms, and automated workflow. |
+| [`SMOKE_TEST_SUITE.md`](docs/SMOKE_TEST_SUITE.md) | Short build-and-run regression suite covering every documented physical validation case. |
 
 Machine-readable results accompanying the dynamic validation documents are
 provided as:
@@ -79,6 +80,15 @@ python3 run_lamb_validation.py
 python3 run_taylorgreen_validation.py
 python3 run_poiseuille_force_validation.py
 ```
+
+For a faster regression check of all documented cases, run:
+
+```bash
+python3 tests/run_smoke_tests.py
+```
+
+The reduced tests verify compilation, finite diagnostics, and basic physical
+trends. They do not replace the complete quantitative validations above.
 
 Each driver configures the required compile-time macros, performs a clean
 build unless explicitly told to reuse an executable, runs in a separate output
