@@ -357,6 +357,11 @@ contains
 
 #elif defined(POISEUILLE)
                   rhophi_loc = ONE     
+#ifdef POISEUILLESTARTREST
+                  ! Force-validation case: start from a quiescent fluid and
+                  ! let the body force develop the Poiseuille profile.
+                  loc_w=ZERO
+#else
                   dist = real(gi,db) - xc_pois
                   distabs = abs(dist)
                   if (distabs <= H_pois) then
@@ -364,6 +369,7 @@ contains
                   else
                     loc_w=ZERO
                   endif
+#endif
                   loc_press=ZERO
 #elif defined(CAPILLARYWAVE) && defined(TWOCOMPONENT)
 

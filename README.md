@@ -58,6 +58,7 @@ Detailed build and validation guides are available in the `docs` directory:
 | [`CAPILLARY_WAVE_VALIDATION.md`](docs/CAPILLARY_WAVE_VALIDATION.md) | Planar capillary-wave configuration, theoretical frequency, phase-field kinematic and force-projection checks, automated run, and numerical result. |
 | [`LAMB_OSCILLATION_VALIDATION.md`](docs/LAMB_OSCILLATION_VALIDATION.md) | Ellipsoidal-droplet oscillation benchmark, Miller--Scriven comparison, resolved `80^3` configuration, current period error, and automated workflow. |
 | [`TAYLOR_GREEN_128_VALIDATION.md`](docs/TAYLOR_GREEN_128_VALIDATION.md) | Single-component FP64 Taylor--Green viscous-decay test on a `128^3` lattice, initialization, viscosity fit, A30 memory use, and automated workflow. |
+| [`POISEUILLE_FORCE_VALIDATION.md`](docs/POISEUILLE_FORCE_VALIDATION.md) | Single-component FP64 body-force validation from a quiescent fluid, analytical Poiseuille profile, error norms, and automated workflow. |
 
 Machine-readable results accompanying the dynamic validation documents are
 provided as:
@@ -65,7 +66,8 @@ provided as:
 - [`laplace_csf_results.csv`](docs/laplace_csf_results.csv);
 - [`capillary_wave_results.csv`](docs/capillary_wave_results.csv);
 - [`lamb_oscillation_results.csv`](docs/lamb_oscillation_results.csv);
-- [`taylorgreen128_results.csv`](docs/taylorgreen128_results.csv).
+- [`taylorgreen128_results.csv`](docs/taylorgreen128_results.csv);
+- [`poiseuille_force_results.csv`](docs/poiseuille_force_results.csv).
 
 The validation workflows can be reproduced from the repository root with the
 corresponding Python drivers:
@@ -75,6 +77,7 @@ python3 run_laplace_csf_sweep.py
 python3 analyse_capillary_wave.py
 python3 run_lamb_validation.py
 python3 run_taylorgreen_validation.py
+python3 run_poiseuille_force_validation.py
 ```
 
 Each driver configures the required compile-time macros, performs a clean

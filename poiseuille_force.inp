@@ -1,0 +1,33 @@
+&simulation
+   nsteps=10000
+   stamp=1000
+   stamp2D=1000
+   stamp_term=100
+   stepskip=1
+   lreadisfluid=.false.
+   lreadinit=.false.
+   lwriterestart=.false.
+   lx=32
+   ly=8
+   lz=32
+   iprobe=16
+   jprobe=4
+   kprobe=16
+   lprint=.true.
+   lvtk=.false.
+   lraw=.false.
+   lasync=.false.
+   lrestart=.false.
+   pbc_x=0
+   pbc_y=1
+   pbc_z=1
+   openbc=0
+   nplanes=0
+&end
+&fluid
+   uwall=0.0e0
+   fx=0.0e0
+   fy=0.0e0
+   fz=5.0e-5
+   visc1=0.1e0
+&end

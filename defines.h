@@ -28,6 +28,7 @@
 
 #define noVELUNIFORMV
 #define noPOISEUILLE
+#define noPOISEUILLESTARTREST
 #define noTWOPOISEUILLE
 #define noTAYLORGREEN
 #define noLAMBTEST

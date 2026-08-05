@@ -1,0 +1,2 @@
+domain_x,domain_y,domain_z,nsteps,force_z,kinematic_viscosity,wall_lower,wall_upper,channel_center,channel_half_width,profile_points,center_position,center_velocity_theory,center_velocity_numerical,center_velocity_error_percent,relative_l2_error,relative_max_error,absolute_max_error,statistics_analytical_max_difference,gpu_memory_gb
+32.0,8.0,32.0,10000.0,5e-05,0.1,1.0,32.0,16.5,15.5,32.0,16.0,0.06,0.059847867,-0.2535549999999942,0.0033956042462608923,0.0025355499999999793,0.00015213299999999874,6.938893903907228e-18,0.3705
