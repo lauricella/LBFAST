@@ -1,0 +1,2 @@
+domain_x,domain_y,domain_z,radius_equivalent,interface_width,cahn_number,nsteps,peaks,period_theory,period_numerical,period_error_percent,omega_theory,omega_numerical,omega_error_percent
+80,80,80,24.3962011465,4,0.1639599533,20000,2,12772.6392608318,13600,6.477602,0.0004919254,0.0004619989,-6.083544

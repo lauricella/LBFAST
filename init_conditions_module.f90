@@ -28,10 +28,9 @@ contains
 #ifdef LAMBTEST
       real(kind=db) :: myp2,xx,yy,zz,rr,costh,rloc,eta0  
       real(kind=db) :: myfreq,mu1,mu2,chi,myfreq_corr,myperiod
-      real(kind=db), parameter :: lamb_rmin=11.0_db
-      real(kind=db), parameter :: lamb_rmax=15.0_db
-      real(kind=db), parameter :: lamb_req= &
+      real(kind=db), parameter :: lamb_ref_req= &
        (11.0_db*11.0_db*15.0_db)**(1.0_db/3.0_db)
+      real(kind=db) :: lamb_rmin,lamb_rmax,lamb_req
 #endif 
 #ifdef CAPILLARYWAVE
       real(kind=db) :: wave_x,wave_y,wave_eta,wave_dy,wave_signed,wave_k
@@ -230,6 +229,11 @@ contains
        stdev=1.0e-3
        
 #if defined(LAMBTEST) && defined(TWOCOMPONENT)
+       ! Preserve the Saito 11:11:15 aspect ratio while taking the
+       ! equivalent radius, and therefore the resolution, from the input.
+       lamb_req=radius
+       lamb_rmin=radius*11.0_db/lamb_ref_req
+       lamb_rmax=radius*15.0_db/lamb_ref_req
        lamb_A=uwall/lamb_req
        lamb_visc=ZERO
        lamb_visc_temp=ZERO

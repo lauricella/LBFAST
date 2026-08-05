@@ -7,17 +7,16 @@
    lreadisfluid=.false.   !metti true se leggi isfluid
    lreadinit=.false.  !metti true se leggi rho phi e u v w
    lwriterestart=.false.
-   ! LBFAST requires each global dimension to be a multiple of TILE_DIM=8.
-   ! Use 40^3, the nearest compatible domain to Saito's 41^3 lattice.
-   lx=40
-   ly=40
-   lz=40
-   iprobe=20
-   jprobe=20
-   kprobe=20
+   ! Refined cubic domain; every dimension is a multiple of TILE_DIM=8.
+   lx=80
+   ly=80
+   lz=80
+   iprobe=40
+   jprobe=40
+   kprobe=40
    lprint=.true.
    lvtk=.false.
-   lraw=.true.
+   lraw=.false.
    lasync=.false.
    lrestart=.false. !metti true se riparti da restart
    lwriterestart=.false.
@@ -35,11 +34,11 @@
    !rhoIN=0.0022
    !rhoOUT=-0.0022
    tau_diff=0.1e0
-   ! Equivalent radius Re=(11*11*15)^(1/3), used by Miller-Scriven
-   radius=12.1981005732343e0
-   ! Saito et al. use the same diffuse-interface width W=4
+   ! Twice the reference equivalent radius: semi-axes are 22, 22 and 30.
+   radius=24.3962011464686e0
+   ! Keep W=4 to reduce Cn=W/Re from 0.328 to 0.164.
    width=4.0e0
-   center=20.0, 20.0, 20.0
+   center=40.0, 40.0, 40.0
    ! First high-surface-tension case in Table II
    sigma=2.27e-3
    wettab_r=90.0  !in degrees da 30 --> 130
