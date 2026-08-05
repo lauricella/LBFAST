@@ -32,7 +32,7 @@
 #define noTAYLORGREEN
 #define noLAMBTEST
 #define noLAPLACE
-#define CAPILLARYWAVE
+#define noCAPILLARYWAVE
 
 #define USEGNUPLOT
 #define noPRINTPHI
