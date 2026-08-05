@@ -31,7 +31,7 @@ contains
       real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
       
       real(kind=db), shared :: myphi(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
-      real(kind=db):: grad_fix,grad_fiy,grad_fiz,mod_grad
+      real(kind=db):: grad_fix,grad_fiy,grad_fiz,mod_grad,normal_denom
       
       integer :: i,j,k,gi,gj,gk,myblock,intblock
       integer :: ii,jj,kk
@@ -99,23 +99,28 @@ contains
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
       
-	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
+	  mod_grad=sqrt(grad_fix**TWO+grad_fiy**TWO+grad_fiz**TWO)
+#ifdef CSF
+	  normal_denom=sqrt(mod_grad*mod_grad+1.0e-24_db)
+#else
+	  normal_denom=mod_grad+1.0e-9_db
+#endif
 
 	  auxfields_s(ii,jj,kk,1,myblock)= &
-	   real(grad_fix/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fix/normal_denom,kind=strdb)
 	  auxfields_s(ii,jj,kk,2,myblock)= &
-	   real(grad_fiy/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fiy/normal_denom,kind=strdb)
 	  auxfields_s(ii,jj,kk,3,myblock)= &
-	   real(grad_fiz/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fiz/normal_denom,kind=strdb)
 	  
 	  auxfields_s(ii,jj,kk,4,myblock)=mod_grad 
 
 	  auxfields_s(ii,jj,kk,5,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/normal_denom),kind=strdb)
 	  auxfields_s(ii,jj,kk,6,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/normal_denom),kind=strdb)
 	  auxfields_s(ii,jj,kk,7,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/normal_denom),kind=strdb)
 	   
       !lap_phi here
       locauxfields_s(ii,jj,kk,1,myblock)=real( &
@@ -153,7 +158,7 @@ contains
       real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
       
       real(kind=db), shared :: myphi(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
-      real(kind=db):: grad_fix,grad_fiy,grad_fiz,mod_grad
+      real(kind=db):: grad_fix,grad_fiy,grad_fiz,mod_grad,normal_denom
       
       integer :: i,j,k,myblock,intblock
       integer :: ii,jj,kk
@@ -231,23 +236,28 @@ contains
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
       
-	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
+	  mod_grad=sqrt(grad_fix**TWO+grad_fiy**TWO+grad_fiz**TWO)
+#ifdef CSF
+	  normal_denom=sqrt(mod_grad*mod_grad+1.0e-24_db)
+#else
+	  normal_denom=mod_grad+1.0e-9_db
+#endif
 
 	  auxfields_s(ii,jj,kk,1,myblock)= &
-	   real(grad_fix/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fix/normal_denom,kind=strdb)
 	  auxfields_s(ii,jj,kk,2,myblock)= &
-	   real(grad_fiy/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fiy/normal_denom,kind=strdb)
 	  auxfields_s(ii,jj,kk,3,myblock)= &
-	   real(grad_fiz/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fiz/normal_denom,kind=strdb)
 	  
 	  auxfields_s(ii,jj,kk,4,myblock)=mod_grad 
 
 	  auxfields_s(ii,jj,kk,5,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/normal_denom),kind=strdb)
 	  auxfields_s(ii,jj,kk,6,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/normal_denom),kind=strdb)
 	  auxfields_s(ii,jj,kk,7,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/normal_denom),kind=strdb)
 	   
       !lap_phi here
       locauxfields_s(ii,jj,kk,1,myblock)=real( &
@@ -285,7 +295,7 @@ contains
       real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
       
       real(kind=db), shared :: myphi(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
-      real(kind=db):: grad_fix,grad_fiy,grad_fiz,mod_grad
+      real(kind=db):: grad_fix,grad_fiy,grad_fiz,mod_grad,normal_denom
       
       integer :: i,j,k,myblock,intblock
       integer :: ii,jj,kk
@@ -370,23 +380,28 @@ contains
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
       
-	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
+	  mod_grad=sqrt(grad_fix**TWO+grad_fiy**TWO+grad_fiz**TWO)
+#ifdef CSF
+	  normal_denom=sqrt(mod_grad*mod_grad+1.0e-24_db)
+#else
+	  normal_denom=mod_grad+1.0e-9_db
+#endif
 
 	  auxfields_s(ii,jj,kk,1,myblock)= &
-	   real(grad_fix/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fix/normal_denom,kind=strdb)
 	  auxfields_s(ii,jj,kk,2,myblock)= &
-	   real(grad_fiy/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fiy/normal_denom,kind=strdb)
 	  auxfields_s(ii,jj,kk,3,myblock)= &
-	   real(grad_fiz/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fiz/normal_denom,kind=strdb)
 	  
 	  auxfields_s(ii,jj,kk,4,myblock)=mod_grad 
 
 	  auxfields_s(ii,jj,kk,5,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/normal_denom),kind=strdb)
 	  auxfields_s(ii,jj,kk,6,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/normal_denom),kind=strdb)
 	  auxfields_s(ii,jj,kk,7,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/normal_denom),kind=strdb)
 	   
       !lap_phi here
       locauxfields_s(ii,jj,kk,1,myblock)=real( &
@@ -424,7 +439,7 @@ contains
       real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
       
       real(kind=db), shared :: myphi(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
-      real(kind=db):: grad_fix,grad_fiy,grad_fiz,mod_grad
+      real(kind=db):: grad_fix,grad_fiy,grad_fiz,mod_grad,normal_denom
       
       integer :: i,j,k,myblock,intblock
       integer :: ii,jj,kk
@@ -509,23 +524,28 @@ contains
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
       
-	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
+	  mod_grad=sqrt(grad_fix**TWO+grad_fiy**TWO+grad_fiz**TWO)
+#ifdef CSF
+	  normal_denom=sqrt(mod_grad*mod_grad+1.0e-24_db)
+#else
+	  normal_denom=mod_grad+1.0e-9_db
+#endif
 
 	  auxfields_s(ii,jj,kk,1,myblock)= &
-	   real(grad_fix/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fix/normal_denom,kind=strdb)
 	  auxfields_s(ii,jj,kk,2,myblock)= &
-	   real(grad_fiy/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fiy/normal_denom,kind=strdb)
 	  auxfields_s(ii,jj,kk,3,myblock)= &
-	   real(grad_fiz/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fiz/normal_denom,kind=strdb)
 	  
 	  auxfields_s(ii,jj,kk,4,myblock)=mod_grad 
 
 	  auxfields_s(ii,jj,kk,5,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/normal_denom),kind=strdb)
 	  auxfields_s(ii,jj,kk,6,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/normal_denom),kind=strdb)
 	  auxfields_s(ii,jj,kk,7,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/normal_denom),kind=strdb)
 	   
       !lap_phi here
       locauxfields_s(ii,jj,kk,1,myblock)=real( &
@@ -563,7 +583,7 @@ contains
       real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
       
       real(kind=db), shared :: myphi(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
-      real(kind=db):: grad_fix,grad_fiy,grad_fiz,mod_grad
+      real(kind=db):: grad_fix,grad_fiy,grad_fiz,mod_grad,normal_denom
       
       integer :: i,j,k,myblock,intblock
       integer :: ii,jj,kk
@@ -643,23 +663,28 @@ contains
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
       
-	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
+	  mod_grad=sqrt(grad_fix**TWO+grad_fiy**TWO+grad_fiz**TWO)
+#ifdef CSF
+	  normal_denom=sqrt(mod_grad*mod_grad+1.0e-24_db)
+#else
+	  normal_denom=mod_grad+1.0e-9_db
+#endif
 
 	  auxfields_s(ii,jj,kk,1,myblock)= &
-	   real(grad_fix/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fix/normal_denom,kind=strdb)
 	  auxfields_s(ii,jj,kk,2,myblock)= &
-	   real(grad_fiy/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fiy/normal_denom,kind=strdb)
 	  auxfields_s(ii,jj,kk,3,myblock)= &
-	   real(grad_fiz/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fiz/normal_denom,kind=strdb)
 	  
 	  auxfields_s(ii,jj,kk,4,myblock)=mod_grad 
 
 	  auxfields_s(ii,jj,kk,5,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/normal_denom),kind=strdb)
 	  auxfields_s(ii,jj,kk,6,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/normal_denom),kind=strdb)
 	  auxfields_s(ii,jj,kk,7,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/normal_denom),kind=strdb)
 	   
       !lap_phi here
       locauxfields_s(ii,jj,kk,1,myblock)=real( &
@@ -697,7 +722,7 @@ contains
       real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
       
       real(kind=db), shared :: myphi(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
-      real(kind=db):: grad_fix,grad_fiy,grad_fiz,mod_grad
+      real(kind=db):: grad_fix,grad_fiy,grad_fiz,mod_grad,normal_denom
       
       integer :: i,j,k,myblock,intblock
       integer :: ii,jj,kk
@@ -777,23 +802,28 @@ contains
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
       
-	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
+	  mod_grad=sqrt(grad_fix**TWO+grad_fiy**TWO+grad_fiz**TWO)
+#ifdef CSF
+	  normal_denom=sqrt(mod_grad*mod_grad+1.0e-24_db)
+#else
+	  normal_denom=mod_grad+1.0e-9_db
+#endif
 
 	  auxfields_s(ii,jj,kk,1,myblock)= &
-	   real(grad_fix/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fix/normal_denom,kind=strdb)
 	  auxfields_s(ii,jj,kk,2,myblock)= &
-	   real(grad_fiy/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fiy/normal_denom,kind=strdb)
 	  auxfields_s(ii,jj,kk,3,myblock)= &
-	   real(grad_fiz/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fiz/normal_denom,kind=strdb)
 	  
 	  auxfields_s(ii,jj,kk,4,myblock)=mod_grad 
 
 	  auxfields_s(ii,jj,kk,5,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/normal_denom),kind=strdb)
 	  auxfields_s(ii,jj,kk,6,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/normal_denom),kind=strdb)
 	  auxfields_s(ii,jj,kk,7,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/normal_denom),kind=strdb)
 	   
       !lap_phi here
       locauxfields_s(ii,jj,kk,1,myblock)=real( &
@@ -831,7 +861,7 @@ contains
       real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
       
       real(kind=db), shared :: myphi(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
-      real(kind=db):: grad_fix,grad_fiy,grad_fiz,mod_grad
+      real(kind=db):: grad_fix,grad_fiy,grad_fiz,mod_grad,normal_denom
       
       integer :: i,j,k,myblock,intblock
       integer :: ii,jj,kk
@@ -910,23 +940,28 @@ contains
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
       
-	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
+	  mod_grad=sqrt(grad_fix**TWO+grad_fiy**TWO+grad_fiz**TWO)
+#ifdef CSF
+	  normal_denom=sqrt(mod_grad*mod_grad+1.0e-24_db)
+#else
+	  normal_denom=mod_grad+1.0e-9_db
+#endif
 
 	  auxfields_s(ii,jj,kk,1,myblock)= &
-	   real(grad_fix/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fix/normal_denom,kind=strdb)
 	  auxfields_s(ii,jj,kk,2,myblock)= &
-	   real(grad_fiy/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fiy/normal_denom,kind=strdb)
 	  auxfields_s(ii,jj,kk,3,myblock)= &
-	   real(grad_fiz/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fiz/normal_denom,kind=strdb)
 	  
 	  auxfields_s(ii,jj,kk,4,myblock)=mod_grad 
 
 	  auxfields_s(ii,jj,kk,5,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/normal_denom),kind=strdb)
 	  auxfields_s(ii,jj,kk,6,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/normal_denom),kind=strdb)
 	  auxfields_s(ii,jj,kk,7,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/normal_denom),kind=strdb)
 	   
       !lap_phi here
       locauxfields_s(ii,jj,kk,1,myblock)=real( &
@@ -964,7 +999,7 @@ contains
       real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
       
       real(kind=db), shared :: myphi(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
-      real(kind=db):: grad_fix,grad_fiy,grad_fiz,mod_grad
+      real(kind=db):: grad_fix,grad_fiy,grad_fiz,mod_grad,normal_denom
       
       integer :: i,j,k,myblock,intblock
       integer :: ii,jj,kk
@@ -1043,23 +1078,28 @@ contains
 		 (myphi(li+1,lj-1,lk+1)-myphi(li-1,lj+1,lk-1))+ &
 		 (myphi(li-1,lj+1,lk+1)-myphi(li+1,lj-1,lk-1))))
       
-	  mod_grad= sqrt(grad_fix**TWO + grad_fiy**TWO + grad_fiz**TWO)
+	  mod_grad=sqrt(grad_fix**TWO+grad_fiy**TWO+grad_fiz**TWO)
+#ifdef CSF
+	  normal_denom=sqrt(mod_grad*mod_grad+1.0e-24_db)
+#else
+	  normal_denom=mod_grad+1.0e-9_db
+#endif
 
 	  auxfields_s(ii,jj,kk,1,myblock)= &
-	   real(grad_fix/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fix/normal_denom,kind=strdb)
 	  auxfields_s(ii,jj,kk,2,myblock)= &
-	   real(grad_fiy/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fiy/normal_denom,kind=strdb)
 	  auxfields_s(ii,jj,kk,3,myblock)= &
-	   real(grad_fiz/(mod_grad+1.0e-9_db),kind=strdb)
+	   real(grad_fiz/normal_denom,kind=strdb)
 	  
 	  auxfields_s(ii,jj,kk,4,myblock)=mod_grad 
 
 	  auxfields_s(ii,jj,kk,5,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fix/normal_denom),kind=strdb)
 	  auxfields_s(ii,jj,kk,6,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiy/normal_denom),kind=strdb)
 	  auxfields_s(ii,jj,kk,7,myblock)=real( &
-	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/(mod_grad+1.0e-9_db)),kind=strdb)
+	   myphi(li,lj,lk)*(1.0_db-myphi(li,lj,lk))*(grad_fiz/normal_denom),kind=strdb)
 	   
       !lap_phi here
       locauxfields_s(ii,jj,kk,1,myblock)=real( &
@@ -1162,5 +1202,85 @@ contains
       return
       
    endsubroutine compute_div_theta_n_kernel
+
+#ifdef CSF
+   attributes(global) subroutine compute_csf_force_kernel(nx,ny,nz,isfluid,sigma, &
+     ntotauxfields,ntotforces,auxfields_s,forces_s)
+
+      implicit none
+      integer :: nx,ny,nz,ntotauxfields,ntotforces
+      real(kind=db) :: sigma
+      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+
+      real(kind=db), shared :: normal_x(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
+      real(kind=db), shared :: normal_y(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
+      real(kind=db), shared :: normal_z(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
+      real(kind=db) :: div_normal,curvature,mod_grad
+      integer :: i,j,k,myblock,idblock,ii,jj,kk,li,lj,lk,xblock,yblock,zblock
+
+      li=threadIdx%x-1
+      lj=threadIdx%y-1
+      lk=threadIdx%z-1
+      i=(blockIdx%x-1)*TILE_DIMx+li
+      j=(blockIdx%y-1)*TILE_DIMy+lj
+      k=(blockIdx%z-1)*TILE_DIMz+lk
+
+      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+      yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+      zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+      myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+
+      normal_x(li,lj,lk)=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)
+      normal_y(li,lj,lk)=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)
+      normal_z(li,lj,lk)=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)
+      call syncthreads
+
+      if(abs(isfluid(i,j,k)) .ne. 1)return
+      idblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1
+      if(myblock .ne. idblock)return
+
+      div_normal= &
+       p1d3q27*(normal_x(li+1,lj,lk)-normal_x(li-1,lj,lk) + &
+                 normal_y(li,lj+1,lk)-normal_y(li,lj-1,lk) + &
+                 normal_z(li,lj,lk+1)-normal_z(li,lj,lk-1)) + &
+       p2d3q27*( &
+        normal_x(li+1,lj+1,lk)-normal_x(li-1,lj-1,lk) + &
+        normal_x(li+1,lj-1,lk)-normal_x(li-1,lj+1,lk) + &
+        normal_x(li+1,lj,lk+1)-normal_x(li-1,lj,lk-1) + &
+        normal_x(li+1,lj,lk-1)-normal_x(li-1,lj,lk+1) + &
+        normal_y(li+1,lj+1,lk)-normal_y(li-1,lj-1,lk) + &
+        normal_y(li-1,lj+1,lk)-normal_y(li+1,lj-1,lk) + &
+        normal_y(li,lj+1,lk+1)-normal_y(li,lj-1,lk-1) + &
+        normal_y(li,lj+1,lk-1)-normal_y(li,lj-1,lk+1) + &
+        normal_z(li+1,lj,lk+1)-normal_z(li-1,lj,lk-1) + &
+        normal_z(li-1,lj,lk+1)-normal_z(li+1,lj,lk-1) + &
+        normal_z(li,lj+1,lk+1)-normal_z(li,lj-1,lk-1) + &
+        normal_z(li,lj-1,lk+1)-normal_z(li,lj+1,lk-1)) + &
+       p3d3q27*( &
+        normal_x(li+1,lj+1,lk+1)-normal_x(li-1,lj-1,lk-1) + &
+        normal_x(li+1,lj-1,lk-1)-normal_x(li-1,lj+1,lk+1) + &
+        normal_x(li+1,lj-1,lk+1)-normal_x(li-1,lj+1,lk-1) + &
+        normal_x(li+1,lj+1,lk-1)-normal_x(li-1,lj-1,lk+1) + &
+        normal_y(li+1,lj+1,lk+1)-normal_y(li-1,lj-1,lk-1) + &
+        normal_y(li-1,lj+1,lk-1)-normal_y(li+1,lj-1,lk+1) + &
+        normal_y(li+1,lj+1,lk-1)-normal_y(li-1,lj-1,lk+1) + &
+        normal_y(li-1,lj+1,lk+1)-normal_y(li+1,lj-1,lk-1) + &
+        normal_z(li+1,lj+1,lk+1)-normal_z(li-1,lj-1,lk-1) + &
+        normal_z(li-1,lj-1,lk+1)-normal_z(li+1,lj+1,lk-1) + &
+        normal_z(li+1,lj-1,lk+1)-normal_z(li-1,lj+1,lk-1) + &
+        normal_z(li-1,lj+1,lk+1)-normal_z(li+1,lj-1,lk-1))
+
+      curvature=-invcssq*div_normal
+      mod_grad=real(auxfields_s(ii,jj,kk,4,myblock),kind=db)
+      forces_s(ii,jj,kk,1,myblock)=real(sigma*curvature*normal_x(li,lj,lk)*mod_grad,kind=strdb)
+      forces_s(ii,jj,kk,2,myblock)=real(sigma*curvature*normal_y(li,lj,lk)*mod_grad,kind=strdb)
+      forces_s(ii,jj,kk,3,myblock)=real(sigma*curvature*normal_z(li,lj,lk)*mod_grad,kind=strdb)
+   endsubroutine compute_csf_force_kernel
+#endif
 #endif 
 endmodule lb_cuda_auxfields

@@ -130,18 +130,24 @@ contains
 			 
 #ifdef TWOCOMPONENT		
 		   
-		  !jaqmin
+		  ! Selectable capillary force: geometric CSF or Jacqmin chemical potential.
 		  mytemp=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
 		  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*mytemp !normx*modgrad
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
+#ifdef CSF
+		  forcex=forcex+real(forces_s(ii,jj,kk,1,myblock),kind=db)
+		  forcey=forcey+real(forces_s(ii,jj,kk,2,myblock),kind=db)
+		  forcez=forcez+real(forces_s(ii,jj,kk,3,myblock),kind=db)
+#else
 		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
 		  forcey = forcey + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
 		  forcez = forcez + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
+#endif
 				
 				   				   
 
@@ -453,18 +459,24 @@ contains
 			 
 #ifdef TWOCOMPONENT		
 		   
-		  !jaqmin 
+		  ! Selectable capillary force: geometric CSF or Jacqmin chemical potential.
 		  mytemp=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
 		  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*mytemp !normx*modgrad
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
+#ifdef CSF
+		  forcex=forcex+real(forces_s(ii,jj,kk,1,myblock),kind=db)
+		  forcey=forcey+real(forces_s(ii,jj,kk,2,myblock),kind=db)
+		  forcez=forcez+real(forces_s(ii,jj,kk,3,myblock),kind=db)
+#else
 		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
 		  forcey = forcey + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
 		  forcez = forcez + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
+#endif
 				   				   
 
 #ifdef REPULSIVE_FLUX
@@ -785,18 +797,24 @@ contains
 			 
 #ifdef TWOCOMPONENT		
 		   
-		  !jaqmin 
+		  ! Selectable capillary force: geometric CSF or Jacqmin chemical potential.
 		  mytemp=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
 		  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*mytemp !normx*modgrad
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
+#ifdef CSF
+		  forcex=forcex+real(forces_s(ii,jj,kk,1,myblock),kind=db)
+		  forcey=forcey+real(forces_s(ii,jj,kk,2,myblock),kind=db)
+		  forcez=forcez+real(forces_s(ii,jj,kk,3,myblock),kind=db)
+#else
 		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
 		  forcey = forcey + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
 		  forcez = forcez + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
+#endif
 				   				   
 
 #ifdef REPULSIVE_FLUX
@@ -1118,18 +1136,24 @@ contains
 			 
 #ifdef TWOCOMPONENT		
 		   
-		  !jaqmin 
+		  ! Selectable capillary force: geometric CSF or Jacqmin chemical potential.
 		  mytemp=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
 		  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*mytemp !normx*modgrad
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
-		  
+
+#ifdef CSF
+		  forcex=forcex+real(forces_s(ii,jj,kk,1,myblock),kind=db)
+		  forcey=forcey+real(forces_s(ii,jj,kk,2,myblock),kind=db)
+		  forcez=forcez+real(forces_s(ii,jj,kk,3,myblock),kind=db)
+#else
 		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
 		  forcey = forcey + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
 		  forcez = forcez + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
+#endif
 				   				   
 
 #ifdef REPULSIVE_FLUX
@@ -1451,18 +1475,24 @@ contains
 			 
 #ifdef TWOCOMPONENT		
 		   
-		  !jaqmin 
+		  ! Selectable capillary force: geometric CSF or Jacqmin chemical potential.
 		  mytemp=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
 		  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*mytemp !normx*modgrad
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
-		  
+
+#ifdef CSF
+		  forcex=forcex+real(forces_s(ii,jj,kk,1,myblock),kind=db)
+		  forcey=forcey+real(forces_s(ii,jj,kk,2,myblock),kind=db)
+		  forcez=forcez+real(forces_s(ii,jj,kk,3,myblock),kind=db)
+#else
 		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
 		  forcey = forcey + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
 		  forcez = forcez + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
+#endif
 				   				   
 
 #ifdef REPULSIVE_FLUX
@@ -1783,18 +1813,24 @@ contains
 			 
 #ifdef TWOCOMPONENT		
 		   
-		  !jaqmin 
+		  ! Selectable capillary force: geometric CSF or Jacqmin chemical potential.
 		  mytemp=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
 		  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*mytemp !normx*modgrad
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
+#ifdef CSF
+		  forcex=forcex+real(forces_s(ii,jj,kk,1,myblock),kind=db)
+		  forcey=forcey+real(forces_s(ii,jj,kk,2,myblock),kind=db)
+		  forcez=forcez+real(forces_s(ii,jj,kk,3,myblock),kind=db)
+#else
 		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
 		  forcey = forcey + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
 		  forcez = forcez + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
+#endif
 				   				   
 
 #ifdef REPULSIVE_FLUX
@@ -2116,18 +2152,24 @@ contains
 			 
 #ifdef TWOCOMPONENT		
 		   
-		  !jaqmin 
+		  ! Selectable capillary force: geometric CSF or Jacqmin chemical potential.
 		  mytemp=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
 		  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*mytemp !normx*modgrad
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
+#ifdef CSF
+		  forcex=forcex+real(forces_s(ii,jj,kk,1,myblock),kind=db)
+		  forcey=forcey+real(forces_s(ii,jj,kk,2,myblock),kind=db)
+		  forcez=forcez+real(forces_s(ii,jj,kk,3,myblock),kind=db)
+#else
 		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
 		  forcey = forcey + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
 		  forcez = forcez + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
+#endif
 				   				   
 
 #ifdef REPULSIVE_FLUX
@@ -2450,18 +2492,24 @@ contains
 			 
 #ifdef TWOCOMPONENT		
 		   
-		  !jaqmin 
+		  ! Selectable capillary force: geometric CSF or Jacqmin chemical potential.
 		  mytemp=real(auxfields_s(ii,jj,kk,4,myblock),kind=db) !modgrad
 		  gradfix=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)*mytemp !normx*modgrad
 		  gradfiy=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)*mytemp !normy*modgrad
 		  gradfiz=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)*mytemp !normz*modgrad
 
+#ifdef CSF
+		  forcex=forcex+real(forces_s(ii,jj,kk,1,myblock),kind=db)
+		  forcey=forcey+real(forces_s(ii,jj,kk,2,myblock),kind=db)
+		  forcez=forcez+real(forces_s(ii,jj,kk,3,myblock),kind=db)
+#else
 		  forcex = forcex + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfix
 		  forcey = forcey + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiy
 		  forcez = forcez + &
                    (4.0_db*beta*phi_loc*(phi_loc-1.0_db)*(phi_loc-0.5_db) - kapp*lap_phi_loc)*gradfiz
+#endif
 				   				   
 
 #ifdef REPULSIVE_FLUX

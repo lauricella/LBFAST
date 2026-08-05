@@ -3,6 +3,7 @@
 
 #define TWOCOMPONENT
 #define DENSRATIO
+#define CSF
 
 #define DOBENCHMARK
 #define DOXDMF

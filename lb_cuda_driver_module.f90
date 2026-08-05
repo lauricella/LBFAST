@@ -16,6 +16,9 @@ module lb_cuda_driver
    use lb_cuda_vars
 #ifdef TWOCOMPONENT
    use lb_cuda_auxfields, only: compute_norm_interface_kernel,compute_div_theta_n_kernel, &
+#ifdef CSF
+    compute_csf_force_kernel, &
+#endif
     compute_norm_interface_kernel_int,compute_norm_interface_kernel_ext, &
     compute_norm_interface_kernel_xminus,compute_norm_interface_kernel_xplus, &
     compute_norm_interface_kernel_yminus,compute_norm_interface_kernel_yplus, &
@@ -846,6 +849,26 @@ contains
       return
       
    endsubroutine compute_div_theta_n 
+
+#ifdef CSF
+   subroutine compute_csf_force
+
+      implicit none
+      !$acc wait
+      istat=cudaDeviceSynchronize()
+      !$acc host_data use_device(nx,ny,nz,isfluid,sigma,ntotauxfields,ntotforces,auxfields,forces)
+      call compute_csf_force_kernel<<<dimGrid,dimBlockshared>>>(nx,ny,nz,isfluid,sigma, &
+       ntotauxfields,ntotforces,auxfields,forces)
+      !$acc end host_data
+      istat=cudaDeviceSynchronize()
+      istat=cudaGetLastError()
+      if(istat /= cudaSuccess)then
+         if(myrank==0)write(6,*)cudaGetErrorString(istat)
+         call doerror(6,'ERROR in compute_csf_force')
+      endif
+      !$acc wait
+   endsubroutine compute_csf_force
+#endif
       
    subroutine thinfilm_scan_mark_cuda(phifields_s)
 

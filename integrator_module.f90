@@ -40,6 +40,9 @@ module integrator_module
    use lb_cuda_driver, only : moments_LB_cuda,fused_lb_cuda,test_LB_cuda, &
     compute_norm_interface_cuda,thinfilm_scan_mark_cuda,repulsive_flux_normal_cuda, &
     compute_div_theta_n,update_phifields, &
+#ifdef CSF
+    compute_csf_force, &
+#endif
     moments_LB_cuda,moments_LB_cuda_int,moments_LB_cuda_ext, &
     update_phifields_int,update_phifields_ext, &
     compute_norm_interface_cuda_int,compute_norm_interface_cuda_ext
@@ -321,6 +324,11 @@ contains
          if(ldiagnostic)call start_timing2("LB","compute_div_theta_n")
          call compute_div_theta_n(phifields_flip)
          if(ldiagnostic)call end_timing2("LB","compute_div_theta_n")
+#ifdef CSF
+         if(ldiagnostic)call start_timing2("LB","compute_csf_force")
+         call compute_csf_force
+         if(ldiagnostic)call end_timing2("LB","compute_csf_force")
+#endif
          
 #ifdef REPULSIVE_FLUX
          if(ldiagnostic)call start_timing2("LB","repulsive_flux")
@@ -600,6 +608,11 @@ contains
          if(ldiagnostic)call start_timing2("LB","compute_div_theta_n")
          call compute_div_theta_n(phifields_flop)
          if(ldiagnostic)call end_timing2("LB","compute_div_theta_n")
+#ifdef CSF
+         if(ldiagnostic)call start_timing2("LB","compute_csf_force")
+         call compute_csf_force
+         if(ldiagnostic)call end_timing2("LB","compute_csf_force")
+#endif
          
 #ifdef REPULSIVE_FLUX
          if(ldiagnostic)call start_timing2("LB","repulsive_flux")

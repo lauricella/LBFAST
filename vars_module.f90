@@ -30,7 +30,7 @@
 #endif
 
 #ifdef CSF
-#error "ERROR: CSF not implemented"
+#warning "CSF: geometric continuum-surface-force capillary model activated"
 #endif
 
 #ifdef CRAY
