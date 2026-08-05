@@ -139,10 +139,8 @@ sigma from fit  = 3.035370608910e-2.
 ```
 
 The decreasing pointwise error demonstrates convergence toward the Laplace law
-as curvature is reduced. The through-origin slope error is larger than the
-approximately `-0.1009%` CSF slope error reported by the ASTER-LB `W=5` radius
-sweep, although the two solvers use different interface widths, phase and
-hydrodynamic discretizations, and physical parameters.
+as curvature is reduced. The through-origin fit provides the effective surface
+tension independently of any single-radius measurement.
 
 ## Reproduction
 

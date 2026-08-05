@@ -363,9 +363,9 @@ contains
                   loc_press=ZERO
 #elif defined(CAPILLARYWAVE) && defined(TWOCOMPONENT)
 
-                  ! ASTER-LB canonical sinuous capillary wave. For this
-                  ! benchmark uwall is the interface amplitude and radius is
-                  ! the slab half-thickness.
+                  ! Canonical sinuous capillary wave. For this benchmark uwall
+                  ! is the interface amplitude and radius is the slab
+                  ! half-thickness.
                   wave_x=real(gi,db)-HALF
                   wave_y=real(gj,db)-HALF
                   wave_k=TWO*pi_greek/real(lx,db)
