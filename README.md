@@ -62,6 +62,8 @@ Detailed build and validation guides are available in the `docs` directory:
 Machine-readable results accompanying the dynamic validation documents are
 provided as:
 
+- [`laplace_csf_results.csv`](docs/laplace_csf_results.csv);
+- [`capillary_wave_results.csv`](docs/capillary_wave_results.csv);
 - [`lamb_oscillation_results.csv`](docs/lamb_oscillation_results.csv);
 - [`taylorgreen128_results.csv`](docs/taylorgreen128_results.csv).
 
@@ -489,4 +491,3 @@ Results refer to the Laplace benchmark with a fixed cubic sub-domain of side 512
 | 🔵 NVIDIA A100 64GB | 512 | 1 × 1 × 512   | 767.8 | 641.1 | 386.3 | 379.3 | 312.6 | 115.6 |
 | 🔵 NVIDIA A100 64GB | 512 | 1 × 16 × 32   | 709.3 | 596.2 | 362.7 | 351.5 | 290.8 | 111.2 |
 | 🔵 NVIDIA A100 64GB | 512 | 8 × 8 × 8     | 674.2 | 566.5 | 353.4 | 334.3 | 277.2 | 108.2 |
-

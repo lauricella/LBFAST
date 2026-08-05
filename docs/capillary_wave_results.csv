@@ -1,0 +1,2 @@
+samples,zero_crossings,omega_theory,omega_numerical,frequency_error_percent,period_numerical,max_mass_error,kinematic_gain_deta_dt_over_vn,kinematic_relative_rms_error,force_mode,force_theory,force_ratio
+1332.0,3.0,0.0003743802308856712,0.00034236606969897314,-8.55124243899369,18352.2430032395,8.70705515460984e-10,0.997433223861903,0.00515904950885839,-8.20031686927683e-06,-8.22467033424113e-06,0.9970389737248299

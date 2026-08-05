@@ -99,6 +99,9 @@ For the canonical case:
 
 The force and kinematic checks show that the remaining frequency error is a numerical error of this diffuse-interface configuration rather than a loss of effective surface tension or an incorrect phase-advection speed.
 
+The complete machine-readable comparison is stored in
+`docs/capillary_wave_results.csv`.
+
 ## Phase-field kinematic check
 
 The conservative Allen–Cahn equation contains the advection term

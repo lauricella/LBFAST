@@ -120,6 +120,9 @@ The decreasing pointwise error demonstrates convergence toward the Laplace law
 as curvature is reduced. The through-origin fit provides the effective surface
 tension independently of any single-radius measurement.
 
+The three pointwise measurements are also available in machine-readable form
+in `docs/laplace_csf_results.csv`.
+
 ## Reproduction
 
 By default, the sweep script configures the required CSF Laplace macros in
