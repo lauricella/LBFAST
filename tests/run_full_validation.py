@@ -120,6 +120,23 @@ CASES = (
      "poiseuille_force_validation_run", check_poiseuille),
 )
 
+MPI_DECOMPOSITIONS = {
+    2: {
+        "laplace_csf": (1, 1, 2),
+        "capillary_wave": (1, 2, 1),
+        "lamb_oscillation": (1, 1, 2),
+        "taylor_green": (1, 1, 2),
+        "poiseuille_force": (1, 1, 2),
+    },
+    4: {
+        "laplace_csf": (1, 1, 4),
+        "capillary_wave": (2, 2, 1),
+        "lamb_oscillation": (1, 2, 2),
+        "taylor_green": (1, 1, 4),
+        "poiseuille_force": (1, 1, 4),
+    },
+}
+
 
 def run_driver(command, root, log_path):
     print("+ " + " ".join(command), flush=True)
@@ -129,7 +146,8 @@ def run_driver(command, root, log_path):
 
 
 def write_results(path, results):
-    fields = ("case", "status", "seconds", "metric", "tolerance", "detail")
+    fields = ("case", "status", "mpi_procs", "decomposition", "seconds",
+              "metric", "tolerance", "detail")
     with path.open("w", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields)
         writer.writeheader()
@@ -141,11 +159,20 @@ def main():
     root = tests.parent
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gpu-cc", default="80")
-    parser.add_argument("--make-target", default="nvfortran")
+    parser.add_argument("--make-target", default=None,
+                        help="defaults to nvfortran or nvfortran-mpi according to --mpi-procs")
+    parser.add_argument("--mpi-procs", type=int, choices=(1, 2, 4), default=1,
+                        help="run sequentially or on 2/4 MPI ranks with compatible per-case grids")
+    parser.add_argument("--launcher", choices=("mpirun", "srun"), default="mpirun")
     parser.add_argument("--case", action="append", choices=[case[0] for case in CASES])
     parser.add_argument("--keep-results", action="store_true")
     parser.add_argument("--fail-fast", action="store_true")
     args = parser.parse_args()
+    make_target = args.make_target or ("nvfortran-mpi" if args.mpi_procs > 1 else "nvfortran")
+    if args.mpi_procs > 1 and "mpi" not in make_target.lower():
+        raise SystemExit("--mpi-procs greater than one requires an MPI Make target")
+    if args.mpi_procs == 1 and "mpi" in make_target.lower():
+        raise SystemExit("an MPI Make target requires --mpi-procs 2 or 4")
 
     selected = [case for case in CASES if not args.case or case[0] in args.case]
     output = tests / "full_results"
@@ -167,8 +194,15 @@ def main():
             command = [sys.executable, str(root / driver),
                        "--output", str(case_output),
                        "--gpu-cc", args.gpu_cc,
-                       "--make-target", args.make_target,
+                       "--make-target", make_target,
                        "--force"]
+            decomposition = None
+            if args.mpi_procs > 1:
+                decomposition = MPI_DECOMPOSITIONS[args.mpi_procs][name]
+                command.extend(["--mpi-procs", str(args.mpi_procs),
+                                "--decomposition"] +
+                               [str(value) for value in decomposition] +
+                               ["--launcher", args.launcher])
             try:
                 code = run_driver(command, root, driver_log)
                 if code:
@@ -181,6 +215,9 @@ def main():
             results.append({
                 "case": name,
                 "status": status,
+                "mpi_procs": str(args.mpi_procs),
+                "decomposition": "x".join(str(value) for value in decomposition)
+                                 if decomposition else "1x1x1",
                 "seconds": "{:.3f}".format(time.monotonic() - started),
                 "metric": "{:.12e}".format(metric) if math.isfinite(metric) else "",
                 "tolerance": "{:.12e}".format(tolerance) if math.isfinite(tolerance) else "",

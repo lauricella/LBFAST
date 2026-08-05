@@ -9,6 +9,7 @@ import shutil
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
+from validation_mpi import add_mpi_arguments, solver_command, validate_local_tiles, validate_mpi_arguments
 
 
 REQUIRED_DEFINES = {
@@ -160,10 +161,12 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=Path("capillary_wave_run"))
     parser.add_argument("--gpu-cc", default="80", help="NVIDIA compute capability")
     parser.add_argument("--make-target", default="nvfortran")
+    add_mpi_arguments(parser)
     parser.add_argument("--skip-build", action="store_true", help="reuse an existing executable")
     parser.add_argument("--skip-run", action="store_true", help="analyse files already in --output")
     parser.add_argument("--force", action="store_true", help="overwrite an existing completed run")
     args = parser.parse_args()
+    validate_mpi_arguments(args)
 
     root = args.root.resolve()
     binary = (root / args.binary).resolve()
@@ -181,6 +184,8 @@ def main() -> None:
         raise SystemExit(f"Binary not found: {binary}")
     if not input_path.is_file() and not args.skip_run:
         raise SystemExit(f"Input file not found: {input_path}")
+    if not args.skip_run:
+        validate_local_tiles(input_path, args.decomposition)
 
     output.mkdir(parents=True, exist_ok=True)
     if not args.skip_run:
@@ -192,7 +197,7 @@ def main() -> None:
         print(f"Running planar capillary wave in {output}", flush=True)
         with log_path.open("w") as log:
             completed = subprocess.run(
-                [str(binary), local_input.name],
+                solver_command(args, binary, local_input.name),
                 cwd=output,
                 stdout=log,
                 stderr=subprocess.STDOUT,

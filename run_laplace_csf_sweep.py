@@ -7,6 +7,7 @@ import re
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Tuple
+from validation_mpi import add_mpi_arguments, solver_command, validate_local_tiles, validate_mpi_arguments
 
 
 RADII = (16, 24, 32)
@@ -153,11 +154,13 @@ def main() -> None:
     parser.add_argument("--plateau-start", type=float, default=0.5)
     parser.add_argument("--gpu-cc", default="80", help="NVIDIA compute capability")
     parser.add_argument("--make-target", default="nvfortran")
+    add_mpi_arguments(parser)
     parser.add_argument(
         "--skip-build", action="store_true", help="reuse an existing executable"
     )
     parser.add_argument("--force", action="store_true", help="rerun completed cases")
     args = parser.parse_args()
+    validate_mpi_arguments(args)
 
     root = Path.cwd()
     binary = (root / args.binary).resolve()
@@ -189,12 +192,13 @@ def main() -> None:
         data_path = case_dir / "laplace.dat"
         log_path = case_dir / "run.log"
         input_path.write_text(build_input(template, radius, args.nsteps))
+        validate_local_tiles(input_path, args.decomposition)
 
         if args.force or not data_path.is_file():
             print(f"Running R={radius}, N={size}, W=4 ...", flush=True)
             with log_path.open("w") as log:
                 completed = subprocess.run(
-                    [str(binary), input_path.name],
+                    solver_command(args, binary, input_path.name),
                     cwd=case_dir,
                     stdout=log,
                     stderr=subprocess.STDOUT,

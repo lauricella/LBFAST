@@ -8,6 +8,7 @@ import shutil
 import subprocess
 from pathlib import Path
 from typing import Dict, Optional, Sequence
+from validation_mpi import add_mpi_arguments, solver_command, validate_local_tiles, validate_mpi_arguments
 
 
 REQUIRED_DEFINES = {
@@ -142,10 +143,12 @@ def main() -> None:
     parser.add_argument("--nsteps", type=int, default=None)
     parser.add_argument("--gpu-cc", default="80", help="NVIDIA compute capability")
     parser.add_argument("--make-target", default="nvfortran")
+    add_mpi_arguments(parser)
     parser.add_argument("--skip-build", action="store_true")
     parser.add_argument("--skip-run", action="store_true")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
+    validate_mpi_arguments(args)
 
     root = args.root.resolve()
     binary = (root / args.binary).resolve()
@@ -174,10 +177,11 @@ def main() -> None:
             local_input.write_text(
                 replace_parameter(local_input.read_text(), "nsteps", str(args.nsteps))
             )
+        validate_local_tiles(local_input, args.decomposition)
         print(f"Running Lamb validation in {output}", flush=True)
         with log_path.open("w") as log:
             completed = subprocess.run(
-                [str(binary), local_input.name],
+                solver_command(args, binary, local_input.name),
                 cwd=output,
                 stdout=log,
                 stderr=subprocess.STDOUT,

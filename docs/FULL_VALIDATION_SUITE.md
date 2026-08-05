@@ -38,6 +38,49 @@ python3 tests/run_full_validation.py --gpu-cc 90
 python3 tests/run_full_validation.py --make-target nvfortran
 ```
 
+## Multi-GPU execution
+
+The complete suite can run on two or four MPI ranks with one command:
+
+```bash
+python3 tests/run_full_validation.py --mpi-procs 2
+python3 tests/run_full_validation.py --mpi-procs 4
+```
+
+For more than one rank, the default Make target automatically changes to
+`nvfortran-mpi`, and the default launcher is `mpirun`. LBFAST requires
+`PX*PY*PZ=N`, and every local dimension must remain a multiple of the
+`8 x 8 x 8` GPU tile. The suite therefore selects a compatible decomposition
+for each case:
+
+| Case | 2-rank decomposition | 4-rank decomposition |
+|---|---:|---:|
+| CSF Laplace | `1 x 1 x 2` | `1 x 1 x 4` |
+| Planar capillary wave | `1 x 2 x 1` | `2 x 2 x 1` |
+| Lamb oscillation | `1 x 1 x 2` | `1 x 2 x 2` |
+| Taylor--Green vortex | `1 x 1 x 2` | `1 x 1 x 4` |
+| Forced Poiseuille flow | `1 x 1 x 2` | `1 x 1 x 4` |
+
+The capillary wave cannot be divided along `z` because its global thickness is
+only eight nodes. The `80^3` Lamb domain cannot be divided by four along a
+single direction because the resulting local extent would be 20 rather than a
+multiple of eight.
+
+On a Slurm allocation, select `srun` without changing the decomposition logic:
+
+```bash
+python3 tests/run_full_validation.py --mpi-procs 4 --launcher srun
+```
+
+The individual benchmark drivers expose the same `--mpi-procs`,
+`--decomposition PX PY PZ`, and `--launcher` options. For example:
+
+```bash
+python3 run_lamb_validation.py \
+  --make-target nvfortran-mpi \
+  --mpi-procs 4 --decomposition 1 2 2
+```
+
 The full suite is intentionally expensive. In particular, it performs three
 separate 10000-step Laplace simulations and the 80000-step capillary-wave run,
 in addition to the other documented cases.

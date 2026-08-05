@@ -100,6 +100,14 @@ python3 tests/run_full_validation.py
 The full suite is computationally expensive because it retains the production
 domains and run lengths documented for each validation.
 
+Run the same suite on two or four MPI ranks, using an automatically selected
+tile-compatible decomposition for every benchmark, with:
+
+```bash
+python3 tests/run_full_validation.py --mpi-procs 2
+python3 tests/run_full_validation.py --mpi-procs 4
+```
+
 Each driver configures the required compile-time macros, performs a clean
 build unless explicitly told to reuse an executable, runs in a separate output
 directory, and writes a machine-readable summary. The generated run

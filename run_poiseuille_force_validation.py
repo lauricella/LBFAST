@@ -9,6 +9,7 @@ import shutil
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
+from validation_mpi import add_mpi_arguments, solver_command, validate_local_tiles, validate_mpi_arguments
 
 
 REQUIRED_DEFINES = {
@@ -173,10 +174,12 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=Path("poiseuille_force_validation_run"))
     parser.add_argument("--gpu-cc", default="80", help="NVIDIA compute capability")
     parser.add_argument("--make-target", default="nvfortran")
+    add_mpi_arguments(parser)
     parser.add_argument("--skip-build", action="store_true")
     parser.add_argument("--skip-run", action="store_true")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
+    validate_mpi_arguments(args)
 
     root = args.root.resolve()
     binary = (root / args.binary).resolve()
@@ -201,10 +204,11 @@ def main() -> None:
         if profile_path.exists() and not args.force:
             raise SystemExit(f"Output already exists: {profile_path}; use --force or --skip-run")
         shutil.copy2(source_input, local_input)
+        validate_local_tiles(local_input, args.decomposition)
         print(f"Running body-force validation in {output}", flush=True)
         with log_path.open("w") as log:
             completed = subprocess.run(
-                [str(binary), local_input.name],
+                solver_command(args, binary, local_input.name),
                 cwd=output,
                 stdout=log,
                 stderr=subprocess.STDOUT,
