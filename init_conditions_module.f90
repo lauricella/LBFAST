@@ -33,6 +33,9 @@ contains
       real(kind=db), parameter :: lamb_req= &
        (11.0_db*11.0_db*15.0_db)**(1.0_db/3.0_db)
 #endif 
+#ifdef CAPILLARYWAVE
+      real(kind=db) :: wave_x,wave_y,wave_eta,wave_dy,wave_signed,wave_k
+#endif
 #if defined(MULTIHIT)
 	  real(kind=db) :: k_zero
 #endif
@@ -358,6 +361,30 @@ contains
                     loc_w=ZERO
                   endif
                   loc_press=ZERO
+#elif defined(CAPILLARYWAVE) && defined(TWOCOMPONENT)
+
+                  ! ASTER-LB canonical sinuous capillary wave. For this
+                  ! benchmark uwall is the interface amplitude and radius is
+                  ! the slab half-thickness.
+                  wave_x=real(gi,db)-HALF
+                  wave_y=real(gj,db)-HALF
+                  wave_k=TWO*pi_greek/real(lx,db)
+                  wave_eta=uwall*cos(wave_k*wave_x)
+                  wave_dy=modulo(wave_y-(center(2)+wave_eta)+HALF*real(ly,db), &
+                   real(ly,db))-HALF*real(ly,db)
+                  wave_signed=radius-abs(wave_dy)
+                  tempphi=HALF*(ONE+tanh(TWO*wave_signed/width))
+
+                  loc_u=ZERO
+                  loc_v=ZERO
+                  loc_w=ZERO
+#ifdef DENSRATIO
+                  rhophi_loc=rho_r*tempphi+(ONE-tempphi)*rho_b
+#else
+                  rhophi_loc=ONE
+#endif
+                  loc_press=ZERO
+
 #elif defined(LAMBTEST) && defined(TWOCOMPONENT)
 
 

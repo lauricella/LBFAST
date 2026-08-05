@@ -1,0 +1,44 @@
+&simulation
+   nsteps=80000
+   stamp=100000
+   stamp2D=100000
+   stamp_term=20
+   stepskip=1
+   lreadisfluid=.false.
+   lreadinit=.false.
+   lwriterestart=.false.
+   lx=96
+   ly=288
+   lz=8
+   iprobe=48
+   jprobe=144
+   kprobe=4
+   lprint=.true.
+   lvtk=.false.
+   lraw=.false.
+   lasync=.false.
+   lrestart=.false.
+   pbc_x=1
+   pbc_y=1
+   pbc_z=1
+   openbc=0
+   nplanes=0
+&end
+&fluid
+   ! CAPILLARYWAVE maps uwall to the initial sinuous amplitude.
+   uwall=0.96e0
+   fx=0.0e0
+   fy=0.0e0
+   fz=0.0e0
+   ! Conservative Allen-Cahn mobility.
+   tau_diff=0.05e0
+   ! CAPILLARYWAVE maps radius to the slab half-thickness.
+   radius=72.0e0
+   width=4.0e0
+   center=48.0,144.0,4.0
+   sigma=1.0e-3
+   visc1=2.5e-3
+   visc2=2.5e-3
+   rho_r=1.0e0
+   rho_b=1.0e0
+&end

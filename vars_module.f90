@@ -136,6 +136,10 @@
 #warning "LAPLACE: activated"
 #endif
 
+#ifdef CAPILLARYWAVE
+#warning "CAPILLARYWAVE: activated"
+#endif
+
 #ifdef PRINTPHI
 #warning "PRINTPHI: activated"
 #endif

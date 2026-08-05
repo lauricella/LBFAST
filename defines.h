@@ -31,7 +31,8 @@
 #define noTWOPOISEUILLE
 #define noTAYLORGREEN
 #define noLAMBTEST
-#define LAPLACE
+#define noLAPLACE
+#define CAPILLARYWAVE
 
 #define USEGNUPLOT
 #define noPRINTPHI
@@ -48,6 +49,12 @@
 #define DENSRATIO
 #define PRINTPHI
 #define WRITEPRESS
+#endif
+
+#ifdef CAPILLARYWAVE
+#define TWOCOMPONENT
+#define DENSRATIO
+#define PRINTPHI
 #endif
 
 #ifdef TWOPOISEUILLE

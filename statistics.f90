@@ -8,6 +8,11 @@ module stat_module
    implicit none
    
    real(kind=db) :: Ekin,Ekin0
+#ifdef CAPILLARYWAVE
+   real(kind=db) :: capwave_mass0=-ONE
+   real(kind=db) :: capwave_eta_previous=ZERO
+   integer :: capwave_step_previous=0
+#endif
 #if defined(LAMBTEST) && defined(TWOCOMPONENT)   
    real(kind=db) :: pos_x_int_left=ZERO
    real(kind=db) :: pos_x_int_node_left=ZERO
@@ -32,6 +37,110 @@ module stat_module
    real(kind=db) :: sigma_eff  
 #endif
 contains
+#ifdef CAPILLARYWAVE
+   subroutine print_capillary_force_projection
+      implicit none
+      real(kind=db) :: force_y_cos,force_y_mode,force_y_theory,wave_x,wave_k
+      integer :: xblock,yblock,zblock,myblock,ii,jj,kk
+
+      ! This diagnostic is called immediately after the CSF kernel.  Copying the
+      ! force array is deliberately restricted to the first capillary-wave step.
+      !$acc update self(forces)
+      force_y_cos=ZERO
+      wave_k=TWO*pi_greek/real(lx,db)
+      do k=1,nz
+         do j=1,ny
+            do i=1,nx
+               gi=nx*coords(1)+i
+               wave_x=real(gi,db)-HALF
+               xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+               yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+               zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+               myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+               ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+               jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+               kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+               force_y_cos=force_y_cos+real(forces(ii,jj,kk,2,myblock),db)*cos(wave_k*wave_x)
+            enddo
+         enddo
+      enddo
+      call sum_world_float(force_y_cos)
+
+      ! Fourier coefficient after integrating through y and averaging over x,z.
+      force_y_mode=TWO*force_y_cos/real(lx*lz,db)
+      ! The periodic slab has two interfaces with the same displacement mode.
+      force_y_theory=-TWO*sigma*wave_k**TWO*uwall
+      if(myrank==0)then
+         open(unit=143,file='capillary_force_projection.dat',action='write',status='replace')
+         write(143,'(a)')'# step Fy_cos_mode Fy_theory ratio'
+         write(143,'(i10,3es24.15)')step,force_y_mode,force_y_theory, &
+          force_y_mode/force_y_theory
+         close(143)
+      endif
+   end subroutine print_capillary_force_projection
+
+   subroutine print_capillary_wave(myio,lopen)
+      implicit none
+      integer, intent(in) :: myio
+      logical, intent(in) :: lopen
+      real(kind=db) :: mass,mcos,msin,eta_cos,eta_sin,mass_error
+      real(kind=db) :: interface_weight,velocity_cos,weight_sum,velocity_mode,eta_rate
+      real(kind=db) :: wave_x,wave_y,wave_dy,wave_k,omega_depth
+
+      mass=ZERO
+      mcos=ZERO
+      msin=ZERO
+      velocity_cos=ZERO
+      weight_sum=ZERO
+      wave_k=TWO*pi_greek/real(lx,db)
+      do k=1,nzskip
+         do j=1,nyskip
+            gj=(j+skip_myoffset(2))*stepskip
+            wave_y=real(gj,db)-HALF
+            wave_dy=modulo(wave_y-center(2)+HALF*real(ly,db),real(ly,db))-HALF*real(ly,db)
+            do i=1,nxskip
+               gi=(i+skip_myoffset(1))*stepskip
+               wave_x=real(gi,db)-HALF
+               mass=mass+real(rhoprint(i,j,k),db)
+               mcos=mcos+wave_dy*real(rhoprint(i,j,k),db)*cos(wave_k*wave_x)
+               msin=msin+wave_dy*real(rhoprint(i,j,k),db)*sin(wave_k*wave_x)
+               interface_weight=FOUR*real(rhoprint(i,j,k),db)* &
+                (ONE-real(rhoprint(i,j,k),db))/width
+               velocity_cos=velocity_cos+interface_weight* &
+                real(velprint(2,i,j,k),db)*cos(wave_k*wave_x)
+               weight_sum=weight_sum+interface_weight
+            enddo
+         enddo
+      enddo
+      call sum_world_float(mass)
+      call sum_world_float(mcos)
+      call sum_world_float(msin)
+      call sum_world_float(velocity_cos)
+      call sum_world_float(weight_sum)
+      eta_cos=TWO*mcos/max(mass,tiny(ONE))
+      eta_sin=TWO*msin/max(mass,tiny(ONE))
+      velocity_mode=TWO*velocity_cos/max(weight_sum,tiny(ONE))
+      if(lopen)then
+         capwave_mass0=mass
+         capwave_eta_previous=eta_cos
+         capwave_step_previous=step
+         eta_rate=ZERO
+      else
+         eta_rate=(eta_cos-capwave_eta_previous)/real(step-capwave_step_previous,db)
+         capwave_eta_previous=eta_cos
+         capwave_step_previous=step
+      endif
+      mass_error=(mass-capwave_mass0)/max(abs(capwave_mass0),tiny(ONE))
+      omega_depth=sqrt(sigma*wave_k**THREE/(rho_r+rho_b)*tanh(wave_k*radius))
+
+      if(myrank==0)then
+         if(lopen)open(unit=myio,file='capillary_wave.dat',action='write',status='replace')
+         write(myio,'(i10,8es24.15)')step,eta_cos,eta_sin,mass,mass_error,wave_k,omega_depth, &
+          eta_rate,velocity_mode
+         call flush(myio)
+      endif
+   end subroutine print_capillary_wave
+#endif
    
    subroutine open_taylorgreen(myio)
    

@@ -75,6 +75,8 @@ module integrator_module
     rhophi_out,pstar_out,p_out, &
     delta_p,laplace_rad, &
     sigma_eff, &  
+#elif defined(CAPILLARYWAVE)
+    print_capillary_wave,print_capillary_force_projection, &
 #endif
     probe_loc,open_taylorgreen,print_taylorgreen,close_benchmark
     
@@ -209,6 +211,9 @@ contains
 #ifdef LAPLACE
          call open_laplace(142)  
 #endif
+#ifdef CAPILLARYWAVE
+         call print_capillary_wave(142,.true.)
+#endif
       endif
        
 #ifdef TWOCOMPONENT	 
@@ -328,6 +333,9 @@ contains
          if(ldiagnostic)call start_timing2("LB","compute_csf_force")
          call compute_csf_force
          if(ldiagnostic)call end_timing2("LB","compute_csf_force")
+#ifdef CAPILLARYWAVE
+         if(step==1)call print_capillary_force_projection
+#endif
 #endif
          
 #ifdef REPULSIVE_FLUX
@@ -436,6 +444,9 @@ contains
 #endif
 #ifdef LAPLACE
                  call print_laplace(142)
+#endif
+#ifdef CAPILLARYWAVE
+                 call print_capillary_wave(142,.false.)
 #endif
 
                time_actual=current_time()
@@ -612,6 +623,9 @@ contains
          if(ldiagnostic)call start_timing2("LB","compute_csf_force")
          call compute_csf_force
          if(ldiagnostic)call end_timing2("LB","compute_csf_force")
+#ifdef CAPILLARYWAVE
+         if(step==1)call print_capillary_force_projection
+#endif
 #endif
          
 #ifdef REPULSIVE_FLUX
@@ -721,6 +735,9 @@ contains
 #endif
 #ifdef LAPLACE
                call print_laplace(142)
+#endif
+#ifdef CAPILLARYWAVE
+               call print_capillary_wave(142,.false.)
 #endif
                time_actual=current_time()
                gi=iprobe;gj=jprobe;gk=kprobe
@@ -866,7 +883,7 @@ contains
       step_energy=tot_energy/real(nsteps,kind=db)
 #endif
 #endif 
-#if defined(TAYLORGREEN) || defined(LAMBTEST) || defined(LAPLACE)
+#if defined(TAYLORGREEN) || defined(LAMBTEST) || defined(LAPLACE) || defined(CAPILLARYWAVE)
       call close_benchmark(142) 
 #endif
       !$wait

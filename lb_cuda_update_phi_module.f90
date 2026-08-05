@@ -89,8 +89,8 @@ contains
       loc_w=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
                 
       phi_out = phi_loc &
-        - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
-        - loc_w*0.5_db*(gradfiz) + tau_diff*lap_phi_loc + mytemp 
+        - loc_u*gradfix - loc_v*gradfiy &
+        - loc_w*gradfiz + tau_diff*lap_phi_loc + mytemp
 #endif	
 
 #ifdef MONOD
@@ -178,8 +178,8 @@ contains
 
                   
       phi_out = phi_loc &
-        - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
-        - loc_w*0.5_db*(gradfiz) + tau_diff*lap_phi_loc + mytemp 
+        - loc_u*gradfix - loc_v*gradfiy &
+        - loc_w*gradfiz + tau_diff*lap_phi_loc + mytemp
 #endif	
 
 #ifdef MONOD
@@ -268,8 +268,8 @@ contains
 
                   
       phi_out = phi_loc &
-        - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
-        - loc_w*0.5_db*(gradfiz) + tau_diff*lap_phi_loc + mytemp 
+        - loc_u*gradfix - loc_v*gradfiy &
+        - loc_w*gradfiz + tau_diff*lap_phi_loc + mytemp
 #endif	
 
 #ifdef MONOD
@@ -357,8 +357,8 @@ contains
 
                   
       phi_out = phi_loc &
-        - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
-        - loc_w*0.5_db*(gradfiz) + tau_diff*lap_phi_loc + mytemp 
+        - loc_u*gradfix - loc_v*gradfiy &
+        - loc_w*gradfiz + tau_diff*lap_phi_loc + mytemp
 #endif	
 
 #ifdef MONOD
@@ -446,8 +446,8 @@ contains
 
                   
       phi_out = phi_loc &
-        - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
-        - loc_w*0.5_db*(gradfiz) + tau_diff*lap_phi_loc + mytemp 
+        - loc_u*gradfix - loc_v*gradfiy &
+        - loc_w*gradfiz + tau_diff*lap_phi_loc + mytemp
 #endif	
 
 #ifdef MONOD
@@ -535,8 +535,8 @@ contains
 
                   
       phi_out = phi_loc &
-        - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
-        - loc_w*0.5_db*(gradfiz) + tau_diff*lap_phi_loc + mytemp 
+        - loc_u*gradfix - loc_v*gradfiy &
+        - loc_w*gradfiz + tau_diff*lap_phi_loc + mytemp
 #endif	
 
 #ifdef MONOD
@@ -624,8 +624,8 @@ contains
 
                   
       phi_out = phi_loc &
-        - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
-        - loc_w*0.5_db*(gradfiz) + tau_diff*lap_phi_loc + mytemp 
+        - loc_u*gradfix - loc_v*gradfiy &
+        - loc_w*gradfiz + tau_diff*lap_phi_loc + mytemp
 #endif	
 
 #ifdef MONOD
@@ -713,8 +713,8 @@ contains
 
                   
       phi_out = phi_loc &
-        - loc_u*0.5_db*(gradfix) - loc_v*0.5_db*(gradfiy) &
-        - loc_w*0.5_db*(gradfiz) + tau_diff*lap_phi_loc + mytemp 
+        - loc_u*gradfix - loc_v*gradfiy &
+        - loc_w*gradfiz + tau_diff*lap_phi_loc + mytemp
 #endif	
 
 #ifdef MONOD
