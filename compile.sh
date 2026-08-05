@@ -132,6 +132,7 @@ make clean
 sed -i \
 -e 's/^#define[[:space:]]\+TWOCOMPONENT/#define noTWOCOMPONENT/' \
 -e 's/^#define[[:space:]]\+DENSRATIO/#define noDENSRATIO/' \
+-e 's/^#define[[:space:]]\+CSF/#define noCSF/' \
 defines.h
 make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
 mv main.x main_1c_15_sd.x
@@ -189,4 +190,5 @@ make clean
 sed -i \
 -e 's/^#define[[:space:]]\+noTWOCOMPONENT/#define TWOCOMPONENT/' \
 -e 's/^#define[[:space:]]\+noDENSRATIO/#define DENSRATIO/' \
+-e 's/^#define[[:space:]]\+noCSF/#define CSF/' \
 defines.h

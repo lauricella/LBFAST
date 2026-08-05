@@ -1,0 +1,2 @@
+domain_x,domain_y,domain_z,nsteps,initial_velocity,viscosity_theory,viscosity_numerical,viscosity_error_percent,fit_samples,fit_last_step,fit_slope,fit_intercept,fit_log_energy_rms,gpu_memory_gb
+128,128,128,2000,0.04,0.04074,0.04141210127401,1.649733122267,41,410,-5.987124858286e-4,3.943066331990e-4,4.832086838738e-4,0.9135

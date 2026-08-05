@@ -47,6 +47,40 @@ The code is compiled directly from the main *LBFAST* directory using the
 supplied `Makefile`. The executable produced by the compilation is named
 `main.x`.
 
+## Documentation
+
+Detailed build and validation guides are available in the `docs` directory:
+
+| Document | Content |
+|---|---|
+| [`COMPILE_SCRIPT.md`](docs/COMPILE_SCRIPT.md) | Requirements and operation of `compile.sh`, including the 24 generated lattice/precision executables, filename conventions, macro transitions, and recovery after an interrupted build. |
+| [`CSF_LAPLACE_VALIDATION.md`](docs/CSF_LAPLACE_VALIDATION.md) | Geometric continuum-surface-force formulation, static Laplace-pressure validation, effective surface tension, radius sweep, and reproduction instructions. |
+| [`CAPILLARY_WAVE_VALIDATION.md`](docs/CAPILLARY_WAVE_VALIDATION.md) | Planar capillary-wave configuration, theoretical frequency, phase-field kinematic and force-projection checks, automated run, and numerical result. |
+| [`LAMB_OSCILLATION_VALIDATION.md`](docs/LAMB_OSCILLATION_VALIDATION.md) | Ellipsoidal-droplet oscillation benchmark, Miller--Scriven comparison, resolved `80^3` configuration, current period error, and automated workflow. |
+| [`TAYLOR_GREEN_128_VALIDATION.md`](docs/TAYLOR_GREEN_128_VALIDATION.md) | Single-component FP64 Taylor--Green viscous-decay test on a `128^3` lattice, initialization, viscosity fit, A30 memory use, and automated workflow. |
+
+Machine-readable results accompanying the dynamic validation documents are
+provided as:
+
+- [`lamb_oscillation_results.csv`](docs/lamb_oscillation_results.csv);
+- [`taylorgreen128_results.csv`](docs/taylorgreen128_results.csv).
+
+The validation workflows can be reproduced from the repository root with the
+corresponding Python drivers:
+
+```bash
+python3 run_laplace_csf_sweep.py
+python3 analyse_capillary_wave.py
+python3 run_lamb_validation.py
+python3 run_taylorgreen_validation.py
+```
+
+Each driver configures the required compile-time macros, performs a clean
+build unless explicitly told to reuse an executable, runs in a separate output
+directory, and writes a machine-readable summary. The generated run
+directories, logs, plots, and binaries are not part of the tracked source
+documentation.
+
 ## Configuration Macros
 
 The physical model, benchmark type, lattice stencil, precision, and optional
@@ -455,5 +489,4 @@ Results refer to the Laplace benchmark with a fixed cubic sub-domain of side 512
 | 🔵 NVIDIA A100 64GB | 512 | 1 × 1 × 512   | 767.8 | 641.1 | 386.3 | 379.3 | 312.6 | 115.6 |
 | 🔵 NVIDIA A100 64GB | 512 | 1 × 16 × 32   | 709.3 | 596.2 | 362.7 | 351.5 | 290.8 | 111.2 |
 | 🔵 NVIDIA A100 64GB | 512 | 8 × 8 × 8     | 674.2 | 566.5 | 353.4 | 334.3 | 277.2 | 108.2 |
-
 
