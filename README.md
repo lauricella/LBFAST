@@ -60,6 +60,7 @@ Detailed build and validation guides are available in the `docs` directory:
 | [`TAYLOR_GREEN_128_VALIDATION.md`](docs/TAYLOR_GREEN_128_VALIDATION.md) | Single-component FP64 Taylor--Green viscous-decay test on a `128^3` lattice, initialization, viscosity fit, A30 memory use, and automated workflow. |
 | [`POISEUILLE_FORCE_VALIDATION.md`](docs/POISEUILLE_FORCE_VALIDATION.md) | Single-component FP64 body-force validation from a quiescent fluid, analytical Poiseuille profile, error norms, and automated workflow. |
 | [`SMOKE_TEST_SUITE.md`](docs/SMOKE_TEST_SUITE.md) | Short build-and-run regression suite covering every documented physical validation case. |
+| [`FULL_VALIDATION_SUITE.md`](docs/FULL_VALIDATION_SUITE.md) | Complete quantitative suite that runs all documented benchmark configurations and applies numerical pass/fail tolerances. |
 
 Machine-readable results accompanying the dynamic validation documents are
 provided as:
@@ -89,6 +90,15 @@ python3 tests/run_smoke_tests.py
 
 The reduced tests verify compilation, finite diagnostics, and basic physical
 trends. They do not replace the complete quantitative validations above.
+
+Run every full benchmark and produce one quantitative pass/fail report with:
+
+```bash
+python3 tests/run_full_validation.py
+```
+
+The full suite is computationally expensive because it retains the production
+domains and run lengths documented for each validation.
 
 Each driver configures the required compile-time macros, performs a clean
 build unless explicitly told to reuse an executable, runs in a separate output
