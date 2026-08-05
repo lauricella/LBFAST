@@ -202,11 +202,26 @@ contains
 #else
       nprocs=1
       myrank=0
+      node_rank=0
+      node_size=1
       proc_x=1
       proc_y=1
       proc_z=1
 #endif
 
+#ifdef _OPENACC
+      ! Select the GPU before any acc_get_device_num call or device allocation.
+      ! Otherwise every MPI rank first creates a context on device zero and
+      ! ranks 1..N subsequently create a second context on their assigned GPU.
+      ndev = acc_get_num_devices(devType)
+      if (ndev == 0) then
+         if (myrank == 0) write(6,*) 'WARNING: No GPUs found:', ndev
+         call dostop
+      endif
+      mydev = mod(node_rank, ndev)
+      call acc_set_device_num(mydev, devType)
+      mydev_c=int(mydev,kind=c_int)
+#endif
 
    end subroutine start_mpi
 !

@@ -62,17 +62,19 @@ program threadsafeLB
 
 #ifdef _OPENACC
    devType = acc_get_device_type()
-   devNum=acc_get_device_num(devType)
 #endif
 
+   ! MPI must determine the node-local rank before the OpenACC runtime creates
+   ! a device context.  start_mpi selects the rank-local GPU with
+   ! acc_set_device_num; only then is it safe to query the current device.
+   call start_mpi
+
 #ifdef _OPENACC
+   devNum=acc_get_device_num(devType)
    ngpus=acc_get_num_devices(devType)
 #else
    ngpus=0
 #endif
-
-   !!!!!!! START MPI!!!!!!!!!
-   call start_mpi
 
    proc_x=1
    proc_y=1
