@@ -53,6 +53,7 @@ Detailed build and validation guides are available in the `docs` directory:
 
 | Document | Content |
 |---|---|
+| [`RELEASE_NOTES_v1.0.2.md`](docs/RELEASE_NOTES_v1.0.2.md) | Technical summary of changes in `v1.0.2` relative to `v1.0.1`, including upgrade notes, validation status, and the release checklist. |
 | [`COMPILE_SCRIPT.md`](docs/COMPILE_SCRIPT.md) | Requirements and operation of `compile.sh`, including the 24 generated lattice/precision executables, filename conventions, macro transitions, and recovery after an interrupted build. |
 | [`CSF_LAPLACE_VALIDATION.md`](docs/CSF_LAPLACE_VALIDATION.md) | Geometric continuum-surface-force formulation, static Laplace-pressure validation, effective surface tension, radius sweep, and reproduction instructions. |
 | [`CAPILLARY_WAVE_VALIDATION.md`](docs/CAPILLARY_WAVE_VALIDATION.md) | Planar capillary-wave configuration, theoretical frequency, phase-field kinematic and force-projection checks, automated run, and numerical result. |
