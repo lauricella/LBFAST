@@ -83,6 +83,7 @@ Detailed build and validation guides are available in the `docs` directory:
 | [`POISEUILLE_FORCE_VALIDATION.md`](docs/POISEUILLE_FORCE_VALIDATION.md) | Single-component FP64 body-force validation from a quiescent fluid, analytical Poiseuille profile, error norms, and automated workflow. |
 | [`SMOKE_TEST_SUITE.md`](docs/SMOKE_TEST_SUITE.md) | Short build-and-run regression suite covering every documented physical validation case. |
 | [`FULL_VALIDATION_SUITE.md`](docs/FULL_VALIDATION_SUITE.md) | Complete quantitative suite that runs all documented benchmark configurations and applies numerical pass/fail tolerances. |
+| [`SCALING_BENCHMARKS.md`](docs/SCALING_BENCHMARKS.md) | Inputs, executables, job scripts, MPI decompositions, and log metrics needed to reproduce the strong-scaling, weak-scaling, and energy measurements. |
 
 Machine-readable results accompanying the dynamic validation documents are
 provided as:
@@ -145,9 +146,13 @@ in `defines.h`.
 The current default configuration is a two-component, high-density-ratio,
 high-order D3Q27 setup, corresponding to `#define LATTICE 27`,
 `#define HIGHORDER`, `#define TWOCOMPONENT`, and `#define DENSRATIO`.
+The capillary force uses the geometric continuum-surface-force model enabled
+by `#define CSF`. Define `noCSF` to use the Jacqmin chemical-potential force
+instead.
 
 The lattice stencil is selected through the `LATTICE` macro. Use
-`#define LATTICE 27` for D3Q27, or `#define LATTICE 19` for D3Q19.
+`#define LATTICE 27` for D3Q27, `#define LATTICE 19` for D3Q19, or
+`#define LATTICE 15` for D3Q15.
 
 The high-order reconstruction is enabled by defining `HIGHORDER`. If
 `HIGHORDER` is not defined, the standard lower-order reconstruction is used.
@@ -164,12 +169,15 @@ Benchmark-specific configurations are also controlled by macros in `defines.h`.
 |---|---|
 | `LAPLACE` | Activates the two-component Laplace benchmark. |
 | `LAMBTEST` | Activates the two-component Lamb oscillating-droplet benchmark. |
+| `CAPILLARYWAVE` | Activates the two-component planar capillary-wave benchmark. |
 | `TWOPOISEUILLE` | Activates the two-component Poiseuille benchmark with internal obstacles. |
 | `POISEUILLE` | Activates the one-component Poiseuille benchmark. |
+| `POISEUILLESTARTREST` | Starts the one-component Poiseuille benchmark from rest, without the random perturbation. Use together with `POISEUILLE`. |
 | `TAYLORGREEN` | Activates the one-component Taylor-Green benchmark. |
 
 The corresponding input files, such as `laplace.inp`, `lamb.inp`,
-`poiseuille.inp`, `twopoiseuille.inp`, and `taylorgreen.inp`, should be used
+`capillary_wave.inp`, `poiseuille.inp`, `poiseuille_force.inp`,
+`twopoiseuille.inp`, and `taylorgreen.inp`, should be used
 together with the matching macro configuration in `defines.h`.
 
 For the Taylor-Green benchmark, define `TAYLORGREEN`. This disables
@@ -182,6 +190,9 @@ For the Laplace benchmark, define `LAPLACE`. This activates `TWOCOMPONENT`,
 
 For the Lamb oscillating-droplet benchmark, define `LAMBTEST`. This activates
 `TWOCOMPONENT`, `DENSRATIO`, `PRINTPHI`, and `WRITEPRESS`.
+
+For the planar capillary-wave benchmark, define `CAPILLARYWAVE`. This
+activates `TWOCOMPONENT`, `DENSRATIO`, and `PRINTPHI`.
 
 For the one-component Poiseuille benchmark, define `POISEUILLE`. This activates
 `INTERNAL_OBSTACLES` and disables `TWOCOMPONENT`, `DENSRATIO`, and
@@ -315,9 +326,12 @@ points with fixed `i = 16`, while `j` and `k` span the plane.
 
 ### Weak-Scaling Mode
 
-When `lweakscaling` is true, the domain specified in the input file is treated
-as the per-MPI-rank or per-decomposition-block domain and is replicated
-according to the MPI decomposition supplied on the command line.
+When `lweakscaling` is true, each MPI rank receives a cubic subdomain of side
+`MYSIDE`, and the global domain becomes `MYSIDE*PX x MYSIDE*PY x MYSIDE*PZ`
+for the MPI decomposition supplied on the command line. The values of `lx`,
+`ly`, and `lz` in the input file are overridden. `MYSIDE` is a compile-time
+macro with default value `512`, defined in `LBFAST.f90` when `DOBENCHMARK` is
+active.
 
 For example:
 
@@ -325,8 +339,11 @@ For example:
 mpirun -np 4 ./main.x 1 1 4 input.in
 ```
 
-with `lweakscaling = .true.` replicates the input domain along the direction
-associated with the `1 1 4` MPI decomposition.
+with `lweakscaling = .true.` and the default `MYSIDE` runs a global domain of
+`512 x 512 x 2048` lattice points.
+
+The complete scaling workflow is described in
+[`SCALING_BENCHMARKS.md`](docs/SCALING_BENCHMARKS.md).
 
 ### `fluid` Namelist
 
@@ -414,6 +431,11 @@ automatically in the directory from which the run is launched.
 
 
 ## Scalability
+
+The tables below report the throughput, in GLUPS, measured on the Leonardo
+Booster system with NVIDIA A100 64 GB GPUs. The inputs, executables, job
+scripts, and MPI decompositions needed to reproduce them are described in
+[`SCALING_BENCHMARKS.md`](docs/SCALING_BENCHMARKS.md).
 
 ### One-component model
 
