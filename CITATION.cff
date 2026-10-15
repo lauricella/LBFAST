@@ -31,3 +31,31 @@ keywords:
   - "GPU computing"
   - "multi-GPU"
   - "high-performance computing"
+preferred-citation:
+  type: article
+  title: "LBFAST: A Lightweight Moment-Represented Lattice Boltzmann Solver for Multi-GPU Architectures"
+  authors:
+    - family-names: "Lauricella"
+      given-names: "Marco"
+    - family-names: "Montessori"
+      given-names: "Andrea"
+    - family-names: "Amati"
+      given-names: "Giorgio"
+    - family-names: "Spiga"
+      given-names: "Filippo"
+    - family-names: "Tiribocchi"
+      given-names: "Adriano"
+    - family-names: "Bernaschi"
+      given-names: "Massimo"
+    - family-names: "Succi"
+      given-names: "Sauro"
+  journal: "Procedia Computer Science"
+  collection-title: "Proceedings of the fourth EuroHPC User Days 2026"
+  publisher:
+    name: "Elsevier"
+  volume: 286
+  start: 34
+  end: 47
+  year: 2026
+  doi: "10.1016/j.procs.2026.08.017"
+  url: "https://doi.org/10.1016/j.procs.2026.08.017"
