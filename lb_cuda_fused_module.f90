@@ -239,11 +239,11 @@ contains
                     Minv_mrt(19,0)*v*v*w*w + &
                     Minv_mrt(26,0)*u*u*v*v*w*w
                   fneq1=fneq1 + &
-                    Minv_mrt(17,0)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
-                    Minv_mrt(18,0)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
-                    Minv_mrt(19,0)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
-                    Minv_mrt(26,0)*(pzz*u**TWO*v**TWO + &
-                    w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+                    Minv_mrt(17,0)*(pxx*v**TWO + FOUR*pxy*u*v + pyy*u**TWO) + &
+                    Minv_mrt(18,0)*(pxx*w**TWO + FOUR*pxz*u*w + pzz*u**TWO) + &
+                    Minv_mrt(19,0)*(pyy*w**TWO + FOUR*pyz*v*w + pzz*v**TWO) + &
+                    Minv_mrt(26,0)*(pxx*v**TWO*w**TWO + FOUR*pxy*u*v*w**TWO + FOUR*pxz*u*v**TWO*w + &
+                                     pyy*u**TWO*w**TWO + FOUR*pyz*u**TWO*v*w + pzz*u**TWO*v**TWO)
 #endif
 				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)*invcssq
                   udotc=feq + (1.0_db-omega_loc)*fneq1 + HALF*(F_discr)
@@ -283,17 +283,17 @@ contains
                              Minv_mrt(14,l)*(pzz*v + TWO*pyz*w) + &
                              Minv_mrt(15,l)*(TWO*pyz*v + pyy*w) + &
                              Minv_mrt(16,l)*(pyz*u + pxz*v + pxy*w) + &
-                             Minv_mrt(17,l)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
-                             Minv_mrt(18,l)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
-                             Minv_mrt(19,l)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
-                             Minv_mrt(20,l)*(pzz*u*v + w*(THREE*pyz*u + THREE*pxz*v + TWO*pxy*w)) + &
-                             Minv_mrt(21,l)*(TWO*pyz*u*v + pxz*v**TWO + TWO*pyy*u*w + FOUR*pxy*v*w) + &
-                             Minv_mrt(22,l)*(pyz*u**TWO + TWO*pxz*u*v + FOUR*pxy*u*w + TWO*pxx*v*w) + &
-                             Minv_mrt(23,l)*(pzz*u**TWO*v + THREE*w*(pyz*u**TWO + TWO*pxz*u*v + TWO*pxy*u*w + pxx*v*w)) + &
-                             Minv_mrt(24,l)*(TWO*u*v*(pyz*u + pxz*v) + TWO*pyy*u**TWO*w + v*(TEN*pxy*u + THREE*pxx*v)*w) + &
-                             Minv_mrt(25,l)*(pzz*u*v**TWO + THREE*w*(TWO*pyz*u*v + pxz*v**TWO + pyy*u*w + TWO*pxy*v*w)) + &
-                             Minv_mrt(26,l)*(pzz*u**TWO*v**TWO + &
-                              w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+                             Minv_mrt(17,l)*(pxx*v**TWO + FOUR*pxy*u*v + pyy*u**TWO) + &
+                             Minv_mrt(18,l)*(pxx*w**TWO + FOUR*pxz*u*w + pzz*u**TWO) + &
+                             Minv_mrt(19,l)*(pyy*w**TWO + FOUR*pyz*v*w + pzz*v**TWO) + &
+                             Minv_mrt(20,l)*(pxy*w**TWO + TWO*pxz*v*w + TWO*pyz*u*w + pzz*u*v) + &
+                             Minv_mrt(21,l)*(TWO*pxy*v*w + pxz*v**TWO + pyy*u*w + TWO*pyz*u*v) + &
+                             Minv_mrt(22,l)*(pxx*v*w + TWO*pxy*u*w + TWO*pxz*u*v + pyz*u**TWO) + &
+                             Minv_mrt(23,l)*(pxx*v*w**TWO + TWO*pxy*u*w**TWO + FOUR*pxz*u*v*w + TWO*pyz*u**TWO*w + pzz*u**TWO*v) + &
+                             Minv_mrt(24,l)*(pxx*v**TWO*w + FOUR*pxy*u*v*w + TWO*pxz*u*v**TWO + pyy*u**TWO*w + TWO*pyz*u**TWO*v) + &
+                             Minv_mrt(25,l)*(TWO*pxy*v*w**TWO + TWO*pxz*v**TWO*w + pyy*u*w**TWO + FOUR*pyz*u*v*w + pzz*u*v**TWO) + &
+                             Minv_mrt(26,l)*(pxx*v**TWO*w**TWO + FOUR*pxy*u*v*w**TWO + FOUR*pxz*u*v**TWO*w + &
+                                              pyy*u**TWO*w**TWO + FOUR*pyz*u**TWO*v*w + pzz*u**TWO*v**TWO)
 #endif
 		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
                       + ((dey(l) - v) + udotc * dey(l))*forcey &
@@ -337,17 +337,17 @@ contains
                              Minv_mrt(14,l+1)*(pzz*v + TWO*pyz*w) + &
                              Minv_mrt(15,l+1)*(TWO*pyz*v + pyy*w) + &
                              Minv_mrt(16,l+1)*(pyz*u + pxz*v + pxy*w) + &
-                             Minv_mrt(17,l+1)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
-                             Minv_mrt(18,l+1)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
-                             Minv_mrt(19,l+1)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
-                             Minv_mrt(20,l+1)*(pzz*u*v + w*(THREE*pyz*u + THREE*pxz*v + TWO*pxy*w)) + &
-                             Minv_mrt(21,l+1)*(TWO*pyz*u*v + pxz*v**TWO + TWO*pyy*u*w + FOUR*pxy*v*w) + &
-                             Minv_mrt(22,l+1)*(pyz*u**TWO + TWO*pxz*u*v + FOUR*pxy*u*w + TWO*pxx*v*w) + &
-                             Minv_mrt(23,l+1)*(pzz*u**TWO*v + THREE*w*(pyz*u**TWO + TWO*pxz*u*v + TWO*pxy*u*w + pxx*v*w)) + &
-                             Minv_mrt(24,l+1)*(TWO*u*v*(pyz*u + pxz*v) + TWO*pyy*u**TWO*w + v*(TEN*pxy*u + THREE*pxx*v)*w) + &
-                             Minv_mrt(25,l+1)*(pzz*u*v**TWO + THREE*w*(TWO*pyz*u*v + pxz*v**TWO + pyy*u*w + TWO*pxy*v*w)) + &
-                             Minv_mrt(26,l+1)*(pzz*u**TWO*v**TWO + &
-                              w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+                             Minv_mrt(17,l+1)*(pxx*v**TWO + FOUR*pxy*u*v + pyy*u**TWO) + &
+                             Minv_mrt(18,l+1)*(pxx*w**TWO + FOUR*pxz*u*w + pzz*u**TWO) + &
+                             Minv_mrt(19,l+1)*(pyy*w**TWO + FOUR*pyz*v*w + pzz*v**TWO) + &
+                             Minv_mrt(20,l+1)*(pxy*w**TWO + TWO*pxz*v*w + TWO*pyz*u*w + pzz*u*v) + &
+                             Minv_mrt(21,l+1)*(TWO*pxy*v*w + pxz*v**TWO + pyy*u*w + TWO*pyz*u*v) + &
+                             Minv_mrt(22,l+1)*(pxx*v*w + TWO*pxy*u*w + TWO*pxz*u*v + pyz*u**TWO) + &
+                             Minv_mrt(23,l+1)*(pxx*v*w**TWO + TWO*pxy*u*w**TWO + FOUR*pxz*u*v*w + TWO*pyz*u**TWO*w + pzz*u**TWO*v) + &
+                             Minv_mrt(24,l+1)*(pxx*v**TWO*w + FOUR*pxy*u*v*w + TWO*pxz*u*v**TWO + pyy*u**TWO*w + TWO*pyz*u**TWO*v) + &
+                             Minv_mrt(25,l+1)*(TWO*pxy*v*w**TWO + TWO*pxz*v**TWO*w + pyy*u*w**TWO + FOUR*pyz*u*v*w + pzz*u*v**TWO) + &
+                             Minv_mrt(26,l+1)*(pxx*v**TWO*w**TWO + FOUR*pxy*u*v*w**TWO + FOUR*pxz*u*v**TWO*w + &
+                                                pyy*u**TWO*w**TWO + FOUR*pyz*u**TWO*v*w + pzz*u**TWO*v**TWO)
 #endif
 		             F_discr = p(l+1)*(((dex(l+1) - u) + udotc * dex(l+1))*forcex &
                       + ((dey(l+1) - v) + udotc * dey(l+1))*forcey &
@@ -645,11 +645,11 @@ contains
                     Minv_mrt(19,0)*v*v*w*w + &
                     Minv_mrt(26,0)*u*u*v*v*w*w
                   fneq1=fneq1 + &
-                    Minv_mrt(17,0)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
-                    Minv_mrt(18,0)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
-                    Minv_mrt(19,0)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
-                    Minv_mrt(26,0)*(pzz*u**TWO*v**TWO + &
-                    w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+                    Minv_mrt(17,0)*(pxx*v**TWO + FOUR*pxy*u*v + pyy*u**TWO) + &
+                    Minv_mrt(18,0)*(pxx*w**TWO + FOUR*pxz*u*w + pzz*u**TWO) + &
+                    Minv_mrt(19,0)*(pyy*w**TWO + FOUR*pyz*v*w + pzz*v**TWO) + &
+                    Minv_mrt(26,0)*(pxx*v**TWO*w**TWO + FOUR*pxy*u*v*w**TWO + FOUR*pxz*u*v**TWO*w + &
+                                     pyy*u**TWO*w**TWO + FOUR*pyz*u**TWO*v*w + pzz*u**TWO*v**TWO)
 #endif
 				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)*invcssq
                   udotc=feq + (1.0_db-omega_loc)*fneq1 + HALF*(F_discr)
@@ -689,17 +689,17 @@ contains
                              Minv_mrt(14,l)*(pzz*v + TWO*pyz*w) + &
                              Minv_mrt(15,l)*(TWO*pyz*v + pyy*w) + &
                              Minv_mrt(16,l)*(pyz*u + pxz*v + pxy*w) + &
-                             Minv_mrt(17,l)*(pyy*u**TWO + TWO*v*(THREE*pxy*u + pxx*v)) + &
-                             Minv_mrt(18,l)*(pzz*u**TWO + TWO*w*(THREE*pxz*u + pxx*w)) + &
-                             Minv_mrt(19,l)*(pzz*v**TWO + TWO*w*(THREE*pyz*v + pyy*w)) + &
-                             Minv_mrt(20,l)*(pzz*u*v + w*(THREE*pyz*u + THREE*pxz*v + TWO*pxy*w)) + &
-                             Minv_mrt(21,l)*(TWO*pyz*u*v + pxz*v**TWO + TWO*pyy*u*w + FOUR*pxy*v*w) + &
-                             Minv_mrt(22,l)*(pyz*u**TWO + TWO*pxz*u*v + FOUR*pxy*u*w + TWO*pxx*v*w) + &
-                             Minv_mrt(23,l)*(pzz*u**TWO*v + THREE*w*(pyz*u**TWO + TWO*pxz*u*v + TWO*pxy*u*w + pxx*v*w)) + &
-                             Minv_mrt(24,l)*(TWO*u*v*(pyz*u + pxz*v) + TWO*pyy*u**TWO*w + v*(TEN*pxy*u + THREE*pxx*v)*w) + &
-                             Minv_mrt(25,l)*(pzz*u*v**TWO + THREE*w*(TWO*pyz*u*v + pxz*v**TWO + pyy*u*w + TWO*pxy*v*w)) + &
-                             Minv_mrt(26,l)*(pzz*u**TWO*v**TWO + &
-                              w*(SIX*u*v*(pyz*u + pxz*v) + THREE*pyy*u**TWO*w + TWO*v*(SEVEN*pxy*u + TWO*pxx*v)*w))
+                             Minv_mrt(17,l)*(pxx*v**TWO + FOUR*pxy*u*v + pyy*u**TWO) + &
+                             Minv_mrt(18,l)*(pxx*w**TWO + FOUR*pxz*u*w + pzz*u**TWO) + &
+                             Minv_mrt(19,l)*(pyy*w**TWO + FOUR*pyz*v*w + pzz*v**TWO) + &
+                             Minv_mrt(20,l)*(pxy*w**TWO + TWO*pxz*v*w + TWO*pyz*u*w + pzz*u*v) + &
+                             Minv_mrt(21,l)*(TWO*pxy*v*w + pxz*v**TWO + pyy*u*w + TWO*pyz*u*v) + &
+                             Minv_mrt(22,l)*(pxx*v*w + TWO*pxy*u*w + TWO*pxz*u*v + pyz*u**TWO) + &
+                             Minv_mrt(23,l)*(pxx*v*w**TWO + TWO*pxy*u*w**TWO + FOUR*pxz*u*v*w + TWO*pyz*u**TWO*w + pzz*u**TWO*v) + &
+                             Minv_mrt(24,l)*(pxx*v**TWO*w + FOUR*pxy*u*v*w + TWO*pxz*u*v**TWO + pyy*u**TWO*w + TWO*pyz*u**TWO*v) + &
+                             Minv_mrt(25,l)*(TWO*pxy*v*w**TWO + TWO*pxz*v**TWO*w + pyy*u*w**TWO + FOUR*pyz*u*v*w + pzz*u*v**TWO) + &
+                             Minv_mrt(26,l)*(pxx*v**TWO*w**TWO + FOUR*pxy*u*v*w**TWO + FOUR*pxz*u*v**TWO*w + &
+                                              pyy*u**TWO*w**TWO + FOUR*pyz*u**TWO*v*w + pzz*u**TWO*v**TWO)
 #endif
 		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
                       + ((dey(l) - v) + udotc * dey(l))*forcey &
