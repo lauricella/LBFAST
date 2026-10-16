@@ -6,8 +6,9 @@ For D3Q19 and D3Q27 without `HIGHORDER`, LBFAST performs the fused
 collide-and-stream step with the kernels `fused_LB_kernel_2` and
 `fused_LB_kernel_bb_2`, selected by the `FUSED2` macro. They give the same
 results as the general kernels `fused_LB_kernel` and `fused_LB_kernel_bb`, to
-round-off, and run about twice as fast. This document describes their
-formulation, implementation, verification, and performance.
+round-off, and the fused kernel runs 2.5 to 3.3 times faster on an NVIDIA A30.
+This document describes their formulation, implementation, verification, and
+performance.
 
 ## Formulation
 
@@ -72,20 +73,32 @@ for the first-order coefficients.
 | Kernel selection | `fused_LB_cuda` in `lb_cuda_driver_module.f90`. |
 | Macro | `FUSED2` in `defines.h`. |
 
-The kernels have the same arguments, thread blocks, and prologue as the
-general kernels. Each block of `10 x 10 x 10` threads covers an `8 x 8 x 8`
-tile and its halo. Every thread reads the moments of its node and computes the
-ten post-collision coefficients once. Each of the ten stages then
+The kernels have the same arguments and per-node prologue as the general
+kernels, but a different thread organization. Each block has one thread per
+interior node of an `8 x 8 x 8` tile, that is 512 threads. Every thread reads
+the moments of its node and computes the ten post-collision coefficients. The
+first 488 threads also compute the coefficients of one node of the halo around
+the tile, so that each of the 1000 nodes of the tile and its halo is processed
+once. All ten coefficients of these nodes are stored in dynamic shared memory,
+80 KB in double precision and 40 KB in single precision. After a single
+barrier, every thread executes the ten gather stages and writes the ten output
+moments of its node.
 
-1. stores one coefficient in shared memory,
-2. waits at a barrier, and
-3. lets the interior threads add the contribution of every direction pair to
-   their output moments.
+The general kernels use blocks of `10 x 10 x 10` threads, one per node of the
+tile and its halo. Every thread, including the 488 halo threads, reconstructs
+all the populations, and each direction needs two barriers. With one block of
+1000 threads per multiprocessor, the multiprocessor is idle at every barrier.
+The second-order kernels instead fit two blocks per multiprocessor in double
+precision and four in single precision on the A30, as reported by
+`cudaOccupancyMaxActiveBlocksPerMultiprocessor`, so that the global-memory
+reads of one block overlap the gather of another.
 
-The stages alternate between two shared buffers of `10^3` values, 16 KB in
-double precision, so one barrier per stage is sufficient. The general kernels
-need two barriers per direction, and every thread, including the halo threads,
-reconstructs all the populations.
+More than 48 KB of shared memory per block must be requested explicitly. At the
+first launch, `fused_LB_cuda` calls `cudaFuncSetAttribute` to allow the
+required dynamic shared-memory size and to prefer the largest shared-memory
+carveout. If the GPU cannot provide the memory, the run stops with a message
+that suggests `noFUSED2`. The A30, A100, and H100 provide enough shared memory
+for two blocks per multiprocessor in double precision.
 
 The ten stages are written out in `fused2_stages.h` for D3Q19 and D3Q27, with
 the lattice components and weights as literals. A loop over the directions
@@ -103,19 +116,18 @@ python3 gen_fused2_stages.py
 Compiled for compute capability 8.0 with the `maxregcount:64` limit, the
 kernels use the following resources:
 
-| Kernel | FP64 instructions per thread | Barriers | Registers | Spills |
-|---|---:|---:|---:|---:|
-| `fused_LB_kernel`, D3Q19 FP64 | about 1200 | 36 | 64 | 20--28 bytes |
-| `fused_LB_kernel_2`, D3Q19 FP64 | 374 | 10 | 62 | none |
-| `fused_LB_kernel_bb_2`, D3Q19 FP64 | 377 | 10 | 64 | 4 bytes |
-| `fused_LB_kernel`, D3Q27 FP64 | about 1730 | 52 | 64 | 20--28 bytes |
-| `fused_LB_kernel_2`, D3Q27 FP64 | 854 | 10 | 64 | none |
-| `fused_LB_kernel_bb_2`, D3Q27 FP64 | 857 | 10 | 64 | 8 bytes |
+| Kernel | Threads per block | Barriers | Registers | Spills | Shared memory per block |
+|---|---:|---:|---:|---:|---:|
+| `fused_LB_kernel`, D3Q19 or D3Q27, FP64 | 1000 | 36 or 52 | 64 | 20--28 bytes | 8 KB |
+| `fused_LB_kernel_2`, D3Q19 or D3Q27, FP64 | 512 | 1 | 51 | none | 80 KB |
+| `fused_LB_kernel_2`, D3Q19 or D3Q27, FP32 | 512 | 1 | 32 | none | 40 KB |
+| `fused_LB_kernel_2`, two-component D3Q27, FP64 | 512 | 1 | 60 | none | 80 KB |
+| `fused_LB_kernel_bb_2`, D3Q27, FP64 | 512 | 1 | 64 | 4 bytes | 80 KB |
 
-The instruction counts of the general kernels are per thread and include the
-reconstruction of all populations, which every thread of the block performs.
-The new kernels reconstruct no population: the halo threads only compute the
-ten coefficients.
+An earlier implementation of these kernels used blocks of `10 x 10 x 10`
+threads, two shared buffers holding one coefficient at a time, and ten
+barriers. It gave bitwise identical results and was 1.3 to 1.8 times slower
+than the current one.
 
 ## Selection
 
@@ -162,11 +174,17 @@ two-component case is the static droplet of the default configuration.
 
 | Case | Fused kernel, general (ms) | Fused kernel, `FUSED2` (ms) | Speed-up | GLUPS, general | GLUPS, `FUSED2` |
 |---|---:|---:|---:|---:|---:|
-| Single-component D3Q19, FP64 | 22.2 | 9.8 | 2.28 | 0.599 | 1.081 |
-| Single-component D3Q27, FP64 | 29.7 | 15.5 | 1.91 | 0.472 | 0.787 |
-| Single-component D3Q19, FP32 | 11.8 | 6.0 | 1.97 | 1.074 | 1.703 |
-| Single-component D3Q27, FP32 | 15.1 | 9.1 | 1.65 | 0.886 | 1.293 |
-| Two-component D3Q27, FP64 | 35.4 | 15.7 | 2.25 | 0.297 | 0.457 |
-| Single-component D3Q27, FP64, `BOUNCE_BACK` | 31.3 | 17.8 | 1.76 | 0.471 | 0.759 |
+| Single-component D3Q19, FP64 | 22.2 | 7.4 | 3.0 | 0.599 | 1.278 |
+| Single-component D3Q27, FP64 | 29.7 | 9.1 | 3.3 | 0.472 | 1.128 |
+| Single-component D3Q19, FP32 | 11.8 | 4.7 | 2.5 | 1.074 | 1.972 |
+| Single-component D3Q27, FP32 | 15.1 | 5.0 | 3.0 | 0.886 | 1.894 |
+| Two-component D3Q27, FP64 | 35.4 | 10.6 | 3.3 | 0.297 | 0.527 |
+| Single-component D3Q27, FP64, `BOUNCE_BACK` | 31.3 | 12.5 | 2.5 | 0.471 | 0.995 |
+
+With D3Q19 in double precision, the second-order kernel reads and writes about
+280 bytes per updated node, which corresponds to about 650 GB/s, or 70% of the
+A30 peak memory bandwidth. With `FUSED2`, the fused kernel takes about 57% of the
+single-component time step for D3Q19; the moment and halo kernels take most of
+the rest.
 
 The scaling tables in the README were measured with the general kernels.

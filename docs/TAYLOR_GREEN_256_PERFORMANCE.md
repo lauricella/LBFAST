@@ -103,9 +103,9 @@ with `noFUSED2`. High-order D3Q27 always uses the general kernels.
 
 | Lattice | Precision | Fused kernel | GPU memory (GB) | Fused kernel (ms/step) | GLUPS | `nu_fit` |
 |---|---|---|---:|---:|---:|---:|
-| D3Q19 | FP64 | `FUSED2` | `4.08` | `9.8` | `1.081` | `0.020527` |
+| D3Q19 | FP64 | `FUSED2` | `4.08` | `7.4` | `1.278` | `0.020527` |
 | D3Q19 | FP64 | general | `4.08` | `22.2` | `0.599` | `0.020527` |
-| D3Q27 | FP64 | `FUSED2` | `4.08` | `15.5` | `0.787` | `0.020526` |
+| D3Q27 | FP64 | `FUSED2` | `4.08` | `9.1` | `1.128` | `0.020526` |
 | D3Q27 | FP64 | general | `4.08` | `29.8` | `0.472` | `0.020526` |
 | High-order D3Q27 | FP64 | general | `4.08` | `83.4` | `0.188` | `0.020524` |
 | High-order D3Q27 | FP32 | general | `2.35` | `32.1` | `0.466` | `0.022233` |
@@ -118,6 +118,6 @@ against the analytical value `0.963857`. Over this short interval the fitted
 viscosity in FP64 exceeds the input value by about `0.8%`, while in FP32 it
 exceeds it by about `9%`. Use double precision when the decay rate matters.
 
-At these throughputs, the complete `50000`-step run takes about `13` minutes
-with D3Q19 FP64, about `18` minutes with D3Q27 FP64, and about `75` minutes
+At these throughputs, the complete `50000`-step run takes about `11` minutes
+with D3Q19 FP64, about `12` minutes with D3Q27 FP64, and about `75` minutes
 with high-order D3Q27 FP64 on an A30.

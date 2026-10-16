@@ -166,11 +166,12 @@ The high-order reconstruction is enabled by defining `HIGHORDER`. If
 
 For D3Q19 and D3Q27 without `HIGHORDER`, the fused collide-and-stream step uses
 the second-order kernels selected by `#define FUSED2`, which is the default.
-They stream one post-collision Hermite coefficient at a time through shared
-memory, give the same results as the general kernels to round-off, and are
-about twice as fast. Define `noFUSED2` to use the general kernels. With
-`HIGHORDER` or D3Q15, the general kernels are always used. See
-[`FUSED2_KERNELS.md`](docs/FUSED2_KERNELS.md).
+They gather the post-collision Hermite coefficients through shared memory
+instead of the populations, give the same results as the general kernels to
+round-off, and run the fused step 2.5 to 3.3 times faster on an NVIDIA A30. In
+double precision they need 80 KB of shared memory per thread block. Define
+`noFUSED2` to use the general kernels. With `HIGHORDER` or D3Q15, the general
+kernels are always used. See [`FUSED2_KERNELS.md`](docs/FUSED2_KERNELS.md).
 
 The code is two-component when `TWOCOMPONENT` is active. High-density-ratio
 simulations are enabled by `DENSRATIO`. When `DENSRATIO` is defined, the
