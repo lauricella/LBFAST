@@ -84,10 +84,9 @@ The central part of each filename identifies the velocity stencil:
 | `_27` | D3Q27 |
 | `_27high` | high-order D3Q27 equilibrium |
 
-With the default `FUSED2` macro, the `_15`, `_19`, and `_27` executables use
-the second-order fused kernels described in
-[`FUSED2_KERNELS.md`](FUSED2_KERNELS.md), while the `_27high` executables use
-the general fused kernels.
+The `_15`, `_19`, and `_27` executables use the second-order fused kernels and
+the `_27high` executables the high-order fused kernels described in
+[`FUSED_KERNELS.md`](FUSED_KERNELS.md).
 
 The prefixes distinguish two- and one-component solvers:
 

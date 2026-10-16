@@ -81,12 +81,12 @@ double-precision (`_d.x`) executables for D3Q19, D3Q27, and high-order
 D3Q27. The job scripts also run the D3Q15 and `_sd.x` variants, which are not
 included in the tables.
 
-The published measurements predate the second-order fused kernels selected by
-`FUSED2`, which are now the default for the `_15`, `_19`, and `_27` executables (see
-[`FUSED2_KERNELS.md`](FUSED2_KERNELS.md)). Executables built from the current
-sources are therefore faster than the published D3Q19 and D3Q27 figures. To
-build these executables with the general fused kernels, replace `FUSED2` with
-`noFUSED2` in `defines.h` before running `compile.sh`.
+The published measurements predate the current fused collide-and-stream
+kernels (see [`FUSED_KERNELS.md`](FUSED_KERNELS.md)), which are two to three
+times faster for the second-order lattices and about twice as fast for
+high-order D3Q27. Executables built from the current sources are therefore
+faster than the published figures. The code used for the publication
+corresponds to the kernels of tag `v1.0.3` and earlier.
 
 Rebuild the executables after any source change. The binaries must be present
 in the directory from which the job is submitted, together with the four

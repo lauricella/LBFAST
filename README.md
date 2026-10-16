@@ -87,7 +87,7 @@ Detailed build and validation guides are available in the `docs` directory:
 | [`TAYLOR_GREEN_128_VALIDATION.md`](docs/TAYLOR_GREEN_128_VALIDATION.md) | Single-component FP64 Taylor--Green viscous-decay test on a `128^3` lattice, initialization, viscosity fit, A30 memory use, and automated workflow. |
 | [`TAYLOR_GREEN_256_PERFORMANCE.md`](docs/TAYLOR_GREEN_256_PERFORMANCE.md) | Single-GPU throughput test on a `256^3` Taylor--Green vortex at the Reynolds number of `taylorgreen.inp`, build settings, timing outputs, and reference A30 results. |
 | [`POISEUILLE_FORCE_VALIDATION.md`](docs/POISEUILLE_FORCE_VALIDATION.md) | Single-component FP64 body-force validation from a quiescent fluid, analytical Poiseuille profile, error norms, and automated workflow. |
-| [`FUSED2_KERNELS.md`](docs/FUSED2_KERNELS.md) | Second-order fused collide-and-stream kernels for D3Q15, D3Q19, and D3Q27: formulation, implementation, `FUSED2` selection, verification against the general kernels, and A30 performance; experimental `FUSEDH` kernels for high-order D3Q27. |
+| [`FUSED_KERNELS.md`](docs/FUSED_KERNELS.md) | Fused collide-and-stream kernels for the second-order lattices and for high-order D3Q27: formulation, thread organization, shared-memory requirements, verification against the `v1.0.3` kernels, and A30 performance. |
 | [`SMOKE_TEST_SUITE.md`](docs/SMOKE_TEST_SUITE.md) | Short build-and-run regression suite covering every documented physical validation case. |
 | [`FULL_VALIDATION_SUITE.md`](docs/FULL_VALIDATION_SUITE.md) | Complete quantitative suite that runs all documented benchmark configurations and applies numerical pass/fail tolerances. |
 | [`SCALING_BENCHMARKS.md`](docs/SCALING_BENCHMARKS.md) | Inputs, executables, job scripts, MPI decompositions, and log metrics needed to reproduce the strong-scaling, weak-scaling, and energy measurements. |
@@ -164,16 +164,14 @@ The lattice stencil is selected through the `LATTICE` macro. Use
 The high-order reconstruction is enabled by defining `HIGHORDER`. If
 `HIGHORDER` is not defined, the standard lower-order reconstruction is used.
 
-For D3Q15, D3Q19, and D3Q27 without `HIGHORDER`, the fused collide-and-stream
-step uses the second-order kernels selected by `#define FUSED2`, which is the
-default. They gather the post-collision Hermite coefficients through shared
-memory instead of the populations, give the same results as the general kernels
-to round-off, and run the fused step 2.3 to 3.3 times faster on an NVIDIA A30.
-In double precision they need 80 KB of shared memory per thread block. Define
-`noFUSED2` to use the general kernels. `FUSED2` does not apply to `HIGHORDER`,
-which uses the general kernels unless the experimental kernels selected by
-`FUSEDH` are enabled. These are disabled by default and perform the high-order
-step about twice as fast. See [`FUSED2_KERNELS.md`](docs/FUSED2_KERNELS.md).
+The collision, the streaming, and the computation of the new moments are
+performed by one fused GPU kernel per time step. D3Q15, D3Q19, and D3Q27 use
+the second-order kernels `fused_LB_kernel` and `fused_LB_kernel_bb`, and
+high-order D3Q27 uses `fused_LB_kernel_h` and `fused_LB_kernel_bb_h`; the
+`_bb` kernels are selected by `BOUNCE_BACK`. They gather the post-collision
+values through shared memory and need up to 80 KB (second order) or 104 KB
+(high order) of shared memory per thread block in double precision, which the
+A30, A100, and H100 provide. See [`FUSED_KERNELS.md`](docs/FUSED_KERNELS.md).
 
 The code is two-component when `TWOCOMPONENT` is active. High-density-ratio
 simulations are enabled by `DENSRATIO`. When `DENSRATIO` is defined, the
