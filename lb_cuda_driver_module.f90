@@ -29,16 +29,10 @@ module lb_cuda_driver
     moments_LB_kernel_xminus,moments_LB_kernel_xplus, &
     moments_LB_kernel_yminus,moments_LB_kernel_yplus, &
     moments_LB_kernel_zminus,moments_LB_kernel_zplus
-   use lb_cuda_fused, only: fused_LB_kernel_bb,fused_LB_kernel
-#if defined(FUSEDH) && defined(BOUNCE_BACK)
-   use lb_cuda_fused, only: fused_LB_kernel_bb_h
-#elif defined(FUSEDH)
-   use lb_cuda_fused, only: fused_LB_kernel_h
-#endif
-#if defined(FUSED2) && defined(BOUNCE_BACK)
-   use lb_cuda_fused, only: fused_LB_kernel_bb_2
-#elif defined(FUSED2)
-   use lb_cuda_fused, only: fused_LB_kernel_2
+#if defined(HIGHORDER) && (LATTICE == 27)
+   use lb_cuda_fused, only: fused_LB_kernel_h,fused_LB_kernel_bb_h
+#else
+   use lb_cuda_fused, only: fused_LB_kernel,fused_LB_kernel_bb
 #endif
 #ifdef TWOCOMPONENT
    use lb_cuda_update_phi, only: update_phifields_kernel,update_phifields_kernel_int, &
@@ -1474,56 +1468,42 @@ contains
 #ifdef TWOCOMPONENT       
       real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_s
 #endif
-#ifdef FUSED2
-      ! all ten post-collision coefficients of the tile and its halo in dynamic shared memory
-      integer, parameter :: nbytes2=10*(TILE_DIMx+2)*(TILE_DIMy+2)*(TILE_DIMz+2)*db
-      logical, save :: lfused2_set=.false.
-#endif
-#ifdef FUSEDH
+#if defined(HIGHORDER) && (LATTICE == 27)
       ! p*, u, (1-omega) Pi_neq and F of the tile and its halo in dynamic shared memory
-      integer, parameter :: nbytesh=13*(TILE_DIMx+2)*(TILE_DIMy+2)*(TILE_DIMz+2)*db
-      logical, save :: lfusedh_set=.false.
+      integer, parameter :: nbytesf=13*(TILE_DIMx+2)*(TILE_DIMy+2)*(TILE_DIMz+2)*db
+#else
+      ! the ten post-collision Hermite coefficients of the tile and its halo in dynamic shared memory
+      integer, parameter :: nbytesf=10*(TILE_DIMx+2)*(TILE_DIMy+2)*(TILE_DIMz+2)*db
 #endif
+      logical, save :: lfused_set=.false.
       
 !      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
       !$acc wait
       istat = cudaDeviceSynchronize
-#ifdef FUSEDH
-      if(.not. lfusedh_set)then
+      if(.not. lfused_set)then
         ! allow more than 48 KB of dynamic shared memory and prefer the largest shared carveout
-#ifdef BOUNCE_BACK
-        istat = cudaFuncSetAttribute(fused_LB_kernel_bb_h,cudaFuncAttributeMaxDynamicSharedMemorySize,nbytesh)
+#if defined(HIGHORDER) && (LATTICE == 27) && defined(BOUNCE_BACK)
+        istat = cudaFuncSetAttribute(fused_LB_kernel_bb_h,cudaFuncAttributeMaxDynamicSharedMemorySize,nbytesf)
+#elif defined(HIGHORDER) && (LATTICE == 27)
+        istat = cudaFuncSetAttribute(fused_LB_kernel_h,cudaFuncAttributeMaxDynamicSharedMemorySize,nbytesf)
+#elif defined(BOUNCE_BACK)
+        istat = cudaFuncSetAttribute(fused_LB_kernel_bb,cudaFuncAttributeMaxDynamicSharedMemorySize,nbytesf)
 #else
-        istat = cudaFuncSetAttribute(fused_LB_kernel_h,cudaFuncAttributeMaxDynamicSharedMemorySize,nbytesh)
+        istat = cudaFuncSetAttribute(fused_LB_kernel,cudaFuncAttributeMaxDynamicSharedMemorySize,nbytesf)
 #endif
-        if(istat /= cudaSuccess)call doerror(6,'the FUSEDH kernels need more shared memory per block '// &
-         'than this GPU provides: define noFUSEDH in defines.h')
-#ifdef BOUNCE_BACK
+        if(istat /= cudaSuccess)call doerror(6,'the fused collide-and-stream kernel needs more shared '// &
+         'memory per block than this GPU provides')
+#if defined(HIGHORDER) && (LATTICE == 27) && defined(BOUNCE_BACK)
         istat = cudaFuncSetAttribute(fused_LB_kernel_bb_h,cudaFuncAttributePreferredSharedMemoryCarveout,100)
-#else
+#elif defined(HIGHORDER) && (LATTICE == 27)
         istat = cudaFuncSetAttribute(fused_LB_kernel_h,cudaFuncAttributePreferredSharedMemoryCarveout,100)
-#endif
-        lfusedh_set=.true.
-      endif
-#endif
-#ifdef FUSED2
-      if(.not. lfused2_set)then
-        ! allow more than 48 KB of dynamic shared memory and prefer the largest shared carveout
-#ifdef BOUNCE_BACK
-        istat = cudaFuncSetAttribute(fused_LB_kernel_bb_2,cudaFuncAttributeMaxDynamicSharedMemorySize,nbytes2)
+#elif defined(BOUNCE_BACK)
+        istat = cudaFuncSetAttribute(fused_LB_kernel_bb,cudaFuncAttributePreferredSharedMemoryCarveout,100)
 #else
-        istat = cudaFuncSetAttribute(fused_LB_kernel_2,cudaFuncAttributeMaxDynamicSharedMemorySize,nbytes2)
+        istat = cudaFuncSetAttribute(fused_LB_kernel,cudaFuncAttributePreferredSharedMemoryCarveout,100)
 #endif
-        if(istat /= cudaSuccess)call doerror(6,'the FUSED2 kernels need more shared memory per block '// &
-         'than this GPU provides: define noFUSED2 in defines.h')
-#ifdef BOUNCE_BACK
-        istat = cudaFuncSetAttribute(fused_LB_kernel_bb_2,cudaFuncAttributePreferredSharedMemoryCarveout,100)
-#else
-        istat = cudaFuncSetAttribute(fused_LB_kernel_2,cudaFuncAttributePreferredSharedMemoryCarveout,100)
-#endif
-        lfused2_set=.true.
+        lfused_set=.true.
       endif
-#endif
 
 !$acc host_data use_device(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid & 
 #ifdef MULTIHIT
@@ -1540,18 +1520,14 @@ contains
 #endif   
        !$acc& ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
        !$acc& ,hfields_in,hfields_out,auxfields,locauxfields,forces)
-#if defined(FUSEDH) && defined(BOUNCE_BACK)
-      call fused_LB_kernel_bb_h<<<dimGrid,dimBlock,nbytesh>>>(step &
-#elif defined(FUSEDH)
-      call fused_LB_kernel_h<<<dimGrid,dimBlock,nbytesh>>>(step &
-#elif defined(FUSED2) && defined(BOUNCE_BACK)
-      call fused_LB_kernel_bb_2<<<dimGrid,dimBlock,nbytes2>>>(step &
-#elif defined(FUSED2)
-      call fused_LB_kernel_2<<<dimGrid,dimBlock,nbytes2>>>(step &
+#if defined(HIGHORDER) && (LATTICE == 27) && defined(BOUNCE_BACK)
+      call fused_LB_kernel_bb_h<<<dimGrid,dimBlock,nbytesf>>>(step &
+#elif defined(HIGHORDER) && (LATTICE == 27)
+      call fused_LB_kernel_h<<<dimGrid,dimBlock,nbytesf>>>(step &
 #elif defined(BOUNCE_BACK)
-      call fused_LB_kernel_bb<<<dimGrid,dimBlockshared>>>(step &
+      call fused_LB_kernel_bb<<<dimGrid,dimBlock,nbytesf>>>(step &
 #else
-      call fused_LB_kernel<<<dimGrid,dimBlockshared>>>(step &    
+      call fused_LB_kernel<<<dimGrid,dimBlock,nbytesf>>>(step &
 #endif
        ,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &  
 #ifdef MULTIHIT
