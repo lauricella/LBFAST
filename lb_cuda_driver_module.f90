@@ -30,6 +30,11 @@ module lb_cuda_driver
     moments_LB_kernel_yminus,moments_LB_kernel_yplus, &
     moments_LB_kernel_zminus,moments_LB_kernel_zplus
    use lb_cuda_fused, only: fused_LB_kernel_bb,fused_LB_kernel
+#if defined(FUSED2) && defined(BOUNCE_BACK)
+   use lb_cuda_fused, only: fused_LB_kernel_bb_2
+#elif defined(FUSED2)
+   use lb_cuda_fused, only: fused_LB_kernel_2
+#endif
 #ifdef TWOCOMPONENT
    use lb_cuda_update_phi, only: update_phifields_kernel,update_phifields_kernel_int, &
     update_phifields_kernel_xminus,update_phifields_kernel_xplus, &
@@ -1464,10 +1469,33 @@ contains
 #ifdef TWOCOMPONENT       
       real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_s
 #endif
+#ifdef FUSED2
+      ! all ten post-collision coefficients of the tile and its halo in dynamic shared memory
+      integer, parameter :: nbytes2=10*(TILE_DIMx+2)*(TILE_DIMy+2)*(TILE_DIMz+2)*db
+      logical, save :: lfused2_set=.false.
+#endif
       
 !      if(myrank==0)write(6,*)'step ',step, __LINE__ , __FILE__
       !$acc wait
       istat = cudaDeviceSynchronize
+#ifdef FUSED2
+      if(.not. lfused2_set)then
+        ! allow more than 48 KB of dynamic shared memory and prefer the largest shared carveout
+#ifdef BOUNCE_BACK
+        istat = cudaFuncSetAttribute(fused_LB_kernel_bb_2,cudaFuncAttributeMaxDynamicSharedMemorySize,nbytes2)
+#else
+        istat = cudaFuncSetAttribute(fused_LB_kernel_2,cudaFuncAttributeMaxDynamicSharedMemorySize,nbytes2)
+#endif
+        if(istat /= cudaSuccess)call doerror(6,'the FUSED2 kernels need more shared memory per block '// &
+         'than this GPU provides: define noFUSED2 in defines.h')
+#ifdef BOUNCE_BACK
+        istat = cudaFuncSetAttribute(fused_LB_kernel_bb_2,cudaFuncAttributePreferredSharedMemoryCarveout,100)
+#else
+        istat = cudaFuncSetAttribute(fused_LB_kernel_2,cudaFuncAttributePreferredSharedMemoryCarveout,100)
+#endif
+        lfused2_set=.true.
+      endif
+#endif
 
 !$acc host_data use_device(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid & 
 #ifdef MULTIHIT
@@ -1484,18 +1512,14 @@ contains
 #endif   
        !$acc& ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
        !$acc& ,hfields_in,hfields_out,auxfields,locauxfields,forces)
-#ifdef BOUNCE_BACK
-#ifdef FUSED2
-      call fused_LB_kernel_bb_2<<<dimGrid,dimBlockshared>>>(step &
-#else
+#if defined(FUSED2) && defined(BOUNCE_BACK)
+      call fused_LB_kernel_bb_2<<<dimGrid,dimBlock,nbytes2>>>(step &
+#elif defined(FUSED2)
+      call fused_LB_kernel_2<<<dimGrid,dimBlock,nbytes2>>>(step &
+#elif defined(BOUNCE_BACK)
       call fused_LB_kernel_bb<<<dimGrid,dimBlockshared>>>(step &
-#endif
-#else
-#ifdef FUSED2
-      call fused_LB_kernel_2<<<dimGrid,dimBlockshared>>>(step &
 #else
       call fused_LB_kernel<<<dimGrid,dimBlockshared>>>(step &    
-#endif
 #endif
        ,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &  
 #ifdef MULTIHIT

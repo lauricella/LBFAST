@@ -34,7 +34,7 @@
 #endif
 
 #ifdef FUSED2
-#warning "FUSED2: second-order fused kernels with one Hermite coefficient at a time in shared memory"
+#warning "FUSED2: second-order fused kernels with one thread per interior node and a single barrier"
 #endif
 
 #ifdef FUSED2_IGNORED
