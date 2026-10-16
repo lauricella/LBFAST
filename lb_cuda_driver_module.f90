@@ -1469,8 +1469,9 @@ contains
       real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_s
 #endif
 #if defined(HIGHORDER) && (LATTICE == 27)
-      ! p*, u, (1-omega) Pi_neq and F of the tile and its halo in dynamic shared memory
-      integer, parameter :: nbytesf=13*(TILE_DIMx+2)*(TILE_DIMy+2)*(TILE_DIMz+2)*db
+      ! ten second-order coefficients, u and (1-omega) Pi_neq of the tile and its halo in dynamic
+      ! shared memory, later reused for the seventeen high-order coefficients
+      integer, parameter :: nbytesf=19*(TILE_DIMx+2)*(TILE_DIMy+2)*(TILE_DIMz+2)*db
 #else
       ! the ten post-collision Hermite coefficients of the tile and its halo in dynamic shared memory
       integer, parameter :: nbytesf=10*(TILE_DIMx+2)*(TILE_DIMy+2)*(TILE_DIMz+2)*db
