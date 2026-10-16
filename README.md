@@ -81,6 +81,7 @@ Detailed build and validation guides are available in the `docs` directory:
 | [`CAPILLARY_WAVE_VALIDATION.md`](docs/CAPILLARY_WAVE_VALIDATION.md) | Planar capillary-wave configuration, theoretical frequency, phase-field kinematic and force-projection checks, automated run, and numerical result. |
 | [`LAMB_OSCILLATION_VALIDATION.md`](docs/LAMB_OSCILLATION_VALIDATION.md) | Ellipsoidal-droplet oscillation benchmark, Miller--Scriven comparison, resolved `80^3` configuration, current period error, and automated workflow. |
 | [`TAYLOR_GREEN_128_VALIDATION.md`](docs/TAYLOR_GREEN_128_VALIDATION.md) | Single-component FP64 Taylor--Green viscous-decay test on a `128^3` lattice, initialization, viscosity fit, A30 memory use, and automated workflow. |
+| [`TAYLOR_GREEN_256_PERFORMANCE.md`](docs/TAYLOR_GREEN_256_PERFORMANCE.md) | Single-GPU throughput test on a `256^3` Taylor--Green vortex at the Reynolds number of `taylorgreen.inp`, build settings, timing outputs, and reference A30 results. |
 | [`POISEUILLE_FORCE_VALIDATION.md`](docs/POISEUILLE_FORCE_VALIDATION.md) | Single-component FP64 body-force validation from a quiescent fluid, analytical Poiseuille profile, error norms, and automated workflow. |
 | [`SMOKE_TEST_SUITE.md`](docs/SMOKE_TEST_SUITE.md) | Short build-and-run regression suite covering every documented physical validation case. |
 | [`FULL_VALIDATION_SUITE.md`](docs/FULL_VALIDATION_SUITE.md) | Complete quantitative suite that runs all documented benchmark configurations and applies numerical pass/fail tolerances. |
@@ -178,12 +179,17 @@ Benchmark-specific configurations are also controlled by macros in `defines.h`.
 
 The corresponding input files, such as `laplace.inp`, `lamb.inp`,
 `capillary_wave.inp`, `poiseuille.inp`, `poiseuille_force.inp`,
-`twopoiseuille.inp`, and `taylorgreen.inp`, should be used
+`twopoiseuille.inp`, `taylorgreen.inp`, `taylorgreen128.inp`, and
+`taylorgreen256.inp`, should be used
 together with the matching macro configuration in `defines.h`.
 
 For the Taylor-Green benchmark, define `TAYLORGREEN`. This disables
 `TWOCOMPONENT`, `DENSRATIO`, and `INTERFACE_INCOMP` through the conditional
-logic in `defines.h`.
+logic in `defines.h`. Three inputs are provided: `taylorgreen.inp` on a `512^3`
+lattice at `Re = 80`, `taylorgreen256.inp` on a `256^3` lattice at the same
+Reynolds number for single-GPU performance tests, and `taylorgreen128.inp`
+for the automated viscosity validation. See
+[`TAYLOR_GREEN_256_PERFORMANCE.md`](docs/TAYLOR_GREEN_256_PERFORMANCE.md).
 
 For the Laplace benchmark, define `LAPLACE`. This activates `TWOCOMPONENT`,
 `DENSRATIO`, `PRINTPHI`, and `WRITEPRESS` through the conditional logic in
