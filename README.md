@@ -169,7 +169,7 @@ performed by one fused GPU kernel per time step. D3Q15, D3Q19, and D3Q27 use
 the second-order kernels `fused_LB_kernel` and `fused_LB_kernel_bb`, and
 high-order D3Q27 uses `fused_LB_kernel_h` and `fused_LB_kernel_bb_h`; the
 `_bb` kernels are selected by `BOUNCE_BACK`. They gather the post-collision
-values through shared memory and need up to 80 KB (second order) or 104 KB
+values through shared memory and need up to 80 KB (second order) or 152 KB
 (high order) of shared memory per thread block in double precision, which the
 A30, A100, and H100 provide. See [`FUSED_KERNELS.md`](docs/FUSED_KERNELS.md).
 

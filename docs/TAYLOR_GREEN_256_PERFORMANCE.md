@@ -107,9 +107,9 @@ the mean of two runs. The table reports the current fused kernels (see
 | D3Q19 | FP64 | `v1.0.3` | `4.08` | `22.2` | `0.599` | `0.020527` |
 | D3Q27 | FP64 | current | `4.08` | `9.1` | `1.128` | `0.020526` |
 | D3Q27 | FP64 | `v1.0.3` | `4.08` | `29.8` | `0.472` | `0.020526` |
-| High-order D3Q27 | FP64 | current | `4.08` | `46.0` | `0.324` | `0.020524` |
+| High-order D3Q27 | FP64 | current | `4.08` | `23.6` | `0.572` | `0.020524` |
 | High-order D3Q27 | FP64 | `v1.0.3` | `4.08` | `83.4` | `0.188` | `0.020524` |
-| High-order D3Q27 | FP32 | current | `2.35` | `22.5` | `0.635` | `0.022233` |
+| High-order D3Q27 | FP32 | current | `2.35` | `11.3` | `1.108` | `0.022233` |
 | High-order D3Q27 | FP32 | `v1.0.3` | `2.35` | `32.1` | `0.466` | `0.022233` |
 
 The GPU memory does not depend on the lattice or on the fused kernels, because
@@ -121,5 +121,5 @@ viscosity in FP64 exceeds the input value by about `0.8%`, while in FP32 it
 exceeds it by about `9%`. Use double precision when the decay rate matters.
 
 At these throughputs, the complete `50000`-step run takes about `11` minutes
-with D3Q19 FP64, about `12` minutes with D3Q27 FP64, and about `43` minutes
+with D3Q19 FP64, about `12` minutes with D3Q27 FP64, and about `24` minutes
 with high-order D3Q27 FP64 on an A30.

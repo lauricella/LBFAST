@@ -81,11 +81,11 @@ The validation run on an NVIDIA A30 produced:
 | Quantity | Result |
 |---|---:|
 | Theoretical viscosity | `0.0407400000` |
-| Numerical viscosity | `0.04141210125708` |
+| Numerical viscosity | `0.04141210125702` |
 | Relative viscosity error | `+1.649733%` |
-| Fit slope | `-5.987124855838e-4` |
-| Fit intercept | `3.943066999792e-4` |
-| RMS error in fitted log-energy | `4.832086080073e-4` |
+| Fit slope | `-5.987124855829e-4` |
+| Fit intercept | `3.943066995524e-4` |
+| RMS error in fitted log-energy | `4.832086078129e-4` |
 | Fit samples | `41` |
 | Last fitted step | `410` |
 | Reported GPU allocation | `0.8511 GB` |

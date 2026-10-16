@@ -83,7 +83,7 @@ included in the tables.
 
 The published measurements predate the current fused collide-and-stream
 kernels (see [`FUSED_KERNELS.md`](FUSED_KERNELS.md)), which are two to three
-times faster for the second-order lattices and about twice as fast for
+times faster for the second-order lattices and three to four times faster for
 high-order D3Q27. Executables built from the current sources are therefore
 faster than the published figures. The code used for the publication
 corresponds to the kernels of tag `v1.0.3` and earlier.
