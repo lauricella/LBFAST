@@ -4,8 +4,8 @@
    stamp2D=1000
    stamp_term=10
    stepskip=1
-   lreadisfluid=.false.   !metti true se leggi isfluid
-   lreadinit=.false.  !metti true se leggi rho phi e u v w
+   lreadisfluid=.false.   !set to true to read isfluid
+   lreadinit=.false.  !set to true to read rho, phi, u, v and w
    lwriterestart=.false.
    lx=128
    ly=128
@@ -17,7 +17,7 @@
    lvtk=.false.
    lraw=.false.
    lasync=.false.
-   lrestart=.false. !metti true se riparti da restart
+   lrestart=.false. !set to true to restart from a restart file
    pbc_x=1  !(0=false 1=true)
    pbc_y=1
    pbc_z=1

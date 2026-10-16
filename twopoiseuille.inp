@@ -4,8 +4,8 @@
    stamp2D=500
    stamp_term=50
    stepskip=1
-   lreadisfluid=.false.   !metti true se leggi isfluid
-   lreadinit=.false.  !metti true se leggi rho phi e u v w
+   lreadisfluid=.false.   !set to true to read isfluid
+   lreadinit=.false.  !set to true to read rho, phi, u, v and w
    lwriterestart=.false.
    lx=512
    ly=8
@@ -17,7 +17,7 @@
    lvtk=.false.
    lraw=.true.
    lasync=.false.
-   lrestart=.false. !metti true se riparti da restart
+   lrestart=.false. !set to true to restart from a restart file
    lwriterestart=.false.
    pbc_x=0  !(0=false 1=true)
    pbc_y=1
@@ -36,11 +36,11 @@
    radius=40 !128
    width=4.0e0  
    sigma=0.00e0     
-   wettab_r=90.0  !in degrees da 30 --> 130   
+   wettab_r=90.0  !in degrees, from 30 to 130   
    !wettab_b=1.0e0    
    visc1= 0.05e0 !0.025e0
    !nnewt_K = 1.0e-3
-   !nnewt_n = 0.5   ! oppure 0.5 o 0.75
+   !nnewt_n = 0.5   ! alternatively 0.5 or 0.75
    !nnewt_tauy = 1.21e-5
    !nnewt_sor=1.0
    !nnewt_niter=10
