@@ -81,7 +81,7 @@ contains
       integer :: i,j,k,myblock,l,intblock
       integer :: ii,jj,kk
       integer :: li,lj,lk
-      integer :: lii,ljj,lkk
+      real(kind=db) :: ffront,frear
       integer :: xblock,yblock,zblock
       !integer :: gi,gj,gk
 
@@ -298,13 +298,8 @@ contains
 		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
                       + ((dey(l) - v) + udotc * dey(l))*forcey &
                       + ((dez(l) - w) + udotc * dez(l))*forcez)*invcssq
-                     lii=li+ex(l)
-                     ljj=lj+ey(l)
-                     lkk=lk+ez(l)
-                     lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
-                     ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
-                     lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
-		             f_front(lii,ljj,lkk)=feq + (ONE-omega_loc)*fneq1 + HALF*F_discr
+                     ! pull scheme: stored in place
+                     f_front(li,lj,lk)=feq + (ONE-omega_loc)*fneq1 + HALF*F_discr
 		             
                      udotc=(u*dex(l+1) + v*dey(l+1)+ w*dez(l+1))*invcssq
 		             feq=p(l+1)*(press + (udotc+0.5_db*udotc*udotc - uu))
@@ -352,56 +347,41 @@ contains
 		             F_discr = p(l+1)*(((dex(l+1) - u) + udotc * dex(l+1))*forcex &
                       + ((dey(l+1) - v) + udotc * dey(l+1))*forcey &
                       + ((dez(l+1) - w) + udotc * dez(l+1))*forcez)*invcssq
-                     lii=li+ex(l+1)
-                     ljj=lj+ey(l+1)
-                     lkk=lk+ez(l+1)
-                     lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
-                     ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
-                     lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
-		             f_rear(lii,ljj,lkk)=feq + (ONE-omega_loc)*fneq1 + HALF*F_discr
+                     ! pull scheme: stored in place
+                     f_rear(li,lj,lk)=feq + (ONE-omega_loc)*fneq1 + HALF*F_discr
 		             
 		             call syncthreads
+
+                     ! gather (pull) on the interior nodes of the tile only; l and l+1 are opposite directions
+                     if(myblock == intblock)then
+                       ffront=f_front(li-ex(l),lj-ey(l),lk-ez(l))
+                       frear=f_rear(li-ex(l+1),lj-ey(l+1),lk-ez(l+1))
 #ifdef BOUNCE_BACK
-                     if (isfluid(i,j,k) == 0)then
-                       lii=li+ex(l)
-                       ljj=lj+ey(l)
-                       lkk=lk+ez(l)
-                       lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
-                       ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
-                       lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
-                       f_front(lii,ljj,lkk)=f_rear(li,lj,lk)
-                       lii=li+ex(l+1)
-                       ljj=lj+ey(l+1)
-                       lkk=lk+ez(l+1)
-                       lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
-                       ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
-                       lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
-                       f_rear(lii,ljj,lkk)=f_front(li,lj,lk)
+                       ! a population pulled from a solid node is the reflected opposite population of this node
+                       if(isfluid(i-ex(l),j-ey(l),k-ez(l)) == 0)ffront=f_rear(li,lj,lk)
+                       if(isfluid(i-ex(l+1),j-ey(l+1),k-ez(l+1)) == 0)frear=f_front(li,lj,lk)
+#endif
+                       opress=opress + ffront
+                       ou=ou + ffront*dex(l)
+                       ov=ov + ffront*dey(l)
+                       ow=ow + ffront*dez(l)
+                       opxx=opxx + ffront*(dex(l)*dex(l)-cssq)
+                       opyy=opyy + ffront*(dey(l)*dey(l)-cssq)
+                       opzz=opzz + ffront*(dez(l)*dez(l)-cssq)
+                       opxy=opxy + ffront*dex(l)*dey(l)
+                       opxz=opxz + ffront*dex(l)*dez(l)
+                       opyz=opyz + ffront*dey(l)*dez(l)
+                       opress=opress + frear
+                       ou=ou + frear*dex(l+1)
+                       ov=ov + frear*dey(l+1)
+                       ow=ow + frear*dez(l+1)
+                       opxx=opxx + frear*(dex(l+1)*dex(l+1)-cssq)
+                       opyy=opyy + frear*(dey(l+1)*dey(l+1)-cssq)
+                       opzz=opzz + frear*(dez(l+1)*dez(l+1)-cssq)
+                       opxy=opxy + frear*dex(l+1)*dey(l+1)
+                       opxz=opxz + frear*dex(l+1)*dez(l+1)
+                       opyz=opyz + frear*dey(l+1)*dez(l+1)
                      endif
-                     call syncthreads
-#endif 		             
-		             
-		             opress=opress + f_front(li,lj,lk)
-		             ou=ou + f_front(li,lj,lk)*dex(l)
-                     ov=ov + f_front(li,lj,lk)*dey(l)
-                     ow=ow + f_front(li,lj,lk)*dez(l)
-                     opxx=opxx + f_front(li,lj,lk)*(dex(l)*dex(l)-cssq)
-                     opyy=opyy + f_front(li,lj,lk)*(dey(l)*dey(l)-cssq)
-                     opzz=opzz + f_front(li,lj,lk)*(dez(l)*dez(l)-cssq)
-                     opxy=opxy + f_front(li,lj,lk)*dex(l)*dey(l)
-                     opxz=opxz + f_front(li,lj,lk)*dex(l)*dez(l)
-                     opyz=opyz + f_front(li,lj,lk)*dey(l)*dez(l)
-                     
-                     opress=opress + f_rear(li,lj,lk)
-		             ou=ou + f_rear(li,lj,lk)*dex(l+1)
-                     ov=ov + f_rear(li,lj,lk)*dey(l+1)
-                     ow=ow + f_rear(li,lj,lk)*dez(l+1)
-                     opxx=opxx + f_rear(li,lj,lk)*(dex(l+1)*dex(l+1)-cssq)
-                     opyy=opyy + f_rear(li,lj,lk)*(dey(l+1)*dey(l+1)-cssq)
-                     opzz=opzz + f_rear(li,lj,lk)*(dez(l+1)*dez(l+1)-cssq)
-                     opxy=opxy + f_rear(li,lj,lk)*dex(l+1)*dey(l+1)
-                     opxz=opxz + f_rear(li,lj,lk)*dex(l+1)*dez(l+1)
-                     opyz=opyz + f_rear(li,lj,lk)*dey(l+1)*dez(l+1)
                      call syncthreads
                      
                   enddo
@@ -477,6 +457,7 @@ contains
       real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
       real(kind=db) :: opress,ou,ov,ow,opxx,opyy,opzz,opxy,opxz,opyz,feq,fneq1,f_discr
       real(kind=db) :: mytemp,forcex,forcey,forcez,invrhophi_loc,uu,udotc
+      real(kind=db) :: fpull
       
       real(kind=db) :: omega_loc,phi_loc,visc_loc
 #ifdef SMAGORINSKI
@@ -486,7 +467,6 @@ contains
       integer :: i,j,k,myblock,l,intblock
       integer :: ii,jj,kk
       integer :: li,lj,lk
-      integer :: lii,ljj,lkk
       integer :: xblock,yblock,zblock
 !      integer :: gi,gj,gk
 
@@ -704,30 +684,29 @@ contains
 		             F_discr = p(l)*(((dex(l) - u) + udotc * dex(l))*forcex &
                       + ((dey(l) - v) + udotc * dey(l))*forcey &
                       + ((dez(l) - w) + udotc * dez(l))*forcez)*invcssq
-                     lii=li+ex(l)
-                     ljj=lj+ey(l)
-                     lkk=lk+ez(l)
-                     lii=mod(lii+TILE_DIMx+2,(TILE_DIMx+2))
-                     ljj=mod(ljj+TILE_DIMy+2,(TILE_DIMy+2))
-                     lkk=mod(lkk+TILE_DIMz+2,(TILE_DIMz+2)) 
-		             ftemp(lii,ljj,lkk)=feq + (ONE-omega_loc)*fneq1 + HALF*F_discr
+                     ! pull scheme: the population of direction l is stored in place
+                     ftemp(li,lj,lk)=feq + (ONE-omega_loc)*fneq1 + HALF*F_discr
 		             !if(gi==32 .and. gj==32 .and. gk==2 .and. myblock==intblock)write(*,*)'a',l,ftemp(lii,ljj,lkk)
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,feq
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,(ONE-omega_loc)*fneq1
 !		             if(gi==iprobe .and. gj==jprobe .and. gk==kprobe .and. myblock==intblock)write(*,*)l,HALF*F_discr
-		             call syncthreads
-		             
-		             opress=opress + ftemp(li,lj,lk)
-		             ou=ou + ftemp(li,lj,lk)*dex(l)
-                     ov=ov + ftemp(li,lj,lk)*dey(l)
-                     ow=ow + ftemp(li,lj,lk)*dez(l)
-                     opxx=opxx + ftemp(li,lj,lk)*(dex(l)*dex(l)-cssq)
-                     opyy=opyy + ftemp(li,lj,lk)*(dey(l)*dey(l)-cssq)
-                     opzz=opzz + ftemp(li,lj,lk)*(dez(l)*dez(l)-cssq)
-                     opxy=opxy + ftemp(li,lj,lk)*dex(l)*dey(l)
-                     opxz=opxz + ftemp(li,lj,lk)*dex(l)*dez(l)
-                     opyz=opyz + ftemp(li,lj,lk)*dey(l)*dez(l)
-                     
+                     call syncthreads
+
+                     ! gather (pull) on the interior nodes of the tile only
+                     if(myblock == intblock)then
+                       fpull=ftemp(li-ex(l),lj-ey(l),lk-ez(l))
+                       opress=opress + fpull
+                       ou=ou + fpull*dex(l)
+                       ov=ov + fpull*dey(l)
+                       ow=ow + fpull*dez(l)
+                       opxx=opxx + fpull*(dex(l)*dex(l)-cssq)
+                       opyy=opyy + fpull*(dey(l)*dey(l)-cssq)
+                       opzz=opzz + fpull*(dez(l)*dez(l)-cssq)
+                       opxy=opxy + fpull*dex(l)*dey(l)
+                       opxz=opxz + fpull*dex(l)*dez(l)
+                       opyz=opyz + fpull*dey(l)*dez(l)
+                     endif
+
                      call syncthreads
                      
                   enddo
