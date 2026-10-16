@@ -1266,4 +1266,762 @@ contains
 #endif
 #endif
 
+
+#ifdef FUSEDH
+!     Experimental fused collide-and-stream kernels for the high-order D3Q27 reconstruction.
+!     Each block has one thread per interior node of the tile. Every thread computes p*, u,
+!     (1-omega) Pi_neq and F for its node and, for the first threads, for one halo node; these
+!     13 values per node are stored in dynamic shared memory, and after a single barrier each
+!     thread reconstructs the incoming post-collision populations (pull) from the values of the
+!     upstream nodes, with the same high-order expressions as fused_LB_kernel. Only the kernel
+!     selected by BOUNCE_BACK is compiled.
+#if (GPUTILEX*GPUTILEY*GPUTILEZ) != 512
+#error "FUSEDH: the launch bounds of the high-order fused kernels assume 8x8x8 tiles"
+#endif
+#ifndef BOUNCE_BACK
+#if PRC == 4
+      attributes(global) launch_bounds(512,2) subroutine fused_LB_kernel_h(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &  
+#else
+      attributes(global) launch_bounds(512,1) subroutine fused_LB_kernel_h(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &  
+#endif
+#ifdef MULTIHIT
+       ,ABCx,ABCy,ABCz &
+#endif 
+#ifdef WETTABILITY
+       ,wettab_r,wettab_b &
+#endif  
+#ifdef TWOCOMPONENT 
+       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
+#ifdef MONOD
+       ,mu_max,Ks &
+#endif
+#endif   
+       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
+       hfields_in,hfields_out &
+#ifdef TWOCOMPONENT 
+       ,auxfields_s,locauxfields_s &
+#endif   
+       ,forces_s)
+
+      implicit none
+      
+      integer :: step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz
+      
+      integer, dimension(3) :: coords
+      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
+      integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
+#ifdef MULTIHIT
+	  real(kind=db), dimension(1:nx,1:ny,1:nz) :: ABCx,ABCy,ABCz
+#endif
+#ifdef WETTABILITY  
+      real(kind=db) :: wettab_r,wettab_b  
+#endif  
+#ifdef TWOCOMPONENT 
+      real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
+#ifdef MONOD
+      real(kind=db) :: mu_max,Ks
+#endif
+#endif           
+      real(kind=db) :: visc1,omega,fx,fy,fz
+      
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
+#ifdef TWOCOMPONENT 
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+#endif  
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      
+      ! p*, u, (1-omega) Pi_neq and F of every node of the tile and its halo (13 values per node);
+      ! the last dimension is set at launch time through the dynamic shared-memory size
+      real(kind=db), shared :: abuf(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1,*)
+      
+      real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
+      real(kind=db) :: opress,ou,ov,ow,opxx,opyy,opzz,opxy,opxz,opyz,feq,fneq1,f_discr
+      real(kind=db) :: forcex,forcey,forcez,invrhophi_loc,uu,udotc,fpull
+      real(kind=db) :: omega_loc,phi_loc,visc_loc
+#ifdef SMAGORINSKI
+	  real(kind=db) :: QQ
+#endif
+
+      integer, parameter :: nhx=TILE_DIMx+2, nhy=TILE_DIMy+2, nhz=TILE_DIMz+2
+      integer, parameter :: nthreads=TILE_DIMx*TILE_DIMy*TILE_DIMz
+      ! halo nodes of a tile: two full planes, and a ring of 2*nhx+2*TILE_DIMy nodes per interior plane
+      integer, parameter :: nring=2*nhx+2*TILE_DIMy, nhalo=nhx*nhy*nhz-nthreads
+      integer :: i,j,k,myblock,l,ld,intblock
+      integer :: ii,jj,kk
+      integer :: li,lj,lk,hi,hj,hk,si,sj,sk
+      integer :: xblock,yblock,zblock
+      integer :: ithread,inode,ih,ir
+
+      ! one thread per interior node of the tile; li, lj, lk are its coordinates in the
+      ! shared buffer, which includes the halo
+      li = threadIdx%x
+      lj = threadIdx%y
+      lk = threadIdx%z
+      ithread=(li-1)+TILE_DIMx*(lj-1)+TILE_DIMx*TILE_DIMy*(lk-1)
+      intblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
+
+      ! inode=0 is the node of this thread; inode>0 are the halo nodes ithread, ithread+nthreads, ...
+      do inode=0,(nhalo-1)/nthreads+1
+        if(inode == 0)then
+          hi=li
+          hj=lj
+          hk=lk
+        else
+          ih=ithread+(inode-1)*nthreads
+          if(ih >= nhalo)exit
+          if(ih < nhx*nhy)then
+            hk=0
+            hj=ih/nhx
+            hi=ih-hj*nhx
+          elseif(ih < nhx*nhy+TILE_DIMz*nring)then
+            ir=ih-nhx*nhy
+            hk=ir/nring+1
+            ir=ir-(hk-1)*nring
+            if(ir < nhx)then
+              hj=0
+              hi=ir
+            elseif(ir < nhx+2*TILE_DIMy)then
+              ir=ir-nhx
+              hj=ir/2+1
+              hi=(nhx-1)*(ir-2*(ir/2))
+            else
+              hj=nhy-1
+              hi=ir-nhx-2*TILE_DIMy
+            endif
+          else
+            ir=ih-nhx*nhy-TILE_DIMz*nring
+            hk=nhz-1
+            hj=ir/nhx
+            hi=ir-hj*nhx
+          endif
+        endif
+
+        i = (blockIdx%x-1) * TILE_DIMx + hi
+        j = (blockIdx%y-1) * TILE_DIMy + hj
+        k = (blockIdx%z-1) * TILE_DIMz + hk
+        xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+        yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+        zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+        myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+        ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+        jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+        kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+
+#ifdef TWOCOMPONENT	  
+                    phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+#endif                  
+#ifdef DENSRATIO
+                  
+                    invrhophi_loc = 1.0_db/(rho_r*phi_loc+(ONE-phi_loc)*rho_b) 
+#else
+                    invrhophi_loc = 1.0_db !press_loc
+#endif	
+
+  				  forcex=real(forces_s(ii,jj,kk,1,myblock),kind=db)*invrhophi_loc
+  				  forcey=real(forces_s(ii,jj,kk,2,myblock),kind=db)*invrhophi_loc
+  				  forcez=real(forces_s(ii,jj,kk,3,myblock),kind=db)*invrhophi_loc
+                  
+                    press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
+                    u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
+                    v=real(hfields_in(ii,jj,kk,3,myblock),kind=db)
+                    w=real(hfields_in(ii,jj,kk,4,myblock),kind=db)
+                    pxx=real(hfields_in(ii,jj,kk,5,myblock),kind=db)
+                    pyy=real(hfields_in(ii,jj,kk,6,myblock),kind=db)
+                    pzz=real(hfields_in(ii,jj,kk,7,myblock),kind=db)
+                    pxy=real(hfields_in(ii,jj,kk,8,myblock),kind=db)
+                    pxz=real(hfields_in(ii,jj,kk,9,myblock),kind=db)
+                    pyz=real(hfields_in(ii,jj,kk,10,myblock),kind=db) 
+                  
+                  
+#ifdef INTERNAL_OBSTACLES
+                    if(isfluid(i,j,k) == 0)then
+                      forcex=ZERO
+                      forcey=ZERO
+                      forcez=ZERO
+                      press=ZERO
+                      u=ZERO
+                      v=ZERO
+                      w=ZERO
+                      pxx=ZERO
+                      pyy=ZERO
+                      pzz=ZERO
+                      pxy=ZERO
+                      pxz=ZERO
+                      pyz=ZERO
+                    endif
+#endif
+                  
+
+
+                    pxx=pxx - u*u 
+                    pyy=pyy - v*v 
+                    pzz=pzz - w*w 
+                    pxy=pxy - u*v
+                    pxz=pxz - u*w
+                    pyz=pyz - v*w
+
+#ifdef TWOCOMPONENT
+                    !visc_loc it is used to store the local viscosity
+                    visc_loc=(rho_r*visc1*phi_loc+(ONE-phi_loc)*visc2*rho_b)*invrhophi_loc
+#else
+#ifdef SMAGORINSKI
+                    visc_loc=visc1
+#endif
+#endif
+
+#ifdef SMAGORINSKI
+                    QQ=pxx*pxx + pyy*pyy + pzz*pzz + &
+                     TWO*(pxy*pxy + pxz*pxz + pyz*pyz)  !QQ i sused to store the double contraction of flux tensor (Frobenius norm) 
+                    !!!smago
+                    omega_loc= 0.5_db + (1.0_db/6.0_db)*(3.0_db*visc_loc + &   !visc_loc it is used to store the local viscosity
+                     sqrt((3.0*visc_loc)**2.0 + 0.053*18.0*sqrt(2.0*QQ)*invrhophi_loc)) !it is tau
+                    omega_loc=1.0_db/omega_loc !it is omega
+
+#else
+#ifdef TWOCOMPONENT
+                    omega_loc=(visc_loc*invcssq + 0.5_db) !it is tau   !visc_loc it is used to store the local viscosity
+                    omega_loc=1.0_db/omega_loc !it is omega
+#else
+                    omega_loc=omega
+#endif
+#endif      
+
+                    ! values needed to reconstruct the post-collision populations of this node
+                    abuf(hi,hj,hk,1)=press
+                    abuf(hi,hj,hk,2)=u
+                    abuf(hi,hj,hk,3)=v
+                    abuf(hi,hj,hk,4)=w
+                    abuf(hi,hj,hk,5)=(ONE-omega_loc)*pxx
+                    abuf(hi,hj,hk,6)=(ONE-omega_loc)*pyy
+                    abuf(hi,hj,hk,7)=(ONE-omega_loc)*pzz
+                    abuf(hi,hj,hk,8)=(ONE-omega_loc)*pxy
+                    abuf(hi,hj,hk,9)=(ONE-omega_loc)*pxz
+                    abuf(hi,hj,hk,10)=(ONE-omega_loc)*pyz
+                    abuf(hi,hj,hk,11)=forcex
+                    abuf(hi,hj,hk,12)=forcey
+                    abuf(hi,hj,hk,13)=forcez
+      enddo
+
+      call syncthreads
+
+                  i = (blockIdx%x-1) * TILE_DIMx + li
+                  j = (blockIdx%y-1) * TILE_DIMy + lj
+                  k = (blockIdx%z-1) * TILE_DIMz + lk
+
+                  ! rest population of this node (the non-equilibrium values are already relaxed)
+                  press=abuf(li,lj,lk,1)
+                  u=abuf(li,lj,lk,2)
+                  v=abuf(li,lj,lk,3)
+                  w=abuf(li,lj,lk,4)
+                  pxx=abuf(li,lj,lk,5)
+                  pyy=abuf(li,lj,lk,6)
+                  pzz=abuf(li,lj,lk,7)
+                  pxy=abuf(li,lj,lk,8)
+                  pxz=abuf(li,lj,lk,9)
+                  pyz=abuf(li,lj,lk,10)
+                  forcex=abuf(li,lj,lk,11)
+                  forcey=abuf(li,lj,lk,12)
+                  forcez=abuf(li,lj,lk,13)
+                  ou=ZERO
+                  ov=ZERO
+                  ow=ZERO
+                  opxy=ZERO
+                  opxz=ZERO
+                  opyz=ZERO
+                  uu=HALF*(u*u+v*v+w*w)*invcssq
+
+			      feq=p(0)*(press - uu)
+				  fneq1=p(0)*(HALF*invcssq)*(-pxx-pyy-pzz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                  feq=feq + &
+                    Minv_mrt(17,0)*u*u*v*v + &
+                    Minv_mrt(18,0)*u*u*w*w + &
+                    Minv_mrt(19,0)*v*v*w*w + &
+                    Minv_mrt(26,0)*u*u*v*v*w*w
+                  fneq1=fneq1 + &
+                    Minv_mrt(17,0)*(pxx*v**TWO + FOUR*pxy*u*v + pyy*u**TWO) + &
+                    Minv_mrt(18,0)*(pxx*w**TWO + FOUR*pxz*u*w + pzz*u**TWO) + &
+                    Minv_mrt(19,0)*(pyy*w**TWO + FOUR*pyz*v*w + pzz*v**TWO) + &
+                    Minv_mrt(26,0)*(pxx*v**TWO*w**TWO + FOUR*pxy*u*v*w**TWO + FOUR*pxz*u*v**TWO*w + &
+                                     pyy*u**TWO*w**TWO + FOUR*pyz*u**TWO*v*w + pzz*u**TWO*v**TWO)
+#endif
+				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)*invcssq
+                  udotc=feq + fneq1 + HALF*(F_discr)
+		          opress=udotc
+                  opxx=udotc*(-cssq)
+                  opyy=udotc*(-cssq)
+                  opzz=udotc*(-cssq)
+                  do l=1,nlinks
+                     ! pull: reconstruct the population of direction l of the upstream node
+                     si=li-ex(l)
+                     sj=lj-ey(l)
+                     sk=lk-ez(l)
+                     ld=l
+                     press=abuf(si,sj,sk,1)
+                     u=abuf(si,sj,sk,2)
+                     v=abuf(si,sj,sk,3)
+                     w=abuf(si,sj,sk,4)
+                     pxx=abuf(si,sj,sk,5)
+                     pyy=abuf(si,sj,sk,6)
+                     pzz=abuf(si,sj,sk,7)
+                     pxy=abuf(si,sj,sk,8)
+                     pxz=abuf(si,sj,sk,9)
+                     pyz=abuf(si,sj,sk,10)
+                     forcex=abuf(si,sj,sk,11)
+                     forcey=abuf(si,sj,sk,12)
+                     forcez=abuf(si,sj,sk,13)
+                     uu=HALF*(u*u+v*v+w*w)*invcssq
+                     udotc=(u*dex(ld) + v*dey(ld)+ w*dez(ld))*invcssq
+		             feq=p(ld)*(press + (udotc+0.5_db*udotc*udotc - uu))
+                     fneq1=p(ld)*(HALF/(cssq*cssq))*( (dex(ld)*dex(ld)-cssq)*pxx &
+		              + (dey(ld)*dey(ld)-cssq)*pyy + (dez(ld)*dez(ld)-cssq)*pzz &
+	                  + TWO*(dex(ld)*dey(ld))*pxy + TWO*(dex(ld)*dez(ld))*pxz &
+		              + TWO*(dey(ld)*dez(ld))*pyz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                     feq=feq+Minv_mrt(10,ld)*u*u*v + &
+                             Minv_mrt(11,ld)*u*u*w + &
+                             Minv_mrt(12,ld)*u*v*v + &
+                             Minv_mrt(13,ld)*u*w*w + &
+                             Minv_mrt(14,ld)*v*w*w + &
+                             Minv_mrt(15,ld)*v*v*w + &
+                             Minv_mrt(16,ld)*u*v*w + &
+                             Minv_mrt(17,ld)*u*u*v*v + &
+                             Minv_mrt(18,ld)*u*u*w*w + &
+                             Minv_mrt(19,ld)*v*v*w*w + &
+                             Minv_mrt(20,ld)*u*v*w*w + &
+                             Minv_mrt(21,ld)*u*v*v*w + &
+                             Minv_mrt(22,ld)*u*u*v*w + &
+                             Minv_mrt(23,ld)*u*u*v*w*w + &
+                             Minv_mrt(24,ld)*u*u*v*v*w + &
+                             Minv_mrt(25,ld)*u*v*v*w*w + &
+                             Minv_mrt(26,ld)*u*u*v*v*w*w
+                     fneq1=fneq1+Minv_mrt(10,ld)*(TWO*pxy*u + pxx*v) + &
+                             Minv_mrt(11,ld)*(TWO*pxz*u + pxx*w) + &
+                             Minv_mrt(12,ld)*(pyy*u + TWO*pxy*v) + &
+                             Minv_mrt(13,ld)*(pzz*u + TWO*pxz*w)+ &
+                             Minv_mrt(14,ld)*(pzz*v + TWO*pyz*w) + &
+                             Minv_mrt(15,ld)*(TWO*pyz*v + pyy*w) + &
+                             Minv_mrt(16,ld)*(pyz*u + pxz*v + pxy*w) + &
+                             Minv_mrt(17,ld)*(pxx*v**TWO + FOUR*pxy*u*v + pyy*u**TWO) + &
+                             Minv_mrt(18,ld)*(pxx*w**TWO + FOUR*pxz*u*w + pzz*u**TWO) + &
+                             Minv_mrt(19,ld)*(pyy*w**TWO + FOUR*pyz*v*w + pzz*v**TWO) + &
+                             Minv_mrt(20,ld)*(pxy*w**TWO + TWO*pxz*v*w + TWO*pyz*u*w + pzz*u*v) + &
+                             Minv_mrt(21,ld)*(TWO*pxy*v*w + pxz*v**TWO + pyy*u*w + TWO*pyz*u*v) + &
+                             Minv_mrt(22,ld)*(pxx*v*w + TWO*pxy*u*w + TWO*pxz*u*v + pyz*u**TWO) + &
+                             Minv_mrt(23,ld)*(pxx*v*w**TWO + TWO*pxy*u*w**TWO + FOUR*pxz*u*v*w + TWO*pyz*u**TWO*w + pzz*u**TWO*v) + &
+                             Minv_mrt(24,ld)*(pxx*v**TWO*w + FOUR*pxy*u*v*w + TWO*pxz*u*v**TWO + pyy*u**TWO*w + TWO*pyz*u**TWO*v) + &
+                             Minv_mrt(25,ld)*(TWO*pxy*v*w**TWO + TWO*pxz*v**TWO*w + pyy*u*w**TWO + FOUR*pyz*u*v*w + pzz*u*v**TWO) + &
+                             Minv_mrt(26,ld)*(pxx*v**TWO*w**TWO + FOUR*pxy*u*v*w**TWO + FOUR*pxz*u*v**TWO*w + &
+                                              pyy*u**TWO*w**TWO + FOUR*pyz*u**TWO*v*w + pzz*u**TWO*v**TWO)
+#endif
+		             F_discr = p(ld)*(((dex(ld) - u) + udotc * dex(ld))*forcex &
+                      + ((dey(ld) - v) + udotc * dey(ld))*forcey &
+                      + ((dez(ld) - w) + udotc * dez(ld))*forcez)*invcssq
+                     fpull=feq + fneq1 + HALF*F_discr
+                     opress=opress + fpull
+                     ou=ou + fpull*dex(l)
+                     ov=ov + fpull*dey(l)
+                     ow=ow + fpull*dez(l)
+                     opxx=opxx + fpull*(dex(l)*dex(l)-cssq)
+                     opyy=opyy + fpull*(dey(l)*dey(l)-cssq)
+                     opzz=opzz + fpull*(dez(l)*dez(l)-cssq)
+                     opxy=opxy + fpull*dex(l)*dey(l)
+                     opxz=opxz + fpull*dex(l)*dez(l)
+                     opyz=opyz + fpull*dey(l)*dez(l)
+                  enddo
+
+                  ! the node of this thread is an interior node: its tile is intblock and ii=li, jj=lj, kk=lk
+                  hfields_out(li,lj,lk,1,intblock)=real(opress,kind=strdb)
+                  hfields_out(li,lj,lk,2,intblock)=real(ou,kind=strdb)
+                  hfields_out(li,lj,lk,3,intblock)=real(ov,kind=strdb)
+                  hfields_out(li,lj,lk,4,intblock)=real(ow,kind=strdb)
+                  hfields_out(li,lj,lk,5,intblock)=real(opxx,kind=strdb)
+                  hfields_out(li,lj,lk,6,intblock)=real(opyy,kind=strdb)
+                  hfields_out(li,lj,lk,7,intblock)=real(opzz,kind=strdb)
+                  hfields_out(li,lj,lk,8,intblock)=real(opxy,kind=strdb)
+                  hfields_out(li,lj,lk,9,intblock)=real(opxz,kind=strdb)
+                  hfields_out(li,lj,lk,10,intblock)=real(opyz,kind=strdb)
+
+    endsubroutine fused_LB_kernel_h
+#else
+#if PRC == 4
+      attributes(global) launch_bounds(512,2) subroutine fused_LB_kernel_bb_h(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &  
+#else
+      attributes(global) launch_bounds(512,1) subroutine fused_LB_kernel_bb_h(step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &  
+#endif
+#ifdef MULTIHIT
+       ,ABCx,ABCy,ABCz &
+#endif 
+#ifdef WETTABILITY
+       ,wettab_r,wettab_b &
+#endif  
+#ifdef TWOCOMPONENT 
+       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma,phifields_s &
+#ifdef MONOD
+       ,mu_max,Ks &
+#endif
+#endif   
+       ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces, &
+       hfields_in,hfields_out &
+#ifdef TWOCOMPONENT 
+       ,auxfields_s,locauxfields_s &
+#endif   
+       ,forces_s)
+
+      implicit none
+      
+      integer :: step,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz
+      
+      integer, dimension(3) :: coords
+      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
+      integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces
+#ifdef MULTIHIT
+	  real(kind=db), dimension(1:nx,1:ny,1:nz) :: ABCx,ABCy,ABCz
+#endif
+#ifdef WETTABILITY  
+      real(kind=db) :: wettab_r,wettab_b  
+#endif  
+#ifdef TWOCOMPONENT 
+      real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
+#ifdef MONOD
+      real(kind=db) :: mu_max,Ks
+#endif
+#endif           
+      real(kind=db) :: visc1,omega,fx,fy,fz
+      
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_in,hfields_out
+#ifdef TWOCOMPONENT 
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
+#endif  
+      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nforces,nblocks_d) :: forces_s
+      
+      ! p*, u, (1-omega) Pi_neq and F of every node of the tile and its halo (13 values per node);
+      ! the last dimension is set at launch time through the dynamic shared-memory size
+      real(kind=db), shared :: abuf(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1,*)
+      
+      real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
+      real(kind=db) :: opress,ou,ov,ow,opxx,opyy,opzz,opxy,opxz,opyz,feq,fneq1,f_discr
+      real(kind=db) :: forcex,forcey,forcez,invrhophi_loc,uu,udotc,fpull
+      real(kind=db) :: omega_loc,phi_loc,visc_loc
+#ifdef SMAGORINSKI
+	  real(kind=db) :: QQ
+#endif
+
+      integer, parameter :: nhx=TILE_DIMx+2, nhy=TILE_DIMy+2, nhz=TILE_DIMz+2
+      integer, parameter :: nthreads=TILE_DIMx*TILE_DIMy*TILE_DIMz
+      ! halo nodes of a tile: two full planes, and a ring of 2*nhx+2*TILE_DIMy nodes per interior plane
+      integer, parameter :: nring=2*nhx+2*TILE_DIMy, nhalo=nhx*nhy*nhz-nthreads
+      integer :: i,j,k,myblock,l,ld,intblock
+      integer :: ii,jj,kk
+      integer :: li,lj,lk,hi,hj,hk,si,sj,sk
+      integer :: xblock,yblock,zblock
+      integer :: ithread,inode,ih,ir
+
+      ! one thread per interior node of the tile; li, lj, lk are its coordinates in the
+      ! shared buffer, which includes the halo
+      li = threadIdx%x
+      lj = threadIdx%y
+      lk = threadIdx%z
+      ithread=(li-1)+TILE_DIMx*(lj-1)+TILE_DIMx*TILE_DIMy*(lk-1)
+      intblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
+
+      ! inode=0 is the node of this thread; inode>0 are the halo nodes ithread, ithread+nthreads, ...
+      do inode=0,(nhalo-1)/nthreads+1
+        if(inode == 0)then
+          hi=li
+          hj=lj
+          hk=lk
+        else
+          ih=ithread+(inode-1)*nthreads
+          if(ih >= nhalo)exit
+          if(ih < nhx*nhy)then
+            hk=0
+            hj=ih/nhx
+            hi=ih-hj*nhx
+          elseif(ih < nhx*nhy+TILE_DIMz*nring)then
+            ir=ih-nhx*nhy
+            hk=ir/nring+1
+            ir=ir-(hk-1)*nring
+            if(ir < nhx)then
+              hj=0
+              hi=ir
+            elseif(ir < nhx+2*TILE_DIMy)then
+              ir=ir-nhx
+              hj=ir/2+1
+              hi=(nhx-1)*(ir-2*(ir/2))
+            else
+              hj=nhy-1
+              hi=ir-nhx-2*TILE_DIMy
+            endif
+          else
+            ir=ih-nhx*nhy-TILE_DIMz*nring
+            hk=nhz-1
+            hj=ir/nhx
+            hi=ir-hj*nhx
+          endif
+        endif
+
+        i = (blockIdx%x-1) * TILE_DIMx + hi
+        j = (blockIdx%y-1) * TILE_DIMy + hj
+        k = (blockIdx%z-1) * TILE_DIMz + hk
+        xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+        yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+        zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+        myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+        ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+        jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+        kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+
+#ifdef TWOCOMPONENT	  
+                    phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+#endif                  
+#ifdef DENSRATIO
+                  
+                    invrhophi_loc = 1.0_db/(rho_r*phi_loc+(ONE-phi_loc)*rho_b) 
+#else
+                    invrhophi_loc = 1.0_db !press_loc
+#endif	
+
+  				  forcex=real(forces_s(ii,jj,kk,1,myblock),kind=db)*invrhophi_loc
+  				  forcey=real(forces_s(ii,jj,kk,2,myblock),kind=db)*invrhophi_loc
+  				  forcez=real(forces_s(ii,jj,kk,3,myblock),kind=db)*invrhophi_loc
+                  
+                    press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
+                    u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
+                    v=real(hfields_in(ii,jj,kk,3,myblock),kind=db)
+                    w=real(hfields_in(ii,jj,kk,4,myblock),kind=db)
+                    pxx=real(hfields_in(ii,jj,kk,5,myblock),kind=db)
+                    pyy=real(hfields_in(ii,jj,kk,6,myblock),kind=db)
+                    pzz=real(hfields_in(ii,jj,kk,7,myblock),kind=db)
+                    pxy=real(hfields_in(ii,jj,kk,8,myblock),kind=db)
+                    pxz=real(hfields_in(ii,jj,kk,9,myblock),kind=db)
+                    pyz=real(hfields_in(ii,jj,kk,10,myblock),kind=db) 
+                  
+                  
+#ifdef INTERNAL_OBSTACLES
+                    if(isfluid(i,j,k) == 0)then
+                      forcex=ZERO
+                      forcey=ZERO
+                      forcez=ZERO
+                      press=ZERO
+                      u=ZERO
+                      v=ZERO
+                      w=ZERO
+                      pxx=ZERO
+                      pyy=ZERO
+                      pzz=ZERO
+                      pxy=ZERO
+                      pxz=ZERO
+                      pyz=ZERO
+                    endif
+#endif
+                  
+
+
+                    pxx=pxx - u*u 
+                    pyy=pyy - v*v 
+                    pzz=pzz - w*w 
+                    pxy=pxy - u*v
+                    pxz=pxz - u*w
+                    pyz=pyz - v*w
+
+#ifdef TWOCOMPONENT
+                    !visc_loc it is used to store the local viscosity
+                    visc_loc=(rho_r*visc1*phi_loc+(ONE-phi_loc)*visc2*rho_b)*invrhophi_loc
+#else
+#ifdef SMAGORINSKI
+                    visc_loc=visc1
+#endif
+#endif
+
+#ifdef SMAGORINSKI
+                    QQ=pxx*pxx + pyy*pyy + pzz*pzz + &
+                     TWO*(pxy*pxy + pxz*pxz + pyz*pyz)  !QQ i sused to store the double contraction of flux tensor (Frobenius norm) 
+                    !!!smago
+                    omega_loc= 0.5_db + (1.0_db/6.0_db)*(3.0_db*visc_loc + &   !visc_loc it is used to store the local viscosity
+                     sqrt((3.0*visc_loc)**2.0 + 0.053*18.0*sqrt(2.0*QQ)*invrhophi_loc)) !it is tau
+                    omega_loc=1.0_db/omega_loc !it is omega
+
+#else
+#ifdef TWOCOMPONENT
+                    omega_loc=(visc_loc*invcssq + 0.5_db) !it is tau   !visc_loc it is used to store the local viscosity
+                    omega_loc=1.0_db/omega_loc !it is omega
+#else
+                    omega_loc=omega
+#endif
+#endif      
+
+                    ! values needed to reconstruct the post-collision populations of this node
+                    abuf(hi,hj,hk,1)=press
+                    abuf(hi,hj,hk,2)=u
+                    abuf(hi,hj,hk,3)=v
+                    abuf(hi,hj,hk,4)=w
+                    abuf(hi,hj,hk,5)=(ONE-omega_loc)*pxx
+                    abuf(hi,hj,hk,6)=(ONE-omega_loc)*pyy
+                    abuf(hi,hj,hk,7)=(ONE-omega_loc)*pzz
+                    abuf(hi,hj,hk,8)=(ONE-omega_loc)*pxy
+                    abuf(hi,hj,hk,9)=(ONE-omega_loc)*pxz
+                    abuf(hi,hj,hk,10)=(ONE-omega_loc)*pyz
+                    abuf(hi,hj,hk,11)=forcex
+                    abuf(hi,hj,hk,12)=forcey
+                    abuf(hi,hj,hk,13)=forcez
+      enddo
+
+      call syncthreads
+
+                  i = (blockIdx%x-1) * TILE_DIMx + li
+                  j = (blockIdx%y-1) * TILE_DIMy + lj
+                  k = (blockIdx%z-1) * TILE_DIMz + lk
+
+                  ! rest population of this node (the non-equilibrium values are already relaxed)
+                  press=abuf(li,lj,lk,1)
+                  u=abuf(li,lj,lk,2)
+                  v=abuf(li,lj,lk,3)
+                  w=abuf(li,lj,lk,4)
+                  pxx=abuf(li,lj,lk,5)
+                  pyy=abuf(li,lj,lk,6)
+                  pzz=abuf(li,lj,lk,7)
+                  pxy=abuf(li,lj,lk,8)
+                  pxz=abuf(li,lj,lk,9)
+                  pyz=abuf(li,lj,lk,10)
+                  forcex=abuf(li,lj,lk,11)
+                  forcey=abuf(li,lj,lk,12)
+                  forcez=abuf(li,lj,lk,13)
+                  ou=ZERO
+                  ov=ZERO
+                  ow=ZERO
+                  opxy=ZERO
+                  opxz=ZERO
+                  opyz=ZERO
+                  uu=HALF*(u*u+v*v+w*w)*invcssq
+
+			      feq=p(0)*(press - uu)
+				  fneq1=p(0)*(HALF*invcssq)*(-pxx-pyy-pzz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                  feq=feq + &
+                    Minv_mrt(17,0)*u*u*v*v + &
+                    Minv_mrt(18,0)*u*u*w*w + &
+                    Minv_mrt(19,0)*v*v*w*w + &
+                    Minv_mrt(26,0)*u*u*v*v*w*w
+                  fneq1=fneq1 + &
+                    Minv_mrt(17,0)*(pxx*v**TWO + FOUR*pxy*u*v + pyy*u**TWO) + &
+                    Minv_mrt(18,0)*(pxx*w**TWO + FOUR*pxz*u*w + pzz*u**TWO) + &
+                    Minv_mrt(19,0)*(pyy*w**TWO + FOUR*pyz*v*w + pzz*v**TWO) + &
+                    Minv_mrt(26,0)*(pxx*v**TWO*w**TWO + FOUR*pxy*u*v*w**TWO + FOUR*pxz*u*v**TWO*w + &
+                                     pyy*u**TWO*w**TWO + FOUR*pyz*u**TWO*v*w + pzz*u**TWO*v**TWO)
+#endif
+				  F_discr = p(0)*(- u*forcex - v*forcey - w*forcez)*invcssq
+                  udotc=feq + fneq1 + HALF*(F_discr)
+		          opress=udotc
+                  opxx=udotc*(-cssq)
+                  opyy=udotc*(-cssq)
+                  opzz=udotc*(-cssq)
+                  do l=1,nlinks
+                     ! pull: reconstruct the population of direction l of the upstream node
+                     si=li-ex(l)
+                     sj=lj-ey(l)
+                     sk=lk-ez(l)
+                     ld=l
+#ifdef BOUNCE_BACK
+                     ! from a solid node: the reflected population of the opposite direction of this node
+                     if(isfluid(i-ex(l),j-ey(l),k-ez(l)) == 0)then
+                       si=li
+                       sj=lj
+                       sk=lk
+                       ld=opp(l)
+                     endif
+#endif
+                     press=abuf(si,sj,sk,1)
+                     u=abuf(si,sj,sk,2)
+                     v=abuf(si,sj,sk,3)
+                     w=abuf(si,sj,sk,4)
+                     pxx=abuf(si,sj,sk,5)
+                     pyy=abuf(si,sj,sk,6)
+                     pzz=abuf(si,sj,sk,7)
+                     pxy=abuf(si,sj,sk,8)
+                     pxz=abuf(si,sj,sk,9)
+                     pyz=abuf(si,sj,sk,10)
+                     forcex=abuf(si,sj,sk,11)
+                     forcey=abuf(si,sj,sk,12)
+                     forcez=abuf(si,sj,sk,13)
+                     uu=HALF*(u*u+v*v+w*w)*invcssq
+                     udotc=(u*dex(ld) + v*dey(ld)+ w*dez(ld))*invcssq
+		             feq=p(ld)*(press + (udotc+0.5_db*udotc*udotc - uu))
+                     fneq1=p(ld)*(HALF/(cssq*cssq))*( (dex(ld)*dex(ld)-cssq)*pxx &
+		              + (dey(ld)*dey(ld)-cssq)*pyy + (dez(ld)*dez(ld)-cssq)*pzz &
+	                  + TWO*(dex(ld)*dey(ld))*pxy + TWO*(dex(ld)*dez(ld))*pxz &
+		              + TWO*(dey(ld)*dez(ld))*pyz)
+#if defined(HIGHORDER) && (LATTICE == 27)
+                     feq=feq+Minv_mrt(10,ld)*u*u*v + &
+                             Minv_mrt(11,ld)*u*u*w + &
+                             Minv_mrt(12,ld)*u*v*v + &
+                             Minv_mrt(13,ld)*u*w*w + &
+                             Minv_mrt(14,ld)*v*w*w + &
+                             Minv_mrt(15,ld)*v*v*w + &
+                             Minv_mrt(16,ld)*u*v*w + &
+                             Minv_mrt(17,ld)*u*u*v*v + &
+                             Minv_mrt(18,ld)*u*u*w*w + &
+                             Minv_mrt(19,ld)*v*v*w*w + &
+                             Minv_mrt(20,ld)*u*v*w*w + &
+                             Minv_mrt(21,ld)*u*v*v*w + &
+                             Minv_mrt(22,ld)*u*u*v*w + &
+                             Minv_mrt(23,ld)*u*u*v*w*w + &
+                             Minv_mrt(24,ld)*u*u*v*v*w + &
+                             Minv_mrt(25,ld)*u*v*v*w*w + &
+                             Minv_mrt(26,ld)*u*u*v*v*w*w
+                     fneq1=fneq1+Minv_mrt(10,ld)*(TWO*pxy*u + pxx*v) + &
+                             Minv_mrt(11,ld)*(TWO*pxz*u + pxx*w) + &
+                             Minv_mrt(12,ld)*(pyy*u + TWO*pxy*v) + &
+                             Minv_mrt(13,ld)*(pzz*u + TWO*pxz*w)+ &
+                             Minv_mrt(14,ld)*(pzz*v + TWO*pyz*w) + &
+                             Minv_mrt(15,ld)*(TWO*pyz*v + pyy*w) + &
+                             Minv_mrt(16,ld)*(pyz*u + pxz*v + pxy*w) + &
+                             Minv_mrt(17,ld)*(pxx*v**TWO + FOUR*pxy*u*v + pyy*u**TWO) + &
+                             Minv_mrt(18,ld)*(pxx*w**TWO + FOUR*pxz*u*w + pzz*u**TWO) + &
+                             Minv_mrt(19,ld)*(pyy*w**TWO + FOUR*pyz*v*w + pzz*v**TWO) + &
+                             Minv_mrt(20,ld)*(pxy*w**TWO + TWO*pxz*v*w + TWO*pyz*u*w + pzz*u*v) + &
+                             Minv_mrt(21,ld)*(TWO*pxy*v*w + pxz*v**TWO + pyy*u*w + TWO*pyz*u*v) + &
+                             Minv_mrt(22,ld)*(pxx*v*w + TWO*pxy*u*w + TWO*pxz*u*v + pyz*u**TWO) + &
+                             Minv_mrt(23,ld)*(pxx*v*w**TWO + TWO*pxy*u*w**TWO + FOUR*pxz*u*v*w + TWO*pyz*u**TWO*w + pzz*u**TWO*v) + &
+                             Minv_mrt(24,ld)*(pxx*v**TWO*w + FOUR*pxy*u*v*w + TWO*pxz*u*v**TWO + pyy*u**TWO*w + TWO*pyz*u**TWO*v) + &
+                             Minv_mrt(25,ld)*(TWO*pxy*v*w**TWO + TWO*pxz*v**TWO*w + pyy*u*w**TWO + FOUR*pyz*u*v*w + pzz*u*v**TWO) + &
+                             Minv_mrt(26,ld)*(pxx*v**TWO*w**TWO + FOUR*pxy*u*v*w**TWO + FOUR*pxz*u*v**TWO*w + &
+                                              pyy*u**TWO*w**TWO + FOUR*pyz*u**TWO*v*w + pzz*u**TWO*v**TWO)
+#endif
+		             F_discr = p(ld)*(((dex(ld) - u) + udotc * dex(ld))*forcex &
+                      + ((dey(ld) - v) + udotc * dey(ld))*forcey &
+                      + ((dez(ld) - w) + udotc * dez(ld))*forcez)*invcssq
+                     fpull=feq + fneq1 + HALF*F_discr
+                     opress=opress + fpull
+                     ou=ou + fpull*dex(l)
+                     ov=ov + fpull*dey(l)
+                     ow=ow + fpull*dez(l)
+                     opxx=opxx + fpull*(dex(l)*dex(l)-cssq)
+                     opyy=opyy + fpull*(dey(l)*dey(l)-cssq)
+                     opzz=opzz + fpull*(dez(l)*dez(l)-cssq)
+                     opxy=opxy + fpull*dex(l)*dey(l)
+                     opxz=opxz + fpull*dex(l)*dez(l)
+                     opyz=opyz + fpull*dey(l)*dez(l)
+                  enddo
+
+                  ! the node of this thread is an interior node: its tile is intblock and ii=li, jj=lj, kk=lk
+                  hfields_out(li,lj,lk,1,intblock)=real(opress,kind=strdb)
+                  hfields_out(li,lj,lk,2,intblock)=real(ou,kind=strdb)
+                  hfields_out(li,lj,lk,3,intblock)=real(ov,kind=strdb)
+                  hfields_out(li,lj,lk,4,intblock)=real(ow,kind=strdb)
+                  hfields_out(li,lj,lk,5,intblock)=real(opxx,kind=strdb)
+                  hfields_out(li,lj,lk,6,intblock)=real(opyy,kind=strdb)
+                  hfields_out(li,lj,lk,7,intblock)=real(opzz,kind=strdb)
+                  hfields_out(li,lj,lk,8,intblock)=real(opxy,kind=strdb)
+                  hfields_out(li,lj,lk,9,intblock)=real(opxz,kind=strdb)
+                  hfields_out(li,lj,lk,10,intblock)=real(opyz,kind=strdb)
+
+    endsubroutine fused_LB_kernel_bb_h
+#endif
+#endif
+
 endmodule

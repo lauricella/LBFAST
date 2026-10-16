@@ -37,6 +37,10 @@
 #warning "FUSED2: second-order fused kernels with one thread per interior node and a single barrier"
 #endif
 
+#ifdef FUSEDH
+#warning "FUSEDH: experimental high-order D3Q27 fused kernels with one thread per interior node and a single barrier"
+#endif
+
 #ifdef FUSED2_IGNORED
 #warning "FUSED2: not applicable with HIGHORDER, the general fused kernels are used"
 #endif

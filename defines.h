@@ -14,6 +14,7 @@
 #define noSMAGORINSKI
 
 #define FUSED2
+#define noFUSEDH
 
 #define noINTERNAL_OBSTACLES
 
@@ -87,4 +88,8 @@
 #if defined(FUSED2) && (defined(HIGHORDER) || ((LATTICE != 15) && (LATTICE != 19) && (LATTICE != 27)))
 #undef FUSED2
 #define FUSED2_IGNORED
+#endif
+
+#if defined(FUSEDH) && !(defined(HIGHORDER) && (LATTICE == 27))
+#undef FUSEDH
 #endif
