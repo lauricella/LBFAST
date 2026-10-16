@@ -16,6 +16,10 @@ The code was developed by:
 The software development process has received support from the European Research Council
 through the ERC Proof of Concept Grant No. 101187935, *LBFAST*.
 
+An AI agent was used as an auxiliary tool, under the supervision and control of
+the authors, for writing the documentation, for code development, and for
+running and analysing the benchmarks.
+
 This is an experimental code. The authors accept no responsibility for the
 performance of the code or for the correctness of the results.
 
