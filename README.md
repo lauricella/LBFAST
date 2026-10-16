@@ -87,6 +87,7 @@ Detailed build and validation guides are available in the `docs` directory:
 | [`TAYLOR_GREEN_128_VALIDATION.md`](docs/TAYLOR_GREEN_128_VALIDATION.md) | Single-component FP64 Taylor--Green viscous-decay test on a `128^3` lattice, initialization, viscosity fit, A30 memory use, and automated workflow. |
 | [`TAYLOR_GREEN_256_PERFORMANCE.md`](docs/TAYLOR_GREEN_256_PERFORMANCE.md) | Single-GPU throughput test on a `256^3` Taylor--Green vortex at the Reynolds number of `taylorgreen.inp`, build settings, timing outputs, and reference A30 results. |
 | [`POISEUILLE_FORCE_VALIDATION.md`](docs/POISEUILLE_FORCE_VALIDATION.md) | Single-component FP64 body-force validation from a quiescent fluid, analytical Poiseuille profile, error norms, and automated workflow. |
+| [`FUSED2_KERNELS.md`](docs/FUSED2_KERNELS.md) | Second-order fused collide-and-stream kernels for D3Q19 and D3Q27: formulation, implementation, `FUSED2` selection, verification against the general kernels, and A30 performance. |
 | [`SMOKE_TEST_SUITE.md`](docs/SMOKE_TEST_SUITE.md) | Short build-and-run regression suite covering every documented physical validation case. |
 | [`FULL_VALIDATION_SUITE.md`](docs/FULL_VALIDATION_SUITE.md) | Complete quantitative suite that runs all documented benchmark configurations and applies numerical pass/fail tolerances. |
 | [`SCALING_BENCHMARKS.md`](docs/SCALING_BENCHMARKS.md) | Inputs, executables, job scripts, MPI decompositions, and log metrics needed to reproduce the strong-scaling, weak-scaling, and energy measurements. |
@@ -162,6 +163,14 @@ The lattice stencil is selected through the `LATTICE` macro. Use
 
 The high-order reconstruction is enabled by defining `HIGHORDER`. If
 `HIGHORDER` is not defined, the standard lower-order reconstruction is used.
+
+For D3Q19 and D3Q27 without `HIGHORDER`, the fused collide-and-stream step uses
+the second-order kernels selected by `#define FUSED2`, which is the default.
+They stream one post-collision Hermite coefficient at a time through shared
+memory, give the same results as the general kernels to round-off, and are
+about twice as fast. Define `noFUSED2` to use the general kernels. With
+`HIGHORDER` or D3Q15, the general kernels are always used. See
+[`FUSED2_KERNELS.md`](docs/FUSED2_KERNELS.md).
 
 The code is two-component when `TWOCOMPONENT` is active. High-density-ratio
 simulations are enabled by `DENSRATIO`. When `DENSRATIO` is defined, the

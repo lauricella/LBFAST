@@ -5,7 +5,8 @@
 This case measures the single-GPU throughput of the single-component solver.
 It uses the Reynolds number of the large `taylorgreen.inp` case, `Re = 80`, on
 a `256 x 256 x 256` lattice that fits on one GPU. The kernel timings reported
-in [`RELEASE_NOTES_v1.0.3.md`](RELEASE_NOTES_v1.0.3.md) were measured with
+in [`RELEASE_NOTES_v1.0.3.md`](RELEASE_NOTES_v1.0.3.md) and in
+[`FUSED2_KERNELS.md`](FUSED2_KERNELS.md) were measured with
 this input.
 
 The case is not part of the smoke or complete validation suites. It has no
@@ -56,6 +57,7 @@ values:
 | `TWOCOMPONENT`, `DENSRATIO`, `CSF` | disabled (`noTWOCOMPONENT`, `noDENSRATIO`, `noCSF`) |
 | `LATTICE`, `HIGHORDER` | the lattice to be measured, for example `LATTICE 27` with `HIGHORDER` |
 | `PRC`, `STRPRC` | `8` for double precision, `4` for single precision |
+| `FUSED2` | default; replace with `noFUSED2` to measure the general fused kernels for D3Q19 and D3Q27 |
 
 Then build and run from the repository root:
 
@@ -92,24 +94,30 @@ on the same node can distort the measured times.
 
 ## Reference results
 
-The following values were obtained with LBFAST `v1.0.3` on one NVIDIA A30
-24 GB GPU, using an MPI build on one rank and `nsteps = 500`. The kernel time
-and the throughput are the mean of two runs.
+The following values were obtained on one NVIDIA A30 24 GB GPU, using an MPI
+build on one rank and `nsteps = 500`. The kernel time and the throughput are
+the mean of two runs. For D3Q19 and D3Q27, the table reports both the
+second-order kernels selected by the default `FUSED2` macro (see
+[`FUSED2_KERNELS.md`](FUSED2_KERNELS.md)) and the general fused kernels used
+with `noFUSED2`. High-order D3Q27 always uses the general kernels.
 
-| Lattice | Precision | GPU memory (GB) | Fused kernel (ms/step) | GLUPS | `nu_fit` |
-|---|---|---:|---:|---:|---:|
-| D3Q19 | FP64 | `4.08` | `22.2` | `0.599` | `0.020527` |
-| D3Q27 | FP64 | `4.08` | `29.8` | `0.472` | `0.020526` |
-| High-order D3Q27 | FP64 | `4.08` | `83.4` | `0.188` | `0.020524` |
-| High-order D3Q27 | FP32 | `2.35` | `32.1` | `0.466` | `0.022233` |
+| Lattice | Precision | Fused kernel | GPU memory (GB) | Fused kernel (ms/step) | GLUPS | `nu_fit` |
+|---|---|---|---:|---:|---:|---:|
+| D3Q19 | FP64 | `FUSED2` | `4.08` | `9.8` | `1.081` | `0.020527` |
+| D3Q19 | FP64 | general | `4.08` | `22.2` | `0.599` | `0.020527` |
+| D3Q27 | FP64 | `FUSED2` | `4.08` | `15.5` | `0.787` | `0.020526` |
+| D3Q27 | FP64 | general | `4.08` | `29.8` | `0.472` | `0.020526` |
+| High-order D3Q27 | FP64 | general | `4.08` | `83.4` | `0.188` | `0.020524` |
+| High-order D3Q27 | FP32 | general | `2.35` | `32.1` | `0.466` | `0.022233` |
 
-The GPU memory does not depend on the lattice, because LBFAST stores the same
-ten moments per node for every velocity set.
+The GPU memory does not depend on the lattice or on the fused kernel, because
+LBFAST stores the same ten moments per node in every case.
 
 After `500` steps, the high-order D3Q27 FP64 run gives `E/E0 = 0.963387`,
 against the analytical value `0.963857`. Over this short interval the fitted
 viscosity in FP64 exceeds the input value by about `0.8%`, while in FP32 it
 exceeds it by about `9%`. Use double precision when the decay rate matters.
 
-At these throughputs, the complete `50000`-step run takes about `23` minutes
-with D3Q19 FP64 and about `75` minutes with high-order D3Q27 FP64 on an A30.
+At these throughputs, the complete `50000`-step run takes about `13` minutes
+with D3Q19 FP64, about `18` minutes with D3Q27 FP64, and about `75` minutes
+with high-order D3Q27 FP64 on an A30.
