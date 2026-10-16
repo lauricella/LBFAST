@@ -1692,7 +1692,7 @@ contains
          call doerror(6,'ERROR: unable to find the file: '//trim(sevt1))
       end if       
       
-      write(6,*)'sto leggendo il restart'
+      write(6,*)'reading the restart file'
       
       open(unit=345,file=trim(sevt1), &
          status='old',action='read',access='stream',form='unformatted')
@@ -2227,34 +2227,34 @@ contains
       log_plane2d=.false.
 
       if(nprocs.ne.1)then
-         !questo è il caso MPI rognoso
-         !devo travare quali processi hanno in carico il piano ed escludere gli altri
-         !devo far caricare solo dai processi giusti i dati sugli array service1 e service3
+         !this is the tricky MPI case
+         !find which processes own the plane and exclude the others
+         !only the right processes load the data into the arrays service1 and service3
          do l=1,nplanes
             ldoserial=.false.
             ldowrite=.false.
             select case(ndir(l))
              case(1)
-               !caso perpendicolare a x
-               !devo trovare quali processi hanno in carico i nodi lungo il piano gi=npoint(l)
+               !plane normal to x
+               !find which processes own the nodes of the plane gi=npoint(l)
                gi=npoint(l)
                subchords(1)=(gi-1)/nx
-               !sono buoni tutti i processi che hanno subchords(1)==coords(1)
-               !ciclo su tutti gli altri così iniziano a lavorare al prossimo file
+               !all processes with subchords(1)==coords(1) are selected
+               !loop over all the others so that they start working on the next file
                if(subchords(1).ne.coords(1))goto 240
-               !myoffset(1) è il mio offset lungo x del mio sottodominio MPI e mi ridà il valore di i nel sottodominio
+               !myoffset(1) is the x offset of this MPI subdomain and gives back the value of i in the subdomain
                i=gi-myoffset(1)
-               !setto variabili utili in particolare per MPI-IO
-               !offset in coordinate globali di ogni processo MPI
+               !set useful variables, in particular for MPI-IO
+               !offset of each MPI process in global coordinates
                myoffset_plane = [ 0, coords(2)*nyskip, coords(3)*nzskip ]
                lsizes_plane=[ 1, nyskip, nzskip ]
                gsizes_plane=[ 1, lyskip, lzskip ]
-               !se le locali e globali dimensioni lungo y e z sono le stesse
-               !allora un solo processo ha in capo il piano quindi tanto vale fare la stampa seriale
+               !if the local and global sizes along y and z are the same
+               !then a single process owns the plane, so the output is written serially
                ldoserial=(ny==ly .and. nz==lz)
                ldowrite=.true.
              case(2)
-               !caso perpendicolare a y
+               !plane normal to y
                gj=npoint(l)
                subchords(2)=(gj-1)/ny
                if(subchords(2).ne.coords(2))goto 240
@@ -2262,12 +2262,12 @@ contains
                myoffset_plane = [ coords(1)*nxskip, 0, coords(3)*nzskip ]
                lsizes_plane=[ nxskip, 1, nzskip ]
                gsizes_plane=[ lxskip, 1, lzskip ]
-               !se le locali e globali dimensioni lungo x e z sono le stesse
-               !allora un solo processo ha in capo il piano quindi tanto vale fare la stampa seriale
+               !if the local and global sizes along x and z are the same
+               !then a single process owns the plane, so the output is written serially
                ldoserial=(nx==lx .and. nz==lz)
                ldowrite=.true.
              case(3)
-               !caso perpendicolare a z
+               !plane normal to z
                gk=npoint(l)
                subchords(3)=(gk-1)/nz
                if(subchords(3).ne.coords(3))goto 240 
@@ -2275,8 +2275,8 @@ contains
                myoffset_plane = [ coords(1)*nxskip, coords(2)*nyskip, 0 ]
                lsizes_plane=[ nxskip, nyskip, 1 ]
                gsizes_plane=[ lxskip, lyskip, 1 ]
-               !se le locali e globali dimensioni lungo x e y sono le stesse
-               !allora un solo processo ha in capo il piano quindi tanto vale fare la stampa seriale
+               !if the local and global sizes along x and y are the same
+               !then a single process owns the plane, so the output is written serially
                ldoserial=(nx==lx .and. ny==ly)
                ldowrite=.true.
              case default
@@ -2401,25 +2401,25 @@ contains
             deallocate(service1,service3)
          enddo
       else
-         !questo è il caso MPI rognoso
-         !devo travare quali processi hanno in carico il piano ed escludere gli altri
-         !devo far caricare solo dai processi giusti i dati sugli array service1 e service3
+         !this is the tricky MPI case
+         !find which processes own the plane and exclude the others
+         !only the right processes load the data into the arrays service1 and service3
          do l=1,nplanes
             ldoserial=.false.
             ldowrite=.false.
             select case(ndir(l))
              case(1)
-               !caso perpendicolare a x
-               !devo trovare quali processi hanno in carico i nodi lungo il piano gi=npoint(l)
+               !plane normal to x
+               !find which processes own the nodes of the plane gi=npoint(l)
                gi=npoint(l)
                subchords(1)=(gi-1)/nx
-               !sono buoni tutti i processi che hanno subchords(1)==coords(1)
-               !ciclo su tutti gli altri così iniziano a lavorare al prossimo file
+               !all processes with subchords(1)==coords(1) are selected
+               !loop over all the others so that they start working on the next file
                if(subchords(1).ne.coords(1))goto 240
-               !myoffset(1) è il mio offset lungo x del mio sottodominio MPI e mi ridà il valore di i nel sottodominio
+               !myoffset(1) is the x offset of this MPI subdomain and gives back the value of i in the subdomain
                i=skip_npoint(l)-skip_myoffset(1)
-               !setto variabili utili in particolare per MPI-IO
-               !offset in coordinate globali di ogni processo MPI
+               !set useful variables, in particular for MPI-IO
+               !offset of each MPI process in global coordinates
                myoffset_plane = [ 0, coords(2)*nyskip, coords(3)*nzskip ]
                lsizes_plane=[ 1, nyskip, nzskip ]
                gsizes_plane=[ 1, lyskip, lzskip ]
@@ -2443,13 +2443,13 @@ contains
                      service3(1:3,1,j,k)=velprint(1:3,i,j,k)
                   enddo
                enddo
-               !se le locali e globali dimensioni lungo y e z sono le stesse
-               !allora un solo processo ha in capo il piano quindi tanto vale fare la stampa seriale
+               !if the local and global sizes along y and z are the same
+               !then a single process owns the plane, so the output is written serially
                ldoserial=(ny==ly .and. nz==lz)
                ldowrite=.true.
              case(2)
 
-               !caso perpendicolare a y
+               !plane normal to y
                gj=npoint(l)
                subchords(2)=(gj-1)/ny
                if(subchords(2).ne.coords(2))goto 240
@@ -2477,12 +2477,12 @@ contains
                      service3(1:3,i,1,k)=velprint(1:3,i,j,k)
                   enddo
                enddo
-               !se le locali e globali dimensioni lungo x e z sono le stesse
-               !allora un solo processo ha in capo il piano quindi tanto vale fare la stampa seriale
+               !if the local and global sizes along x and z are the same
+               !then a single process owns the plane, so the output is written serially
                ldoserial=(nx==lx .and. nz==lz)
                ldowrite=.true.
              case(3)
-               !caso perpendicolare a z
+               !plane normal to z
                gk=npoint(l)
                subchords(3)=(gk-1)/nz
                if(subchords(3).ne.coords(3))goto 240 
@@ -2510,8 +2510,8 @@ contains
                      service3(1:3,i,j,1)=velprint(1:3,i,j,k)
                   enddo
                enddo
-               !se le locali e globali dimensioni lungo x e y sono le stesse
-               !allora un solo processo ha in capo il piano quindi tanto vale fare la stampa seriale
+               !if the local and global sizes along x and y are the same
+               !then a single process owns the plane, so the output is written serially
                ldoserial=(nx==lx .and. ny==ly)
                ldowrite=.true.
              case default
@@ -2527,7 +2527,7 @@ contains
 #endif
               endif
             else
-               !ldowrite è true solo nei processi buoni 
+               !ldowrite is true only in the selected processes 
 #if defined(TWOCOMPONENT) && defined(WRITEPRESS)
                call print_parraw_sync2D(ldowrite,iframe,l,ndir(l),npoint(l),service1,service3, &
                   myoffset_plane,lsizes_plane,gsizes_plane,service2)

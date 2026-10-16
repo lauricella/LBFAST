@@ -229,7 +229,7 @@ contains
 
 		  visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 				  
-                  tau_loc=(visc_loc*invcssq + HALF) !è una tau
+                  tau_loc=(visc_loc*invcssq + HALF) !this is a tau
 				  
 		  forcex=forcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
@@ -561,7 +561,7 @@ contains
 
 		  visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 				  
-                  tau_loc=(visc_loc*invcssq + HALF) !è una tau
+                  tau_loc=(visc_loc*invcssq + HALF) !this is a tau
 				  
 		  forcex=forcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
@@ -899,7 +899,7 @@ contains
 
 		  visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 				  
-                  tau_loc=(visc_loc*invcssq + HALF) !è una tau
+                  tau_loc=(visc_loc*invcssq + HALF) !this is a tau
 				  
 		  forcex=forcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
@@ -1238,7 +1238,7 @@ contains
 
 		  visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 				  
-                  tau_loc=(visc_loc*invcssq + HALF) !è una tau
+                  tau_loc=(visc_loc*invcssq + HALF) !this is a tau
 				  
 		  forcex=forcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
@@ -1576,7 +1576,7 @@ contains
 
 		  visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 				  
-                  tau_loc=(visc_loc*invcssq + HALF) !è una tau
+                  tau_loc=(visc_loc*invcssq + HALF) !this is a tau
 				  
 		  forcex=forcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
@@ -1915,7 +1915,7 @@ contains
 
 		  visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 				  
-                  tau_loc=(visc_loc*invcssq + HALF) !è una tau
+                  tau_loc=(visc_loc*invcssq + HALF) !this is a tau
 				  
 		  forcex=forcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
@@ -2254,7 +2254,7 @@ contains
 
 		  visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 				  
-                  tau_loc=(visc_loc*invcssq + HALF) !è una tau
+                  tau_loc=(visc_loc*invcssq + HALF) !this is a tau
 				  
 		  forcex=forcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)
@@ -2594,7 +2594,7 @@ contains
 
 		  visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 				  
-                  tau_loc=(visc_loc*invcssq + HALF) !è una tau
+                  tau_loc=(visc_loc*invcssq + HALF) !this is a tau
 				  
 		  forcex=forcex - mymask* &
 		   (visc_loc/(tau_loc*cssq))*(pxx*gradrhox + pxy*gradrhoy + pxz*gradrhoz)

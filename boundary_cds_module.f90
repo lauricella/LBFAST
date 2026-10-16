@@ -153,9 +153,9 @@ contains
 			     visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 
 						
-			     tau_loc=(visc_loc*invcssq + HALF) !è una tau
+			     tau_loc=(visc_loc*invcssq + HALF) !this is a tau
 						
-			     omega_loc=ONE/tau_loc !è una omega
+			     omega_loc=ONE/tau_loc !this is an omega
 						
 #else
 			     omega_loc=omega
@@ -363,9 +363,9 @@ contains
 			     visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 
 						
-			     tau_loc=(visc_loc*invcssq + HALF) !è una tau
+			     tau_loc=(visc_loc*invcssq + HALF) !this is a tau
 						
-			     omega_loc=ONE/tau_loc !è una omega
+			     omega_loc=ONE/tau_loc !this is an omega
 						
 #else
 			     omega_loc=omega
@@ -575,9 +575,9 @@ contains
 			     visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 
 						
-			     tau_loc=(visc_loc*invcssq + HALF) !è una tau
+			     tau_loc=(visc_loc*invcssq + HALF) !this is a tau
 						
-			     omega_loc=ONE/tau_loc !è una omega
+			     omega_loc=ONE/tau_loc !this is an omega
 						
 #else
 			     omega_loc=omega
@@ -785,9 +785,9 @@ contains
 			     visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 
 						
-			     tau_loc=(visc_loc*invcssq + HALF) !è una tau
+			     tau_loc=(visc_loc*invcssq + HALF) !this is a tau
 						
-			     omega_loc=ONE/tau_loc !è una omega
+			     omega_loc=ONE/tau_loc !this is an omega
 						
 #else
 			     omega_loc=omega
@@ -998,9 +998,9 @@ contains
 			     visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 
 						
-			     tau_loc=(visc_loc*invcssq + HALF) !è una tau
+			     tau_loc=(visc_loc*invcssq + HALF) !this is a tau
 						
-			     omega_loc=ONE/tau_loc !è una omega
+			     omega_loc=ONE/tau_loc !this is an omega
 						
 #else
 			     omega_loc=omega
@@ -1208,9 +1208,9 @@ contains
 			     visc_loc=(rho_r*visc1*phi_loc+(1.0_db-phi_loc)*visc2*rho_b)/rhophi_loc
 
 						
-			     tau_loc=(visc_loc*invcssq + HALF) !è una tau
+			     tau_loc=(visc_loc*invcssq + HALF) !this is a tau
 						
-			     omega_loc=ONE/tau_loc !è una omega
+			     omega_loc=ONE/tau_loc !this is an omega
 						
 #else
 			     omega_loc=omega

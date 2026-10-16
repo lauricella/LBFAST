@@ -820,7 +820,7 @@ contains
 
    pure function gauss_noseeded(i,j,k,l)
       !$acc routine seq
-      !questo sopra serve per dire ad openacc di fare una copia sul device e gang significa che può essere chiamata da più threads/vector/worker/gangbang indipendentemente ad cazzum
+      !the directive above tells OpenACC to create a device copy; gang means that the routine can be called independently by several threads/vectors/workers/gangs
       implicit none
       integer, intent(in) :: i,j,k,l
       integer :: kk,ll
@@ -946,7 +946,7 @@ contains
 
    pure function rand_noseeded(i,j,k,l)
       !$acc routine seq !!!not gang
-      !questo sopra serve per dire ad openacc di fare una copia sul device e gang significa che può essere chiamata da più threads/vector/worker/gangbang indipendentemente ad cazzum
+      !the directive above tells OpenACC to create a device copy; gang means that the routine can be called independently by several threads/vectors/workers/gangs
       implicit none
       integer, intent(in) :: i,j,k,l
       integer :: isub,jsub,ksub,lsub,msub
@@ -1276,7 +1276,7 @@ contains
    
    pure function fcut(r,inner_cut,outer_cut)
       !$acc routine seq !!!not gang
-      !questo sopra serve per dire ad openacc di fare una copia sul device e gang significa che può essere chiamata da più threads/vector/worker/gangbang indipendentemente ad cazzum
+      !the directive above tells OpenACC to create a device copy; gang means that the routine can be called independently by several threads/vectors/workers/gangs
 !***********************************************************************
 !
 !     LBsoft function for fading an observable (r) within a given
@@ -1309,7 +1309,7 @@ contains
  
  pure function fcut_tanh(r,r_cut,width_cut)
       !$acc routine seq !!!not gang
-      !questo sopra serve per dire ad openacc di fare una copia sul device e gang significa che può essere chiamata da più threads/vector/worker/gangbang indipendentemente ad cazzum
+      !the directive above tells OpenACC to create a device copy; gang means that the routine can be called independently by several threads/vectors/workers/gangs
 !***********************************************************************
 !
 !     LBsoft function for fading an observable (r) within a given

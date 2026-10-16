@@ -268,7 +268,7 @@ contains
       if(gi==1 .and. gj==1 .and. gk==31)then
         write(*,*)'i',gi,gj,gk,myblock,myrank
       endif
-     !if(gi==1) write(*,*)'ciao',i,j,k,phi(i,j,k)
+     !if(gi==1) write(*,*)'debug',i,j,k,phi(i,j,k)
      
      !phi_old(i,j,k)=phi(i,j,k)
      
@@ -307,7 +307,7 @@ contains
       if(gi==1 .and. gj==1 .and. gk==36)then
         write(*,*)'i',gi,gj,gk,myrank,lk
       endif
-     !if(gi==1) write(*,*)'ciao',i,j,k,phi(i,j,k)
+     !if(gi==1) write(*,*)'debug',i,j,k,phi(i,j,k)
      
      !phi_old(i,j,k)=phi(i,j,k)
      
@@ -347,7 +347,7 @@ contains
       if(gi==17 .and. gj==17 .and. gk==17)then
         write(*,*)'i',li,lj,lk,myrank
       endif
-     !if(gi==1) write(*,*)'ciao',i,j,k,phi(i,j,k)
+     !if(gi==1) write(*,*)'debug',i,j,k,phi(i,j,k)
      
      !phi_old(i,j,k)=phi(i,j,k)
      
@@ -388,7 +388,7 @@ contains
       if(gi==1 .and. gj==1 .and. gk==38)then
         write(*,*)'asd',gi,gj,gk,myrank,lk
       endif
-     !if(gi==1) write(*,*)'ciao',i,j,k,phi(i,j,k)
+     !if(gi==1) write(*,*)'debug',i,j,k,phi(i,j,k)
      
      !phi_old(i,j,k)=phi(i,j,k)
      
@@ -439,7 +439,7 @@ contains
       if(gi==8 .and. gj==6 .and. gk==1)then
         write(*,*)'i',gi,gj,gk,myrank,li
       endif
-     !if(gi==1) write(*,*)'ciao',i,j,k,phi(i,j,k)
+     !if(gi==1) write(*,*)'debug',i,j,k,phi(i,j,k)
      
      !phi_old(i,j,k)=phi(i,j,k)
  
@@ -473,7 +473,7 @@ contains
       
       j = (blockIdx%y-1) * TILE_DIMy + lj + TILE_DIMy
       k = (blockIdx%z-1) * TILE_DIMz + lk + TILE_DIMz
-      !if(myrank==0)write(*,*)'ciao',j
+      !if(myrank==0)write(*,*)'debug',j
       
      
       gj=ny*coords(2)+j
@@ -493,7 +493,7 @@ contains
       if(gi==1 .and. gj==8 .and. gk==8)then
         write(*,*)'i',gi,gj,gk,lj,lk
       endif
-     !if(gi==1) write(*,*)'ciao',i,j,k,phi(i,j,k)
+     !if(gi==1) write(*,*)'debug',i,j,k,phi(i,j,k)
      
      !phi_old(i,j,k)=phi(i,j,k)
  
@@ -538,7 +538,7 @@ contains
       if(gi==1 .and. gj==1 .and. gk==31)then
         write(*,*)'e',gi,gj,gk,myblock,myrank
       endif
-     !if(gi==1) write(*,*)'ciao',i,j,k,phi(i,j,k)
+     !if(gi==1) write(*,*)'debug',i,j,k,phi(i,j,k)
      
      !phi_old(i,j,k)=phi(i,j,k)
      
@@ -1517,7 +1517,7 @@ contains
 #endif
 
       
-      istat = cudaGetLastError()         ! oppure cudaPeekAtLastError
+      istat = cudaGetLastError()         ! or cudaPeekAtLastError
       if (istat /= cudaSuccess) then
         if(myrank==0) then
           write(6,*) 'launch error at ', __LINE__, ' file ', __FILE__

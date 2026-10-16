@@ -28,7 +28,7 @@ export OMP_NUM_THREADS=1
 
 #which mpirun
 #mpirun --mca pml ucx --mca btl ^openib --version
-#command -v ompi_info &> /dev/null && ompi_info | grep -i ucx || echo "ompi_info non disponibile"
+#command -v ompi_info &> /dev/null && ompi_info | grep -i ucx || echo "ompi_info not available"
 
 echo "CUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
 

@@ -692,7 +692,7 @@ contains
                 kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
 
                 phi_loc=real(phifields_flip(ii,jj,kk,1,myblock),kind=db)
-                if(abs(isfluid(i,j,k))==1)vel_com(3)=vel_com(3)+phi_loc !storo la massa
+                if(abs(isfluid(i,j,k))==1)vel_com(3)=vel_com(3)+phi_loc !store the mass
 			    if(phi_loc<0.5_db)then 
                   w_loc=real(hfields_flip(ii,jj,kk,4,myblock),kind=db)
 				  vel_com(1)=vel_com(1) + w_loc*(1.0_db-phi_loc)

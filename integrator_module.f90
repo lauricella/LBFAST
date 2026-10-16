@@ -143,7 +143,7 @@ contains
       !$acc& ,b_send_buffmpi,b_recv_buffmpi &
       !$acc& ,c_send_buffmpi,c_recv_buffmpi &
       !$acc& ,fvec_recv_buffmpi)
-      ! quali sono i buff effettivamente da tenere? servono tutti!
+      ! which buffers really have to be kept? All of them are needed!
       !$acc wait
       
 #ifdef _OPENACC
@@ -217,7 +217,7 @@ contains
       endif
        
 #ifdef TWOCOMPONENT	 
-!****************scambio phi: boundary condition periodiche su phi************************
+!****************phi exchange: periodic boundary conditions on phi************************
       if(ldiagnostic)call start_timing2("LB","ex_phifields_sendrecv")
 	  call exchange_phifields_sendrecv(phifields_flip)
 	  if(ldiagnostic)call end_timing2("LB","ex_phifields_sendrecv")
@@ -256,7 +256,7 @@ contains
       call print_memory_registration_gpu(6,'DEVICE memory occupied at the start', &
          'total DEVICE memory',mymemory,totmemory)
 
-      !write(6,'(a,i8,1x,i8,1x,a)')' sono arrivato ',myrank,__LINE__,__FILE__
+      !write(6,'(a,i8,1x,i8,1x,a)')' reached ',myrank,__LINE__,__FILE__
       !call dostop
       time_init=current_time()
       time_actual_old=time_init
@@ -267,7 +267,7 @@ contains
       !call cpu_time(ts1)
     
 #if 0
-      call dostop('ciao',__FILE__,__LINE__)
+      call dostop('debug',__FILE__,__LINE__)
       !call test_LB_cuda
       goto 110
 #endif      
@@ -300,11 +300,11 @@ contains
 		 call exchange_auxfields_wait
 		 if(ldiagnostic)call end_timing2("LB","ex_auxfields_wait")
 #else
-         !***********************************ora che ho phi in cornice calcolo normx normy normz************************
+         !***********************************now that phi is available in the halo, compute normx normy normz************************
          if(ldiagnostic)call start_timing2("LB","compute_norm")
          call compute_norm_interface_cuda(phifields_flip)
          if(ldiagnostic)call end_timing2("LB","compute_norm")
-         !***********************************scambio normx normy normz************************
+         !***********************************exchange normx normy normz************************
          if(ldiagnostic)call start_timing2("LB","ex_auxfields_sendrecv")
 		 call exchange_auxfields_sendrecv
 		 if(ldiagnostic)call end_timing2("LB","ex_auxfields_sendrecv")
@@ -516,7 +516,7 @@ contains
          call update_phifields(hfields_flip,phifields_flip,phifields_flop)
          if(ldiagnostic)call end_timing2("LB","update_phifields")
          
-!****************scambio phi: boundary condition periodiche su phi************************
+!****************phi exchange: periodic boundary conditions on phi************************
 		 if(ldiagnostic)call start_timing2("LB","ex_phifields_sendrecv")
 		 call exchange_phifields_sendrecv(phifields_flop)
 		 if(ldiagnostic)call end_timing2("LB","ex_phifields_sendrecv")
@@ -590,11 +590,11 @@ contains
 		 call exchange_auxfields_wait
 		 if(ldiagnostic)call end_timing2("LB","ex_auxfields_wait")
 #else
-         !***********************************ora che ho phi in cornice calcolo normx normy normz************************
+         !***********************************now that phi is available in the halo, compute normx normy normz************************
          if(ldiagnostic)call start_timing2("LB","compute_norm")
          call compute_norm_interface_cuda(phifields_flop)
          if(ldiagnostic)call end_timing2("LB","compute_norm")
-         !***********************************scambio normx normy normz************************
+         !***********************************exchange normx normy normz************************
          if(ldiagnostic)call start_timing2("LB","ex_auxfields_sendrecv")
 		 call exchange_auxfields_sendrecv
 		 if(ldiagnostic)call end_timing2("LB","ex_auxfields_sendrecv")
@@ -807,7 +807,7 @@ contains
          call update_phifields(hfields_flop,phifields_flop,phifields_flip)
          if(ldiagnostic)call end_timing2("LB","update_phifields")
          
-!****************scambio phi: boundary condition periodiche su phi************************
+!****************phi exchange: periodic boundary conditions on phi************************
 		 if(ldiagnostic)call start_timing2("LB","ex_phifields_sendrecv")
 		 call exchange_phifields_sendrecv(phifields_flip)
 		 if(ldiagnostic)call end_timing2("LB","ex_phifields_sendrecv")

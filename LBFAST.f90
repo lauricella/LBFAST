@@ -81,7 +81,7 @@ program threadsafeLB
    proc_z=1
 
 #ifdef MPI
-   !leggi decomposizione da riga di comando
+   !read the domain decomposition from the command line
    narg = command_argument_count()
    if (narg /= 3 .and. (.not. lreadinput)) then
       if(myrank==0)then
@@ -132,7 +132,7 @@ program threadsafeLB
       endif
    enddo
 #else
-   !leggi decomposizione da riga di comando
+   !read the domain decomposition from the command line
    narg = command_argument_count()
    if(lreadinput)then
      if(narg /= 1)then
@@ -183,7 +183,7 @@ program threadsafeLB
    lvtk=.false.
    lraw=.true.
    lasync=.false.
-   lrestart=.false. !metti true se riparti da restart
+   lrestart=.false. !set to true to restart from a restart file
    pbc_x=1  !(0=false 1=true)
    pbc_y=1
    pbc_z=1

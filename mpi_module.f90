@@ -189,7 +189,7 @@ contains
       call MPI_comm_size(MPI_COMM_WORLD, nprocs, ierr)
       call MPI_comm_rank(MPI_COMM_WORLD, myrank, ierr)
 
-      ! communicator che raggruppa i rank sullo stesso nodo
+      ! communicator grouping the ranks on the same node
       call MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, node_comm, ierr)
       call MPI_Comm_rank(node_comm, node_rank, ierr)
       call MPI_Comm_size(node_comm, node_size, ierr)
@@ -587,7 +587,7 @@ contains
       coords=0
 
       do l=1,nlinksmpi
-         !vado sempre a me stesso perche sono il solo processo
+         !always send to myself because this is the only process
          send_dir_coord(1:3,l)=coords(1:3)
          send_dir(l)=myrank
 
@@ -596,7 +596,7 @@ contains
       enddo
 
 #endif
-      !gestisci se fare o no send e receive (deve andare su nodi diversi e non sfondare il range coords se non periodico)
+      !decide whether to send and receive (the partner must be a different process, and the coords range must not be exceeded if not periodic)
       do l=1,nlinksmpi
 
          lsend_dir(l)=(myrank .ne. send_dir(l))
@@ -618,7 +618,7 @@ contains
             if(periodic(3))then
                ok=mod(ok+proc_z,proc_z)
             endif
-            !se sfondo allora non devo inviare
+            !if out of range, do not send
             if(oi<0 .or. oj<0 .or. ok<0 .or. &
                oi>=proc_x .or. oj>=proc_y .or. ok>=proc_z)then
                lsend_dir(l)=.false.
@@ -644,7 +644,7 @@ contains
             if(periodic(3))then
                ok=mod(ok+proc_z,proc_z)
             endif
-            !se sfondo allora non devo ricevere
+            !if out of range, do not receive
             if(oi<0 .or. oj<0 .or. ok<0 .or. &
                oi>=proc_x .or. oj>=proc_y .or. ok>=proc_z)then
                lrecv_dir(l)=.false.
@@ -658,7 +658,7 @@ contains
       call MPI_Barrier(MPI_COMM_WORLD,ierr)
 #endif
 
-      !gestisci se fare o no le pbc interne (deve andare sullo stesso nodo in send e recv e non sfondare il range coords se non periodico)
+      !decide whether to apply the internal pbc (send and recv on the same process, and the coords range must not be exceeded if not periodic)
       do l=1,nlinksmpi
          lintpbc_dir(l)=((myrank==send_dir(l)) .and. (myrank==recv_dir(l)))
          intpbc_dir(1,l)=.false.
@@ -682,13 +682,13 @@ contains
             if(periodic(3))then
                ok=mod(ok+proc_z,proc_z)
             endif
-            !non devo sfondare se non periodico nella direzione specifica l
+            !do not go out of range if not periodic along direction l
             if(oi<0 .or. oj<0 .or. ok<0 .or. &
                oi>=proc_x .or. oj>=proc_y .or. ok>=proc_z)then
                lintpbc_dir(l)=.false.
             endif
          endif
-         !se sono periodico nel mio processo allora non devo sfondare neanche quando ricevo
+         !if periodic within this process, do not go out of range when receiving either
          if(lintpbc_dir(l))then
             lopp=oppmpi(l)
             temp_coord(1) = coords(1) + exmpi(lopp)
@@ -707,16 +707,16 @@ contains
             if(periodic(3))then
                ok=mod(ok+proc_z,proc_z)
             endif
-            !non devo sfondare se non periodico nella direzione specifica l
+            !do not go out of range if not periodic along direction l
             if(oi<0 .or. oj<0 .or. ok<0 .or. &
                oi>=proc_x .or. oj>=proc_y .or. ok>=proc_z)then
                lintpbc_dir(l)=.false.
             endif
          endif
-         !sto in ballo devo fare periodico interno se true
-         !allora storo se sono periodico per direzione l e condizioni lungo i tre assi
+         !the internal periodicity must be applied here if true
+         !then store whether direction l is periodic, given the conditions along the three axes
          if(lintpbc_dir(l))then
-            !se lungo il vettore l mi muovo lungo un asse e sono periodico allora intpbc_dir è true
+            !if vector l moves along a periodic axis, intpbc_dir is true
             intpbc_dir(1,l)=(abs(exmpi(l))==1 .and.periodic(1))
             intpbc_dir(2,l)=(abs(eympi(l))==1 .and.periodic(2))
             intpbc_dir(3,l)=(abs(ezmpi(l))==1 .and.periodic(3))
@@ -724,52 +724,52 @@ contains
       enddo
 
 
-      !setto variabili utili in particolare per MPI-IO
-      !offset in coordinate globali di ogni processo MPI
+      !set useful variables, in particular for MPI-IO
+      !offset of each MPI process in global coordinates
       myoffset(1) = coords(1)*nx
       myoffset(2) = coords(2)*ny
       myoffset(3) = coords(3)*nz
-      !dimensione locale grid di ogni processo MPI
+      !local grid size of each MPI process
       lsizes(1)=nx
       lsizes(2)=ny
       lsizes(3)=nz
-      !dimensione globale grid di ogni processo MPI
+      !global grid size of each MPI process
       gsizes(1)=lx
       gsizes(2)=ly
       gsizes(3)=lz
-      !inizio dimensione locale grid in coordinate globali di ogni processo MPI
+      !start of the local grid of each MPI process in global coordinates
       start_idx(1)=myoffset(1)+1
       start_idx(2)=myoffset(2)+1
       start_idx(3)=myoffset(3)+1
-      !fine dimensione locale grid in coordinate globali di ogni processo MPI
+      !end of the local grid of each MPI process in global coordinates
       end_idx(1) = myoffset(1)+lsizes(1)
       end_idx(2) = myoffset(2)+lsizes(2)
       end_idx(3) = myoffset(3)+lsizes(3)
       !!!!!!stepskip
-      !offset in coordinate globali di ogni processo MPI
+      !offset of each MPI process in global coordinates
       skip_myoffset(1) = coords(1)*nxskip
       skip_myoffset(2) = coords(2)*nyskip
       skip_myoffset(3) = coords(3)*nzskip
-      !dimensione locale grid di ogni processo MPI
+      !local grid size of each MPI process
       skip_lsizes(1)=nxskip
       skip_lsizes(2)=nyskip
       skip_lsizes(3)=nzskip
-      !dimensione globale grid di ogni processo MPI
+      !global grid size of each MPI process
       skip_gsizes(1)=lxskip
       skip_gsizes(2)=lyskip
       skip_gsizes(3)=lzskip
-      !inizio dimensione locale grid in coordinate globali di ogni processo MPI
+      !start of the local grid of each MPI process in global coordinates
       skip_start_idx(1)=skip_myoffset(1)+1
       skip_start_idx(2)=skip_myoffset(2)+1
       skip_start_idx(3)=skip_myoffset(3)+1
-      !fine dimensione locale grid in coordinate globali di ogni processo MPI
+      !end of the local grid of each MPI process in global coordinates
       skip_end_idx(1) = skip_myoffset(1)+skip_lsizes(1)
       skip_end_idx(2) = skip_myoffset(2)+skip_lsizes(2)
       skip_end_idx(3) = skip_myoffset(3)+skip_lsizes(3)
 
-      !questo mi serve per la funzione GET_COORD_POINT
-      !funzione di debug che dalle coordinate generali x y z mi da le coordinate della decomposizione MPI
-      !così so su quale nodo vengono lavorate le coordinate x y z
+      !this is needed by the function GET_COORD_POINT
+      !debug function returning the MPI decomposition coordinates of the global coordinates x y z
+      !so that it is known which process handles the coordinates x y z
       allocate(xinidom(0:proc_x-1))
       allocate(xfindom(0:proc_x-1))
       xinidom(:)=0
@@ -861,11 +861,11 @@ contains
 #endif
 
 #endif
-      !trovo per ogni direzione l quali popolazioni devono essere inviate e le storo in links_faces
-      !occhio che devo vedere quali popolazioni mandare ma il lattice può essere
-      !tipo d3q15 o d3q19 e quindi non devo mandare nulla
-      !exmpi eympi ezmpi sono le 26 direzioni di MPI
-      !ex ey ez sono le direzioni del lattice d3q15 o d3q19 o d3q27
+      !for each direction l, find which populations must be sent and store them in links_faces
+      !note: check which populations must be sent, because the lattice can be
+      !d3q15 or d3q19, in which case nothing has to be sent
+      !exmpi eympi ezmpi are the 26 MPI directions
+      !ex ey ez are the lattice directions of d3q15, d3q19 or d3q27
       allocate(num_links_pops(1:nlinksmpi))
       !faces
       nfaces=6
@@ -940,9 +940,9 @@ contains
          write(6,'(13x,i4,2x,i4,4x,i4)')nlinks_faces,nlinks_edges,nlinks_corners
       endif
 
-      !riempio la lista links_pops con le popolazioni da inviare per ogni direzione l
-      !il primo indice di lista links_pops è preso dal massimo delle pops da mandare tra faces edges e corners (ovviamente è sempre faces)
-      !nota che num_links_pops è il numero di poplazioni da inviare per direzione l
+      !fill the list links_pops with the populations to send along each direction l
+      !the first index of links_pops is the maximum number of pops to send among faces, edges and corners (always the faces)
+      !note that num_links_pops is the number of populations to send along direction l
       nlinks_max=max(nlinks_faces,nlinks_edges,nlinks_corners)
       allocate(links_pops(1:nlinks_max,1:nlinksmpi))
       do l=1,6
@@ -964,17 +964,17 @@ contains
       call MPI_Barrier(MPI_COMM_WORLD,ierr)
 #endif
       deallocate(links_faces,links_edges,links_corners)
-      !solo se ci sono popolazioni da mandare
-      !allora metti lsendpop_dir e lrecvpop_dir true
-      !con d3q19 o d3q15 spesso non devo mandare nulla
+      !only if there are populations to send
+      !then set lsendpop_dir and lrecvpop_dir to true
+      !with d3q19 or d3q15 often nothing has to be sent
       do l=1,nlinksmpi
          lsendpop_dir(l)=(lsend_dir(l) .and. num_links_pops(l)>0)
          lrecvpop_dir(l)=(lrecv_dir(l) .and. num_links_pops(l)>0)
       enddo
-      !solo se ci sono popolazioni da fare pbc interno lo fai
+      !apply the internal pbc only if there are populations to exchange
 
 
-      !mi storo gli estremi i j k che devono essere inviati e ricevuti lungo ogni direzione l
+      !store the i j k bounds to be sent and received along each direction l
       allocate(f_send_extr(6,nlinksmpi))
       allocate(f_recv_extr(6,nlinksmpi))
       allocate(fvec_send_extr(6,nlinksmpi))
@@ -1907,13 +1907,13 @@ contains
          endif
       enddo
 
-      !gli estremi di c sono gli stessi di b
+      !the bounds of c are the same as those of b
       c_send_extr(1:6,1:nlinksmpi)=b_send_extr(1:6,1:nlinksmpi)
       c_recv_extr(1:6,1:nlinksmpi)=b_recv_extr(1:6,1:nlinksmpi)
       
-	  !gli estremi di bvec sono diversi da fvec perche seguono nbuffbvec
+	  !the bounds of bvec differ from those of fvec because they follow nbuffbvec
 
-      !calcolo le quantita complessive da movimentare per ogni direzione l
+      !compute the total amount of data to move along each direction l
       do l=1,nlinksmpi
          i_num_extr(l)=(f_recv_extr(2,l)-f_recv_extr(1,l)+1)* &
             (f_recv_extr(4,l)-f_recv_extr(3,l)+1)* &
@@ -1935,7 +1935,7 @@ contains
 
 
 #ifdef VERBOSE
-      !stampo per debug
+      !print for debugging
       if(ltwocomp)then
         if(myrank==0)write(6,'(a)')'####################### f_send_extr  f_recv_extr #######################'
         do l=1,nlinksmpi
@@ -1996,8 +1996,8 @@ contains
 
 #endif
 
-      !creo i tipi MPI contigui che mi servono per i send e receive
-      !lo faccio su 13 direzioni perchè per l ed lopp le quantità da muovere sono uguali
+      !create the contiguous MPI types needed for send and receive
+      !done on 13 directions because l and lopp move the same amount of data
 #ifdef MPI
 
       !dir
@@ -2080,10 +2080,10 @@ contains
 
 
 
-      !alloca i buffer per mandare e ricevere
+      !allocate the send and receive buffers
       
 
-      !alloco per f
+      !allocate for f
     if(ltwocomp)then
       f_numtot_extr=sum(f_num_extr)
       ll=0
@@ -2102,7 +2102,7 @@ contains
       allocate(f_recv_buffmpi(ll))
       f_recv_buffmpi=real(0.d0,kind=db)
 
-      !alloco per fvec
+      !allocate for fvec
       fvec_numtot_extr=sum(fvec_num_extr)
       ll=0
       do l=1,nlinksmpi
@@ -2121,7 +2121,7 @@ contains
       fvec_recv_buffmpi=real(0.d0,kind=db)
     endif
       
-      !alloco per b
+      !allocate for b
       b_numtot_extr=sum(b_num_extr)
       ll=0
       do l=1,nlinksmpi
@@ -2139,7 +2139,7 @@ contains
       allocate(b_recv_buffmpi(ll))
       b_recv_buffmpi=real(0.d0,kind=db)
      
-      !alloco per c
+      !allocate for c
       c_numtot_extr=sum(c_num_extr)
       ll=0
       do l=1,nlinksmpi
@@ -2157,7 +2157,7 @@ contains
       allocate(c_recv_buffmpi(ll))
       c_recv_buffmpi=real(0.d0,kind=db)
 
-      !alloco per i
+      !allocate for i
       i_numtot_extr=sum(i_num_extr)
       ll=0
       do l=1,nlinksmpi
@@ -2199,14 +2199,14 @@ contains
       integer :: color,ierr
 #if defined(MPI)        
       io_comm2d(l) = MPI_COMM_NULL
-      !qui seleziono solo i processi buoni, quelli che devono scrivere
+      !select only the processes that have to write
       if (ldowrite)then
-        color = 1  ! Gruppo che partecipa all'IO
+        color = 1  ! group taking part in the I/O
       else
-        color = MPI_UNDEFINED  ! Escludiamo gli altri processi
+        color = MPI_UNDEFINED  ! exclude the other processes
       endif
       
-      ! Creiamo un nuovo comunicatore per i processi che scrivono
+      ! create a new communicator for the writing processes
       call MPI_COMM_SPLIT(MPI_COMM_WORLD, color, myrank, io_comm2d(l), ierr)
 #endif
       
@@ -2375,7 +2375,7 @@ contains
       m1=f_send_extr(2,lmio)-f_send_extr(1,lmio)+1
       m2=f_send_extr(4,lmio)-f_send_extr(3,lmio)+1
       m3=f_send_extr(6,lmio)-f_send_extr(5,lmio)+1
-      !scorro sul numero di campi da prendere (per scalare = 1)
+      !loop over the number of fields to take (1 for a scalar)
       ll=1
       imin=f_send_extr(1,lmio)
       imax=f_send_extr(2,lmio)
@@ -2400,8 +2400,8 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz    
-               !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
-               !poi mandero solo i pezzi contigui che mi servono per la data direzione
+               !linearize in natural order into a single buffer for all directions
+               !then send only the contiguous chunks needed for the given direction
                idx=myoffset+(i-f_send_extr(1,lmio))+(j-f_send_extr(3,lmio))*m1+(&
                   k-f_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
                f_send_buffmpi(idx)=phifields_s(ii,jj,kk,1,myblock)		   
@@ -2434,7 +2434,7 @@ contains
       m1=f_recv_extr(2,lmio)-f_recv_extr(1,lmio)+1
       m2=f_recv_extr(4,lmio)-f_recv_extr(3,lmio)+1
       m3=f_recv_extr(6,lmio)-f_recv_extr(5,lmio)+1
-      !scorro sul numero di campi da prendere (per scalare = 1)
+      !loop over the number of fields to take (1 for a scalar)
       ll=1
       imin=f_recv_extr(1,lmio)
       imax=f_recv_extr(2,lmio)
@@ -2459,8 +2459,8 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz 
-               !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
-               !poi mandero solo i pezzi contigui che mi servono per la data direzione
+               !linearize in natural order into a single buffer for all directions
+               !then send only the contiguous chunks needed for the given direction
                idx=myoffset+(i-f_recv_extr(1,lmio))+(j-f_recv_extr(3,lmio))*m1+(&
                   k-f_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
                phifields_s(ii,jj,kk,1,myblock)=f_recv_buffmpi(idx)
@@ -2682,10 +2682,10 @@ contains
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
             
-               !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
-               !poi mandero solo i pezzi contigui che mi servono per la data direzione
+               !linearize in natural order into a single buffer for all directions
+               !then send only the contiguous chunks needed for the given direction
 
-               !scorro sul numero di campi da prendere il massimo previsto è num_auxfields_datampi
+               !loop over the number of fields to take; the maximum is num_auxfields_datampi
 
 #ifdef TWOCOMPONENT
 
@@ -2777,10 +2777,10 @@ contains
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
                
-               !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
-               !poi mandero solo i pezzi contigui che mi servono per la data direzione
+               !linearize in natural order into a single buffer for all directions
+               !then send only the contiguous chunks needed for the given direction
 
-               !scorro sul numero di campi da prendere il massimo previsto è num_auxfields_datampi
+               !loop over the number of fields to take; the maximum is num_auxfields_datampi
 #ifdef TWOCOMPONENT
 
                ll=1
@@ -3045,10 +3045,10 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
-               !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
-               !poi mandero solo i pezzi contigui che mi servono per la data direzione
+               !linearize in natural order into a single buffer for all directions
+               !then send only the contiguous chunks needed for the given direction
 
-               !scorro sul numero di campi da prendere il massimo previsto è num_hfields_datampi
+               !loop over the number of fields to take; the maximum is num_hfields_datampi
 
                ll=1
                idx=myoffset+(i-b_send_extr(1,lmio))+(j-b_send_extr(3,lmio))*m1+(&
@@ -3154,10 +3154,10 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
-               !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
-               !poi mandero solo i pezzi contigui che mi servono per la data direzione
+               !linearize in natural order into a single buffer for all directions
+               !then send only the contiguous chunks needed for the given direction
 
-               !scorro sul numero di campi da prendere il massimo previsto è num_hfields_datampi
+               !loop over the number of fields to take; the maximum is num_hfields_datampi
 
                ll=1
                idx=myoffset+(i-b_recv_extr(1,lmio))+(j-b_recv_extr(3,lmio))*m1+(&
@@ -3407,10 +3407,10 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
-               !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
-               !poi mandero solo i pezzi contigui che mi servono per la data direzione
+               !linearize in natural order into a single buffer for all directions
+               !then send only the contiguous chunks needed for the given direction
 
-               !scorro sul numero di campi da prendere il massimo previsto è num_forces_datampi
+               !loop over the number of fields to take; the maximum is num_forces_datampi
 
                ll=1
                idx=myoffset+(i-c_send_extr(1,lmio))+(j-c_send_extr(3,lmio))*m1+(&
@@ -3480,10 +3480,10 @@ contains
                ii=i-xblock*TILE_DIMx+2*TILE_DIMx
                jj=j-yblock*TILE_DIMy+2*TILE_DIMy
                kk=k-zblock*TILE_DIMz+2*TILE_DIMz   
-               !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
-               !poi mandero solo i pezzi contigui che mi servono per la data direzione
+               !linearize in natural order into a single buffer for all directions
+               !then send only the contiguous chunks needed for the given direction
 
-               !scorro sul numero di campi da prendere il massimo previsto è num_forces_datampi
+               !loop over the number of fields to take; the maximum is num_forces_datampi
 
                ll=1
                idx=myoffset+(i-c_recv_extr(1,lmio))+(j-c_recv_extr(3,lmio))*m1+(&
@@ -3610,13 +3610,13 @@ contains
       m1=f_send_extr(2,lmio)-f_send_extr(1,lmio)+1
       m2=f_send_extr(4,lmio)-f_send_extr(3,lmio)+1
       m3=f_send_extr(6,lmio)-f_send_extr(5,lmio)+1
-      !scorro sul numero di campi da prendere (per scalare = 1)
+      !loop over the number of fields to take (1 for a scalar)
       ll=1
       do k=f_send_extr(5,lmio),f_send_extr(6,lmio)
          do j=f_send_extr(3,lmio),f_send_extr(4,lmio)
             do i=f_send_extr(1,lmio),f_send_extr(2,lmio)
-               !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
-               !poi mandero solo i pezzi contigui che mi servono per la data direzione
+               !linearize in natural order into a single buffer for all directions
+               !then send only the contiguous chunks needed for the given direction
                idx=myoffset+(i-f_send_extr(1,lmio))+(j-f_send_extr(3,lmio))*m1+(&
                   k-f_send_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
 
@@ -3644,13 +3644,13 @@ contains
       m1=f_recv_extr(2,lmio)-f_recv_extr(1,lmio)+1
       m2=f_recv_extr(4,lmio)-f_recv_extr(3,lmio)+1
       m3=f_recv_extr(6,lmio)-f_recv_extr(5,lmio)+1
-      !scorro sul numero di campi da prendere (per scalare = 1)
+      !loop over the number of fields to take (1 for a scalar)
       ll=1
       do k=f_recv_extr(5,lmio),f_recv_extr(6,lmio)
          do j=f_recv_extr(3,lmio),f_recv_extr(4,lmio)
             do i=f_recv_extr(1,lmio),f_recv_extr(2,lmio)
-               !linearizzo con l'ordine naturale e metto nel buffer unico per tutte le direzioni
-               !poi mandero solo i pezzi contigui che mi servono per la data direzione
+               !linearize in natural order into a single buffer for all directions
+               !then send only the contiguous chunks needed for the given direction
                idx=myoffset+(i-f_recv_extr(1,lmio))+(j-f_recv_extr(3,lmio))*m1+(&
                   k-f_recv_extr(5,lmio))*(m1*m2)+(ll-1)*(m1*m2*m3)
 
@@ -5858,7 +5858,7 @@ contains
       
         call MPI_File_set_size(fdens, 0_MPI_OFFSET_KIND, e_io)  
       
-      call MPI_Barrier(MPI_COMM_WORLD, e_io)     ! o il communicator usato per aprire il file
+      call MPI_Barrier(MPI_COMM_WORLD, e_io)     ! or the communicator used to open the file
       tempoffset=int(0,kind=MPI_OFFSET_KIND)
 
 #ifdef PRINTHALF

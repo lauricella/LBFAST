@@ -224,8 +224,8 @@ contains
             enddo
         enddo
 
-       ! ampiezza del TG: scegli tu, ma resta a Mach basso
-       ! es. uwall = u0tg = 0.02_db oppure 0.05_db
+       ! TG amplitude: free choice, but keep the Mach number low
+       ! e.g. uwall = u0tg = 0.02_db or 0.05_db
        stdev=1.0e-3
        
 #if defined(LAMBTEST) && defined(TWOCOMPONENT)
@@ -310,7 +310,7 @@ contains
                 if(abs(isfluid(i,j,k)).eq.1)then
 #if defined(TAYLORGREEN) && !defined(TWOCOMPONENT)
                   rhophi_loc = 1.0_db
-                  ! coordinate periodiche globali
+                  ! global periodic coordinates
                   x = TWO*pi_greek * real(gi-1, db) / real(lx, db)
                   y = TWO*pi_greek * real(gj-1, db) / real(ly, db)
                   z = TWO*pi_greek * real(gk-1, db) / real(lz, db)
@@ -323,7 +323,7 @@ contains
                   c2y = cos(TWO*y)
                   c2z = cos(TWO*z)
 
-                  ! pressione idrodinamica fluttuante, media nulla
+                  ! fluctuating hydrodynamic pressure with zero mean
                   loc_press = ((uwall*uwall/SIXTEEN) * (c2x + c2y) * (TWO + c2z))/(rhophi_loc*cssq)
 
 #elif defined(TWOCOMPONENT) && defined(TWOPOISEUILLE)
@@ -491,7 +491,7 @@ contains
 #endif
            
                 endif
-                !if(j==jprobe .and. k==kprobe)write(6,*)'velocità iniziale', i,loc_w
+                !if(j==jprobe .and. k==kprobe)write(6,*)'initial velocity', i,loc_w
              enddo
           enddo
        enddo
