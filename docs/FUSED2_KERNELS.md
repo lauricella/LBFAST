@@ -196,3 +196,50 @@ single-component time step for D3Q19; the moment and halo kernels take most of
 the rest.
 
 The scaling tables in the README were measured with the general kernels.
+
+## Experimental high-order kernels (`FUSEDH`)
+
+For the high-order D3Q27 reconstruction (`HIGHORDER`), the macro `FUSEDH`,
+disabled by default, selects the kernels `fused_LB_kernel_h` and
+`fused_LB_kernel_bb_h` in `lb_cuda_fused_module.f90`. They use the thread
+organization of the second-order kernels: one thread per interior node, the
+halo nodes computed by the first 488 threads, and a single barrier.
+
+The terms of orders three to six are nonlinear functions of the moments, so the
+post-collision coefficients cannot be gathered linearly as in the second-order
+kernels. Each thread instead stores 13 values for its node: `p*`, `u`,
+`(1 - omega) Pi_neq`, and `F`. These take 104 KB of shared memory per block in
+double precision and 52 KB in single precision. After the barrier, every thread
+reconstructs the 27 incoming post-collision populations from the values of the
+upstream nodes, with the same high-order expressions as `fused_LB_kernel`. With
+`BOUNCE_BACK`, a population pulled from a solid node is reconstructed from the
+values of the node itself for the opposite direction.
+
+The shared memory limits double precision to one block per multiprocessor, and
+the kernels are compiled with launch bounds that allow up to 128 registers. In
+single precision, the launch bounds give two blocks per multiprocessor with 64
+registers. The kernels have no register spills and require `8 x 8 x 8` tiles.
+
+Compared with the general kernels in double precision, unless stated
+otherwise, the final moments differ only by round-off:
+
+| Case | Steps | Largest relative difference |
+|---|---:|---:|
+| Taylor--Green `128^3` | 2000 | `3.2e-14` |
+| Taylor--Green `128^3`, two MPI ranks | 2000 | `3.2e-14` |
+| Lamb droplet, two-component `80^3` | 2000 | `3.8e-14` |
+| Force-driven Poiseuille, `BOUNCE_BACK` | 10000 | none in `w`, `pzz`, `pxz` |
+| Taylor--Green `128^3`, single precision | 2000 | `2.0e-5` |
+
+Mean fused-kernel time per step and whole-step throughput on one NVIDIA A30 for
+the `256^3` cases of the performance section above, averaged over two runs:
+
+| Case | Fused kernel, general (ms) | Fused kernel, `FUSEDH` (ms) | Speed-up | GLUPS, general | GLUPS, `FUSEDH` |
+|---|---:|---:|---:|---:|---:|
+| Single-component, FP64 | 82.7 | 46.0 | 1.80 | 0.190 | 0.324 |
+| Single-component, FP32 | 32.1 | 22.5 | 1.43 | 0.467 | 0.635 |
+| Two-component, FP64 | 108.5 | 46.5 | 2.33 | 0.129 | 0.248 |
+| Single-component, FP64, `BOUNCE_BACK` | 114.4 | 47.3 | 2.42 | 0.141 | 0.325 |
+
+The general high-order kernels remain the default until `FUSEDH` has been used
+more widely.
