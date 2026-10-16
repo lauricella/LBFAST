@@ -38,7 +38,7 @@
 #endif
 
 #ifdef FUSED2_IGNORED
-#warning "FUSED2 ignored: it applies only to D3Q19 and D3Q27 without HIGHORDER"
+#warning "FUSED2: not applicable to this lattice (HIGHORDER or D3Q15), the general fused kernels are used"
 #endif
 
 #ifdef CRAY

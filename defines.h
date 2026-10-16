@@ -13,7 +13,7 @@
 
 #define noSMAGORINSKI
 
-#define noFUSED2
+#define FUSED2
 
 #define noINTERNAL_OBSTACLES
 
