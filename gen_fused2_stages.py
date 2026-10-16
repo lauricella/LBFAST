@@ -9,7 +9,8 @@ where A0 already contains the trace term of the second-order coefficient. The ke
 all ten coefficients of the tile and its halo in shared memory, and every interior node pulls
 each coefficient from all lattice directions. This script writes the gather of each stage explicitly, with the lattice
 components and weights as literals, so that the compiler spends no operation on zero
-components. The lattice vectors and their order are read from vars_module.f90.
+components. The D3Q15, D3Q19 and D3Q27 lattice vectors, their order and the weight names are read
+from vars_module.f90.
 
 Usage: python3 gen_fused2_stages.py   (run from the repository root)
 """
@@ -19,7 +20,8 @@ CSSQ_NAME = "invcssq"
 
 def lattice(q):
     src = open("vars_module.f90").read()
-    block = src.split("#if LATTICE == 27")[1] if q == 27 else src.split("#elif LATTICE == 19")[1]
+    key = {27: "#if LATTICE == 27", 19: "#elif LATTICE == 19", 15: "#elif LATTICE == 15"}[q]
+    block = src.split(key)[1]
     def arr(name):
         m = re.search(name + r"\s*=\s*\(/([^/]*)/\)", block)
         return [int(x) for x in m.group(1).replace("&", "").split(",")]
@@ -120,6 +122,8 @@ def main():
     lines += stages(19)
     lines.append("#elif LATTICE == 27")
     lines += stages(27)
+    lines.append("#elif LATTICE == 15")
+    lines += stages(15)
     lines.append("#endif")
     open("fused2_stages.h", "w").write("\n".join(lines) + "\n")
 

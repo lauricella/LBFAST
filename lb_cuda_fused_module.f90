@@ -729,7 +729,7 @@ contains
     endsubroutine fused_LB_kernel
 
 #ifdef FUSED2
-!     Second-order fused collide-and-stream kernels for D3Q19 and D3Q27 without HIGHORDER.
+!     Second-order fused collide-and-stream kernels for D3Q15, D3Q19 and D3Q27 without HIGHORDER.
 !     The post-collision populations are a linear combination of ten Hermite coefficients.
 !     Each block has one thread per interior node of the tile. Every thread computes the ten
 !     post-collision coefficients of its node and, for the first threads, of one halo node;

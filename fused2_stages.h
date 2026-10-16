@@ -2105,4 +2105,894 @@
                   oy=oy-go
                   oz=oz-go
 
+#elif LATTICE == 15
+                  ! stage 1 of 10: zeroth-order coefficient
+                  o0=p0*abuf(li,lj,lk,1)
+                  ! directions l=1 (1,0,0) and l=2
+                  fa=abuf(li-1,lj,lk,1)
+                  fb=abuf(li+1,lj,lk,1)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,1))fa=abuf(li,lj,lk,1)
+                  if(btest(isolid,2))fb=abuf(li,lj,lk,1)
+#endif
+                  ge=(p1)*(fa+fb)
+                  go=(p1)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  ox=ox+go
+                  ! directions l=3 (0,1,0) and l=4
+                  fa=abuf(li,lj-1,lk,1)
+                  fb=abuf(li,lj+1,lk,1)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,3))fa=abuf(li,lj,lk,1)
+                  if(btest(isolid,4))fb=abuf(li,lj,lk,1)
+#endif
+                  ge=(p1)*(fa+fb)
+                  go=(p1)*(fa-fb)
+                  o0=o0+ge
+                  qyy=qyy+ge
+                  oy=oy+go
+                  ! directions l=5 (0,0,1) and l=6
+                  fa=abuf(li,lj,lk-1,1)
+                  fb=abuf(li,lj,lk+1,1)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,5))fa=abuf(li,lj,lk,1)
+                  if(btest(isolid,6))fb=abuf(li,lj,lk,1)
+#endif
+                  ge=(p1)*(fa+fb)
+                  go=(p1)*(fa-fb)
+                  o0=o0+ge
+                  qzz=qzz+ge
+                  oz=oz+go
+                  ! directions l=7 (1,1,1) and l=8
+                  fa=abuf(li-1,lj-1,lk-1,1)
+                  fb=abuf(li+1,lj+1,lk+1,1)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,7))fa=abuf(li,lj,lk,1)
+                  if(btest(isolid,8))fb=abuf(li,lj,lk,1)
+#endif
+                  ge=(p2)*(fa+fb)
+                  go=(p2)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy+ge
+                  oxz=oxz+ge
+                  oyz=oyz+ge
+                  ox=ox+go
+                  oy=oy+go
+                  oz=oz+go
+                  ! directions l=9 (1,-1,1) and l=10
+                  fa=abuf(li-1,lj+1,lk-1,1)
+                  fb=abuf(li+1,lj-1,lk+1,1)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,9))fa=abuf(li,lj,lk,1)
+                  if(btest(isolid,10))fb=abuf(li,lj,lk,1)
+#endif
+                  ge=(p2)*(fa+fb)
+                  go=(p2)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy-ge
+                  oxz=oxz+ge
+                  oyz=oyz-ge
+                  ox=ox+go
+                  oy=oy-go
+                  oz=oz+go
+                  ! directions l=11 (-1,-1,1) and l=12
+                  fa=abuf(li+1,lj+1,lk-1,1)
+                  fb=abuf(li-1,lj-1,lk+1,1)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,11))fa=abuf(li,lj,lk,1)
+                  if(btest(isolid,12))fb=abuf(li,lj,lk,1)
+#endif
+                  ge=(p2)*(fa+fb)
+                  go=(p2)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy+ge
+                  oxz=oxz-ge
+                  oyz=oyz-ge
+                  ox=ox-go
+                  oy=oy-go
+                  oz=oz+go
+                  ! directions l=13 (1,-1,-1) and l=14
+                  fa=abuf(li-1,lj+1,lk+1,1)
+                  fb=abuf(li+1,lj-1,lk-1,1)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,13))fa=abuf(li,lj,lk,1)
+                  if(btest(isolid,14))fb=abuf(li,lj,lk,1)
+#endif
+                  ge=(p2)*(fa+fb)
+                  go=(p2)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy-ge
+                  oxz=oxz-ge
+                  oyz=oyz+ge
+                  ox=ox+go
+                  oy=oy-go
+                  oz=oz-go
+
+                  ! stage 2 of 10: first-order coefficient along x
+                  ! directions l=1 (1,0,0) and l=2
+                  fa=abuf(li-1,lj,lk,2)
+                  fb=abuf(li+1,lj,lk,2)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,1))fa=-abuf(li,lj,lk,2)
+                  if(btest(isolid,2))fb=-abuf(li,lj,lk,2)
+#endif
+                  ge=(p1*invcssq)*(fa-fb)
+                  go=(p1*invcssq)*(fa+fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  ox=ox+go
+                  ! directions l=7 (1,1,1) and l=8
+                  fa=abuf(li-1,lj-1,lk-1,2)
+                  fb=abuf(li+1,lj+1,lk+1,2)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,7))fa=-abuf(li,lj,lk,2)
+                  if(btest(isolid,8))fb=-abuf(li,lj,lk,2)
+#endif
+                  ge=(p2*invcssq)*(fa-fb)
+                  go=(p2*invcssq)*(fa+fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy+ge
+                  oxz=oxz+ge
+                  oyz=oyz+ge
+                  ox=ox+go
+                  oy=oy+go
+                  oz=oz+go
+                  ! directions l=9 (1,-1,1) and l=10
+                  fa=abuf(li-1,lj+1,lk-1,2)
+                  fb=abuf(li+1,lj-1,lk+1,2)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,9))fa=-abuf(li,lj,lk,2)
+                  if(btest(isolid,10))fb=-abuf(li,lj,lk,2)
+#endif
+                  ge=(p2*invcssq)*(fa-fb)
+                  go=(p2*invcssq)*(fa+fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy-ge
+                  oxz=oxz+ge
+                  oyz=oyz-ge
+                  ox=ox+go
+                  oy=oy-go
+                  oz=oz+go
+                  ! directions l=11 (-1,-1,1) and l=12
+                  fa=abuf(li+1,lj+1,lk-1,2)
+                  fb=abuf(li-1,lj-1,lk+1,2)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,11))fa=-abuf(li,lj,lk,2)
+                  if(btest(isolid,12))fb=-abuf(li,lj,lk,2)
+#endif
+                  ge=(p2*invcssq)*(fa-fb)
+                  go=(p2*invcssq)*(fa+fb)
+                  o0=o0-ge
+                  qxx=qxx-ge
+                  qyy=qyy-ge
+                  qzz=qzz-ge
+                  oxy=oxy-ge
+                  oxz=oxz+ge
+                  oyz=oyz+ge
+                  ox=ox+go
+                  oy=oy+go
+                  oz=oz-go
+                  ! directions l=13 (1,-1,-1) and l=14
+                  fa=abuf(li-1,lj+1,lk+1,2)
+                  fb=abuf(li+1,lj-1,lk-1,2)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,13))fa=-abuf(li,lj,lk,2)
+                  if(btest(isolid,14))fb=-abuf(li,lj,lk,2)
+#endif
+                  ge=(p2*invcssq)*(fa-fb)
+                  go=(p2*invcssq)*(fa+fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy-ge
+                  oxz=oxz-ge
+                  oyz=oyz+ge
+                  ox=ox+go
+                  oy=oy-go
+                  oz=oz-go
+
+                  ! stage 3 of 10: first-order coefficient along y
+                  ! directions l=3 (0,1,0) and l=4
+                  fa=abuf(li,lj-1,lk,3)
+                  fb=abuf(li,lj+1,lk,3)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,3))fa=-abuf(li,lj,lk,3)
+                  if(btest(isolid,4))fb=-abuf(li,lj,lk,3)
+#endif
+                  ge=(p1*invcssq)*(fa-fb)
+                  go=(p1*invcssq)*(fa+fb)
+                  o0=o0+ge
+                  qyy=qyy+ge
+                  oy=oy+go
+                  ! directions l=7 (1,1,1) and l=8
+                  fa=abuf(li-1,lj-1,lk-1,3)
+                  fb=abuf(li+1,lj+1,lk+1,3)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,7))fa=-abuf(li,lj,lk,3)
+                  if(btest(isolid,8))fb=-abuf(li,lj,lk,3)
+#endif
+                  ge=(p2*invcssq)*(fa-fb)
+                  go=(p2*invcssq)*(fa+fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy+ge
+                  oxz=oxz+ge
+                  oyz=oyz+ge
+                  ox=ox+go
+                  oy=oy+go
+                  oz=oz+go
+                  ! directions l=9 (1,-1,1) and l=10
+                  fa=abuf(li-1,lj+1,lk-1,3)
+                  fb=abuf(li+1,lj-1,lk+1,3)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,9))fa=-abuf(li,lj,lk,3)
+                  if(btest(isolid,10))fb=-abuf(li,lj,lk,3)
+#endif
+                  ge=(p2*invcssq)*(fa-fb)
+                  go=(p2*invcssq)*(fa+fb)
+                  o0=o0-ge
+                  qxx=qxx-ge
+                  qyy=qyy-ge
+                  qzz=qzz-ge
+                  oxy=oxy+ge
+                  oxz=oxz-ge
+                  oyz=oyz+ge
+                  ox=ox-go
+                  oy=oy+go
+                  oz=oz-go
+                  ! directions l=11 (-1,-1,1) and l=12
+                  fa=abuf(li+1,lj+1,lk-1,3)
+                  fb=abuf(li-1,lj-1,lk+1,3)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,11))fa=-abuf(li,lj,lk,3)
+                  if(btest(isolid,12))fb=-abuf(li,lj,lk,3)
+#endif
+                  ge=(p2*invcssq)*(fa-fb)
+                  go=(p2*invcssq)*(fa+fb)
+                  o0=o0-ge
+                  qxx=qxx-ge
+                  qyy=qyy-ge
+                  qzz=qzz-ge
+                  oxy=oxy-ge
+                  oxz=oxz+ge
+                  oyz=oyz+ge
+                  ox=ox+go
+                  oy=oy+go
+                  oz=oz-go
+                  ! directions l=13 (1,-1,-1) and l=14
+                  fa=abuf(li-1,lj+1,lk+1,3)
+                  fb=abuf(li+1,lj-1,lk-1,3)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,13))fa=-abuf(li,lj,lk,3)
+                  if(btest(isolid,14))fb=-abuf(li,lj,lk,3)
+#endif
+                  ge=(p2*invcssq)*(fa-fb)
+                  go=(p2*invcssq)*(fa+fb)
+                  o0=o0-ge
+                  qxx=qxx-ge
+                  qyy=qyy-ge
+                  qzz=qzz-ge
+                  oxy=oxy+ge
+                  oxz=oxz+ge
+                  oyz=oyz-ge
+                  ox=ox-go
+                  oy=oy+go
+                  oz=oz+go
+
+                  ! stage 4 of 10: first-order coefficient along z
+                  ! directions l=5 (0,0,1) and l=6
+                  fa=abuf(li,lj,lk-1,4)
+                  fb=abuf(li,lj,lk+1,4)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,5))fa=-abuf(li,lj,lk,4)
+                  if(btest(isolid,6))fb=-abuf(li,lj,lk,4)
+#endif
+                  ge=(p1*invcssq)*(fa-fb)
+                  go=(p1*invcssq)*(fa+fb)
+                  o0=o0+ge
+                  qzz=qzz+ge
+                  oz=oz+go
+                  ! directions l=7 (1,1,1) and l=8
+                  fa=abuf(li-1,lj-1,lk-1,4)
+                  fb=abuf(li+1,lj+1,lk+1,4)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,7))fa=-abuf(li,lj,lk,4)
+                  if(btest(isolid,8))fb=-abuf(li,lj,lk,4)
+#endif
+                  ge=(p2*invcssq)*(fa-fb)
+                  go=(p2*invcssq)*(fa+fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy+ge
+                  oxz=oxz+ge
+                  oyz=oyz+ge
+                  ox=ox+go
+                  oy=oy+go
+                  oz=oz+go
+                  ! directions l=9 (1,-1,1) and l=10
+                  fa=abuf(li-1,lj+1,lk-1,4)
+                  fb=abuf(li+1,lj-1,lk+1,4)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,9))fa=-abuf(li,lj,lk,4)
+                  if(btest(isolid,10))fb=-abuf(li,lj,lk,4)
+#endif
+                  ge=(p2*invcssq)*(fa-fb)
+                  go=(p2*invcssq)*(fa+fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy-ge
+                  oxz=oxz+ge
+                  oyz=oyz-ge
+                  ox=ox+go
+                  oy=oy-go
+                  oz=oz+go
+                  ! directions l=11 (-1,-1,1) and l=12
+                  fa=abuf(li+1,lj+1,lk-1,4)
+                  fb=abuf(li-1,lj-1,lk+1,4)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,11))fa=-abuf(li,lj,lk,4)
+                  if(btest(isolid,12))fb=-abuf(li,lj,lk,4)
+#endif
+                  ge=(p2*invcssq)*(fa-fb)
+                  go=(p2*invcssq)*(fa+fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy+ge
+                  oxz=oxz-ge
+                  oyz=oyz-ge
+                  ox=ox-go
+                  oy=oy-go
+                  oz=oz+go
+                  ! directions l=13 (1,-1,-1) and l=14
+                  fa=abuf(li-1,lj+1,lk+1,4)
+                  fb=abuf(li+1,lj-1,lk-1,4)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,13))fa=-abuf(li,lj,lk,4)
+                  if(btest(isolid,14))fb=-abuf(li,lj,lk,4)
+#endif
+                  ge=(p2*invcssq)*(fa-fb)
+                  go=(p2*invcssq)*(fa+fb)
+                  o0=o0-ge
+                  qxx=qxx-ge
+                  qyy=qyy-ge
+                  qzz=qzz-ge
+                  oxy=oxy+ge
+                  oxz=oxz+ge
+                  oyz=oyz-ge
+                  ox=ox-go
+                  oy=oy+go
+                  oz=oz+go
+
+                  ! stage 5 of 10: second-order coefficient xx
+                  ! directions l=1 (1,0,0) and l=2
+                  fa=abuf(li-1,lj,lk,5)
+                  fb=abuf(li+1,lj,lk,5)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,1))fa=abuf(li,lj,lk,5)
+                  if(btest(isolid,2))fb=abuf(li,lj,lk,5)
+#endif
+                  ge=(p1*HALF*invcssq*invcssq)*(fa+fb)
+                  go=(p1*HALF*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  ox=ox+go
+                  ! directions l=7 (1,1,1) and l=8
+                  fa=abuf(li-1,lj-1,lk-1,5)
+                  fb=abuf(li+1,lj+1,lk+1,5)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,7))fa=abuf(li,lj,lk,5)
+                  if(btest(isolid,8))fb=abuf(li,lj,lk,5)
+#endif
+                  ge=(p2*HALF*invcssq*invcssq)*(fa+fb)
+                  go=(p2*HALF*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy+ge
+                  oxz=oxz+ge
+                  oyz=oyz+ge
+                  ox=ox+go
+                  oy=oy+go
+                  oz=oz+go
+                  ! directions l=9 (1,-1,1) and l=10
+                  fa=abuf(li-1,lj+1,lk-1,5)
+                  fb=abuf(li+1,lj-1,lk+1,5)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,9))fa=abuf(li,lj,lk,5)
+                  if(btest(isolid,10))fb=abuf(li,lj,lk,5)
+#endif
+                  ge=(p2*HALF*invcssq*invcssq)*(fa+fb)
+                  go=(p2*HALF*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy-ge
+                  oxz=oxz+ge
+                  oyz=oyz-ge
+                  ox=ox+go
+                  oy=oy-go
+                  oz=oz+go
+                  ! directions l=11 (-1,-1,1) and l=12
+                  fa=abuf(li+1,lj+1,lk-1,5)
+                  fb=abuf(li-1,lj-1,lk+1,5)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,11))fa=abuf(li,lj,lk,5)
+                  if(btest(isolid,12))fb=abuf(li,lj,lk,5)
+#endif
+                  ge=(p2*HALF*invcssq*invcssq)*(fa+fb)
+                  go=(p2*HALF*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy+ge
+                  oxz=oxz-ge
+                  oyz=oyz-ge
+                  ox=ox-go
+                  oy=oy-go
+                  oz=oz+go
+                  ! directions l=13 (1,-1,-1) and l=14
+                  fa=abuf(li-1,lj+1,lk+1,5)
+                  fb=abuf(li+1,lj-1,lk-1,5)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,13))fa=abuf(li,lj,lk,5)
+                  if(btest(isolid,14))fb=abuf(li,lj,lk,5)
+#endif
+                  ge=(p2*HALF*invcssq*invcssq)*(fa+fb)
+                  go=(p2*HALF*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy-ge
+                  oxz=oxz-ge
+                  oyz=oyz+ge
+                  ox=ox+go
+                  oy=oy-go
+                  oz=oz-go
+
+                  ! stage 6 of 10: second-order coefficient yy
+                  ! directions l=3 (0,1,0) and l=4
+                  fa=abuf(li,lj-1,lk,6)
+                  fb=abuf(li,lj+1,lk,6)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,3))fa=abuf(li,lj,lk,6)
+                  if(btest(isolid,4))fb=abuf(li,lj,lk,6)
+#endif
+                  ge=(p1*HALF*invcssq*invcssq)*(fa+fb)
+                  go=(p1*HALF*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qyy=qyy+ge
+                  oy=oy+go
+                  ! directions l=7 (1,1,1) and l=8
+                  fa=abuf(li-1,lj-1,lk-1,6)
+                  fb=abuf(li+1,lj+1,lk+1,6)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,7))fa=abuf(li,lj,lk,6)
+                  if(btest(isolid,8))fb=abuf(li,lj,lk,6)
+#endif
+                  ge=(p2*HALF*invcssq*invcssq)*(fa+fb)
+                  go=(p2*HALF*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy+ge
+                  oxz=oxz+ge
+                  oyz=oyz+ge
+                  ox=ox+go
+                  oy=oy+go
+                  oz=oz+go
+                  ! directions l=9 (1,-1,1) and l=10
+                  fa=abuf(li-1,lj+1,lk-1,6)
+                  fb=abuf(li+1,lj-1,lk+1,6)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,9))fa=abuf(li,lj,lk,6)
+                  if(btest(isolid,10))fb=abuf(li,lj,lk,6)
+#endif
+                  ge=(p2*HALF*invcssq*invcssq)*(fa+fb)
+                  go=(p2*HALF*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy-ge
+                  oxz=oxz+ge
+                  oyz=oyz-ge
+                  ox=ox+go
+                  oy=oy-go
+                  oz=oz+go
+                  ! directions l=11 (-1,-1,1) and l=12
+                  fa=abuf(li+1,lj+1,lk-1,6)
+                  fb=abuf(li-1,lj-1,lk+1,6)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,11))fa=abuf(li,lj,lk,6)
+                  if(btest(isolid,12))fb=abuf(li,lj,lk,6)
+#endif
+                  ge=(p2*HALF*invcssq*invcssq)*(fa+fb)
+                  go=(p2*HALF*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy+ge
+                  oxz=oxz-ge
+                  oyz=oyz-ge
+                  ox=ox-go
+                  oy=oy-go
+                  oz=oz+go
+                  ! directions l=13 (1,-1,-1) and l=14
+                  fa=abuf(li-1,lj+1,lk+1,6)
+                  fb=abuf(li+1,lj-1,lk-1,6)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,13))fa=abuf(li,lj,lk,6)
+                  if(btest(isolid,14))fb=abuf(li,lj,lk,6)
+#endif
+                  ge=(p2*HALF*invcssq*invcssq)*(fa+fb)
+                  go=(p2*HALF*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy-ge
+                  oxz=oxz-ge
+                  oyz=oyz+ge
+                  ox=ox+go
+                  oy=oy-go
+                  oz=oz-go
+
+                  ! stage 7 of 10: second-order coefficient zz
+                  ! directions l=5 (0,0,1) and l=6
+                  fa=abuf(li,lj,lk-1,7)
+                  fb=abuf(li,lj,lk+1,7)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,5))fa=abuf(li,lj,lk,7)
+                  if(btest(isolid,6))fb=abuf(li,lj,lk,7)
+#endif
+                  ge=(p1*HALF*invcssq*invcssq)*(fa+fb)
+                  go=(p1*HALF*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qzz=qzz+ge
+                  oz=oz+go
+                  ! directions l=7 (1,1,1) and l=8
+                  fa=abuf(li-1,lj-1,lk-1,7)
+                  fb=abuf(li+1,lj+1,lk+1,7)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,7))fa=abuf(li,lj,lk,7)
+                  if(btest(isolid,8))fb=abuf(li,lj,lk,7)
+#endif
+                  ge=(p2*HALF*invcssq*invcssq)*(fa+fb)
+                  go=(p2*HALF*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy+ge
+                  oxz=oxz+ge
+                  oyz=oyz+ge
+                  ox=ox+go
+                  oy=oy+go
+                  oz=oz+go
+                  ! directions l=9 (1,-1,1) and l=10
+                  fa=abuf(li-1,lj+1,lk-1,7)
+                  fb=abuf(li+1,lj-1,lk+1,7)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,9))fa=abuf(li,lj,lk,7)
+                  if(btest(isolid,10))fb=abuf(li,lj,lk,7)
+#endif
+                  ge=(p2*HALF*invcssq*invcssq)*(fa+fb)
+                  go=(p2*HALF*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy-ge
+                  oxz=oxz+ge
+                  oyz=oyz-ge
+                  ox=ox+go
+                  oy=oy-go
+                  oz=oz+go
+                  ! directions l=11 (-1,-1,1) and l=12
+                  fa=abuf(li+1,lj+1,lk-1,7)
+                  fb=abuf(li-1,lj-1,lk+1,7)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,11))fa=abuf(li,lj,lk,7)
+                  if(btest(isolid,12))fb=abuf(li,lj,lk,7)
+#endif
+                  ge=(p2*HALF*invcssq*invcssq)*(fa+fb)
+                  go=(p2*HALF*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy+ge
+                  oxz=oxz-ge
+                  oyz=oyz-ge
+                  ox=ox-go
+                  oy=oy-go
+                  oz=oz+go
+                  ! directions l=13 (1,-1,-1) and l=14
+                  fa=abuf(li-1,lj+1,lk+1,7)
+                  fb=abuf(li+1,lj-1,lk-1,7)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,13))fa=abuf(li,lj,lk,7)
+                  if(btest(isolid,14))fb=abuf(li,lj,lk,7)
+#endif
+                  ge=(p2*HALF*invcssq*invcssq)*(fa+fb)
+                  go=(p2*HALF*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy-ge
+                  oxz=oxz-ge
+                  oyz=oyz+ge
+                  ox=ox+go
+                  oy=oy-go
+                  oz=oz-go
+
+                  ! stage 8 of 10: second-order coefficient xy
+                  ! directions l=7 (1,1,1) and l=8
+                  fa=abuf(li-1,lj-1,lk-1,8)
+                  fb=abuf(li+1,lj+1,lk+1,8)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,7))fa=abuf(li,lj,lk,8)
+                  if(btest(isolid,8))fb=abuf(li,lj,lk,8)
+#endif
+                  ge=(p2*invcssq*invcssq)*(fa+fb)
+                  go=(p2*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy+ge
+                  oxz=oxz+ge
+                  oyz=oyz+ge
+                  ox=ox+go
+                  oy=oy+go
+                  oz=oz+go
+                  ! directions l=9 (1,-1,1) and l=10
+                  fa=abuf(li-1,lj+1,lk-1,8)
+                  fb=abuf(li+1,lj-1,lk+1,8)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,9))fa=abuf(li,lj,lk,8)
+                  if(btest(isolid,10))fb=abuf(li,lj,lk,8)
+#endif
+                  ge=(p2*invcssq*invcssq)*(fa+fb)
+                  go=(p2*invcssq*invcssq)*(fa-fb)
+                  o0=o0-ge
+                  qxx=qxx-ge
+                  qyy=qyy-ge
+                  qzz=qzz-ge
+                  oxy=oxy+ge
+                  oxz=oxz-ge
+                  oyz=oyz+ge
+                  ox=ox-go
+                  oy=oy+go
+                  oz=oz-go
+                  ! directions l=11 (-1,-1,1) and l=12
+                  fa=abuf(li+1,lj+1,lk-1,8)
+                  fb=abuf(li-1,lj-1,lk+1,8)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,11))fa=abuf(li,lj,lk,8)
+                  if(btest(isolid,12))fb=abuf(li,lj,lk,8)
+#endif
+                  ge=(p2*invcssq*invcssq)*(fa+fb)
+                  go=(p2*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy+ge
+                  oxz=oxz-ge
+                  oyz=oyz-ge
+                  ox=ox-go
+                  oy=oy-go
+                  oz=oz+go
+                  ! directions l=13 (1,-1,-1) and l=14
+                  fa=abuf(li-1,lj+1,lk+1,8)
+                  fb=abuf(li+1,lj-1,lk-1,8)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,13))fa=abuf(li,lj,lk,8)
+                  if(btest(isolid,14))fb=abuf(li,lj,lk,8)
+#endif
+                  ge=(p2*invcssq*invcssq)*(fa+fb)
+                  go=(p2*invcssq*invcssq)*(fa-fb)
+                  o0=o0-ge
+                  qxx=qxx-ge
+                  qyy=qyy-ge
+                  qzz=qzz-ge
+                  oxy=oxy+ge
+                  oxz=oxz+ge
+                  oyz=oyz-ge
+                  ox=ox-go
+                  oy=oy+go
+                  oz=oz+go
+
+                  ! stage 9 of 10: second-order coefficient xz
+                  ! directions l=7 (1,1,1) and l=8
+                  fa=abuf(li-1,lj-1,lk-1,9)
+                  fb=abuf(li+1,lj+1,lk+1,9)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,7))fa=abuf(li,lj,lk,9)
+                  if(btest(isolid,8))fb=abuf(li,lj,lk,9)
+#endif
+                  ge=(p2*invcssq*invcssq)*(fa+fb)
+                  go=(p2*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy+ge
+                  oxz=oxz+ge
+                  oyz=oyz+ge
+                  ox=ox+go
+                  oy=oy+go
+                  oz=oz+go
+                  ! directions l=9 (1,-1,1) and l=10
+                  fa=abuf(li-1,lj+1,lk-1,9)
+                  fb=abuf(li+1,lj-1,lk+1,9)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,9))fa=abuf(li,lj,lk,9)
+                  if(btest(isolid,10))fb=abuf(li,lj,lk,9)
+#endif
+                  ge=(p2*invcssq*invcssq)*(fa+fb)
+                  go=(p2*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy-ge
+                  oxz=oxz+ge
+                  oyz=oyz-ge
+                  ox=ox+go
+                  oy=oy-go
+                  oz=oz+go
+                  ! directions l=11 (-1,-1,1) and l=12
+                  fa=abuf(li+1,lj+1,lk-1,9)
+                  fb=abuf(li-1,lj-1,lk+1,9)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,11))fa=abuf(li,lj,lk,9)
+                  if(btest(isolid,12))fb=abuf(li,lj,lk,9)
+#endif
+                  ge=(p2*invcssq*invcssq)*(fa+fb)
+                  go=(p2*invcssq*invcssq)*(fa-fb)
+                  o0=o0-ge
+                  qxx=qxx-ge
+                  qyy=qyy-ge
+                  qzz=qzz-ge
+                  oxy=oxy-ge
+                  oxz=oxz+ge
+                  oyz=oyz+ge
+                  ox=ox+go
+                  oy=oy+go
+                  oz=oz-go
+                  ! directions l=13 (1,-1,-1) and l=14
+                  fa=abuf(li-1,lj+1,lk+1,9)
+                  fb=abuf(li+1,lj-1,lk-1,9)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,13))fa=abuf(li,lj,lk,9)
+                  if(btest(isolid,14))fb=abuf(li,lj,lk,9)
+#endif
+                  ge=(p2*invcssq*invcssq)*(fa+fb)
+                  go=(p2*invcssq*invcssq)*(fa-fb)
+                  o0=o0-ge
+                  qxx=qxx-ge
+                  qyy=qyy-ge
+                  qzz=qzz-ge
+                  oxy=oxy+ge
+                  oxz=oxz+ge
+                  oyz=oyz-ge
+                  ox=ox-go
+                  oy=oy+go
+                  oz=oz+go
+
+                  ! stage 10 of 10: second-order coefficient yz
+                  ! directions l=7 (1,1,1) and l=8
+                  fa=abuf(li-1,lj-1,lk-1,10)
+                  fb=abuf(li+1,lj+1,lk+1,10)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,7))fa=abuf(li,lj,lk,10)
+                  if(btest(isolid,8))fb=abuf(li,lj,lk,10)
+#endif
+                  ge=(p2*invcssq*invcssq)*(fa+fb)
+                  go=(p2*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy+ge
+                  oxz=oxz+ge
+                  oyz=oyz+ge
+                  ox=ox+go
+                  oy=oy+go
+                  oz=oz+go
+                  ! directions l=9 (1,-1,1) and l=10
+                  fa=abuf(li-1,lj+1,lk-1,10)
+                  fb=abuf(li+1,lj-1,lk+1,10)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,9))fa=abuf(li,lj,lk,10)
+                  if(btest(isolid,10))fb=abuf(li,lj,lk,10)
+#endif
+                  ge=(p2*invcssq*invcssq)*(fa+fb)
+                  go=(p2*invcssq*invcssq)*(fa-fb)
+                  o0=o0-ge
+                  qxx=qxx-ge
+                  qyy=qyy-ge
+                  qzz=qzz-ge
+                  oxy=oxy+ge
+                  oxz=oxz-ge
+                  oyz=oyz+ge
+                  ox=ox-go
+                  oy=oy+go
+                  oz=oz-go
+                  ! directions l=11 (-1,-1,1) and l=12
+                  fa=abuf(li+1,lj+1,lk-1,10)
+                  fb=abuf(li-1,lj-1,lk+1,10)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,11))fa=abuf(li,lj,lk,10)
+                  if(btest(isolid,12))fb=abuf(li,lj,lk,10)
+#endif
+                  ge=(p2*invcssq*invcssq)*(fa+fb)
+                  go=(p2*invcssq*invcssq)*(fa-fb)
+                  o0=o0-ge
+                  qxx=qxx-ge
+                  qyy=qyy-ge
+                  qzz=qzz-ge
+                  oxy=oxy-ge
+                  oxz=oxz+ge
+                  oyz=oyz+ge
+                  ox=ox+go
+                  oy=oy+go
+                  oz=oz-go
+                  ! directions l=13 (1,-1,-1) and l=14
+                  fa=abuf(li-1,lj+1,lk+1,10)
+                  fb=abuf(li+1,lj-1,lk-1,10)
+#ifdef BOUNCE_BACK
+                  if(btest(isolid,13))fa=abuf(li,lj,lk,10)
+                  if(btest(isolid,14))fb=abuf(li,lj,lk,10)
+#endif
+                  ge=(p2*invcssq*invcssq)*(fa+fb)
+                  go=(p2*invcssq*invcssq)*(fa-fb)
+                  o0=o0+ge
+                  qxx=qxx+ge
+                  qyy=qyy+ge
+                  qzz=qzz+ge
+                  oxy=oxy-ge
+                  oxz=oxz-ge
+                  oyz=oyz+ge
+                  ox=ox+go
+                  oy=oy-go
+                  oz=oz-go
+
 #endif
