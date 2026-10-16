@@ -84,7 +84,7 @@ below use the stationary window from step 5000 through step 10000.
 
 | `Delta p` | `sigma_eff` | Relative surface-tension error |
 |---:|---:|---:|
-| `0.00380989` | `0.0305051` | `+1.68%` |
+| `0.00380987` | `0.0305048` | `+1.68%` |
 
 The result is stationary by step 5000; averages over steps 5000--10000 and
 7500--10000 agree to much better than the measured model error.
@@ -96,9 +96,9 @@ with constant interface width `W=4` and constant relative box size `N=4R`:
 
 | Radius | Domain | Numerical `Delta p` | Exact `Delta p` | Relative error |
 |---:|---:|---:|---:|---:|
-| 16 | `64^3` | `3.809886420e-3` | `3.750000000e-3` | `+1.5970%` |
-| 24 | `96^3` | `2.517192400e-3` | `2.500000000e-3` | `+0.6877%` |
-| 32 | `128^3` | `1.882137790e-3` | `1.875000000e-3` | `+0.3807%` |
+| 16 | `64^3` | `3.809874027e-3` | `3.750000000e-3` | `+1.5966%` |
+| 24 | `96^3` | `2.517191612e-3` | `2.500000000e-3` | `+0.6877%` |
+| 32 | `128^3` | `1.882138298e-3` | `1.875000000e-3` | `+0.3807%` |
 
 Each value is averaged over steps 5000--10000. A least-squares fit through the
 origin to
@@ -110,10 +110,10 @@ Delta p = slope / R
 gives
 
 ```text
-numerical slope = 6.070741217821e-2,
+numerical slope = 6.070729259942e-2,
 exact slope     = 6.000000000000e-2,
-slope error     = +1.179020%,
-sigma from fit  = 3.035370608910e-2.
+slope error     = +1.178821%,
+sigma from fit  = 3.035364629971e-2.
 ```
 
 The decreasing pointwise error demonstrates convergence toward the Laplace law

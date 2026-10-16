@@ -100,7 +100,7 @@ step 100 to its final value:
 | Relative maximum error | `0.00253555` |
 | Absolute maximum error | `1.52133e-4` |
 | Python/statistics analytical difference | `6.94e-18` |
-| Reported GPU allocation | `0.3705 GB` |
+| Reported GPU allocation | `0.3081 GB` |
 
 The complete machine-readable comparison is stored in
 `docs/poiseuille_force_results.csv`.

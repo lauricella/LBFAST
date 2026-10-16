@@ -90,12 +90,12 @@ For the canonical case:
 | Quantity | Result |
 |---|---:|
 | Theoretical angular frequency | `3.7438023e-4` |
-| LBFAST angular frequency | `3.4236607e-4` |
-| Frequency error | `-8.55%` |
-| `d eta/dt` to normal-velocity gain | `0.99743` |
-| Kinematic relative RMS error | `0.516%` |
+| LBFAST angular frequency | `3.4269373e-4` |
+| Frequency error | `-8.46%` |
+| `d eta/dt` to normal-velocity gain | `0.99731` |
+| Kinematic relative RMS error | `0.526%` |
 | Numerical/theoretical CSF projection | `0.99704` |
-| Maximum relative mass error | `8.7e-10` |
+| Maximum relative mass error | `9.2e-10` |
 
 The force and kinematic checks show that the remaining frequency error is a numerical error of this diffuse-interface configuration rather than a loss of effective surface tension or an incorrect phase-advection speed.
 
