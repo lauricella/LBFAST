@@ -1485,9 +1485,17 @@ contains
        !$acc& ,visc1,omega,fx,fy,fz,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields,ntotforces &
        !$acc& ,hfields_in,hfields_out,auxfields,locauxfields,forces)
 #ifdef BOUNCE_BACK
+#ifdef FUSED2
+      call fused_LB_kernel_bb_2<<<dimGrid,dimBlockshared>>>(step &
+#else
       call fused_LB_kernel_bb<<<dimGrid,dimBlockshared>>>(step &
+#endif
+#else
+#ifdef FUSED2
+      call fused_LB_kernel_2<<<dimGrid,dimBlockshared>>>(step &
 #else
       call fused_LB_kernel<<<dimGrid,dimBlockshared>>>(step &    
+#endif
 #endif
        ,iprobe,jprobe,kprobe,flip,flop,nx,ny,nz,coords,isfluid &  
 #ifdef MULTIHIT

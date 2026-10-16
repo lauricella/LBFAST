@@ -13,6 +13,8 @@
 
 #define noSMAGORINSKI
 
+#define noFUSED2
+
 #define noINTERNAL_OBSTACLES
 
 #define GPUTILEX 8
@@ -80,4 +82,9 @@
 
 #ifdef DENSRATIO
 #define INTERFACE_INCOMP
+#endif
+
+#if defined(FUSED2) && (defined(HIGHORDER) || ((LATTICE != 19) && (LATTICE != 27)))
+#undef FUSED2
+#define FUSED2_IGNORED
 #endif

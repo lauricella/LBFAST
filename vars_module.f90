@@ -33,6 +33,14 @@
 #warning "CSF: geometric continuum-surface-force capillary model activated"
 #endif
 
+#ifdef FUSED2
+#warning "FUSED2: second-order fused kernels with one Hermite coefficient at a time in shared memory"
+#endif
+
+#ifdef FUSED2_IGNORED
+#warning "FUSED2 ignored: it applies only to D3Q19 and D3Q27 without HIGHORDER"
+#endif
+
 #ifdef CRAY
 #warning "CRAY: CRAY activated for cray compilers"
 #endif
