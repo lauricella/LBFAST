@@ -2,11 +2,11 @@
 
 ## Purpose
 
-For D3Q19 and D3Q27 without `HIGHORDER`, LBFAST performs the fused
+For D3Q15, D3Q19, and D3Q27 without `HIGHORDER`, LBFAST performs the fused
 collide-and-stream step with the kernels `fused_LB_kernel_2` and
 `fused_LB_kernel_bb_2`, selected by the `FUSED2` macro. They give the same
 results as the general kernels `fused_LB_kernel` and `fused_LB_kernel_bb`, to
-round-off, and the fused kernel runs 2.5 to 3.3 times faster on an NVIDIA A30.
+round-off, and the fused kernel runs 2.3 to 3.3 times faster on an NVIDIA A30.
 This document describes their formulation, implementation, verification, and
 performance.
 
@@ -100,14 +100,14 @@ carveout. If the GPU cannot provide the memory, the run stops with a message
 that suggests `noFUSED2`. The A30, A100, and H100 provide enough shared memory
 for two blocks per multiprocessor in double precision.
 
-The ten stages are written out in `fused2_stages.h` for D3Q19 and D3Q27, with
-the lattice components and weights as literals. A loop over the directions
-would not be equivalent in cost. nvfortran unrolls such a loop, but it does
-not replace elements of parameter arrays by their values, and multiplications
-by zero components cannot be removed under IEEE arithmetic. The generator
-reads the lattice vectors, their order, and the weight names from
+The ten stages are written out in `fused2_stages.h` for D3Q15, D3Q19, and
+D3Q27, with the lattice components and weights as literals. A loop over the
+directions would not be equivalent in cost. nvfortran unrolls such a loop, but
+it does not replace elements of parameter arrays by their values, and
+multiplications by zero components cannot be removed under IEEE arithmetic. The
+generator reads the lattice vectors, their order, and the weight names from
 `vars_module.f90`. Run it from the repository root after any change to the
-D3Q19 or D3Q27 lattice definitions:
+D3Q15, D3Q19, or D3Q27 lattice definitions:
 
 ```bash
 python3 gen_fused2_stages.py
@@ -119,8 +119,9 @@ kernels use the following resources:
 | Kernel | Threads per block | Barriers | Registers | Spills | Shared memory per block |
 |---|---:|---:|---:|---:|---:|
 | `fused_LB_kernel`, D3Q19 or D3Q27, FP64 | 1000 | 36 or 52 | 64 | 20--28 bytes | 8 KB |
+| `fused_LB_kernel_2`, D3Q15, FP64 | 512 | 1 | 49 | none | 80 KB |
 | `fused_LB_kernel_2`, D3Q19 or D3Q27, FP64 | 512 | 1 | 51 | none | 80 KB |
-| `fused_LB_kernel_2`, D3Q19 or D3Q27, FP32 | 512 | 1 | 32 | none | 40 KB |
+| `fused_LB_kernel_2`, D3Q15, D3Q19, or D3Q27, FP32 | 512 | 1 | 32 | none | 40 KB |
 | `fused_LB_kernel_2`, two-component D3Q27, FP64 | 512 | 1 | 60 | none | 80 KB |
 | `fused_LB_kernel_bb_2`, D3Q27, FP64 | 512 | 1 | 64 | 4 bytes | 80 KB |
 
@@ -131,12 +132,13 @@ than the current one.
 
 ## Selection
 
-`FUSED2` is defined in the default `defines.h`. It takes effect only for
-`LATTICE 19` and `LATTICE 27` without `HIGHORDER`. For the high-order D3Q27
-reconstruction and for D3Q15, the general kernels are used, and the build
-prints the message `FUSED2: not applicable to this lattice`. Define `noFUSED2`
+`FUSED2` is defined in the default `defines.h`. It takes effect for
+`LATTICE 15`, `LATTICE 19`, and `LATTICE 27` without `HIGHORDER`. For the
+high-order D3Q27 reconstruction, the general kernels are used, and the build
+prints the message `FUSED2: not applicable with HIGHORDER`. Define `noFUSED2`
 to use the general kernels for every lattice. In the executables produced by
-`compile.sh`, `FUSED2` therefore applies to the `_19` and `_27` builds.
+`compile.sh`, `FUSED2` therefore applies to the `_15`, `_19`, and `_27`
+builds.
 
 ## Verification
 
@@ -146,16 +148,20 @@ otherwise. Only round-off differences were found:
 
 | Case | Lattice | Steps | Largest relative difference |
 |---|---|---:|---:|
+| Taylor--Green `128^3` | D3Q15 | 2000 | `1.3e-13` |
+| Taylor--Green `128^3`, two MPI ranks | D3Q15 | 2000 | `1.4e-13` |
 | Taylor--Green `128^3` | D3Q19 | 2000 | `1.3e-13` |
 | Taylor--Green `128^3`, two MPI ranks | D3Q19 | 2000 | `1.3e-13` |
 | Taylor--Green `128^3` | D3Q27 | 2000 | `1.1e-13` |
 | Taylor--Green `128^3`, `SMAGORINSKI` | D3Q19 | 2000 | `1.1e-13` |
+| Lamb droplet, two-component `80^3` | D3Q15 | 2000 | `5.9e-13` |
 | Lamb droplet, two-component `80^3` | D3Q19 | 2000 | `6.2e-13` |
 | Lamb droplet, two-component `80^3` | D3Q27 | 2000 | `7.8e-13` |
 | Force-driven Poiseuille `32 x 8 x 32` | D3Q19 | 10000 | `8.1e-14` |
-| Force-driven Poiseuille, `BOUNCE_BACK` | D3Q19 and D3Q27 | 10000 | `1.0e-13` |
+| Force-driven Poiseuille, `BOUNCE_BACK` | D3Q15, D3Q19, and D3Q27 | 10000 | `1.3e-13` |
 | Taylor--Green `128^3`, single-precision storage (`MIXEDPRC`) | D3Q19 | 2000 | `9.4e-6` |
 | Taylor--Green `128^3`, single precision | D3Q19 | 2000 | `6.8e-5` |
+| Taylor--Green `128^3`, single precision | D3Q15 | 2000 | `1.2e-4` |
 
 The relative difference is the largest absolute difference of each moment
 field divided by the largest magnitude of that field. In the Poiseuille cases
@@ -174,8 +180,10 @@ two-component case is the static droplet of the default configuration.
 
 | Case | Fused kernel, general (ms) | Fused kernel, `FUSED2` (ms) | Speed-up | GLUPS, general | GLUPS, `FUSED2` |
 |---|---:|---:|---:|---:|---:|
+| Single-component D3Q15, FP64 | 18.4 | 7.3 | 2.5 | 0.694 | 1.286 |
 | Single-component D3Q19, FP64 | 22.2 | 7.4 | 3.0 | 0.599 | 1.278 |
 | Single-component D3Q27, FP64 | 29.7 | 9.1 | 3.3 | 0.472 | 1.128 |
+| Single-component D3Q15, FP32 | 10.1 | 4.3 | 2.3 | 1.202 | 2.053 |
 | Single-component D3Q19, FP32 | 11.8 | 4.7 | 2.5 | 1.074 | 1.972 |
 | Single-component D3Q27, FP32 | 15.1 | 5.0 | 3.0 | 0.886 | 1.894 |
 | Two-component D3Q27, FP64 | 35.4 | 10.6 | 3.3 | 0.297 | 0.527 |

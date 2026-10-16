@@ -57,7 +57,7 @@ values:
 | `TWOCOMPONENT`, `DENSRATIO`, `CSF` | disabled (`noTWOCOMPONENT`, `noDENSRATIO`, `noCSF`) |
 | `LATTICE`, `HIGHORDER` | the lattice to be measured, for example `LATTICE 27` with `HIGHORDER` |
 | `PRC`, `STRPRC` | `8` for double precision, `4` for single precision |
-| `FUSED2` | default; replace with `noFUSED2` to measure the general fused kernels for D3Q19 and D3Q27 |
+| `FUSED2` | default; replace with `noFUSED2` to measure the general fused kernels for D3Q15, D3Q19, and D3Q27 |
 
 Then build and run from the repository root:
 
@@ -96,13 +96,15 @@ on the same node can distort the measured times.
 
 The following values were obtained on one NVIDIA A30 24 GB GPU, using an MPI
 build on one rank and `nsteps = 500`. The kernel time and the throughput are
-the mean of two runs. For D3Q19 and D3Q27, the table reports both the
+the mean of two runs. For D3Q15, D3Q19, and D3Q27, the table reports both the
 second-order kernels selected by the default `FUSED2` macro (see
 [`FUSED2_KERNELS.md`](FUSED2_KERNELS.md)) and the general fused kernels used
 with `noFUSED2`. High-order D3Q27 always uses the general kernels.
 
 | Lattice | Precision | Fused kernel | GPU memory (GB) | Fused kernel (ms/step) | GLUPS | `nu_fit` |
 |---|---|---|---:|---:|---:|---:|
+| D3Q15 | FP64 | `FUSED2` | `4.08` | `7.3` | `1.286` | `0.020523` |
+| D3Q15 | FP64 | general | `4.08` | `18.4` | `0.694` | `0.020523` |
 | D3Q19 | FP64 | `FUSED2` | `4.08` | `7.4` | `1.278` | `0.020527` |
 | D3Q19 | FP64 | general | `4.08` | `22.2` | `0.599` | `0.020527` |
 | D3Q27 | FP64 | `FUSED2` | `4.08` | `9.1` | `1.128` | `0.020526` |

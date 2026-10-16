@@ -82,7 +82,7 @@ D3Q27. The job scripts also run the D3Q15 and `_sd.x` variants, which are not
 included in the tables.
 
 The published measurements predate the second-order fused kernels selected by
-`FUSED2`, which are now the default for the `_19` and `_27` executables (see
+`FUSED2`, which are now the default for the `_15`, `_19`, and `_27` executables (see
 [`FUSED2_KERNELS.md`](FUSED2_KERNELS.md)). Executables built from the current
 sources are therefore faster than the published D3Q19 and D3Q27 figures. To
 build these executables with the general fused kernels, replace `FUSED2` with
