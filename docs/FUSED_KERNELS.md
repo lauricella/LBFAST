@@ -213,6 +213,7 @@ precision unless stated otherwise. Only round-off differences were found:
 | Taylor--Green `128^3` | high-order D3Q27 | 2000 | `1.2e-13` |
 | Taylor--Green `128^3`, two MPI ranks | D3Q15, D3Q19 | 2000 | `1.4e-13` |
 | Taylor--Green `128^3`, two MPI ranks | high-order D3Q27 | 2000 | `1.2e-13` |
+| Taylor--Green `128^3`, `U0 = 0.15` (Mach 0.26) | high-order D3Q27 | 500 | `1.6e-14` |
 | Taylor--Green `128^3`, `SMAGORINSKI` | D3Q19 | 2000 | `1.1e-13` |
 | Lamb droplet, two-component `80^3` | D3Q15, D3Q19, D3Q27 | 2000 | `7.8e-13` |
 | Lamb droplet, two-component `80^3` | high-order D3Q27 | 2000 | `9.0e-14` |
@@ -228,6 +229,12 @@ field divided by the largest magnitude of that field. In the Poiseuille cases
 it refers to the nonzero fields `w`, `pzz`, and `pxz`. The fields that vanish
 in this flow contain round-off noise of order `1e-15` with the second-order
 kernels and of order `1e-17` with the `v1.0.3` kernels.
+
+The validation cases run at low Mach number, where the terms of orders three
+to six are small. The Taylor--Green case with `U0 = 0.15` tests them directly:
+there, the high-order and second-order D3Q27 reconstructions differ by `1e-2`
+in relative terms, while the high-order kernels agree with the `v1.0.3` kernels
+to `1.6e-14`.
 
 In single precision the gather sums more terms per output moment than the
 `v1.0.3` kernels, so the round-off is somewhat larger. After 2000 steps of the
