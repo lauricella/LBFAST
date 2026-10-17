@@ -81,3 +81,7 @@
 #ifdef DENSRATIO
 #define INTERFACE_INCOMP
 #endif
+
+#if !defined(TWOCOMPONENT) && !defined(INTERNAL_OBSTACLES) && !defined(MULTIHIT) && !defined(ELASTIC_FORCE)
+#define FUSED_MOMENTS
+#endif

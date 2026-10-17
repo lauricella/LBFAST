@@ -16,6 +16,11 @@ module prints
     write_file_raw_par_isfluid,read_init_parallel
 
    implicit none
+#ifdef FUSED_MOMENTS
+   ! true once the time loop has started: from then on the stored moments lack the update of
+   ! moments_LB_kernel, which copy_print applies to the printed velocity
+   logical, save :: lprint_moments_update = .false.
+#endif
 
 contains
 
@@ -653,7 +658,13 @@ contains
       integer :: xblock,yblock,zblock,myblock
       
       real(kind=db) :: rhophi_loc
+#ifdef FUSED_MOMENTS
+      logical :: lupd
+#endif
 
+#ifdef FUSED_MOMENTS
+      lupd=lprint_moments_update
+#endif
 #ifdef ACCNOKERNELS
 #if defined(DENSRATIO) && defined(TWOCOMPONENT)
 #ifdef WRITEPRESS
@@ -755,9 +766,25 @@ contains
 #ifndef TWOCOMPONENT
 				  rhoprint(i,j,k)=real(hfields_s(iii,jjj,kkk,1,myblock),kind=printdb)
 #endif
+#ifdef FUSED_MOMENTS
+                  ! moments_LB_kernel is not called: print the velocity it would have stored
+                  if(lupd .and. abs(isfluid(ii,jj,kk)) == 1)then
+                    velprint(1,i,j,k)=real(real(real(hfields_s(iii,jjj,kkk,2,myblock),kind=db) + &
+                     0.5_db*fx/ONE,kind=strdb),kind=printdb)
+                    velprint(2,i,j,k)=real(real(real(hfields_s(iii,jjj,kkk,3,myblock),kind=db) + &
+                     0.5_db*fy/ONE,kind=strdb),kind=printdb)
+                    velprint(3,i,j,k)=real(real(real(hfields_s(iii,jjj,kkk,4,myblock),kind=db) + &
+                     0.5_db*fz/ONE,kind=strdb),kind=printdb)
+                  else
+                    velprint(1,i,j,k)=real(hfields_s(iii,jjj,kkk,2,myblock),kind=printdb)
+                    velprint(2,i,j,k)=real(hfields_s(iii,jjj,kkk,3,myblock),kind=printdb)
+                    velprint(3,i,j,k)=real(hfields_s(iii,jjj,kkk,4,myblock),kind=printdb)
+                  endif
+#else
 				  velprint(1,i,j,k)=real(hfields_s(iii,jjj,kkk,2,myblock),kind=printdb)
 				  velprint(2,i,j,k)=real(hfields_s(iii,jjj,kkk,3,myblock),kind=printdb)
 				  velprint(3,i,j,k)=real(hfields_s(iii,jjj,kkk,4,myblock),kind=printdb)
+#endif
                enddo
             enddo
          enddo

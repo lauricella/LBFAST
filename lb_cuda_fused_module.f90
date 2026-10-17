@@ -81,6 +81,9 @@ contains
       real(kind=db), shared :: abuf(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1,*)
       
       real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
+#ifdef FUSED_MOMENTS
+      real(kind=db) :: um,vm,wm
+#endif
       real(kind=db) :: o0,ox,oy,oz,qxx,qyy,qzz,oxy,oxz,oyz
       real(kind=db) :: forcex,forcey,forcez,invrhophi_loc
       real(kind=db) :: fa,fb,ge,go
@@ -164,9 +167,22 @@ contains
                     invrhophi_loc = 1.0_db !press_loc
 #endif	
 
+#ifdef FUSED_MOMENTS
+  				  ! uniform body force, rounded to the storage kind as moments_LB_kernel stores it
+  				  if(abs(isfluid(i,j,k)) == 1)then
+  				    forcex=real(real(fx,kind=strdb),kind=db)*invrhophi_loc
+  				    forcey=real(real(fy,kind=strdb),kind=db)*invrhophi_loc
+  				    forcez=real(real(fz,kind=strdb),kind=db)*invrhophi_loc
+  				  else
+  				    forcex=real(forces_s(ii,jj,kk,1,myblock),kind=db)*invrhophi_loc
+  				    forcey=real(forces_s(ii,jj,kk,2,myblock),kind=db)*invrhophi_loc
+  				    forcez=real(forces_s(ii,jj,kk,3,myblock),kind=db)*invrhophi_loc
+  				  endif
+#else
   				  forcex=real(forces_s(ii,jj,kk,1,myblock),kind=db)*invrhophi_loc
   				  forcey=real(forces_s(ii,jj,kk,2,myblock),kind=db)*invrhophi_loc
   				  forcez=real(forces_s(ii,jj,kk,3,myblock),kind=db)*invrhophi_loc
+#endif
                   
                     press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
                     u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
@@ -178,6 +194,31 @@ contains
                     pxy=real(hfields_in(ii,jj,kk,8,myblock),kind=db)
                     pxz=real(hfields_in(ii,jj,kk,9,myblock),kind=db)
                     pyz=real(hfields_in(ii,jj,kk,10,myblock),kind=db) 
+#ifdef FUSED_MOMENTS
+                    ! single-component flow without internal obstacles: moments_LB_kernel is not called, and its
+                    ! update (velocity plus half the body force, second-order moment plus the force term) is
+                    ! applied here with the same operations and the same rounding to the storage kind
+                    if(abs(isfluid(i,j,k)) == 1)then
+                      um=u + 0.5_db*fx/ONE
+                      vm=v + 0.5_db*fy/ONE
+                      wm=w + 0.5_db*fz/ONE
+                      pxx=pxx + fx*um/ONE
+                      pyy=pyy + fy*vm/ONE
+                      pzz=pzz + fz*wm/ONE
+                      pxy=pxy + HALF*(fy*um+fx*vm)/ONE
+                      pxz=pxz + HALF*(fz*um+fx*wm)/ONE
+                      pyz=pyz + HALF*(fz*vm+fy*wm)/ONE
+                      u=real(real(um,kind=strdb),kind=db)
+                      v=real(real(vm,kind=strdb),kind=db)
+                      w=real(real(wm,kind=strdb),kind=db)
+                      pxx=real(real(pxx,kind=strdb),kind=db)
+                      pyy=real(real(pyy,kind=strdb),kind=db)
+                      pzz=real(real(pzz,kind=strdb),kind=db)
+                      pxy=real(real(pxy,kind=strdb),kind=db)
+                      pxz=real(real(pxz,kind=strdb),kind=db)
+                      pyz=real(real(pyz,kind=strdb),kind=db)
+                    endif
+#endif
                   
                   
 #ifdef INTERNAL_OBSTACLES
@@ -337,6 +378,9 @@ contains
       real(kind=db), shared :: abuf(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1,*)
       
       real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
+#ifdef FUSED_MOMENTS
+      real(kind=db) :: um,vm,wm
+#endif
       real(kind=db) :: o0,ox,oy,oz,qxx,qyy,qzz,oxy,oxz,oyz
       real(kind=db) :: forcex,forcey,forcez,invrhophi_loc
       real(kind=db) :: fa,fb,ge,go
@@ -423,9 +467,22 @@ contains
                     invrhophi_loc = 1.0_db !press_loc
 #endif	
 
+#ifdef FUSED_MOMENTS
+  				  ! uniform body force, rounded to the storage kind as moments_LB_kernel stores it
+  				  if(abs(isfluid(i,j,k)) == 1)then
+  				    forcex=real(real(fx,kind=strdb),kind=db)*invrhophi_loc
+  				    forcey=real(real(fy,kind=strdb),kind=db)*invrhophi_loc
+  				    forcez=real(real(fz,kind=strdb),kind=db)*invrhophi_loc
+  				  else
+  				    forcex=real(forces_s(ii,jj,kk,1,myblock),kind=db)*invrhophi_loc
+  				    forcey=real(forces_s(ii,jj,kk,2,myblock),kind=db)*invrhophi_loc
+  				    forcez=real(forces_s(ii,jj,kk,3,myblock),kind=db)*invrhophi_loc
+  				  endif
+#else
   				  forcex=real(forces_s(ii,jj,kk,1,myblock),kind=db)*invrhophi_loc
   				  forcey=real(forces_s(ii,jj,kk,2,myblock),kind=db)*invrhophi_loc
   				  forcez=real(forces_s(ii,jj,kk,3,myblock),kind=db)*invrhophi_loc
+#endif
                   
                     press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
                     u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
@@ -437,6 +494,31 @@ contains
                     pxy=real(hfields_in(ii,jj,kk,8,myblock),kind=db)
                     pxz=real(hfields_in(ii,jj,kk,9,myblock),kind=db)
                     pyz=real(hfields_in(ii,jj,kk,10,myblock),kind=db) 
+#ifdef FUSED_MOMENTS
+                    ! single-component flow without internal obstacles: moments_LB_kernel is not called, and its
+                    ! update (velocity plus half the body force, second-order moment plus the force term) is
+                    ! applied here with the same operations and the same rounding to the storage kind
+                    if(abs(isfluid(i,j,k)) == 1)then
+                      um=u + 0.5_db*fx/ONE
+                      vm=v + 0.5_db*fy/ONE
+                      wm=w + 0.5_db*fz/ONE
+                      pxx=pxx + fx*um/ONE
+                      pyy=pyy + fy*vm/ONE
+                      pzz=pzz + fz*wm/ONE
+                      pxy=pxy + HALF*(fy*um+fx*vm)/ONE
+                      pxz=pxz + HALF*(fz*um+fx*wm)/ONE
+                      pyz=pyz + HALF*(fz*vm+fy*wm)/ONE
+                      u=real(real(um,kind=strdb),kind=db)
+                      v=real(real(vm,kind=strdb),kind=db)
+                      w=real(real(wm,kind=strdb),kind=db)
+                      pxx=real(real(pxx,kind=strdb),kind=db)
+                      pyy=real(real(pyy,kind=strdb),kind=db)
+                      pzz=real(real(pzz,kind=strdb),kind=db)
+                      pxy=real(real(pxy,kind=strdb),kind=db)
+                      pxz=real(real(pxz,kind=strdb),kind=db)
+                      pyz=real(real(pyz,kind=strdb),kind=db)
+                    endif
+#endif
                   
                   
 #ifdef INTERNAL_OBSTACLES
@@ -629,6 +711,9 @@ contains
       real(kind=db), shared :: abuf(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1,*)
       
       real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
+#ifdef FUSED_MOMENTS
+      real(kind=db) :: um,vm,wm
+#endif
       real(kind=db) :: o0,ox,oy,oz,qxx,qyy,qzz,oxy,oxz,oyz
       real(kind=db) :: ho0,hox,hoy,hoz,hqxx,hqyy,hqzz,hoxy,hoxz,hoyz
       real(kind=db) :: forcex,forcey,forcez,invrhophi_loc
@@ -713,9 +798,22 @@ contains
                     invrhophi_loc = 1.0_db !press_loc
 #endif	
 
+#ifdef FUSED_MOMENTS
+  				  ! uniform body force, rounded to the storage kind as moments_LB_kernel stores it
+  				  if(abs(isfluid(i,j,k)) == 1)then
+  				    forcex=real(real(fx,kind=strdb),kind=db)*invrhophi_loc
+  				    forcey=real(real(fy,kind=strdb),kind=db)*invrhophi_loc
+  				    forcez=real(real(fz,kind=strdb),kind=db)*invrhophi_loc
+  				  else
+  				    forcex=real(forces_s(ii,jj,kk,1,myblock),kind=db)*invrhophi_loc
+  				    forcey=real(forces_s(ii,jj,kk,2,myblock),kind=db)*invrhophi_loc
+  				    forcez=real(forces_s(ii,jj,kk,3,myblock),kind=db)*invrhophi_loc
+  				  endif
+#else
   				  forcex=real(forces_s(ii,jj,kk,1,myblock),kind=db)*invrhophi_loc
   				  forcey=real(forces_s(ii,jj,kk,2,myblock),kind=db)*invrhophi_loc
   				  forcez=real(forces_s(ii,jj,kk,3,myblock),kind=db)*invrhophi_loc
+#endif
                   
                     press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
                     u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
@@ -727,6 +825,31 @@ contains
                     pxy=real(hfields_in(ii,jj,kk,8,myblock),kind=db)
                     pxz=real(hfields_in(ii,jj,kk,9,myblock),kind=db)
                     pyz=real(hfields_in(ii,jj,kk,10,myblock),kind=db) 
+#ifdef FUSED_MOMENTS
+                    ! single-component flow without internal obstacles: moments_LB_kernel is not called, and its
+                    ! update (velocity plus half the body force, second-order moment plus the force term) is
+                    ! applied here with the same operations and the same rounding to the storage kind
+                    if(abs(isfluid(i,j,k)) == 1)then
+                      um=u + 0.5_db*fx/ONE
+                      vm=v + 0.5_db*fy/ONE
+                      wm=w + 0.5_db*fz/ONE
+                      pxx=pxx + fx*um/ONE
+                      pyy=pyy + fy*vm/ONE
+                      pzz=pzz + fz*wm/ONE
+                      pxy=pxy + HALF*(fy*um+fx*vm)/ONE
+                      pxz=pxz + HALF*(fz*um+fx*wm)/ONE
+                      pyz=pyz + HALF*(fz*vm+fy*wm)/ONE
+                      u=real(real(um,kind=strdb),kind=db)
+                      v=real(real(vm,kind=strdb),kind=db)
+                      w=real(real(wm,kind=strdb),kind=db)
+                      pxx=real(real(pxx,kind=strdb),kind=db)
+                      pyy=real(real(pyy,kind=strdb),kind=db)
+                      pzz=real(real(pzz,kind=strdb),kind=db)
+                      pxy=real(real(pxy,kind=strdb),kind=db)
+                      pxz=real(real(pxz,kind=strdb),kind=db)
+                      pyz=real(real(pyz,kind=strdb),kind=db)
+                    endif
+#endif
                   
                   
 #ifdef INTERNAL_OBSTACLES
@@ -975,6 +1098,9 @@ contains
       real(kind=db), shared :: abuf(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1,*)
       
       real(kind=db) :: press,u,v,w,pxx,pyy,pzz,pxy,pxz,pyz
+#ifdef FUSED_MOMENTS
+      real(kind=db) :: um,vm,wm
+#endif
       real(kind=db) :: o0,ox,oy,oz,qxx,qyy,qzz,oxy,oxz,oyz
       real(kind=db) :: ho0,hox,hoy,hoz,hqxx,hqyy,hqzz,hoxy,hoxz,hoyz
       real(kind=db) :: forcex,forcey,forcez,invrhophi_loc
@@ -1062,9 +1188,22 @@ contains
                     invrhophi_loc = 1.0_db !press_loc
 #endif	
 
+#ifdef FUSED_MOMENTS
+  				  ! uniform body force, rounded to the storage kind as moments_LB_kernel stores it
+  				  if(abs(isfluid(i,j,k)) == 1)then
+  				    forcex=real(real(fx,kind=strdb),kind=db)*invrhophi_loc
+  				    forcey=real(real(fy,kind=strdb),kind=db)*invrhophi_loc
+  				    forcez=real(real(fz,kind=strdb),kind=db)*invrhophi_loc
+  				  else
+  				    forcex=real(forces_s(ii,jj,kk,1,myblock),kind=db)*invrhophi_loc
+  				    forcey=real(forces_s(ii,jj,kk,2,myblock),kind=db)*invrhophi_loc
+  				    forcez=real(forces_s(ii,jj,kk,3,myblock),kind=db)*invrhophi_loc
+  				  endif
+#else
   				  forcex=real(forces_s(ii,jj,kk,1,myblock),kind=db)*invrhophi_loc
   				  forcey=real(forces_s(ii,jj,kk,2,myblock),kind=db)*invrhophi_loc
   				  forcez=real(forces_s(ii,jj,kk,3,myblock),kind=db)*invrhophi_loc
+#endif
                   
                     press=real(hfields_in(ii,jj,kk,1,myblock),kind=db)
                     u=real(hfields_in(ii,jj,kk,2,myblock),kind=db)
@@ -1076,6 +1215,31 @@ contains
                     pxy=real(hfields_in(ii,jj,kk,8,myblock),kind=db)
                     pxz=real(hfields_in(ii,jj,kk,9,myblock),kind=db)
                     pyz=real(hfields_in(ii,jj,kk,10,myblock),kind=db) 
+#ifdef FUSED_MOMENTS
+                    ! single-component flow without internal obstacles: moments_LB_kernel is not called, and its
+                    ! update (velocity plus half the body force, second-order moment plus the force term) is
+                    ! applied here with the same operations and the same rounding to the storage kind
+                    if(abs(isfluid(i,j,k)) == 1)then
+                      um=u + 0.5_db*fx/ONE
+                      vm=v + 0.5_db*fy/ONE
+                      wm=w + 0.5_db*fz/ONE
+                      pxx=pxx + fx*um/ONE
+                      pyy=pyy + fy*vm/ONE
+                      pzz=pzz + fz*wm/ONE
+                      pxy=pxy + HALF*(fy*um+fx*vm)/ONE
+                      pxz=pxz + HALF*(fz*um+fx*wm)/ONE
+                      pyz=pyz + HALF*(fz*vm+fy*wm)/ONE
+                      u=real(real(um,kind=strdb),kind=db)
+                      v=real(real(vm,kind=strdb),kind=db)
+                      w=real(real(wm,kind=strdb),kind=db)
+                      pxx=real(real(pxx,kind=strdb),kind=db)
+                      pyy=real(real(pyy,kind=strdb),kind=db)
+                      pzz=real(real(pzz,kind=strdb),kind=db)
+                      pxy=real(real(pxy,kind=strdb),kind=db)
+                      pxz=real(real(pxz,kind=strdb),kind=db)
+                      pyz=real(real(pyz,kind=strdb),kind=db)
+                    endif
+#endif
                   
                   
 #ifdef INTERNAL_OBSTACLES

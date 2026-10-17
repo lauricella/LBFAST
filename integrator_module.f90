@@ -34,6 +34,9 @@ module integrator_module
 #endif
     write_restart_1c,write_restart_2c,driver_print_raw_sync2d, &
     driver_print_raw_isfluid,copy_print
+#ifdef FUSED_MOMENTS
+   use prints, only : lprint_moments_update
+#endif
    use vars
    use bcs3D, only : bcs_mesoscopic_hfields,bcs_mesoscopic_phifields
 #if defined(_OPENACC)        
@@ -271,6 +274,10 @@ contains
       !call test_LB_cuda
       goto 110
 #endif      
+#ifdef FUSED_MOMENTS
+      ! from here on copy_print adds the update of moments_LB_kernel to the printed velocity
+      lprint_moments_update=.true.
+#endif
       do step_flip=1,nsteps,2
 !***********************************************************************
 !***********************************FLIP********************************
@@ -347,6 +354,7 @@ contains
 #endif
 
 #ifdef ASYNCMPI
+#ifndef FUSED_MOMENTS
          if(ldiagnostic)call start_timing2("LB","moments_LB_cuda_ext")
          call moments_LB_cuda_ext(hfields_flop,hfields_flip &
 #ifdef TWOCOMPONENT         
@@ -354,20 +362,26 @@ contains
 #endif
           )
          if(ldiagnostic)call end_timing2("LB","moments_LB_cuda_ext")
+#endif
          
          if(ldiagnostic)call start_timing2("LB","ex_hfields_sendrecv")
 		 call exchange_hfields_sendrecv(hfields_flip)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_sendrecv")
+#ifndef FUSED_MOMENTS
 		 if(ldiagnostic)call start_timing2("LB","ex_forces_sendrecv")
 		 call exchange_forces_sendrecv
 		 if(ldiagnostic)call end_timing2("LB","ex_forces_sendrecv")
+#endif
 		 if(ldiagnostic)call start_timing2("LB","ex_hfields_intpbc")
 		 call exchange_hfields_intpbc(hfields_flip)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_intpbc")
+#ifndef FUSED_MOMENTS
 		 if(ldiagnostic)call start_timing2("LB","ex_forces_intpbc")
 		 call exchange_forces_intpbc
 		 if(ldiagnostic)call end_timing2("LB","ex_forces_intpbc")
+#endif
 		 
+#ifndef FUSED_MOMENTS
 		 if(ldiagnostic)call start_timing2("LB","moments_LB_cuda_int")
          call moments_LB_cuda_int(hfields_flop,hfields_flip &
 #ifdef TWOCOMPONENT         
@@ -375,14 +389,18 @@ contains
 #endif
           )
          if(ldiagnostic)call end_timing2("LB","moments_LB_cuda_int")
+#endif
          
          if(ldiagnostic)call start_timing2("LB","ex_hfields_wait")
 		 call exchange_hfields_wait(hfields_flip)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_wait")
+#ifndef FUSED_MOMENTS
 		 if(ldiagnostic)call start_timing2("LB","ex_forces_wait")
 		 call exchange_forces_wait
 		 if(ldiagnostic)call end_timing2("LB","ex_forces_wait")
+#endif
 #else
+#ifndef FUSED_MOMENTS
          if(ldiagnostic)call start_timing2("LB","moments_LB_cuda")
          call moments_LB_cuda(hfields_flop,hfields_flip &
 #ifdef TWOCOMPONENT         
@@ -390,6 +408,7 @@ contains
 #endif
           )
          if(ldiagnostic)call end_timing2("LB","moments_LB_cuda")
+#endif
 		 !***********************************pbcs boundary conditions ********************************!
          if(ldiagnostic)call start_timing2("LB","ex_hfields_sendrecv")
 		 call exchange_hfields_sendrecv(hfields_flip)
@@ -401,15 +420,21 @@ contains
 		 call exchange_hfields_wait(hfields_flip)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_wait")
 		 !***********************************force pbcs boundary conditions ********************************!
+#ifndef FUSED_MOMENTS
          if(ldiagnostic)call start_timing2("LB","ex_forces_sendrecv")
 		 call exchange_forces_sendrecv
 		 if(ldiagnostic)call end_timing2("LB","ex_forces_sendrecv")
+#endif
+#ifndef FUSED_MOMENTS
 		 if(ldiagnostic)call start_timing2("LB","ex_forces_intpbc")
 		 call exchange_forces_intpbc
 		 if(ldiagnostic)call end_timing2("LB","ex_forces_intpbc")
+#endif
+#ifndef FUSED_MOMENTS
 		 if(ldiagnostic)call start_timing2("LB","ex_forces_wait")
 		 call exchange_forces_wait
 		 if(ldiagnostic)call end_timing2("LB","ex_forces_wait")      
+#endif
 #endif        
          if(lprint)then 
            if(mod(step,stamp).eq.0 .or. mod(step,stamp2D).eq.0 .or. mod(step,stamp_term).eq.0)then
@@ -637,6 +662,7 @@ contains
 #endif
 
 #ifdef ASYNCMPI
+#ifndef FUSED_MOMENTS
          if(ldiagnostic)call start_timing2("LB","moments_LB_cuda_ext")
          call moments_LB_cuda_ext(hfields_flip,hfields_flop &
 #ifdef TWOCOMPONENT         
@@ -644,20 +670,26 @@ contains
 #endif
           )
          if(ldiagnostic)call end_timing2("LB","moments_LB_cuda_ext")	
+#endif
          
          if(ldiagnostic)call start_timing2("LB","ex_hfields_sendrecv")
 		 call exchange_hfields_sendrecv(hfields_flop)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_sendrecv")
+#ifndef FUSED_MOMENTS
 		 if(ldiagnostic)call start_timing2("LB","ex_forces_sendrecv")
 		 call exchange_forces_sendrecv
 		 if(ldiagnostic)call end_timing2("LB","ex_forces_sendrecv")
+#endif
 		 if(ldiagnostic)call start_timing2("LB","ex_hfields_intpbc")
 		 call exchange_hfields_intpbc(hfields_flop)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_intpbc")
+#ifndef FUSED_MOMENTS
 		 if(ldiagnostic)call start_timing2("LB","ex_forces_intpbc")
 		 call exchange_forces_intpbc
 		 if(ldiagnostic)call end_timing2("LB","ex_forces_intpbc")
+#endif
 		 
+#ifndef FUSED_MOMENTS
          if(ldiagnostic)call start_timing2("LB","moments_LB_cuda_int")
          call moments_LB_cuda_int(hfields_flip,hfields_flop &
 #ifdef TWOCOMPONENT         
@@ -665,15 +697,19 @@ contains
 #endif
           )
          if(ldiagnostic)call end_timing2("LB","moments_LB_cuda_int")
+#endif
          
          if(ldiagnostic)call start_timing2("LB","ex_hfields_wait")
 		 call exchange_hfields_wait(hfields_flop)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_wait")
+#ifndef FUSED_MOMENTS
 		 if(ldiagnostic)call start_timing2("LB","ex_forces_wait")
 		 call exchange_forces_wait
 		 if(ldiagnostic)call end_timing2("LB","ex_forces_wait")
+#endif
 #else
 
+#ifndef FUSED_MOMENTS
          if(ldiagnostic)call start_timing2("LB","moments_LB_cuda")
          call moments_LB_cuda(hfields_flip,hfields_flop &
 #ifdef TWOCOMPONENT         
@@ -681,6 +717,7 @@ contains
 #endif
           )
          if(ldiagnostic)call end_timing2("LB","moments_LB_cuda")	 
+#endif
 		 !***********************************pbcs boundary conditions ********************************!
          if(ldiagnostic)call start_timing2("LB","ex_hfields_sendrecv")
 		 call exchange_hfields_sendrecv(hfields_flop)
@@ -692,15 +729,21 @@ contains
 		 call exchange_hfields_wait(hfields_flop)
 		 if(ldiagnostic)call end_timing2("LB","ex_hfields_wait")
 		 !***********************************force pbcs boundary conditions ********************************!
+#ifndef FUSED_MOMENTS
          if(ldiagnostic)call start_timing2("LB","ex_forces_sendrecv")
 		 call exchange_forces_sendrecv
 		 if(ldiagnostic)call end_timing2("LB","ex_forces_sendrecv")
+#endif
+#ifndef FUSED_MOMENTS
 		 if(ldiagnostic)call start_timing2("LB","ex_forces_intpbc")
 		 call exchange_forces_intpbc
 		 if(ldiagnostic)call end_timing2("LB","ex_forces_intpbc")
+#endif
+#ifndef FUSED_MOMENTS
 		 if(ldiagnostic)call start_timing2("LB","ex_forces_wait")
 		 call exchange_forces_wait
 		 if(ldiagnostic)call end_timing2("LB","ex_forces_wait")  
+#endif
 #endif        
          if(lprint)then 
            if(mod(step,stamp).eq.0 .or. mod(step,stamp2D).eq.0 .or. mod(step,stamp_term).eq.0)then
