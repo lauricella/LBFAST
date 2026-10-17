@@ -189,6 +189,10 @@ summaries of the smoke and complete suites unchanged.
   use and that the published scaling figures predate them.
 - `compile.sh` is tracked as an executable file, so it can be run as
   `./compile.sh`, as described in [`COMPILE_SCRIPT.md`](COMPILE_SCRIPT.md).
+- Comments in English were added throughout the source. They explain the tiled
+  data layout, the time-step sequence, the force computation, the phase-field
+  update, the boundary conditions, the halo exchange, the output and restart
+  files, and the validation drivers. No code line was changed.
 
 ## Upgrade notes
 
