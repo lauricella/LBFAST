@@ -52,7 +52,8 @@ message.
 | Second order | 10 | 80 KB / 40 KB | 2 / 4 |
 | High order | 19 | 152 KB / 76 KB | 1 / 2 |
 
-The numbers of blocks were reported by
+With `MIXEDPRC`, the arithmetic and the shared buffer are in double precision,
+so the double-precision requirements apply. The numbers of blocks were reported by
 `cudaOccupancyMaxActiveBlocksPerMultiprocessor`. The A30, A100, and H100
 provide enough shared memory for all kernels. A GPU with less than 152 KB of
 shared memory per block, such as the V100 with 96 KB, cannot run the
@@ -221,6 +222,7 @@ precision unless stated otherwise. Only round-off differences were found:
 | Force-driven Poiseuille, `BOUNCE_BACK` | D3Q15, D3Q19, D3Q27 | 10000 | `1.3e-13` |
 | Force-driven Poiseuille, `BOUNCE_BACK` | high-order D3Q27 | 10000 | `9.9e-14` |
 | Taylor--Green `128^3`, single-precision storage (`MIXEDPRC`) | D3Q19 | 2000 | `9.4e-6` |
+| Taylor--Green `128^3`, single-precision storage (`MIXEDPRC`) | high-order D3Q27 | 2000 | `7.1e-6` |
 | Taylor--Green `128^3`, single precision | D3Q15, D3Q19 | 2000 | `1.2e-4` |
 | Taylor--Green `128^3`, single precision | high-order D3Q27 | 2000 | `1.3e-4` |
 
@@ -235,6 +237,10 @@ to six are small. The Taylor--Green case with `U0 = 0.15` tests them directly:
 there, the high-order and second-order D3Q27 reconstructions differ by `1e-2`
 in relative terms, while the high-order kernels agree with the `v1.0.3` kernels
 to `1.6e-14`.
+
+With `MIXEDPRC`, the accumulation is in double precision, and the deviations
+from the double-precision solution are those of the single-precision storage,
+as with the `v1.0.3` kernels.
 
 In single precision the gather sums more terms per output moment than the
 `v1.0.3` kernels, so the round-off is somewhat larger. After 2000 steps of the
