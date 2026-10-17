@@ -4,6 +4,14 @@ title: "LBFAST: A Lightweight Moment-Represented Lattice Boltzmann Solver for Mu
 type: software
 version: 1.1.0
 date-released: 2026-10-17
+doi: "10.5281/zenodo.23441342"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.23441342"
+    description: "Zenodo archive of version 1.1.0"
+  - type: doi
+    value: "10.5281/zenodo.21823379"
+    description: "Zenodo archive of all versions; resolves to the latest version"
 repository-code: "https://github.com/lauricella/LBFAST"
 abstract: >-
   LBFAST is a lightweight moment-represented lattice Boltzmann solver for
