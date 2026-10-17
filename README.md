@@ -441,11 +441,13 @@ checks this (see [`docs/CMAKE.md`](docs/CMAKE.md)).
 The `Makefile` builds the executable in single-process, MPI, debug, and
 NVML-enabled variants, in the main directory. The procedure is:
 
-1. Load the NVIDIA HPC SDK environment, including the MPI library for MPI
-   builds. On the reference system:
+1. Load the NVIDIA HPC SDK environment, including its MPI library for MPI
+   builds, so that `nvfortran`, `nvc`, `nvcc`, `mpif90`, and `mpicc` are in
+   the `PATH`. On most HPC systems this is done with the module provided by
+   the site, for example (module names differ between systems):
 
    ```bash
-   source load_iac.sh
+   module load nvhpc-hpcx
    ```
 
 2. Select the compile-time macros in `defines.h` (see
@@ -511,15 +513,10 @@ either from `defines.h` or from CMake cache variables, so that several
 configurations can be built side by side without editing `defines.h`. The
 procedure is:
 
-1. Load the NVIDIA HPC SDK environment, as for `make`:
-
-   ```bash
-   source load_iac.sh
-   ```
-
-   CMake takes `nvfortran` and `nvc` from the environment (`FC`, `CC`) or the
-   `PATH`, the MPI library through `FindMPI`, and NVML from the CUDA toolkit
-   of the HPC SDK.
+1. Load the NVIDIA HPC SDK environment, as for `make`. CMake takes
+   `nvfortran` and `nvc` from the environment (`FC`, `CC`) or the `PATH`, the
+   MPI library through `FindMPI`, and NVML from the CUDA toolkit of the HPC
+   SDK.
 
 2. Configure a build directory, choosing the options (the defaults give the
    `nvfortran-mpi` build with the macros of `defines.h`):

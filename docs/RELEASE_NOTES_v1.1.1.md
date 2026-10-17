@@ -20,7 +20,6 @@ sources and flags as the `Makefile`
 ([`CMAKE.md`](CMAKE.md); procedure in the README, "Compiling *LBFAST*"):
 
 ```bash
-source load_iac.sh
 cmake -S . -B build/default -DGPUCC=80
 cmake --build build/default -j 8
 ```

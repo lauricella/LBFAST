@@ -34,11 +34,9 @@ flags from `lbfast_build.mk`, and the smoke suite checks that they agree
   (`$NVHPC_ROOT/cuda`), then from its other CUDA versions, so no path has to
   be given.
 
-On the reference system:
-
-```bash
-source load_iac.sh
-```
+The HPC SDK environment is loaded as required on each system, typically with
+the module provided by the site, for example `module load nvhpc-hpcx` (module
+names differ between systems).
 
 ## Quick start
 
