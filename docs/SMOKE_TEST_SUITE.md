@@ -17,6 +17,13 @@ produces finite diagnostics, and follows the expected initial physical trend.
 | Lamb oscillation | `40^3` | 20 | Finite ellipsoidal interface dimensions and bounded deformation. |
 | Taylor--Green | `32^3` | 30 | At least three finite samples and decreasing kinetic energy. |
 | Forced Poiseuille | `16 x 8 x 16` | 100 | Positive, symmetric force-generated flow and zero velocity on solid planes. |
+| Build systems | `32^3` (Laplace) | 20 | `make` and CMake compile the same sources with the same flags, and their executables write byte-identical output, restart and RAW files included. |
+
+The build-system case runs `tests/check_build_systems.py` on the Laplace
+configuration: it builds the solver with `make` and with CMake (in
+`tests/results/build_systems/cmake`) and compares compiler commands and
+outputs, as described in [`CMAKE.md`](CMAKE.md). It is reported as `SKIP` when
+`cmake` is not available.
 
 All dimensions are multiples of the default `8 x 8 x 8` GPU tile. Field,
 restart, and visualization output is disabled in the reduced inputs.
@@ -36,6 +43,7 @@ can be changed without editing the script:
 python3 tests/run_smoke_tests.py --gpu-cc 90
 python3 tests/run_smoke_tests.py --make-target nvfortran --case taylor_green
 python3 tests/run_smoke_tests.py --case laplace_csf --case poiseuille_force
+python3 tests/run_smoke_tests.py --case build_systems
 ```
 
 The cases require different compile-time selectors, so the script performs a
@@ -52,8 +60,9 @@ PASS  capillary_wave       mass conserved; CSF projection=...
 PASS  lamb_oscillation     finite interface; deformation=...
 PASS  taylor_green         energy decays; log(E/E0)=...
 PASS  poiseuille_force     force generates symmetric flow; umax=...
+PASS  build_systems        same sources, flags and output
 
-5 passed, 0 failed
+6 passed, 0 failed
 ```
 
 Individual inputs, build and run logs, compact diagnostics, and the aggregate

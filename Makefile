@@ -1,6 +1,13 @@
 #
 # makefile
 #
+# Source lists and compiler flags are defined in lbfast_build.mk, which is
+# shared with CMakeLists.txt (see docs/CMAKE.md). Add new source files and
+# change optimisation or GPU flags there, so that both build systems stay
+# in step.
+#
+
+include lbfast_build.mk
 
 BINROOT = $(CURDIR)
 FC=undefined
@@ -9,7 +16,6 @@ CFLAGSNVML=undefined
 NVML_INC ?= $(NVHPC_HOME)
 NVML_LIB ?= $(NVHPC_HOME)
 FCUDAFLAGS=undefined
-FCUDAFLAGSRID=undefined
 FFLAGS=undefined
 LDFLAGS=undefined
 TYPE=undefined
@@ -21,6 +27,22 @@ SHELL=/bin/sh
 
 # default (change calling: make GPUCC=80)
 GPUCC ?= all
+
+# Flag sets composed from lbfast_build.mk
+FREL  = $(LBFAST_RELEASE_OPT) $(LBFAST_FFLAGS)
+GREL  = -gpu=cc$(GPUCC),$(LBFAST_RELEASE_GPU_OPTS) $(LBFAST_INFO)
+LDREL = $(LBFAST_RELEASE_LINK_OPT) $(LBFAST_LDFLAGS) -gpu=cc$(GPUCC),$(LBFAST_LINK_GPU_OPTS) $(LBFAST_INFO)
+FDBG  = $(LBFAST_DEBUG_OPT) $(LBFAST_FFLAGS)
+GDBG  = -gpu=cc$(GPUCC),$(LBFAST_DEBUG_GPU_OPTS) $(LBFAST_INFO) $(LBFAST_DEBUG_CHECKS)
+LDDBG = $(LBFAST_DEBUG_LINK_OPT) $(LBFAST_LDFLAGS) -gpu=cc$(GPUCC),$(LBFAST_LINK_GPU_OPTS) $(LBFAST_INFO) $(LBFAST_DEBUG_CHECKS)
+
+# Object lists from lbfast_build.mk; lb_cuda_*.o are compiled with FCUDAFLAGS
+C_OBJS      = $(LBFAST_C_SOURCES:.c=.o)
+NVML_C_OBJS = $(LBFAST_NVML_C_SOURCES:.c=.o)
+NVML_F_OBJS = $(LBFAST_NVML_F_SOURCES:.f90=.o)
+F_OBJS      = $(LBFAST_F_SOURCES:.f90=.o)
+CUDA_OBJS   = $(filter lb_cuda_%.o,$(F_OBJS))
+HOST_OBJS   = $(filter-out lb_cuda_%.o,$(F_OBJS))
 
 def:	all
 
@@ -45,175 +67,86 @@ help: all
 nvfortran:
 	$(MAKE) CC=nvcc \
 	FC=nvfortran \
-	CFLAGS="-O3 -I$(CURDIR) " \
-	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -I$(CURDIR) " \
-	FCUDAFLAGSRID="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -I$(CURDIR) " \
-	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -I$(CURDIR) " \
-	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -I$(CURDIR) -o" \
+	CFLAGS="$(LBFAST_RELEASE_OPT) -I$(CURDIR) " \
+	FCUDAFLAGS="$(FREL) $(LBFAST_CUDAFLAGS) $(GREL) -I$(CURDIR) " \
+	FFLAGS="$(FREL) $(GREL) -I$(CURDIR) " \
+	LDFLAGS="$(LDREL) -I$(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EXP) BINROOT=$(BINROOT) seq
 	
 nvfortran-debug:
 	$(MAKE) CC=nvcc \
 	FC=nvfortran \
-	CFLAGS="-O0 -g -I$(CURDIR) " \
-	FCUDAFLAGS="-O0 -g -cpp -acc -cuda -gpu=cc$(GPUCC),debug,keep,ptxinfo,lineinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -I$(CURDIR) " \
-	FCUDAFLAGSRID="-O0 -g -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -I$(CURDIR) " \
-	FFLAGS="-O0 -g -cpp -acc -gpu=cc$(GPUCC),debug,keep,ptxinfo,lineinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -I$(CURDIR) " \
-	LDFLAGS="-O0 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -Mchkptr -Mchkstk -traceback -I$(CURDIR) -o" \
+	CFLAGS="$(LBFAST_DEBUG_OPT) -I$(CURDIR) " \
+	FCUDAFLAGS="$(FDBG) $(LBFAST_CUDAFLAGS) $(GDBG) -I$(CURDIR) " \
+	FFLAGS="$(FDBG) $(GDBG) -I$(CURDIR) " \
+	LDFLAGS="$(LDDBG) -I$(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EX) BINROOT=$(BINROOT) seq
 
 nvfortran-mpi:
 	$(MAKE) CC=mpicc \
 	FC=mpif90 \
-	CFLAGS="-O3 -I$(CURDIR) " \
-	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -I$(CURDIR) " \
-	FCUDAFLAGSRID="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -I$(CURDIR) " \
-	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -DMPI -I$(CURDIR) " \
-	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DMPI -I$(CURDIR) -o" \
+	CFLAGS="$(LBFAST_RELEASE_OPT) -I$(CURDIR) " \
+	FCUDAFLAGS="$(FREL) $(LBFAST_CUDAFLAGS) $(GREL) -I$(CURDIR) " \
+	FFLAGS="$(FREL) $(GREL) -DMPI -I$(CURDIR) " \
+	LDFLAGS="$(LDREL) -DMPI -I$(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EXP) BINROOT=$(BINROOT) seq
 
 nvfortran-mpi-debug:
 	$(MAKE) CC=mpicc \
 	FC=mpif90 \
-	CFLAGS="-O0 -g -I$(CURDIR) " \
-	FCUDAFLAGS="-O0 -g -cpp -acc -cuda -gpu=cc$(GPUCC),debug,keep,ptxinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -I$(CURDIR) " \
-	FCUDAFLAGSRID="-O0 -g -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -I$(CURDIR) " \
-	FFLAGS="-O0 -g -cpp -acc -gpu=cc$(GPUCC),debug,keep,ptxinfo,maxregcount:64 -Minfo=accel -Mchkptr -Mchkstk -traceback -DMPI -I$(CURDIR) " \
-	LDFLAGS="-O0 -acc -cuda -gpu=cc$(GPUCC) -Minfo=accel -Mchkptr -Mchkstk -traceback -DMPI -I$(CURDIR) -o" \
+	CFLAGS="$(LBFAST_DEBUG_OPT) -I$(CURDIR) " \
+	FCUDAFLAGS="$(FDBG) $(LBFAST_CUDAFLAGS) $(GDBG) -I$(CURDIR) " \
+	FFLAGS="$(FDBG) $(GDBG) -DMPI -I$(CURDIR) " \
+	LDFLAGS="$(LDDBG) -DMPI -I$(CURDIR) -o" \
 	TYPE=seq \
 	EX=$(EXP) BINROOT=$(BINROOT) seq
 
 nvfortran-nvml:
 	$(MAKE) CC=nvcc \
 	FC=nvfortran \
-	CFLAGS="-O3 -I$(CURDIR) " \
-	CFLAGSNVML="-O3 -I$(NVML_INC) -D_NVML -I$(CURDIR) " \
-	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_NVML -I$(CURDIR) " \
-	FCUDAFLAGSRID="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_NVML -I$(CURDIR) " \
-	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_NVML -I$(CURDIR) " \
-	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -I$(CURDIR) -o" \
+	CFLAGS="$(LBFAST_RELEASE_OPT) -I$(CURDIR) " \
+	CFLAGSNVML="$(LBFAST_RELEASE_OPT) -I$(NVML_INC) -D_NVML -I$(CURDIR) " \
+	FCUDAFLAGS="$(FREL) $(LBFAST_CUDAFLAGS) $(GREL) -D_NVML -I$(CURDIR) " \
+	FFLAGS="$(FREL) $(GREL) -D_NVML -I$(CURDIR) " \
+	LDFLAGS="$(LDREL) -I$(CURDIR) -o" \
 	TYPE=seqnvml \
 	EX=$(EXP) BINROOT=$(BINROOT) seqnvml
 
 nvfortran-nvml-mpi:
 	$(MAKE) CC=mpicc \
 	FC=mpif90 \
-	CFLAGS="-O3 -I$(CURDIR) " \
-	CFLAGSNVML="-O3 -I$(NVML_INC) -D_NVML -I$(CURDIR) " \
-	FCUDAFLAGS="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_NVML -I$(CURDIR) " \
-	FCUDAFLAGSRID="-O3 -cpp -acc -cuda -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_NVML -I$(CURDIR) " \
-	FFLAGS="-O3 -cpp -acc -gpu=cc$(GPUCC),lineinfo,ptxinfo,maxregcount:64 -Minfo=accel -D_NVML -DMPI -I$(CURDIR) " \
-	LDFLAGS="-O3 -acc -cuda -gpu=cc$(GPUCC),lineinfo -Minfo=accel -DMPI -I$(CURDIR) -o" \
+	CFLAGS="$(LBFAST_RELEASE_OPT) -I$(CURDIR) " \
+	CFLAGSNVML="$(LBFAST_RELEASE_OPT) -I$(NVML_INC) -D_NVML -I$(CURDIR) " \
+	FCUDAFLAGS="$(FREL) $(LBFAST_CUDAFLAGS) $(GREL) -D_NVML -I$(CURDIR) " \
+	FFLAGS="$(FREL) $(GREL) -D_NVML -DMPI -I$(CURDIR) " \
+	LDFLAGS="$(LDREL) -DMPI -I$(CURDIR) -o" \
 	TYPE=seqnvml \
 	EX=$(EXP) BINROOT=$(BINROOT) seqnvml
 
-seq:get_mem.o get_ram.o vars_module.o \
-	mpi_module.o profiling_m.o lb_cuda_vars_module.o \
-	lb_cuda_auxfields_module.o lb_cuda_repulsive_module.o lb_cuda_moments_module.o \
-	lb_cuda_fused_module.o lb_cuda_update_phi_module.o lb_cuda_boundary_module.o \
-	lb_cuda_driver_module.o boundary_cds_module.o statistics.o init_conditions_module.o \
-	print_module.o allocate_module.o integrator_module.o \
-	LBFAST.o
-	$(FC) $(LDFLAGS) $(EX) get_mem.o get_ram.o \
-	vars_module.o mpi_module.o \
-	profiling_m.o lb_cuda_vars_module.o lb_cuda_auxfields_module.o \
-	lb_cuda_repulsive_module.o lb_cuda_moments_module.o \
-	lb_cuda_fused_module.o lb_cuda_update_phi_module.o lb_cuda_boundary_module.o \
-	lb_cuda_driver_module.o boundary_cds_module.o statistics.o init_conditions_module.o \
-	print_module.o allocate_module.o integrator_module.o \
-	LBFAST.o
+seq: $(C_OBJS) $(F_OBJS)
+	$(FC) $(LDFLAGS) $(EX) $(C_OBJS) $(F_OBJS)
 
-seqnvml:get_mem.o get_ram.o vars_module.o \
-	nvml_wrapper.o nvml_interface_module.o \
-	mpi_module.o profiling_m.o lb_cuda_vars_module.o \
-	lb_cuda_auxfields_module.o lb_cuda_repulsive_module.o lb_cuda_moments_module.o \
-	lb_cuda_fused_module.o lb_cuda_update_phi_module.o lb_cuda_boundary_module.o \
-	lb_cuda_driver_module.o boundary_cds_module.o statistics.o \
-	init_conditions_module.o print_module.o allocate_module.o integrator_module.o \
-	LBFAST.o
-	$(FC) $(LDFLAGS) $(EX) get_mem.o get_ram.o nvml_wrapper.o nvml_interface_module.o \
-	vars_module.o mpi_module.o \
-	profiling_m.o lb_cuda_vars_module.o lb_cuda_auxfields_module.o \
-	lb_cuda_repulsive_module.o lb_cuda_moments_module.o \
-	lb_cuda_fused_module.o lb_cuda_update_phi_module.o lb_cuda_boundary_module.o \
-	lb_cuda_driver_module.o boundary_cds_module.o statistics.o \
-	init_conditions_module.o print_module.o allocate_module.o integrator_module.o \
-	LBFAST.o -L$(NVML_LIB) -lnvidia-ml
-#	mv $(EXP) $(EXEP)
+seqnvml: $(C_OBJS) $(NVML_C_OBJS) $(NVML_F_OBJS) $(F_OBJS)
+	$(FC) $(LDFLAGS) $(EX) $(C_OBJS) $(NVML_C_OBJS) $(NVML_F_OBJS) $(F_OBJS) \
+	-L$(NVML_LIB) -lnvidia-ml
 
-get_mem.o:get_mem.c
-	$(CC) $(CFLAGS) -c get_mem.c
+$(C_OBJS): %.o: %.c
+	$(CC) $(CFLAGS) -c $<
 
-get_ram.o:get_ram.c
-	$(CC) $(CFLAGS) -c get_ram.c
+$(NVML_C_OBJS): %.o: %.c $(LBFAST_HEADERS)
+	$(CC) $(CFLAGSNVML) -c $<
 
-nvml_wrapper.o: nvml_wrapper.c
-	$(CC) $(CFLAGSNVML) -c nvml_wrapper.c
+$(HOST_OBJS) $(NVML_F_OBJS): %.o: %.f90 $(LBFAST_HEADERS)
+	$(FC) $(FFLAGS) -c $<
 
-nvml_interface_module.o: nvml_interface_module.f90
-	$(FC) $(FFLAGS) -c nvml_interface_module.f90
-
-vars_module.o:vars_module.f90
-	$(FC) $(FFLAGS) -c vars_module.f90
-	
-mpi_module.o:mpi_module.f90
-	$(FC) $(FFLAGS) -c mpi_module.f90
-
-profiling_m.o: profiling_m.f90
-	$(FC) $(FFLAGS) -c profiling_m.f90
-
-lb_cuda_vars_module.o:lb_cuda_vars_module.f90
-	$(FC) $(FCUDAFLAGS) -c lb_cuda_vars_module.f90
-
-lb_cuda_auxfields_module.o:lb_cuda_auxfields_module.f90
-	$(FC) $(FCUDAFLAGS) -c lb_cuda_auxfields_module.f90
-
-lb_cuda_repulsive_module.o:lb_cuda_repulsive_module.f90
-	$(FC) $(FCUDAFLAGS) -c lb_cuda_repulsive_module.f90
-
-lb_cuda_moments_module.o:lb_cuda_moments_module.f90
-	$(FC) $(FCUDAFLAGS) -c lb_cuda_moments_module.f90
-
-lb_cuda_fused_module.o:lb_cuda_fused_module.f90
-	$(FC) $(FCUDAFLAGS) -c lb_cuda_fused_module.f90
-
-lb_cuda_update_phi_module.o:lb_cuda_update_phi_module.f90
-	$(FC) $(FCUDAFLAGS) -c lb_cuda_update_phi_module.f90
-
-lb_cuda_boundary_module.o:lb_cuda_boundary_module.f90
-	$(FC) $(FCUDAFLAGS) -c lb_cuda_boundary_module.f90
-
-lb_cuda_driver_module.o:lb_cuda_driver_module.f90
-	$(FC) $(FCUDAFLAGS) -c lb_cuda_driver_module.f90
-
-boundary_cds_module.o:boundary_cds_module.f90
-	$(FC) $(FFLAGS) -c boundary_cds_module.f90
-
-statistics.o:statistics.f90
-	$(FC) $(FFLAGS) -c statistics.f90
-
-init_conditions_module.o:init_conditions_module.f90
-	$(FC) $(FFLAGS) -c init_conditions_module.f90
-
-print_module.o:print_module.f90
-	$(FC) $(FFLAGS) -c print_module.f90
-
-allocate_module.o:allocate_module.f90
-	$(FC) $(FFLAGS) -c allocate_module.f90
-
-integrator_module.o:integrator_module.f90
-	$(FC) $(FFLAGS) -c integrator_module.f90
-
-LBFAST.o:LBFAST.f90
-	$(FC) $(FFLAGS) -c LBFAST.f90
+$(CUDA_OBJS): %.o: %.f90 $(LBFAST_HEADERS)
+	$(FC) $(FCUDAFLAGS) -c $<
 
 clean-all:
 	rm -rf *.mod *.o *.x *.dat *.i
 
 clean:
 	rm -rf *.mod *.o *.i
-
-

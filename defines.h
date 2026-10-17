@@ -1,3 +1,7 @@
+/* User choices. CMake builds configured with LBFAST_USE_DEFINES_H=OFF
+   skip this block and include lbfast_config.h, which CMake generates in
+   the build directory from these lines and its cache variables. */
+#ifndef LBFAST_CMAKE_CONFIG
 #define LATTICE 27
 #define HIGHORDER
 
@@ -37,6 +41,9 @@
 
 #define USEGNUPLOT
 #define noPRINTPHI
+#else
+#include "lbfast_config.h"
+#endif
 
 #ifdef LAPLACE
 #define TWOCOMPONENT

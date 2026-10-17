@@ -10,6 +10,9 @@ each executable a descriptive name.
 The script targets NVIDIA GPUs, CUDA-aware MPI, and NVML. Its default compute
 capability is CC 8.0, which covers NVIDIA A30 and A100 GPUs.
 
+The same 24 executables can also be built with CMake, in parallel and without
+editing `defines.h`, by `compile_cmake.sh`; see [`CMAKE.md`](CMAKE.md).
+
 ## Prerequisites
 
 The NVIDIA HPC SDK environment must already be loaded. In particular,

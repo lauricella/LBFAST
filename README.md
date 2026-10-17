@@ -91,7 +91,9 @@ configuration in `defines.h`.
 
 The code is compiled directly from the main *LBFAST* directory using the
 supplied `Makefile`. The executable produced by the compilation is named
-`main.x`.
+`main.x`. A CMake build, which compiles the same sources with the same flags
+in separate build directories, is available as an alternative (see
+[Compiling *LBFAST*](#compiling-lbfast)).
 
 ## Documentation
 
@@ -102,6 +104,7 @@ Detailed build and validation guides are available in the `docs` directory:
 | [`RELEASE_NOTES_v1.1.0.md`](docs/RELEASE_NOTES_v1.1.0.md) | Technical summary of changes in `v1.1.0` relative to `v1.0.3`: new fused collide-and-stream kernels, moment update inside the fused kernels for single-component flows, faster interface kernels, shared-memory requirements, performance, upgrade notes, validation status, and the release checklist. |
 | [`RELEASE_NOTES_v1.0.3.md`](docs/RELEASE_NOTES_v1.0.3.md) | Technical summary of changes in `v1.0.3` relative to `v1.0.2`: corrected high-order D3Q27 off-equilibrium coefficients, pull streaming in the fused kernels, upgrade notes, validation status, and the release checklist. |
 | [`RELEASE_NOTES_v1.0.2.md`](docs/RELEASE_NOTES_v1.0.2.md) | Technical summary of changes in `v1.0.2` relative to `v1.0.1`, including upgrade notes, validation status, and the release checklist. |
+| [`CMAKE.md`](docs/CMAKE.md) | Alternative CMake build: options and their `make` equivalents, compile-time macros from `defines.h` or from cache variables, presets and `compile_cmake.sh` for the 24-executable matrix, and the shared `lbfast_build.mk` and automatic check that keep CMake and the `Makefile` in step. |
 | [`COMPILE_SCRIPT.md`](docs/COMPILE_SCRIPT.md) | Requirements and operation of `compile.sh`, including the 24 generated lattice/precision executables, filename conventions, macro transitions, and recovery after an interrupted build. |
 | [`CSF_LAPLACE_VALIDATION.md`](docs/CSF_LAPLACE_VALIDATION.md) | Geometric continuum-surface-force formulation, static Laplace-pressure validation, effective surface tension, radius sweep, and reproduction instructions. |
 | [`CAPILLARY_WAVE_VALIDATION.md`](docs/CAPILLARY_WAVE_VALIDATION.md) | Planar capillary-wave configuration, theoretical frequency, phase-field kinematic and force-projection checks, automated run, and numerical result. |
@@ -170,7 +173,8 @@ documentation.
 
 The physical model, benchmark type, lattice stencil, precision, and optional
 features are selected at compile time through the preprocessor macros defined
-in `defines.h`.
+in `defines.h`. In a CMake build they can also be given as cache variables,
+without editing `defines.h` (see [`docs/CMAKE.md`](docs/CMAKE.md)).
 
 The current default configuration is a two-component, high-density-ratio,
 high-order D3Q27 setup, corresponding to `#define LATTICE 27`,
@@ -460,6 +464,34 @@ Available targets are:
 | `nvfortran-nvml-mpi` | Compile a parallel MPI GPU version with both `_NVML` and `-DMPI` enabled. |
 | `clean` | Remove object files, module files, and intermediate preprocessed files. |
 | `clean-all` | Remove object files, module files, executable files, data files, and intermediate preprocessed files. |
+
+The source lists and the compiler flags are defined in `lbfast_build.mk`,
+which the `Makefile` includes. Every object is rebuilt when `defines.h` or a
+stage header changes; the `Makefile` does not track dependencies between
+modules, so run `make clean` after editing a module used by other sources.
+
+### Compiling with CMake
+
+CMake 3.20 or newer can be used instead of `make`. The build takes place in a
+separate directory, and the compile-time macros can be taken either from
+`defines.h` or from CMake cache variables, so that several configurations can
+be built side by side without editing `defines.h`:
+
+```bash
+cmake -S . -B build/default -DGPUCC=80     # MPI build, macros from defines.h
+cmake --build build/default -j 8           # executable build/default/main.x
+
+cmake --preset 2c_27high_d                 # one variant of compile.sh
+cmake --build --preset 2c_27high_d -j 8    # build/bin/main_2c_27high_d.x
+
+./compile_cmake.sh                         # all 24 variants of compile.sh
+```
+
+Options, macros and presets are described in
+[`docs/CMAKE.md`](docs/CMAKE.md). CMake reads the source lists and flags from
+the same `lbfast_build.mk`, and the smoke suite checks that the two build
+systems compile the same sources with the same flags and give identical
+results.
 
 ## Running *LBFAST*
 

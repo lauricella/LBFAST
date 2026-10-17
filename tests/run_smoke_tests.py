@@ -7,6 +7,7 @@ import math
 import re
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -121,6 +122,10 @@ CASES = (
     ("poiseuille_force", "POISEUILLE", "poiseuille_force_smoke.inp", check_poiseuille),
 )
 
+# Makefile and CMakeLists.txt must build the same solver: same sources and
+# flags, and byte-identical output of the Laplace case (tests/check_build_systems.py).
+BUILD_CHECK = ("build_systems", "LAPLACE", "laplace_smoke.inp")
+
 
 def command(arguments, directory, log=None):
     print("+ " + " ".join(arguments), flush=True)
@@ -139,16 +144,44 @@ def write_summary(path, results):
         writer.writerows(results)
 
 
+def run_build_check(root, tests, output, original, args):
+    """Compare the make and CMake builds of the Laplace configuration."""
+    name, macro, input_name = BUILD_CHECK
+    start = time.monotonic()
+    status, detail = "FAIL", ""
+    if shutil.which("cmake") is None:
+        status, detail = "SKIP", "cmake not found"
+    else:
+        sys.path.insert(0, str(tests))
+        import check_build_systems
+        try:
+            (root / "defines.h").write_text(configure(original, macro))
+            failures = check_build_systems.check(
+                root, output / name, args.make_target, args.gpu_cc,
+                tests / "inputs" / input_name)
+            if failures:
+                detail = "; ".join(failures)
+            else:
+                status, detail = "PASS", "same sources, flags and output"
+        except Exception as error:
+            detail = str(error)
+    return {"case": name, "status": status,
+            "seconds": "{:.3f}".format(time.monotonic() - start),
+            "metric": "", "detail": detail}
+
+
 def main():
     tests = Path(__file__).resolve().parent
     root = tests.parent
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--gpu-cc", default="80")
     parser.add_argument("--make-target", default="nvfortran")
-    parser.add_argument("--case", action="append", choices=[case[0] for case in CASES])
+    parser.add_argument("--case", action="append",
+                        choices=[case[0] for case in CASES] + [BUILD_CHECK[0]])
     parser.add_argument("--keep-results", action="store_true")
     args = parser.parse_args()
     selected = [case for case in CASES if not args.case or case[0] in args.case]
+    build_check = not args.case or BUILD_CHECK[0] in args.case
 
     defines = root / "defines.h"
     binary = root / "main.x"
@@ -190,6 +223,10 @@ def main():
                             "metric": "{:.12e}".format(metric) if math.isfinite(metric) else "",
                             "detail": detail})
             print("{:<5} {:<20} {}".format(status, name, detail), flush=True)
+        if build_check:
+            results.append(run_build_check(root, tests, output, original, args))
+            print("{:<5} {:<20} {}".format(results[-1]["status"], BUILD_CHECK[0],
+                                             results[-1]["detail"]), flush=True)
     finally:
         defines.write_text(original)
         command(["make", "clean"], root)
@@ -198,8 +235,10 @@ def main():
         write_summary(output / "smoke_test_results.csv", results)
 
     passed = sum(result["status"] == "PASS" for result in results)
-    failed = len(results) - passed
-    print("\n{} passed, {} failed".format(passed, failed))
+    skipped = sum(result["status"] == "SKIP" for result in results)
+    failed = len(results) - passed - skipped
+    print("\n{} passed, {} failed{}".format(
+        passed, failed, ", {} skipped".format(skipped) if skipped else ""))
     print("results={}".format(output / "smoke_test_results.csv"))
     raise SystemExit(0 if failed == 0 else 1)
 

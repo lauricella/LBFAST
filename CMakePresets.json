@@ -1,0 +1,458 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Macros from defines.h, MPI, GPUCC=80",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "GPUCC": "80",
+        "LBFAST_MPI": "ON",
+        "LBFAST_NVML": "OFF",
+        "LBFAST_USE_DEFINES_H": "ON"
+      }
+    },
+    {
+      "name": "matrix-base",
+      "hidden": true,
+      "description": "Settings of compile.sh: make nvfortran-nvml-mpi GPUCC=80; the macros not set by the presets come from defines.h",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "GPUCC": "80",
+        "LBFAST_MPI": "ON",
+        "LBFAST_NVML": "ON",
+        "LBFAST_USE_DEFINES_H": "OFF",
+        "LBFAST_EXE_NAME": "main_${presetName}.x",
+        "LBFAST_OUTPUT_DIR": "${sourceDir}/build/bin"
+      }
+    },
+    {
+      "name": "1c",
+      "hidden": true,
+      "cacheVariables": {
+        "TWOCOMPONENT": "OFF",
+        "DENSRATIO": "OFF",
+        "CSF": "OFF"
+      }
+    },
+    {
+      "name": "2c",
+      "hidden": true,
+      "cacheVariables": {
+        "TWOCOMPONENT": "ON",
+        "DENSRATIO": "ON",
+        "CSF": "ON"
+      }
+    },
+    {
+      "name": "q15",
+      "hidden": true,
+      "cacheVariables": {
+        "LATTICE": "15",
+        "HIGHORDER": "OFF"
+      }
+    },
+    {
+      "name": "q19",
+      "hidden": true,
+      "cacheVariables": {
+        "LATTICE": "19",
+        "HIGHORDER": "OFF"
+      }
+    },
+    {
+      "name": "q27",
+      "hidden": true,
+      "cacheVariables": {
+        "LATTICE": "27",
+        "HIGHORDER": "OFF"
+      }
+    },
+    {
+      "name": "q27high",
+      "hidden": true,
+      "cacheVariables": {
+        "LATTICE": "27",
+        "HIGHORDER": "ON"
+      }
+    },
+    {
+      "name": "sp",
+      "hidden": true,
+      "cacheVariables": {
+        "PRC": "4",
+        "STRPRC": "4",
+        "MIXEDPRC": "OFF"
+      }
+    },
+    {
+      "name": "dp",
+      "hidden": true,
+      "cacheVariables": {
+        "PRC": "8",
+        "STRPRC": "8",
+        "MIXEDPRC": "OFF"
+      }
+    },
+    {
+      "name": "sd",
+      "hidden": true,
+      "cacheVariables": {
+        "PRC": "8",
+        "STRPRC": "4",
+        "MIXEDPRC": "ON"
+      }
+    },
+    {
+      "name": "1c_15",
+      "displayName": "one-component D3Q15, single precision",
+      "inherits": [
+        "matrix-base",
+        "1c",
+        "q15",
+        "sp"
+      ]
+    },
+    {
+      "name": "1c_15_d",
+      "displayName": "one-component D3Q15, double precision",
+      "inherits": [
+        "matrix-base",
+        "1c",
+        "q15",
+        "dp"
+      ]
+    },
+    {
+      "name": "1c_15_sd",
+      "displayName": "one-component D3Q15, double arithmetic, single storage",
+      "inherits": [
+        "matrix-base",
+        "1c",
+        "q15",
+        "sd"
+      ]
+    },
+    {
+      "name": "1c_19",
+      "displayName": "one-component D3Q19, single precision",
+      "inherits": [
+        "matrix-base",
+        "1c",
+        "q19",
+        "sp"
+      ]
+    },
+    {
+      "name": "1c_19_d",
+      "displayName": "one-component D3Q19, double precision",
+      "inherits": [
+        "matrix-base",
+        "1c",
+        "q19",
+        "dp"
+      ]
+    },
+    {
+      "name": "1c_19_sd",
+      "displayName": "one-component D3Q19, double arithmetic, single storage",
+      "inherits": [
+        "matrix-base",
+        "1c",
+        "q19",
+        "sd"
+      ]
+    },
+    {
+      "name": "1c_27",
+      "displayName": "one-component D3Q27, single precision",
+      "inherits": [
+        "matrix-base",
+        "1c",
+        "q27",
+        "sp"
+      ]
+    },
+    {
+      "name": "1c_27_d",
+      "displayName": "one-component D3Q27, double precision",
+      "inherits": [
+        "matrix-base",
+        "1c",
+        "q27",
+        "dp"
+      ]
+    },
+    {
+      "name": "1c_27_sd",
+      "displayName": "one-component D3Q27, double arithmetic, single storage",
+      "inherits": [
+        "matrix-base",
+        "1c",
+        "q27",
+        "sd"
+      ]
+    },
+    {
+      "name": "1c_27high",
+      "displayName": "one-component D3Q27 high-order, single precision",
+      "inherits": [
+        "matrix-base",
+        "1c",
+        "q27high",
+        "sp"
+      ]
+    },
+    {
+      "name": "1c_27high_d",
+      "displayName": "one-component D3Q27 high-order, double precision",
+      "inherits": [
+        "matrix-base",
+        "1c",
+        "q27high",
+        "dp"
+      ]
+    },
+    {
+      "name": "1c_27high_sd",
+      "displayName": "one-component D3Q27 high-order, double arithmetic, single storage",
+      "inherits": [
+        "matrix-base",
+        "1c",
+        "q27high",
+        "sd"
+      ]
+    },
+    {
+      "name": "2c_15",
+      "displayName": "two-component D3Q15, single precision",
+      "inherits": [
+        "matrix-base",
+        "2c",
+        "q15",
+        "sp"
+      ]
+    },
+    {
+      "name": "2c_15_d",
+      "displayName": "two-component D3Q15, double precision",
+      "inherits": [
+        "matrix-base",
+        "2c",
+        "q15",
+        "dp"
+      ]
+    },
+    {
+      "name": "2c_15_sd",
+      "displayName": "two-component D3Q15, double arithmetic, single storage",
+      "inherits": [
+        "matrix-base",
+        "2c",
+        "q15",
+        "sd"
+      ]
+    },
+    {
+      "name": "2c_19",
+      "displayName": "two-component D3Q19, single precision",
+      "inherits": [
+        "matrix-base",
+        "2c",
+        "q19",
+        "sp"
+      ]
+    },
+    {
+      "name": "2c_19_d",
+      "displayName": "two-component D3Q19, double precision",
+      "inherits": [
+        "matrix-base",
+        "2c",
+        "q19",
+        "dp"
+      ]
+    },
+    {
+      "name": "2c_19_sd",
+      "displayName": "two-component D3Q19, double arithmetic, single storage",
+      "inherits": [
+        "matrix-base",
+        "2c",
+        "q19",
+        "sd"
+      ]
+    },
+    {
+      "name": "2c_27",
+      "displayName": "two-component D3Q27, single precision",
+      "inherits": [
+        "matrix-base",
+        "2c",
+        "q27",
+        "sp"
+      ]
+    },
+    {
+      "name": "2c_27_d",
+      "displayName": "two-component D3Q27, double precision",
+      "inherits": [
+        "matrix-base",
+        "2c",
+        "q27",
+        "dp"
+      ]
+    },
+    {
+      "name": "2c_27_sd",
+      "displayName": "two-component D3Q27, double arithmetic, single storage",
+      "inherits": [
+        "matrix-base",
+        "2c",
+        "q27",
+        "sd"
+      ]
+    },
+    {
+      "name": "2c_27high",
+      "displayName": "two-component D3Q27 high-order, single precision",
+      "inherits": [
+        "matrix-base",
+        "2c",
+        "q27high",
+        "sp"
+      ]
+    },
+    {
+      "name": "2c_27high_d",
+      "displayName": "two-component D3Q27 high-order, double precision",
+      "inherits": [
+        "matrix-base",
+        "2c",
+        "q27high",
+        "dp"
+      ]
+    },
+    {
+      "name": "2c_27high_sd",
+      "displayName": "two-component D3Q27 high-order, double arithmetic, single storage",
+      "inherits": [
+        "matrix-base",
+        "2c",
+        "q27high",
+        "sd"
+      ]
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "default",
+      "configurePreset": "default"
+    },
+    {
+      "name": "1c_15",
+      "configurePreset": "1c_15"
+    },
+    {
+      "name": "1c_15_d",
+      "configurePreset": "1c_15_d"
+    },
+    {
+      "name": "1c_15_sd",
+      "configurePreset": "1c_15_sd"
+    },
+    {
+      "name": "1c_19",
+      "configurePreset": "1c_19"
+    },
+    {
+      "name": "1c_19_d",
+      "configurePreset": "1c_19_d"
+    },
+    {
+      "name": "1c_19_sd",
+      "configurePreset": "1c_19_sd"
+    },
+    {
+      "name": "1c_27",
+      "configurePreset": "1c_27"
+    },
+    {
+      "name": "1c_27_d",
+      "configurePreset": "1c_27_d"
+    },
+    {
+      "name": "1c_27_sd",
+      "configurePreset": "1c_27_sd"
+    },
+    {
+      "name": "1c_27high",
+      "configurePreset": "1c_27high"
+    },
+    {
+      "name": "1c_27high_d",
+      "configurePreset": "1c_27high_d"
+    },
+    {
+      "name": "1c_27high_sd",
+      "configurePreset": "1c_27high_sd"
+    },
+    {
+      "name": "2c_15",
+      "configurePreset": "2c_15"
+    },
+    {
+      "name": "2c_15_d",
+      "configurePreset": "2c_15_d"
+    },
+    {
+      "name": "2c_15_sd",
+      "configurePreset": "2c_15_sd"
+    },
+    {
+      "name": "2c_19",
+      "configurePreset": "2c_19"
+    },
+    {
+      "name": "2c_19_d",
+      "configurePreset": "2c_19_d"
+    },
+    {
+      "name": "2c_19_sd",
+      "configurePreset": "2c_19_sd"
+    },
+    {
+      "name": "2c_27",
+      "configurePreset": "2c_27"
+    },
+    {
+      "name": "2c_27_d",
+      "configurePreset": "2c_27_d"
+    },
+    {
+      "name": "2c_27_sd",
+      "configurePreset": "2c_27_sd"
+    },
+    {
+      "name": "2c_27high",
+      "configurePreset": "2c_27high"
+    },
+    {
+      "name": "2c_27high_d",
+      "configurePreset": "2c_27high_d"
+    },
+    {
+      "name": "2c_27high_sd",
+      "configurePreset": "2c_27high_sd"
+    }
+  ]
+}
