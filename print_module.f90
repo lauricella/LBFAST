@@ -1,5 +1,29 @@
 #include "defines.h"
 module prints
+   !
+   ! Output, initial-state input and restart files of LBFAST.
+   !
+   ! Printed fields. copy_print extracts on the GPU the printed fields from the tiled moment
+   ! arrays into rhoprint, velprint and, with TWOCOMPONENT and WRITEPRESS, pressprint, at every
+   ! stepskip-th node, and copies them to the host. These arrays have kind printdb: 4-byte reals,
+   ! or 2-byte reals with PRINTHALF. The writers store them in the directory output/ as
+   !    out_<var>_<NNNNNN>.raw, .vti, .xdmf    3D fields, var = rho, vel, press
+   !    out_isfluid_<NNNNNN>.raw, .xdmf        node flags isfluid
+   !    out_<d>_<p>_<var>_<NNNNNN>.raw, .xdmf  2D plane normal to axis d (1=x, 2=y, 3=z) through
+   !                                           the global node p
+   ! where NNNNNN is the six-digit frame number (iframe for 3D fields, iframe2D for planes).
+   ! A .raw file contains only the array, in Fortran order (x index fastest; for vel the three
+   ! components of a node are contiguous). With DOXDMF, an .xdmf file next to each .raw file
+   ! describes grid and data type; XDMF lists the dimensions slowest first, so the variables
+   ! strx, stry and strz below hold the z, y and x sizes. A .vti file is a VTK XML ImageData
+   ! file with the array appended as raw binary data (header_vtk, footer_vtk).
+   !
+   ! Serial and parallel I/O. Each driver_* routine calls the serial writer of this module when
+   ! nprocs==1 and the parallel writer of mpi_template otherwise. The parallel writers use MPI-IO
+   ! and produce the same single global file; with AVOIDMPIIO the raw writers instead write one
+   ! file per rank (name suffix _p followed by the six-digit rank).
+   !
+   ! Restart files: see read_restart_1c.
 
    use vars
    use mpi_template, only : myrank,nprocs,mpid,coords,myoffset,gsizes,dostop, &
@@ -24,6 +48,15 @@ module prints
 
 contains
 
+   ! Builds in mystring500 the header of a .vti file (VTK XML ImageData) for one variable: the
+   ! XML declaration, VTKFile with the byte order of this machine, ImageData and Piece with the
+   ! extent, PointData with one DataArray (Float32, or UnsignedShort with PRINTHALF) of ncomps
+   ! components in appended format at offset 0, and the AppendedData tag followed by the
+   ! underscore that precedes the binary data. iend returns the header length, new_myoffset is
+   ! myoffset plus the header size in bytes, and indent tracks the XML indentation.
+   ! Each piece has the fixed length nele, which assumes the 41-character extent built in
+   ! init_output (six numbers of six characters and five blanks) and the 8-character namevar.
+   ! nxs, nys and nzs are not used.
    subroutine header_vtk(nxs,nys,nzs,mystring500,namevar,extent,ncomps,iinisub,iend,myoffset, &
       new_myoffset,indent)
 
@@ -188,6 +221,8 @@ contains
 
    end subroutine header_vtk
 
+   ! Builds in mystring30 the 30-character footer of a .vti file: a newline after the binary
+   ! data, the closing AppendedData tag (indented by indent) and the closing VTKFile tag.
    subroutine footer_vtk(nxs,nys,nzs,mystring30,iinisub,iend,myoffset, &
       new_myoffset,indent)
 
@@ -279,6 +314,12 @@ contains
 
    end subroutine test_little_endian
 
+   ! Prepares the output; returns at once if lvtk, lraw and lprint are all false. It detects the
+   ! byte order, sets dir_out to output/ (created by rank 0 if missing and lvtk or lraw is true),
+   ! selects the printed variables (rho and vel, plus press with TWOCOMPONENT and WRITEPRESS),
+   ! builds the .vti headers and footers for the global subsampled grid lxskip x lyskip x lzskip,
+   ! gathers the subsampled local sizes and offsets of all ranks (lsizes_3d, myoffset_3d) and
+   ! prepares the 2D planes (init_output_2D). ncomp is not used.
    subroutine init_output(ncomp,lvtk,lraw,nplanes,ndir,npoint)
 
       !***********************************************************************
@@ -408,6 +449,8 @@ contains
        enddo
 #endif
 
+      ! For each variable, vtkoffset is the header size in bytes and ndatavtk the size in bytes of
+      ! the data block: ndimvtk components of 4 bytes (2 with PRINTHALF) per node of the grid.
       nn=lxskip*lyskip*lzskip
 
       do i=1,nfilevtk
@@ -428,6 +471,7 @@ contains
             new_myoffset,indent)
       enddo
       
+      ! Each rank fills its own column; the sum over the ranks gives every rank all the columns.
       allocate(lsizes_3d(mpid,0:nprocs-1))
       lsizes_3d=0
       
@@ -448,6 +492,11 @@ contains
    end subroutine init_output
 
 
+   ! Device memory of the calling rank in GiB (1024**3 bytes): fout is the memory in use, total
+   ! minus free memory of the current device as reported by the OpenACC runtime, so it also
+   ! counts memory used by other contexts on the same GPU; fout2 is the total device memory.
+   ! The values are not reduced over the MPI ranks. The Makefile builds compile with OpenACC
+   ! and do not define CUDA, so the CUDA branch is not compiled.
    subroutine get_memory_gpu(fout,fout2)
 
       !***********************************************************************
@@ -498,6 +547,8 @@ contains
 
    end subroutine get_memory_gpu
 
+   ! Rank 0 prints the two device-memory values (from get_memory_gpu, in GB) with the labels
+   ! mybanner and mybanner2. On CRAY with OpenACC it runs rocm-smi instead.
    subroutine print_memory_registration_gpu(iu,mybanner,mybanner2,&
       mymemory,totmem)
 
@@ -542,6 +593,7 @@ contains
       return
 
    end subroutine print_memory_registration_gpu
+   ! Disabled copy: LBFAST uses print_memory_registration of profiling_m.
 #if 0
    subroutine print_memory_registration(iu,mybanner,mybanner2,mymemory,totmem)
 
@@ -584,6 +636,8 @@ contains
 #endif
    !******************************************************************************************************!
 #ifdef _OPENACC
+   ! Rank 0 prints ngpus (GPUs per node) and the name, global memory (GiB), vendor and driver of
+   ! the OpenACC device dev_Num. On CRAY with OpenACC it runs rocm-smi instead.
    subroutine printDeviceProperties(ngpus,dev_Num,dev_Type,iu)
 
 
@@ -640,6 +694,17 @@ contains
    end subroutine printDeviceProperties
 #endif
 
+   ! Fills on the GPU the printed arrays from the moments at the nodes (i*stepskip, j*stepskip,
+   ! k*stepskip), converting them to kind printdb, and then updates them on the host:
+   !   rhoprint:   with TWOCOMPONENT, phifields component 1 (the phase field phi) if PRINTPHI is
+   !               defined or DENSRATIO is not, otherwise the density rho_r*phi + (1-phi)*rho_b;
+   !               without TWOCOMPONENT, hfields component 1;
+   !   pressprint: hfields component 1 (two-component flows with WRITEPRESS);
+   !   velprint:   hfields components 2 to 4, the velocity.
+   ! The moment arrays are stored in tiles of TILE_DIMx x TILE_DIMy x TILE_DIMz nodes, and the
+   ! first and last tiles along each axis hold halo nodes. Node ii is therefore in tile
+   ! xblock = (ii+2*TILE_DIMx-1)/TILE_DIMx, at the local index iii = ii - (xblock-2)*TILE_DIMx
+   ! (likewise along y and z); myblock is the linear tile index. iframe is not used.
    subroutine copy_print(iframe,hfields_s &
 #ifdef TWOCOMPONENT
     ,phifields_s &
@@ -768,6 +833,8 @@ contains
 #endif
 #ifdef FUSED_MOMENTS
                   ! moments_LB_kernel is not called: print the velocity it would have stored
+                  ! Only fluid nodes (isfluid = 1 or -1) are updated. The sum is rounded to the
+                  ! storage kind strdb, as the stored moments are, and then to printdb.
                   if(lupd .and. abs(isfluid(ii,jj,kk)) == 1)then
                     velprint(1,i,j,k)=real(real(real(hfields_s(iii,jjj,kkk,2,myblock),kind=db) + &
                      0.5_db*fx/ONE,kind=strdb),kind=printdb)
@@ -802,6 +869,9 @@ contains
 
    end subroutine copy_print
 
+   ! Reads the node flags isfluid from isfluid.raw in the working directory: lx*ly*lz 4-byte
+   ! reals in Fortran order, converted to integer kind isf. With one rank read_isfluid_serial
+   ! reads the file, otherwise read_isfluid_parallel of mpi_template.
    subroutine driver_read_isfluid_raw(iframe)
 
       implicit none
@@ -817,6 +887,11 @@ contains
 
    end subroutine driver_read_isfluid_raw
    
+   ! Reads an initial state from rho.raw, u.raw, v.raw, w.raw and, with TWOCOMPONENT, phi.raw in
+   ! the working directory (each lx*ly*lz 4-byte reals in Fortran order) into hfields components
+   ! 1 to 4 and phifields component 1 of hfields_flip and phifields_flip (flop==1) or of the flop
+   ! arrays, then copies them to the other pair. Components 5 to 10 (second-order moments) are
+   ! not set here. With one rank read_init_serial reads the files, otherwise read_init_parallel.
    subroutine driver_read_init_raw(iframe)
 
       implicit none
@@ -1033,6 +1108,15 @@ contains
 
    end subroutine read_init_serial
 
+   ! Restart files, single component (_1c) and two components (_2c). write_restart_* copies
+   ! the fields from the GPU and writes output/restart.raw; read_restart_* reads it back and
+   ! copies the fields to the GPU. With one rank the serial routines of this module are used,
+   ! otherwise the MPI-IO routines of mpi_template.
+   ! The serial file is a stream of lx*ly*lz arrays of 4-byte reals in Fortran order:
+   ! hfields components 1 to 4 (component 1 and the velocity), the second-order moments in the
+   ! order xx, xy, xz, yy, yz, zz (components 5, 8, 9, 6, 10, 7), phifields component 1 (two
+   ! components only), and then the two default integers iframe and iframe2D. A restart
+   ! therefore rounds the moments to single precision, whatever the kinds db and strdb.
    subroutine read_restart_1c(iframe,iframe2D,hfields_s)
 
       implicit none
@@ -1457,6 +1541,7 @@ contains
 
    end subroutine read_restart_serial_1c
 
+   ! Two-component restart: as the routines above, with phifields component 1 after the moments.
    subroutine read_restart_2c(iframe,iframe2D,hfields_s,phifields_s)
 
       implicit none
@@ -1917,6 +2002,9 @@ contains
 
    end subroutine read_restart_serial_2c
    
+   ! Writes the node flags isfluid, subsampled with stepskip, to out_isfluid_<NNNNNN>.raw (and an
+   ! .xdmf file with DOXDMF). print_raw_isfluid uses rhoprint as a buffer and overwrites it.
+   ! With several ranks write_file_raw_par_isfluid of mpi_template writes the file.
    subroutine driver_print_raw_isfluid(iframe)
 
       implicit none
@@ -1991,6 +2079,7 @@ contains
       close(xml_file)     
 #endif      
 
+      ! isfluid does not change: an existing .raw file is not rewritten.
       lexit=.false.
       if (myrank == 0) then
         inquire(file=trim(sevt1), exist=lexist)
@@ -2016,6 +2105,11 @@ contains
 
    end subroutine print_raw_isfluid
 
+   ! Writes the 3D fields of frame iframe as .raw files (rho, vel and, with TWOCOMPONENT and
+   ! WRITEPRESS, press), with .xdmf files when DOXDMF is defined, from the host arrays filled by
+   ! copy_print. With one rank print_raw_sync writes them; otherwise print_parraw_sync calls
+   ! write_file_raw_par (MPI-IO, one global file per variable) or, with AVOIDMPIIO,
+   ! write_file_raw_par_nompiio (one file per rank).
    subroutine driver_print_raw_sync(iframe)
 
       implicit none
@@ -2231,6 +2325,14 @@ contains
 
    end subroutine print_parraw_isfluid
    
+   ! Prepares the output of the 2D planes. Plane l is normal to axis ndir(l) and passes through
+   ! the global node npoint(l). With several ranks, it records for each plane and rank whether
+   ! the rank owns nodes of the plane (log_plane2d) and the subsampled offset and local size of
+   ! its part (myoffset_plane2d, lsizes_plane2d); each rank fills its own entries and the global
+   ! sums give every rank all of them. If a single rank owns the whole plane (the domain is split
+   ! only along the normal axis), lnoparallel2d(l) is true and that rank writes the plane
+   ! serially; otherwise setup_io_comm2d creates the communicator io_comm2d(l) of the owning
+   ! ranks, used by the MPI-IO writer.
    subroutine init_output_2D(nplanes,ndir,npoint,skip_npoint)
 
       implicit none
@@ -2331,6 +2433,14 @@ contains
 
    end subroutine init_output_2D   
    
+   ! Writes the 2D planes of frame iframe (iframe2D in the time loop). For each plane l, the
+   ! ranks that own it copy their part of rhoprint, velprint and pressprint into the 4-byte real
+   ! arrays service1, service3 and service2; skip_npoint(l) is the index of the plane in the
+   ! subsampled grid. Then:
+   !  - one rank: print_raw_sync2D writes the plane;
+   !  - several ranks, plane owned by one rank (lnoparallel2d): that rank calls print_raw_sync2D;
+   !  - otherwise all ranks call print_parraw_sync2D, where the owners (ldowrite) write their
+   !    parts with MPI-IO on io_comm2d(l), or one file per rank with AVOIDMPIIO.
    subroutine driver_print_raw_sync2D(iframe,nplanes,ndir,npoint)
 
       implicit none
@@ -2574,6 +2684,9 @@ contains
 
    end subroutine driver_print_raw_sync2D
 
+   ! Serial writer of one plane: service1 (rho), service3 (vel) and, with TWOCOMPONENT and
+   ! WRITEPRESS, service2 (press) to out_<mydir>_<mypoint>_<var>_<NNNNNN>.raw, with .xdmf files
+   ! when DOXDMF is defined. gsizes_plane is the plane size, 1 along the normal axis.
    subroutine print_raw_sync2D(iframe,mydir,mypoint,gsizes_plane,service1,service3,service2)
 
       implicit none
@@ -2799,6 +2912,11 @@ contains
 
    end subroutine print_parraw_sync2D
 
+   ! Writes the 3D fields of frame iframe as .vti files (rho, vel and, with TWOCOMPONENT and
+   ! WRITEPRESS, press). Each file contains the header built by init_output (head1, head2, head3,
+   ! ending with the underscore that starts the appended data), the integer byte count ndatavtk,
+   ! the array and the footer. With one rank print_vtk_sync writes the files, otherwise
+   ! write_file_vtk_par of mpi_template (MPI-IO).
    subroutine driver_print_vtk_sync(iframe)
 
       implicit none
@@ -2851,6 +2969,9 @@ contains
 
    end subroutine print_parvtk_sync
 
+   ! Single-rank variants of the raw and .vti writers with Fortran asynchronous I/O;
+   ! close_print_async waits for the pending writes, appends the .vti footers and closes the
+   ! files. These routines are not called by the time loop.
    subroutine print_raw_async(iframe)
 
       implicit none
@@ -2964,6 +3085,9 @@ contains
 
    end subroutine copystring
 
+   ! Returns the first integer in string, negative if a minus sign precedes it. On return,
+   ! string is shifted left to start at the character that ended the number, and laststring is
+   ! the position of that character in the original string.
    function intstr(string,lenstring,laststring)
 
 !***********************************************************************
@@ -3046,6 +3170,8 @@ contains
 
    end function intstr
 
+   ! Real-number analogue of intstr: reads digits, a decimal point and an exponent introduced by
+   ! d, D, e or E, and shifts string past the number in the same way.
    function dblstr(string,lenstring,laststring)
 
 !***********************************************************************
@@ -3161,6 +3287,8 @@ contains
 
    end function dblstr
 
+   ! Returns s up to the first NUL character (acc_get_property_string returns C strings), or
+   ! trim(s) if s contains none.
    pure function strip_null(s) result(r)
 
       implicit none

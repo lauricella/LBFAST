@@ -1,6 +1,21 @@
 #!/usr/bin/env python3
 """Configure, build, run, and analyse the LBFAST Taylor-Green test."""
 
+# Benchmark: viscous decay of the three-dimensional Taylor-Green vortex in the single-component
+# solver (docs/TAYLOR_GREEN_128_VALIDATION.md).
+# Build: unless --skip-build is given, defines.h is edited in place to enable LATTICE 27,
+# HIGHORDER, PRC 8, STRPRC 8, DOBENCHMARK and TAYLORGREEN and to disable MIXEDPRC,
+# TWOCOMPONENT, DENSRATIO, CSF and the other benchmark selectors; then "make clean" and
+# "make <target> GPUCC=<cc>" are run.
+# Run: taylorgreen128.inp (periodic 128^3 box, 2000 steps, energy sampled every 10 steps) is
+# copied to and run in taylorgreen_validation_run/.
+# Metric: a straight line is fitted to log(E/E0) of taylorgreen.dat over the samples with
+# log(E/E0) >= --max-log-decay (default -0.25); since E/E0 = exp(-6 nu k^2 t) with
+# k = 2 pi / lx, the slope gives nu_num = -slope / (6 k^2), compared with visc1. The RMS
+# residual of the fit is also reported. The results go to taylorgreen_validation_summary.csv.
+# This script applies no tolerance; tests/run_full_validation.py requires a viscosity error
+# <= 3% and a fit RMS <= 2e-3.
+
 import argparse
 import csv
 import math
@@ -34,6 +49,10 @@ DISABLED_DEFINES = (
 
 
 def set_macro(text: str, name: str, value: Optional[str], enabled: bool) -> str:
+    """Rewrite the first '#define [no]NAME ...' line as '#define NAME value' or '#define noNAME'.
+
+    The line is appended when defines.h has no such line.
+    """
     prefix = "" if enabled else "no"
     replacement = f"#define {prefix}{name}"
     if enabled and value is not None:
@@ -83,6 +102,7 @@ def read_input_value(text: str, name: str) -> float:
 
 
 def read_energy(path: Path) -> List[Tuple[float, float]]:
+    """Read (step, log(E/E0)) from taylorgreen.dat, whose columns are step, E/E0, log(E/E0)."""
     rows: List[Tuple[float, float]] = []
     for line in path.read_text().splitlines():
         fields = line.split()
@@ -98,6 +118,7 @@ def read_energy(path: Path) -> List[Tuple[float, float]]:
 
 
 def linear_fit(rows: Sequence[Tuple[float, float]]) -> Tuple[float, float]:
+    """Ordinary least-squares line y = slope * x + intercept through the (x, y) pairs."""
     n = float(len(rows))
     sx = sum(row[0] for row in rows)
     sy = sum(row[1] for row in rows)
@@ -121,6 +142,7 @@ def analyse(data_path: Path, input_path: Path, max_log_decay: float) -> Dict[str
         raise RuntimeError("Too few samples in the requested fit window")
     slope, intercept = linear_fit(fit_rows)
     wave_number = 2.0 * math.pi / size_x
+    # The decay rate 6 nu k^2 sums k^2 over the three directions, so a cubic box is assumed.
     viscosity_numerical = -slope / (6.0 * wave_number * wave_number)
     fitted = [slope * time + intercept for time, _ in fit_rows]
     rms = math.sqrt(

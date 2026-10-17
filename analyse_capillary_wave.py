@@ -1,6 +1,26 @@
 #!/usr/bin/env python3
 """Build, run, and analyse the LBFAST planar capillary-wave benchmark."""
 
+# Benchmark: planar capillary wave on a periodic liquid slab in the two-component solver with
+# CSF (docs/CAPILLARY_WAVE_VALIDATION.md).
+# Build: unless --skip-build is given, defines.h is edited in place to enable LATTICE 27,
+# HIGHORDER, TWOCOMPONENT, DENSRATIO, CSF, DOBENCHMARK, CAPILLARYWAVE and PRINTPHI and to
+# disable the LAPLACE, LAMBTEST, POISEUILLE, TWOPOISEUILLE and TAYLORGREEN selectors; then
+# "make clean" and "make <target> GPUCC=<cc>" are run. Other macros (PRC, STRPRC, MIXEDPRC, ...)
+# are kept as found.
+# Run: capillary_wave.inp (96 x 288 x 8, initial amplitude uwall = 0.96, slab half-thickness
+# radius = 72, 80000 steps, diagnostics every 20 steps) is copied to and run in
+# capillary_wave_run/.
+# Metrics, written to capillary_wave_summary.csv:
+#  - angular frequency from the mean spacing of the zero crossings of the cosine amplitude
+#    eta_cos, against the finite-depth inviscid value written by the solver;
+#  - maximum relative error of the total phase mass;
+#  - kinematic check: least-squares gain and relative RMS difference between d eta/dt and the
+#    interface-normal velocity mode;
+#  - ratio of the numerical to the theoretical Fourier coefficient of the initial CSF force.
+# This script applies no tolerance; tests/run_full_validation.py requires a frequency error
+# <= 12%, a mass error <= 1e-6, a force ratio within 2% of one and a kinematic RMS error <= 2%.
+
 import argparse
 import csv
 import math
@@ -36,6 +56,7 @@ def set_define(text: str, name: str, value: str = None) -> str:
 
 
 def disable_define(text: str, name: str) -> str:
+    """Rename an enabled '#define NAME' line without value to '#define noNAME'."""
     pattern = re.compile(rf"(?m)^[ \t]*#define[ \t]+{re.escape(name)}[ \t]*$")
     updated, _ = pattern.subn(f"#define no{name}", text, count=1)
     return updated
@@ -69,6 +90,7 @@ def build_solver(root: Path, defines: Path, gpu_cc: str, target: str) -> None:
 
 
 def zero_crossings(times: Sequence[float], signal: Sequence[float]) -> List[float]:
+    """Times of the sign changes of signal, by linear interpolation between samples."""
     roots: List[float] = []
     for index in range(1, len(signal)):
         y0, y1 = signal[index - 1], signal[index]
@@ -81,6 +103,11 @@ def zero_crossings(times: Sequence[float], signal: Sequence[float]) -> List[floa
 
 
 def read_rows(path: Path) -> List[Tuple[float, ...]]:
+    """Read capillary_wave.dat (statistics.f90).
+
+    Columns: step, eta_cos, eta_sin, phase mass, relative mass error, k, omega_theory and, when
+    present, d eta_cos/dt and the interface-normal velocity mode.
+    """
     rows: List[Tuple[float, ...]] = []
     for line in path.read_text().splitlines():
         fields = line.split()
@@ -96,6 +123,7 @@ def read_rows(path: Path) -> List[Tuple[float, ...]]:
 
 
 def read_force_projection(path: Path) -> Dict[str, float]:
+    """Read step, numerical and theoretical Fourier coefficient of the CSF force, and their ratio."""
     for line in path.read_text().splitlines():
         fields = line.split()
         if not fields or fields[0].startswith("#") or len(fields) < 4:
@@ -115,9 +143,11 @@ def analyse(data_path: Path, force_path: Path) -> Dict[str, float]:
     roots = zero_crossings(times, signal)
     if len(roots) < 3:
         raise RuntimeError("At least three zero crossings are required")
+    # Consecutive zero crossings are half a period apart: omega = pi / mean half period.
     half_periods = [roots[i] - roots[i - 1] for i in range(1, len(roots))]
     mean_half_period = sum(half_periods) / len(half_periods)
     omega = math.pi / mean_half_period
+    # omega_theory = sqrt(sigma k^3 tanh(k h) / (rho_1 + rho_2)), computed by the solver.
     omega_theory = rows[-1][6]
     result = {
         "samples": float(len(rows)),
@@ -128,6 +158,8 @@ def analyse(data_path: Path, force_path: Path) -> Dict[str, float]:
         "period_numerical": 2.0 * mean_half_period,
         "max_mass_error": max(abs(row[4]) for row in rows),
     }
+    # Kinematic check without the first sample, whose rate is zero: gain of the least-squares
+    # fit d eta/dt = gain * velocity mode, and ||rate - velocity|| / ||velocity||.
     if len(rows[0]) >= 9:
         eta_rates = [row[7] for row in rows[1:]]
         velocity_modes = [row[8] for row in rows[1:]]

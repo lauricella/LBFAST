@@ -1,5 +1,60 @@
 #include "defines.h"
 module mpi_template
+   !
+   ! Parallel infrastructure of LBFAST: Cartesian domain decomposition, halo exchange of the
+   ! tiled device fields, parallel I/O and global reductions.
+   !
+   ! Domain decomposition
+   !   The global lattice lx*ly*lz is split on a Cartesian grid of proc_x*proc_y*proc_z ranks
+   !   (communicator lbecomm from MPI_Cart_create, no rank reordering). Each rank owns
+   !   nx*ny*nz = (lx/proc_x)*(ly/proc_y)*(lz/proc_z) nodes; coords(1:3) are its Cartesian
+   !   coordinates and myoffset(1:3) = coords*(nx,ny,nz) its offset in the global lattice.
+   !   Local node indices run over 1..nx, 1..ny, 1..nz; halo nodes have indices < 1 or > n.
+   !
+   ! Tiled layout
+   !   hfields, phifields, auxfields and forces are dimensioned
+   !   (TILE_DIMx,TILE_DIMy,TILE_DIMz,nfields,nblocks): the subdomain is cut into tiles of
+   !   TILE_DIMx*TILE_DIMy*TILE_DIMz nodes plus one layer of halo tiles on every side
+   !   (nxblock = nx/TILE_DIMx+2, nxyblock = nxblock*nyblock, nblocks = nxyblock*nzblock).
+   !   A local node (i,j,k), halo included, is located with
+   !     xblock  = (i+2*TILE_DIMx-1)/TILE_DIMx    (1: low halo tile, 2..nxblock-1: interior tiles)
+   !     ii      = i-xblock*TILE_DIMx+2*TILE_DIMx  (1..TILE_DIMx inside the tile)
+   !     myblock = (xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+   !   and likewise along y and z. The exchange fills only the halo layers next to the interior
+   !   (nbuff, nbuffvec or nbuffbvec nodes deep, see below).
+   !
+   ! Neighbour directions
+   !   The 26 directions l (exmpi,eympi,ezmpi) are 6 faces (l=1..6), 12 edges (7..18) and
+   !   8 corners (19..26); l=2m-1 and l=2m are opposite (oppmpi). Along direction l a rank sends
+   !   the interior layers on its +e_l side to send_dir(l), the rank at coords+e_l, and receives
+   !   into the halo on its -e_l side from recv_dir(l), the rank at coords-e_l. Faces span only
+   !   the interior in the two transverse directions; edges and corners fill the rest of the halo
+   !   shell. All sent data come from interior nodes, so the 26 directions are exchanged in a
+   !   single step with no ordering between them.
+   !
+   ! Field sets (prefix of the extents, buffers, datatypes, tags and requests)
+   !   f_     phifields   halo nbuff      num_phifields_datampi values per node
+   !   fvec_  auxfields   halo nbuffvec   num_auxfields_datampi (7 with TWOCOMPONENT, else 0)
+   !   b_     hfields     halo nbuffbvec  num_hfields_datampi (10 moments)
+   !   c_     forces      halo nbuffbvec  num_forces_datampi (3 components)
+   !   i_     isfluid     halo nbuff      1 (host array isfluid(1-nbuff:nx+nbuff,...), f_ extents)
+   !
+   ! Exchange routines (one set per field set, called in this order)
+   !   exchange_*_sendrecv  packs the send layers of every direction with an MPI partner into a
+   !                        contiguous buffer and posts MPI_Isend/MPI_Irecv;
+   !   exchange_*_intpbc    fills the halo along directions whose partner is the rank itself
+   !                        (periodic axis with one rank) by a copy with periodic index wrapping;
+   !   exchange_*_wait      completes the requests (MPI_Waitall) and unpacks the received data
+   !                        into the halo.
+   !   Work placed between sendrecv and wait can overlap the communication (ASYNCMPI branches
+   !   of integrator_module.f90). In a serial build only the intpbc copies take place.
+   !   The device copies of the buffers are created by the OpenACC data region of
+   !   integrator_module.f90; their device addresses are passed to MPI through host_data
+   !   use_device, so a CUDA-aware MPI library is required. The isfluid exchange runs on the host.
+   !
+   ! The module also contains the MPI-IO writers and readers of the output, restart and input
+   ! files, and global reductions on MPI_COMM_WORLD (or_world_*, sum_world_*).
+   !
    
    use vars, only: db,strdb,isf,i,j,k,nx,ny,nz,lx,ly,lz,rho,f,isfluid,l,ll,opp,&
       ex,ey,ez,nlinks,filenamevtk,namevarvtk,sevt1,sevt2,dir_out,write_fmtnumb2, &
@@ -34,6 +89,7 @@ module mpi_template
    integer :: mydev, ndev
    
    integer :: file_offset
+   ! proc_x,proc_y,proc_z: number of ranks along x,y,z; pbc_x,pbc_y,pbc_z: 1 for a periodic axis
    integer :: proc_x,proc_y,proc_z
    integer :: pbc_x,pbc_y,pbc_z
    integer :: mem_stop
@@ -44,6 +100,8 @@ module mpi_template
    integer:: coords(mpid)
    integer:: up(mpid),down(mpid),left(mpid)
    integer:: front(mpid),rear(mpid),right(mpid)
+   ! Global index range xinidom(p)..xfindom(p) owned by the ranks with coords(1)=p (same for y
+   ! and z); used by GET_COORD_POINT
    integer, allocatable, dimension(:) :: xinidom,xfindom
    integer, allocatable, dimension(:) :: yinidom,yfindom
    integer, allocatable, dimension(:) :: zinidom,zfindom
@@ -66,6 +124,8 @@ module mpi_template
    integer, allocatable, dimension(:,:,:) :: lsizes_plane2d
    integer, allocatable, dimension(:,:) :: lsizes_3d,myoffset_3d
 
+   ! Unit displacements (exmpi,eympi,ezmpi) of the 26 neighbour directions and opposite direction
+   ! oppmpi (see the module header); entry 0 is the null displacement
    integer, parameter :: nlinksmpi=26
 
    integer, dimension(0:nlinksmpi), parameter :: &
@@ -82,6 +142,12 @@ module mpi_template
    integer, save :: nlinks_faces,nlinks_edges,nlinks_corners,nlinks_max
    integer, save :: nfaces,nedges,ncorners
    logical, save :: lintbb=.false.
+   ! For each direction l: send_dir(l) / recv_dir(l) are the ranks at coords+e_l / coords-e_l
+   ! (wrapped on periodic axes, clamped otherwise) and send_dir_coord / recv_dir_coord their
+   ! Cartesian coordinates; lsend_dir / lrecv_dir are true when an MPI message is exchanged with
+   ! them; lintpbc_dir is true when both partners are this rank and the halo is filled by the
+   ! *_intpbc copy, with intpbc_dir(1:3,l) marking the axes to wrap. lsendpop_dir / lrecvpop_dir
+   ! additionally require lattice populations crossing direction l (num_links_pops(l)>0).
    integer, dimension(nlinksmpi) :: send_dir,recv_dir
    logical, dimension(nlinksmpi) :: lsendpop_dir,lrecvpop_dir
    logical, dimension(nlinksmpi) :: lsend_dir,lrecv_dir
@@ -91,22 +157,30 @@ module mpi_template
    integer, dimension(3,nlinksmpi) :: send_dir_coord,recv_dir_coord
 
 
+   ! links_pops(1:num_links_pops(l),l): lattice directions whose velocity (ex,ey,ez) crosses face,
+   ! edge or corner l (built in setup_mpi; links_faces, links_edges, links_corners are temporaries)
    integer, allocatable, save, dimension(:,:) :: links_faces,links_edges, &
       links_corners,links_pops
    
+   ! *_send_extr(1:6,l) / *_recv_extr(1:6,l): imin,imax,jmin,jmax,kmin,kmax (local node indices)
+   ! of the layers packed for direction l and of the halo region they are unpacked into
    integer, allocatable, save, dimension(:,:) :: f_send_extr,f_recv_extr
    integer, allocatable, save, dimension(:,:) :: fvec_send_extr,fvec_recv_extr
    integer, allocatable, save, dimension(:,:) :: b_send_extr,b_recv_extr
    integer, allocatable, save, dimension(:,:) :: c_send_extr,c_recv_extr
 
+   ! *_num_extr(l): number of values (nodes x components) exchanged along direction l
    integer, save, dimension(nlinksmpi) :: f_num_extr,fvec_num_extr, &
       b_num_extr,c_num_extr,i_num_extr
    integer, save :: f_numtot_extr,fvec_numtot_extr, &
       b_numtot_extr,c_numtot_extr,i_numtot_extr
    integer, allocatable, save, dimension(:) :: num_links_pops
 
+   ! Contiguous MPI datatypes of *_num_extr(l) values, one per pair of opposite directions
+   ! (index (l+1)/2)
    integer, dimension(13) :: f_datampi,fvec_datampi,b_datampi,c_datampi,i_datampi
    
+   ! Number of components exchanged per node for each field set
    integer, parameter :: num_hfields_datampi=10 
 #ifdef TWOCOMPONENT
    integer, parameter :: num_auxfields_datampi=7    ! 3 norm unit vec ! 1 modgrad ! 3 arr_ 
@@ -117,6 +191,8 @@ module mpi_template
    
    integer, parameter :: num_forces_datampi=3 
 
+   ! Send/receive buffers: the segment of direction l starts at *_nbuffmpi_send(l) /
+   ! *_nbuffmpi_recv(l); space is reserved only for directions with lsend_dir(l) / lrecv_dir(l)
    real(kind=strdb), allocatable, save, dimension(:) :: f_send_buffmpi,f_recv_buffmpi
    integer, dimension(nlinksmpi), save :: f_nbuffmpi_send,f_nbuffmpi_recv
 
@@ -134,6 +210,8 @@ module mpi_template
 
    integer, dimension(nlinksmpi), save :: mpitag
 
+   ! Message tags: one per direction and field set, so that messages exchanged with the same rank
+   ! along different directions (e.g. +x and -x with proc_x=2) are matched correctly
    integer, dimension(nlinksmpi), save :: f_mpitag
    integer, dimension(nlinksmpi), save :: fvec_mpitag
    integer, dimension(nlinksmpi), save :: b_mpitag
@@ -142,6 +220,8 @@ module mpi_template
 
    integer, dimension(nlinksmpi*2), save :: reqs
 
+   ! Requests of the pending MPI_Isend/MPI_Irecv (at most two per direction); n*_reqs below is
+   ! the number in use
    integer, dimension(nlinksmpi*2), save :: f_reqs
    integer, dimension(nlinksmpi*2), save :: fvec_reqs
    integer, dimension(nlinksmpi*2), save :: b_reqs
@@ -160,6 +240,8 @@ module mpi_template
    integer, save :: nc_reqs
    integer, save :: ni_reqs
 
+   ! Halo depth in nodes exchanged for each field set; with REPULSIVE_FLUX the phifields and
+   ! auxfields halo is 3 nodes deep. isfluid uses nbuff.
 #ifdef REPULSIVE_FLUX
    integer, parameter :: nbuff=3    !phifields
    integer, parameter :: nbuffvec=3 !auxfields
@@ -170,12 +252,15 @@ module mpi_template
    
    integer, parameter :: nbuffbvec=1 !hfields
 
+   ! node_comm: ranks on the same node (MPI_COMM_TYPE_SHARED); node_rank selects the GPU
    integer :: node_comm, node_rank, node_size,envlenjobg
 
    character(len=256) :: cvd, stepg, jobg
 
 contains
 
+   ! Initialise MPI, compute the node-local rank and bind the rank to GPU mod(node_rank,ndev).
+   ! In a serial build set a single rank with a 1x1x1 decomposition.
    subroutine start_mpi
 
       implicit none
@@ -225,6 +310,12 @@ contains
 
    end subroutine start_mpi
 !
+   ! Build the decomposition and the halo-exchange tables (called once at start-up):
+   !  - local sizes nx,ny,nz and the subsampled output sizes (stepskip);
+   !  - GPU binding, Cartesian communicator lbecomm and coords;
+   !  - neighbour ranks and flags (send_dir, recv_dir, lsend_dir, lrecv_dir, lintpbc_dir);
+   !  - offsets and sizes used by MPI-IO;
+   !  - extents, MPI datatypes and buffers of each field set.
    subroutine setup_mpi
 
       implicit none
@@ -316,6 +407,8 @@ contains
          stop
       endif
 !
+      ! Output fields are subsampled every stepskip nodes: local and global sizes must be
+      ! multiples of stepskip.
       if(stepskip==0)then
         call doerror(6,'ERROR: stepskip equal to zero')
       endif
@@ -380,6 +473,8 @@ contains
          stop
       endif
       
+      ! Position of each 2D output plane on the subsampled grid; npoint is rounded to a multiple
+      ! of stepskip
       allocate(skip_npoint(nplanes))
       if(nplanes>0)then
         do i=1,nplanes
@@ -398,6 +493,7 @@ contains
         enddo
       endif
 
+    ! Same GPU selection as in start_mpi (device mod(node_rank,ndev))
 #ifdef _OPENACC
     ndev = acc_get_num_devices(devType)
     !if(node_rank==0)write(6,'(a,2i8)') "number of device on each node: ", ndev, myrank
@@ -479,6 +575,9 @@ contains
       call MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, &
          MPI_INFO_NULL, localcomm, ierr)
       call MPI_Comm_rank(localcomm, mydev, ierr)
+      ! mydev is overwritten with the rank inside the node-local communicator. The OpenACC device
+      ! was selected above as mod(node_rank,ndev); the two values coincide when the number of
+      ! ranks per node does not exceed the number of GPUs per node.
       !call MPI_get_processor_name(hname,ijlen,ierr)
 
 !
@@ -496,6 +595,7 @@ contains
 !
 !
 ! building virtual topology
+      ! rreorder=.false.: the rank of each process in lbecomm equals its rank in MPI_COMM_WORLD
       call MPI_cart_create(mpi_comm_world, mpid, prgrid, &
          periodic,rreorder,lbecomm,ierr)
 
@@ -511,6 +611,10 @@ contains
       !*******************neighbour processes******************!
       !********************************************************!
       !call MPI_ERRHANDLER_SET(lbecomm, MPI_ERRORS_RETURN, ierr)
+      ! For every direction l: message tags, and the ranks send_dir(l) at coords+e_l and recv_dir(l)
+      ! at coords-e_l (= coords+e_oppmpi(l)). Coordinates are wrapped on periodic axes and clamped to
+      ! the grid on the others, where the clamped neighbour may be the rank itself or an unrelated
+      ! rank; the loops after this one exclude those cases from both the MPI and the intpbc exchange.
       do l=1,nlinksmpi
          mpitag(l) = 400 + l
          f_mpitag(l) = 500 + l
@@ -975,6 +1079,10 @@ contains
 
 
       !store the i j k bounds to be sent and received along each direction l
+      ! For direction l the send region is the nbuff interior layers on the +e_l side and the
+      ! receive region the nbuff halo layers on the -e_l side; along the axes where e_l is zero both
+      ! span 1..n. Example, l=1 (+x): send i=nx-nbuff+1..nx, receive i=1-nbuff..0, j=1..ny, k=1..nz.
+      ! The fvec_ and b_ extents use the depths nbuffvec and nbuffbvec instead of nbuff.
       allocate(f_send_extr(6,nlinksmpi))
       allocate(f_recv_extr(6,nlinksmpi))
       allocate(fvec_send_extr(6,nlinksmpi))
@@ -1914,6 +2022,7 @@ contains
 	  !the bounds of bvec differ from those of fvec because they follow nbuffbvec
 
       !compute the total amount of data to move along each direction l
+      ! i_num_extr (isfluid) counts nodes over the f_ extents; the others also count components
       do l=1,nlinksmpi
          i_num_extr(l)=(f_recv_extr(2,l)-f_recv_extr(1,l)+1)* &
             (f_recv_extr(4,l)-f_recv_extr(3,l)+1)* &
@@ -1998,6 +2107,7 @@ contains
 
       !create the contiguous MPI types needed for send and receive
       !done on 13 directions because l and lopp move the same amount of data
+      ! The type built for l=2m-1 is also used for its opposite direction l=2m (index (l+1)/2).
 #ifdef MPI
 
       !dir
@@ -2189,6 +2299,9 @@ contains
 
    end subroutine setup_mpi
    
+   ! Create io_comm2d(l), the communicator of the ranks taking part in the MPI-IO of 2D output
+   ! plane l (ldowrite); the other ranks get MPI_COMM_NULL. MPI_COMM_SPLIT is collective on
+   ! MPI_COMM_WORLD, so all ranks must call this routine for the same l.
    subroutine setup_io_comm2d(ldowrite,l)
    
       implicit none
@@ -2215,6 +2328,14 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 !*******************************PHI********************************************************************!
+   ! Halo exchange of phifields. The scheme is the same for all field sets and is described once
+   ! here; the auxfields, hfields, forces and isfluid routines differ in fields and extents, and
+   ! the isfluid ones run on the host.
+   !
+   ! exchange_phifields_intpbc: for every direction l with lintpbc_dir(l) (both partners are this
+   ! rank), copy into each halo node of f_recv_extr(:,l) the value of its periodic image, obtained
+   ! by wrapping the coordinates flagged in intpbc_dir(:,l) with i -> mod(i+nx-1,nx)+1
+   ! (1-nbuff..0 -> nx-nbuff+1..nx, nx+1..nx+nbuff -> 1..nbuff). One device kernel per direction.
    subroutine exchange_phifields_intpbc(phifields_s)
 
       implicit none
@@ -2255,6 +2376,7 @@ contains
                   if(intpbc_dir(2,lmio))oj=mod(oj+ny-1,ny)+1
                   if(intpbc_dir(3,lmio))ok=mod(ok+nz-1,nz)+1
                   
+                  ! tile coordinates of the source node (oi,oj,ok) and of the halo node (i,j,k)
                   oxblock=(oi+2*TILE_DIMx-1)/TILE_DIMx   
                   oyblock=(oj+2*TILE_DIMy-1)/TILE_DIMy     
                   ozblock=(ok+2*TILE_DIMz-1)/TILE_DIMz 
@@ -2287,6 +2409,9 @@ contains
 
    end subroutine exchange_phifields_intpbc
 
+   ! Pack the send region of every direction with lsend_dir(l) into f_send_buffmpi, then post
+   ! MPI_Isend to send_dir(l) and MPI_Irecv from recv_dir(l) for every direction with an MPI
+   ! partner. Returns at once in a serial build; exchange_phifields_wait completes the requests.
    subroutine exchange_phifields_sendrecv(phifields_s)
 
       implicit none
@@ -2299,9 +2424,13 @@ contains
       do l=1,nlinksmpi
          if(lsend_dir(l))call packaging_phifields_buffmpi(l,phifields_s)
       enddo
+      ! the packing kernels must have completed before MPI reads the buffer
       !$acc wait
       !f_recv_buffmpi=f_send_buffmpi
 #ifdef MPI
+      ! host_data use_device passes the device address of each buffer segment to MPI (CUDA-aware
+      ! MPI). The datatype f_datampi((l+1)/2) is shared by l and its opposite direction. The receive
+      ! uses the same tag f_mpitag(l): it matches the direction-l message sent by recv_dir(l).
       mm=0
       do l=1,nlinksmpi
          ll=(l+1)/2
@@ -2328,6 +2457,8 @@ contains
 
    end subroutine exchange_phifields_sendrecv
 
+   ! Wait for the requests posted by exchange_phifields_sendrecv, then unpack every received
+   ! segment into the halo of phifields_s. Returns at once in a serial build.
    subroutine exchange_phifields_wait(phifields_s)
 
       implicit none
@@ -2358,6 +2489,10 @@ contains
 
    end subroutine exchange_phifields_wait
 
+   ! Copy the send region f_send_extr(:,lmio) of phifields_s into f_send_buffmpi, starting at
+   ! f_nbuffmpi_send(lmio). Values are stored with i fastest, then j, k and component ll:
+   !   idx = offset + (i-imin) + (j-jmin)*m1 + (k-kmin)*m1*m2 + (ll-1)*m1*m2*m3
+   ! The receiver unpacks with the same order over its halo region, which has the same shape.
    subroutine packaging_phifields_buffmpi(lmio,phifields_s)
 
       implicit none
@@ -2417,6 +2552,8 @@ contains
 
    end subroutine packaging_phifields_buffmpi
 
+   ! Inverse of packaging_phifields_buffmpi: copy the segment of direction lmio of f_recv_buffmpi
+   ! into the halo nodes f_recv_extr(:,lmio) of phifields_s.
    subroutine depackaging_phifields_buffmpi(lmio,phifields_s)
 
       implicit none
@@ -2477,6 +2614,9 @@ contains
    end subroutine depackaging_phifields_buffmpi
 
    !****************************** normx normy normz********************************************************************!
+   ! Halo exchange of auxfields (fvec_ extents, buffers, datatypes and tags; 7 components with
+   ! TWOCOMPONENT). Same scheme as the phifields routines; the exchange_auxfields_* routines
+   ! return at once when nauxfields==0.
    subroutine exchange_auxfields_intpbc
 
       implicit none
@@ -2569,6 +2709,7 @@ contains
 
    end subroutine exchange_auxfields_intpbc
 
+   ! As exchange_phifields_sendrecv, for auxfields.
    subroutine exchange_auxfields_sendrecv
 
       implicit none
@@ -2611,6 +2752,7 @@ contains
 
    end subroutine exchange_auxfields_sendrecv
 
+   ! As exchange_phifields_wait, for auxfields.
    subroutine exchange_auxfields_wait
 
       implicit none
@@ -2641,6 +2783,7 @@ contains
 
    end subroutine exchange_auxfields_wait
 
+   ! As packaging_phifields_buffmpi, for the auxfields components (TWOCOMPONENT only).
    subroutine packaging_auxfields_buffmpi(lmio)
 
       implicit none
@@ -2736,6 +2879,7 @@ contains
 
    end subroutine packaging_auxfields_buffmpi
 
+   ! As depackaging_phifields_buffmpi, for the auxfields components (TWOCOMPONENT only).
    subroutine depackaging_auxfields_buffmpi(lmio)
 
       implicit none
@@ -2832,6 +2976,8 @@ contains
    
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!hfields!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+   ! Halo exchange of the 10 hfields moments (b_ extents, buffers, datatypes and tags; halo depth
+   ! nbuffbvec). Same scheme as the phifields routines.
    subroutine exchange_hfields_intpbc(hfields_s)
 
       implicit none
@@ -2932,6 +3078,7 @@ contains
 
    end subroutine exchange_hfields_intpbc
 
+   ! As exchange_phifields_sendrecv, for hfields.
    subroutine exchange_hfields_sendrecv(hfields_s)
 
       implicit none
@@ -2973,6 +3120,7 @@ contains
 
    end subroutine exchange_hfields_sendrecv
 
+   ! As exchange_phifields_wait, for hfields.
    subroutine exchange_hfields_wait(hfields_s)
 
       implicit none
@@ -3003,6 +3151,7 @@ contains
 
    end subroutine exchange_hfields_wait
 
+   ! As packaging_phifields_buffmpi, for the 10 hfields components.
    subroutine packaging_hfields_buffmpi(lmio,hfields_s)
 
       implicit none
@@ -3112,6 +3261,7 @@ contains
 
    end subroutine packaging_hfields_buffmpi
 
+   ! As depackaging_phifields_buffmpi, for the 10 hfields components.
    subroutine depackaging_hfields_buffmpi(lmio,hfields_s)
 
       implicit none
@@ -3223,6 +3373,8 @@ contains
    
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!forces!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+   ! Halo exchange of the 3 force components (c_ extents, buffers, datatypes and tags; same
+   ! extents as hfields). Same scheme as the phifields routines.
    subroutine exchange_forces_intpbc()
 
       implicit none
@@ -3299,6 +3451,7 @@ contains
 
    end subroutine exchange_forces_intpbc
 
+   ! As exchange_phifields_sendrecv, for forces.
    subroutine exchange_forces_sendrecv()
 
       implicit none
@@ -3338,6 +3491,7 @@ contains
 
    end subroutine exchange_forces_sendrecv
 
+   ! As exchange_phifields_wait, for forces.
    subroutine exchange_forces_wait()
 
       implicit none
@@ -3366,6 +3520,7 @@ contains
 
    end subroutine exchange_forces_wait
 
+   ! As packaging_phifields_buffmpi, for the 3 force components.
    subroutine packaging_forces_buffmpi(lmio)
 
       implicit none
@@ -3439,6 +3594,7 @@ contains
 
    end subroutine packaging_forces_buffmpi
 
+   ! As depackaging_phifields_buffmpi, for the 3 force components.
    subroutine depackaging_forces_buffmpi(lmio)
 
       implicit none
@@ -3513,6 +3669,9 @@ contains
    end subroutine depackaging_forces_buffmpi   
    
 !!!!!!!!!!!!!!!!!!!!!!!!!!!ISFLUID!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   ! Halo exchange of the host array isfluid(1-nbuff:nx+nbuff,...), which is not tiled. Same
+   ! scheme as the phifields routines with the f_ extents, but executed on the host with host
+   ! buffers (no device kernels). Called at start-up from LBFAST.f90.
    subroutine exchange_isf_intpbc
 
       implicit none
@@ -3538,6 +3697,7 @@ contains
 
    end subroutine exchange_isf_intpbc
 
+   ! As exchange_phifields_sendrecv, for isfluid (host buffers i_send_buffmpi, i_recv_buffmpi).
    subroutine exchange_isf_sendrecv
 
       implicit none
@@ -3571,6 +3731,7 @@ contains
 
    end subroutine exchange_isf_sendrecv
 
+   ! As exchange_phifields_wait, for isfluid.
    subroutine exchange_isf_wait
 
       implicit none
@@ -3595,6 +3756,7 @@ contains
 
    end subroutine exchange_isf_wait
 
+   ! As packaging_phifields_buffmpi, for isfluid (host loop).
    subroutine packaging_isf_buffmpi(lmio)
 
       implicit none
@@ -3629,6 +3791,7 @@ contains
 
    end subroutine packaging_isf_buffmpi
 
+   ! As depackaging_phifields_buffmpi, for isfluid (host loop).
    subroutine depackaging_isf_buffmpi(lmio)
 
       implicit none
@@ -3663,6 +3826,11 @@ contains
 
    end subroutine depackaging_isf_buffmpi
 
+   ! Write frame iframe of the density and velocity (and, with TWOCOMPONENT and WRITEPRESS, the
+   ! pressure) as VTK ImageData files (.vti) with raw appended data, using collective MPI-IO.
+   ! Rank 0 writes the XML header, the 4-byte data length at vtkoffset and the footer; every rank
+   ! writes its block of the subsampled arrays rhoprint, velprint, pressprint through a subarray
+   ! file view. With PRINTHALF the values are 2-byte (MPI_UNSIGNED_SHORT) instead of 4-byte reals.
    subroutine write_file_vtk_par(iframe,e_io)
 
 !***********************************************************************
@@ -4018,6 +4186,11 @@ contains
 
    end subroutine write_file_vtk_par
 
+   ! Write dir_out/restart.raw with collective MPI-IO: the 10 hfields moments of the interior
+   ! nodes, each as a global lx*ly*lz array of 4-byte reals (Fortran order), in the order
+   ! 1,2,3,4,5,8,9,6,10,7 (components 1-4, then pxx,pxy,pxz,pyy,pyz,pzz). The file view tiles the
+   ! subarray type, so each MPI_FILE_WRITE_ALL fills the next global array. Rank 0 then writes
+   ! iframe and iframe2D as two 4-byte integers at byte offset lx*ly*lz*10*db.
    subroutine write_restart_parallel_1c(iframe,iframe2D,e_io,hfields_s)
 
 !***********************************************************************
@@ -4312,6 +4485,8 @@ contains
 
    end subroutine write_restart_parallel_1c
 
+   ! Read dir_out/restart.raw written by write_restart_parallel_1c (same layout and order) into
+   ! the interior nodes of hfields_s. Only rank 0 reads iframe and iframe2D from the trailer.
    subroutine read_restart_parallel_1c(iframe,iframe2D,e_io,hfields_s)
 
 !***********************************************************************
@@ -4599,6 +4774,8 @@ contains
 
    end subroutine read_restart_parallel_1c
 
+   ! Two-component version of write_restart_parallel_1c: phifields_s(...,1) is appended as an
+   ! eleventh global array and the trailer is at byte offset lx*ly*lz*11*db.
    subroutine write_restart_parallel_2c(iframe,iframe2D,e_io,hfields_s,phifields_s)
 
 !***********************************************************************
@@ -4912,6 +5089,7 @@ contains
 
    end subroutine write_restart_parallel_2c
 
+   ! Two-component version of read_restart_parallel_1c (eleventh array: phifields_s(...,1)).
    subroutine read_restart_parallel_2c(iframe,iframe2D,e_io,hfields_s,phifields_s)
 
 !***********************************************************************
@@ -5223,6 +5401,9 @@ contains
 
    end subroutine read_restart_parallel_2c
    
+   ! Read isfluid.raw from the working directory (global lx*ly*lz array of 4-byte reals) with
+   ! collective MPI-IO and store it, converted to integer(kind=isf), in the interior of isfluid.
+   ! iframe is not used.
    subroutine read_isfluid_parallel(iframe,e_io)
 
 !***********************************************************************
@@ -5322,6 +5503,9 @@ contains
 
    end subroutine read_isfluid_parallel
    
+   ! Read the initial fields from rho.raw, u.raw, v.raw, w.raw (and phi.raw with TWOCOMPONENT) in
+   ! the working directory, each a global lx*ly*lz array of 4-byte reals, into hfields_s(...,1:4)
+   ! (and phifields_s(...,1)) on the interior nodes. iframe is not used.
    subroutine read_init_parallel(iframe,e_io,hfields_s,phifields_s)
 
 !***********************************************************************
@@ -5723,6 +5907,9 @@ contains
 
    end subroutine read_init_parallel
    
+   ! Write isfluid, subsampled every stepskip nodes (rhoprint is used as scratch), as a raw global
+   ! array with collective MPI-IO; with DOXDMF rank 0 also writes an XDMF descriptor. If the raw
+   ! file already exists, the routine returns without rewriting it.
    subroutine write_file_raw_par_isfluid(iframe,e_io)
 
 !***********************************************************************
@@ -5910,6 +6097,10 @@ contains
 
    end subroutine write_file_raw_par_isfluid
 
+   ! Write frame iframe of density, velocity (3 interleaved components per node) and, with
+   ! TWOCOMPONENT and WRITEPRESS, pressure as raw global arrays (subsampled grid, 4-byte reals or
+   ! 2-byte with PRINTHALF) with collective MPI-IO. With DOXDMF rank 0 also writes an XDMF
+   ! descriptor for each file, with the grid dimensions listed in the order z y x.
    subroutine write_file_raw_par(iframe,e_io)
 
 !***********************************************************************
@@ -6307,6 +6498,9 @@ contains
 
    end subroutine write_file_raw_par
    
+   ! Variant of write_file_raw_par without MPI-IO (used with AVOIDMPIIO): every rank writes its
+   ! own subarray to <name>_p<rank>.raw with stream I/O; with DOXDMF rank 0 writes one XDMF file
+   ! per field listing the pieces of all ranks (sizes lsizes_3d, offsets myoffset_3d).
    subroutine write_file_raw_par_nompiio(iframe,e_io)
 
 !***********************************************************************
@@ -6557,6 +6751,11 @@ contains
 
    end subroutine write_file_raw_par_nompiio
    
+   ! Write 2D output plane myid (normal direction mydir, position mypoint) with MPI-IO:
+   ! service1 (scalar, namevarvtk(1)), service3 (3-component vector, namevarvtk(2)) and, with
+   ! TWOCOMPONENT and WRITEPRESS, service2 (scalar, namevarvtk(3)). Only the ranks with ldowrite
+   ! take part in the file operations, on io_comm2d(myid); all ranks must call the routine
+   ! because of the barriers on MPI_COMM_WORLD.
    subroutine write_file_raw_par2D(ldowrite,iframe,myid,mydir,mypoint,service1,service3, &
       myoffset_plane,lsizes_plane,gsizes_plane,e_io,service2)
 
@@ -6984,6 +7183,9 @@ contains
 
    end subroutine write_file_raw_par2D
    
+   ! Variant of write_file_raw_par2D without MPI-IO (used with AVOIDMPIIO): each rank with
+   ! ldowrite writes its part of the plane to <name>_p<rank>.raw; with DOXDMF rank 0 writes an
+   ! XDMF file listing the pieces of the ranks with log_plane2d(i,myid).
    subroutine write_file_raw_par2D_nompiio(ldowrite,iframe,myid,mydir,mypoint,service1,service3, &
       myoffset_plane,lsizes_plane,gsizes_plane,e_io,service2)
 
@@ -7253,6 +7455,7 @@ contains
 
    end subroutine write_file_raw_par2D_nompiio
 
+   ! Cartesian coordinates of the rank that owns the global node (ii,jj,kk)
    function GET_COORD_POINT(ii,jj,kk)
 
       implicit none
@@ -7286,6 +7489,7 @@ contains
 
    end function GET_COORD_POINT
 
+   ! Rank in lbecomm that owns the global node (ii,jj,kk) (0 in a serial build)
    function GET_RANK_POINT(ii,jj,kk,ierr)
 
       implicit none
@@ -7305,6 +7509,8 @@ contains
 
    end function GET_RANK_POINT
 
+   ! Print an optional message on rank 0, then synchronise, finalise MPI and stop. Must be called
+   ! by all ranks (MPI_Barrier on MPI_COMM_WORLD); doerror stops from a single rank.
    subroutine dostop(mystring,mystring2,inumber)
 
       implicit none
@@ -7336,6 +7542,7 @@ contains
 
    end subroutine dostop
 
+   ! Print an optional message from the calling rank and abort all ranks with MPI_Abort(errcode).
    subroutine doerror(errcode,mystring)
 
       implicit none
@@ -7357,6 +7564,10 @@ contains
 
    end subroutine doerror
    
+   ! Global reductions on MPI_COMM_WORLD, each followed by a barrier (no-ops in a serial build):
+   !   or_world_l / or_world_larr        logical OR of a scalar / an array
+   !   sum_world_iarr / sum_world_farr   sum of an integer / real(db) array
+   !   sum_world_int / sum_world_float   sum of an integer / real(db) scalar
    subroutine or_world_l(argument)
 
 !***********************************************************************

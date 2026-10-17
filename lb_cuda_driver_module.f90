@@ -4,6 +4,33 @@
 #endif
 
 
+!------------------------------------------------------------------------------------------------
+! Host wrappers that launch the CUDA Fortran kernels of the time step, and setup_cuda, which sets
+! the launch configuration.
+!
+! Tiles and grids: the local subdomain is split into tiles of TILE_DIMx x TILE_DIMy x TILE_DIMz
+! nodes (8x8x8 by default), and the field arrays hold one extra layer of halo tiles on each side
+! (see allocate_module.f90). dimBlock has one thread per node of a tile and dimGrid one block per
+! tile; the CUDA block (bx,by,bz) of dimGrid works on the array block (bx+1,by+1,bz+1). For the
+! overlap of computation and communication (ASYNCMPI) the tiles are split into disjoint sets:
+!   dimGridInt  interior tiles, which do not touch a face of the subdomain (_int wrappers);
+!   dimGridz    tiles of the two z faces, including edges and corners;
+!   dimGridy    tiles of the two y faces, without those of the z faces;
+!   dimGridx    tiles of the two x faces, without those of the y and z faces.
+! The _ext wrappers launch the minus and plus kernels of the z, y and x faces; together with the
+! _int kernel every tile is processed once. dimBlockshared, (TILE_DIMx+2) x (TILE_DIMy+2) x
+! (TILE_DIMz+2) = 10x10x10 threads for a tile and its one-node halo, and dimGridhalo/dimBlockhalo
+! are used only by the test kernels of this module.
+!
+! The wrappers wait for the OpenACC queues and synchronize the device before the launch, and pass
+! the device addresses of the arrays through the OpenACC host_data use_device construct. Kernel
+! launches are asynchronous: after the launch, cudaGetLastError reports launch errors (for
+! instance an invalid configuration or too much shared memory), and cudaDeviceSynchronize waits
+! for the kernel to finish (most wrappers also check its status, which reports errors raised
+! during the execution). The results are therefore complete before the host continues with
+! OpenACC loops, MPI calls on device buffers or output, and an error is reported by the wrapper
+! that launched the failing kernel.
+!------------------------------------------------------------------------------------------------
 module lb_cuda_driver
 
    use vars
@@ -48,6 +75,10 @@ module lb_cuda_driver
 
 contains
 
+   ! setup_cuda: selects the GPU of the rank, checks the tile sizes (nonzero, at most 1024 threads
+   ! per tile, nx, ny, nz multiples of the tile sizes), copies the sizes to constant memory, sets
+   ! the launch configurations, and computes the number of array blocks along each direction,
+   ! nxblock = nx/TILE_DIMx + 2 (one halo tile on each side), and nblocks.
    subroutine setup_cuda
       implicit none
       
@@ -131,6 +162,8 @@ contains
       if(nyb-2<=0)ldodimGridx=.false.
       if(nzb-2<=0)ldodimGridx=.false.
       
+      ! With a single tile along a direction, the minus face kernel covers it and the plus face
+      ! kernel is not launched.
       ldodimGridx_twice=.true.
       ldodimGridy_twice=.true.
       ldodimGridz_twice=.true.
@@ -174,6 +207,8 @@ contains
    
    endsubroutine setup_cuda
    
+   ! Debug helper: launches one of the test kernels below, which print the indices of selected
+   ! nodes to check the mapping between threads, nodes and tiles. It is not called during a run.
    subroutine test_LB_cuda
 
    implicit none
@@ -549,6 +584,12 @@ contains
       
  end subroutine test_LB_kernel_halo
  
+ ! Interface geometry (TWOCOMPONENT; otherwise the wrappers do nothing). The kernels read phi from
+ ! phifields_s, including the halo, and store the unit normal n, |grad phi| and phi (1-phi) n in
+ ! auxfields (fields 1-3, 4 and 5-7) and the Laplacian of phi in locauxfields (field 1).
+ ! compute_norm_interface_cuda processes all tiles; the _int and _ext variants process the
+ ! interior and the face tiles, so that the halo exchange of auxfields can overlap the interior
+ ! computation (ASYNCMPI).
  subroutine compute_norm_interface_cuda(phifields_s)
 
       implicit none
@@ -825,6 +866,8 @@ contains
       
  endsubroutine compute_norm_interface_cuda_ext
    
+ ! div(phi (1-phi) n), computed from auxfields 5-7 and stored in locauxfields field 2
+ ! (TWOCOMPONENT only).
  subroutine compute_div_theta_n(phifields_s)
 
       implicit none
@@ -854,6 +897,8 @@ contains
       
    endsubroutine compute_div_theta_n 
 
+   ! CSF surface tension: curvature from the normals in auxfields, and force
+   ! sigma * curvature * n * |grad phi| stored in forces; moments_LB_kernel adds it to the force.
 #ifdef CSF
    subroutine compute_csf_force
 
@@ -874,6 +919,8 @@ contains
    endsubroutine compute_csf_force
 #endif
       
+   ! REPULSIVE_FLUX (TWOCOMPONENT only): thinfilm_scan_mark_kernel and repulsive_flux_normal_kernel,
+   ! see lb_cuda_repulsive_module.f90. Without REPULSIVE_FLUX these wrappers do nothing.
    subroutine thinfilm_scan_mark_cuda(phifields_s)
 
       implicit none
@@ -936,6 +983,14 @@ contains
       
    endsubroutine repulsive_flux_normal_cuda
  
+ ! Moment update before the collision (not used with FUSED_MOMENTS). moments_LB_kernel computes
+ ! the force on every fluid node (body force and the model-dependent terms of TWOCOMPONENT,
+ ! MULTIHIT and ELASTIC_FORCE), adds half the force per unit density to the velocity and
+ ! (u F + F u)/(2 rho) to the second-order moments of hfields_s in place, and stores in forces the
+ ! force used by the fused kernel. hfields_old is the other buffer: only its velocity, the
+ ! velocity of the previous time step, is read (DENSRATIO viscous term, ELASTIC_FORCE).
+ ! moments_LB_cuda processes all tiles; moments_LB_cuda_int and moments_LB_cuda_ext launch the
+ ! interior and face variants used with ASYNCMPI (see the module header).
  subroutine moments_LB_cuda(hfields_old,hfields_s &
 #ifdef TWOCOMPONENT    
   ,phifields_s &
@@ -1456,6 +1511,16 @@ contains
       
    endsubroutine moments_LB_cuda_ext
 
+   ! Fused collide-and-stream step (docs/FUSED_KERNELS.md): the kernel reads the moments of
+   ! hfields_in on each tile and its one-node halo, and writes the post-streaming moments of the
+   ! tile nodes into hfields_out. The kernel is chosen at compile time: fused_LB_kernel_h or
+   ! fused_LB_kernel_bb_h for high-order D3Q27, fused_LB_kernel or fused_LB_kernel_bb otherwise,
+   ! the _bb variants with BOUNCE_BACK. It runs one block of TILE_DIMx*TILE_DIMy*TILE_DIMz threads
+   ! per tile (dimGrid, dimBlock) with nbytesf bytes of dynamic shared memory. More than 48 KB per
+   ! block must be requested explicitly, so at the first call the limit is raised to nbytesf with
+   ! cudaFuncSetAttribute and the largest shared-memory carveout is preferred; the run stops if
+   ! the GPU cannot provide the memory. With FUSED_MOMENTS the kernel also applies the moment
+   ! update of moments_LB_kernel.
    subroutine fused_LB_cuda(hfields_in,hfields_out &
 #ifdef TWOCOMPONENT    
    ,phifields_s &
@@ -1468,6 +1533,8 @@ contains
 #ifdef TWOCOMPONENT       
       real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_s
 #endif
+      ! nbytesf is in bytes: the kind db (4 or 8) is used as the size of a real of the arithmetic
+      ! precision.
 #if defined(HIGHORDER) && (LATTICE == 27)
       ! ten second-order coefficients, u and (1-omega) Pi_neq of the tile and its halo in dynamic
       ! shared memory, later reused for the seventeen high-order coefficients
@@ -1551,6 +1618,8 @@ contains
 	   forces)
 
       !$acc end host_data
+      ! The GPU power is sampled while the kernel runs (before the synchronization below), once every
+      ! stamp_term steps; integrator integrates it over time.
 #if defined(_NVML) && defined(GETPOWER)
       if(mod(step-1,stamp_term).eq.0)then 
         p_mw = get_gpu_power_index(mydev_c)
@@ -1581,6 +1650,11 @@ contains
       
    end subroutine fused_LB_cuda
    
+   ! Phase-field update (TWOCOMPONENT only): explicit step of the phase-field equation,
+   !   phi_out = phi_in - u.grad(phi) + tau_diff lap(phi) - sharp_c div(phi (1-phi) n),
+   ! with the velocity of hfields_s and the fields in auxfields and locauxfields (MONOD adds a
+   ! source term). update_phifields processes all tiles; update_phifields_int and
+   ! update_phifields_ext process the interior and the face tiles (ASYNCMPI).
    subroutine update_phifields(hfields_s,phifields_in,phifields_out)
 
       implicit none
@@ -1962,6 +2036,9 @@ contains
       
    endsubroutine update_phifields_ext
    
+   ! Boundary condition at internal obstacles, called by bcs_mesoscopic_hfields when BOUNCE_BACK is
+   ! not defined: corrects the moments in hfields_out of the fluid nodes next to a solid node
+   ! (isfluid = -1), using also the moments in hfields_in.
    subroutine LB_int_boundary_cuda(hfields_in,hfields_out &
 #ifdef TWOCOMPONENT	       
      ,phifields_s &
@@ -2026,6 +2103,7 @@ contains
       
    end subroutine LB_int_boundary_cuda
    
+   ! Phase-field boundary condition at internal obstacles (called by bcs_mesoscopic_phifields).
    subroutine PHI_int_boundary_cuda(hfields_s,phifields_s)
 
       implicit none
@@ -2072,6 +2150,10 @@ contains
       
    endsubroutine PHI_int_boundary_cuda 
    
+   ! Global conservation of phi with internal obstacles (called by bcs_mesoscopic_phifields):
+   ! phi_sum_count_cuda sums phi over the fluid nodes into global_phi_sum and counts in
+   ! global_count the nodes with 0.5 < phi < 0.9; apply_lagrangian_phi_cuda adds the correction
+   ! corr, computed on the host from these sums, to the same nodes.
    subroutine phi_sum_count_cuda(hfields_s,phifields_s)
 
       implicit none

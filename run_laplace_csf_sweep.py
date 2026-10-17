@@ -1,6 +1,22 @@
 #!/usr/bin/env python3
 """Run a CSF Laplace sweep and fit Delta p as a function of 1/R."""
 
+# Benchmark: static Laplace law for the CSF surface-tension model
+# (docs/CSF_LAPLACE_VALIDATION.md).
+# Build: unless --skip-build is given, defines.h is edited in place to enable LATTICE 27,
+# HIGHORDER, TWOCOMPONENT, DENSRATIO, CSF, DOBENCHMARK and LAPLACE and to disable the LAMBTEST,
+# POISEUILLE, TWOPOISEUILLE and TAYLORGREEN selectors; then "make clean" and
+# "make <target> GPUCC=<cc>" are run. Other macros (PRC, STRPRC, MIXEDPRC, ...) are kept as found,
+# and defines.h is not restored afterwards (tests/run_full_validation.py restores it).
+# Runs: from the template laplace.inp, three spherical droplets of radius R = 16, 24, 32 in a
+# cubic box of side N = 4R, centred at N/2, interface width 4, external pressure probe at
+# (1, N/2, N/2), each in laplace_csf_sweep/R<R>_N<N>_W4/.
+# Metric: Delta p averaged over the stationary window (by default the second half of the run)
+# against 2 sigma / R for each radius, and the slope error of the least-squares fit
+# Delta p = slope / R through the origin. Results go to laplace_csf_sweep_summary.csv and
+# laplace_csf_fit.txt. This script applies no tolerance; tests/run_full_validation.py requires
+# three radii, a maximum pointwise error <= 3% and a slope error <= 3%.
+
 import argparse
 import csv
 import re
@@ -77,6 +93,7 @@ def replace_parameter(text: str, name: str, value: str) -> str:
 
 
 def build_input(template: str, radius: int, nsteps: int) -> str:
+    """Return the input for radius R: box N = 4R, centre N/2, width 4, probe at (1, N/2, N/2)."""
     size = 4 * radius
     center = size / 2
     values = {
@@ -98,6 +115,11 @@ def build_input(template: str, radius: int, nsteps: int) -> str:
 
 
 def read_plateau(path: Path, start_fraction: float) -> Dict[str, float]:
+    """Average the stationary part of laplace.dat.
+
+    laplace.dat (statistics.f90) has the columns step, sigma_eff, Delta p and measured radius;
+    the window holds the samples with step >= start_fraction times the last step.
+    """
     rows: List[Tuple[int, float, float, float]] = []
     for line in path.read_text().splitlines():
         fields = line.split()
@@ -126,6 +148,12 @@ def read_plateau(path: Path, start_fraction: float) -> Dict[str, float]:
 
 
 def fit_results(rows: List[Dict[str, float]], sigma: float) -> Dict[str, float]:
+    """Fit Delta p against x = 1/R.
+
+    slope_through_origin is the least-squares slope of Delta p = slope * x, compared with the
+    exact slope 2 sigma (slope_error). slope_with_intercept and intercept come from an ordinary
+    linear fit and are only reported.
+    """
     x = [1.0 / row["radius"] for row in rows]
     y = [row["delta_p"] for row in rows]
     slope_zero = sum(a * b for a, b in zip(x, y)) / sum(a * a for a in x)
@@ -194,6 +222,8 @@ def main() -> None:
         input_path.write_text(build_input(template, radius, args.nsteps))
         validate_local_tiles(input_path, args.decomposition)
 
+        # The input is regenerated every time; the solver runs only with --force or when the
+        # case has no laplace.dat yet.
         if args.force or not data_path.is_file():
             print(f"Running R={radius}, N={size}, W=4 ...", flush=True)
             with log_path.open("w") as log:

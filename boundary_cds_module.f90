@@ -1,4 +1,15 @@
 #include "defines.h"
+! bcs3D: boundary conditions on internal obstacles and on the non-periodic faces of the global domain
+! lx x ly x lz, active only with INTERNAL_OBSTACLES. With pbc_x = 0 the planes gi = 1 and gi = lx are
+! solid (isfluid = 0, set in LBFAST.f90), so the fluid nodes of the planes gi = 2 and gi = lx-1 have
+! isfluid = -1; the same holds in y and z.
+!   bcs_mesoscopic_hfields   completes the hydrodynamic moments after the fused collide-and-stream
+!                            kernel: walls, then open boundaries (openbc = 1);
+!   bcs_mesoscopic_phifields sets phi on the solid nodes (contact angle, open faces) and, with
+!                            BCPHIFLUX, corrects the total amount of phi.
+! The face loops are OpenACC loops (kernels or parallel loop) executed only by the rank whose
+! sub-domain contains the face plane: the plane gi lies on the rank with coords(1) = (gi-1)/nx.
+! Tile layout and index arithmetic (xblock, ii, myblock) as in lb_cuda_auxfields_module.f90.
 module bcs3D
 
    use vars
@@ -13,6 +24,12 @@ module bcs3D
 
 contains
    !***************************************************
+   ! bcs_mesoscopic_hfields: called after the fused kernel (with INTERNAL_OBSTACLES) with
+   ! hfields_in = hfields_flip (pre-collision moments), hfields_out = hfields_flop (moments
+   ! accumulated at t+1) and phifields_s = phifields_flip.
+   ! 1) without BOUNCE_BACK, thread-safe no-slip walls at all the fluid nodes next to a solid
+   !    (LB_int_boundary_cuda); with BOUNCE_BACK the bounce-back fused kernel treats the walls;
+   ! 2) with openbc = 1, open boundaries on the first fluid plane of each non-periodic face.
    subroutine bcs_mesoscopic_hfields(hfields_in,hfields_out &
 #ifdef TWOCOMPONENT	    
    ,phifields_s &
@@ -57,6 +74,19 @@ contains
      if(openbc==0)return
 !*****************************************
 
+     ! Open boundaries. For each fluid node (isfluid = -1) of the plane gi = 2 (1 < gj < ly,
+     ! 1 < gk < lz) and each link l whose upwind node x-c_l is solid, the loop subtracts from
+     ! hfields_out the zero-velocity population w_l p* + (1-omega) f_l^neq (same form as in
+     ! LB_int_boundary_kernel) and adds
+     !   f_l = feq_l(p_b,u_b) + (1-omega) f_l^neq,
+     !   feq_l = w_l (p_b + c_l.u_b/cs^2 + (c_l.u_b)^2/(2 cs^4) - u_b^2/(2 cs^2)),
+     ! where, with HIGHORDER and LATTICE = 27, feq_l and f_l^neq also include the third- to
+     ! sixth-order Hermite terms (Minv_mrt rows 10-26). openbc_type_x(1) selects (p_b,u_b):
+     ! 2 zero gradient (p* and u of the node), 1 imposed pressure openbc_press_x(1) with the node
+     ! velocity, other values imposed velocity openbc_u/v/w_x(1) with the node pressure.
+     ! f_l^neq = w_l/(2 cs^4) H_l:Pi^neq is built from the node moments, with
+     ! Pi^neq_ab = hfields 5-10 - cs^2 p* delta_ab - u_a u_b. The same scheme is repeated below
+     ! for the plane gi = lx-1 (openbc_type_x(2)) and for the y and z faces.
 	 if(pbc_x.eq.0)then
 	   gi=2
        subchords(1)=(gi-1)/nx
@@ -270,6 +300,7 @@ contains
 #endif   
        endif
 
+	   ! plane gi = lx-1 (local i = nx-1 on the last rank along x), openbc_type_x(2)
 	   gi=lx-1
        subchords(1)=(gi-1)/nx
 	   if(subchords(1)==coords(1))then
@@ -481,6 +512,7 @@ contains
        endif
 	 endif	
 	   
+	 ! y faces: planes gj = 2 and gj = ly-1 (1 < gi < lx, 1 < gk < lz), openbc_type_y(1:2)
 	 if(pbc_y.eq.0)then
 	   gj=2
        subchords(2)=(gj-1)/ny
@@ -904,6 +936,7 @@ contains
 	   endif
 	 endif
 
+	 ! z faces: planes gk = 2 and gk = lz-1 (1 < gi < lx, 1 < gj < ly), openbc_type_z(1:2)
 	 if(pbc_z.eq.0)then
 	   gk=2
        subchords(3)=(gk-1)/nz
@@ -1331,6 +1364,14 @@ contains
 
    endsubroutine bcs_mesoscopic_hfields
 
+   ! bcs_mesoscopic_phifields: boundary conditions on phi, active with INTERNAL_OBSTACLES and
+   ! TWOCOMPONENT. Called once before the time loop and, in each half step, after the
+   ! compute_norm_interface kernels and the auxfields halo exchange (PHI_int_boundary_kernel
+   ! reads n and |grad phi| at the donor nodes).
+   ! 1) ghost phi with contact angle on the solid nodes next to the fluid (PHI_int_boundary_cuda);
+   ! 2) with openbc = 1, phi on the solid planes gi = 1 and gi = lx (y, z alike; edges excluded) is
+   !    copied from the adjacent fluid plane (zero normal gradient), replacing there the value of 1);
+   ! 3) with BCPHIFLUX, correction of the total amount of phi (see the block below).
    subroutine bcs_mesoscopic_phifields(hfields_s,phifields_s)
 
      implicit none
@@ -1368,6 +1409,7 @@ contains
 
      call PHI_int_boundary_cuda(hfields_s,phifields_s)
 	 
+  ! 2) open faces: zero normal gradient of phi on the solid face planes (edges excluded)
   if(openbc==1)then
 	 
 	 if(pbc_x.eq.0)then
@@ -1682,6 +1724,13 @@ contains
   endif      			
 
 !******************lagrange multiplier
+  ! 3) BCPHIFLUX: global correction of phi. With openbc = 1 the face loops accumulate in
+  ! global_phi_change the net inflow of phi through the open faces in this call, i.e. the sum of
+  ! u_n phi over the fluid nodes of the first fluid planes (+ at gi = 2, - at gi = lx-1; v and w
+  ! on the y and z faces), summed over the ranks. phi_sum_count_cuda gives the total phi on the
+  ! fluid nodes (global_phi_sum) and the number of nodes with 0.5 < phi < 0.9 (global_count);
+  ! dphi = global_phi_sum_ini + global_phi_change - global_phi_sum is spread uniformly over these
+  ! nodes by apply_lagrangian_phi_cuda (corr = dphi/global_count). The accumulators are then reset.
 #ifdef BCPHIFLUX
   if(openbc==1)then
 	 if(pbc_x.eq.0)then

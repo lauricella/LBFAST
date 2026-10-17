@@ -3,6 +3,9 @@
 #error "To use this module the macros _OPENACC should be defined."
 #endif
 
+!     Fused collide-and-stream kernels: collision, streaming (pull) and computation of the new
+!     moments in one kernel per time step, without storing the populations. The formulation, the
+!     thread organization and the verification are described in docs/FUSED_KERNELS.md.
 module lb_cuda_fused
 
    use vars
@@ -86,6 +89,8 @@ contains
 #endif
       real(kind=db) :: o0,ox,oy,oz,qxx,qyy,qzz,oxy,oxz,oyz
       real(kind=db) :: forcex,forcey,forcez,invrhophi_loc
+      ! gather stages: fa, fb values pulled from x-c_l and x+c_l; ge, go contributions to the even
+      ! and odd output moments
       real(kind=db) :: fa,fb,ge,go
       real(kind=db) :: omega_loc,phi_loc,visc_loc
 #ifdef SMAGORINSKI
@@ -108,6 +113,7 @@ contains
       lj = threadIdx%y
       lk = threadIdx%z
       ithread=(li-1)+TILE_DIMx*(lj-1)+TILE_DIMx*TILE_DIMy*(lk-1)
+      ! blockIdx runs over the interior tiles; the tile number is shifted by the layer of halo tiles
       intblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
 
       ! inode=0 is the node of this thread; inode>0 are the halo nodes ithread, ithread+nthreads, ...
@@ -119,6 +125,9 @@ contains
         else
           ih=ithread+(inode-1)*nthreads
           if(ih >= nhalo)exit
+          ! halo node ih (0 <= ih < nhalo), in this order: the plane hk=0 (nhx*nhy nodes); for each
+          ! interior plane hk=1..TILE_DIMz a ring of nring nodes (row hj=0, the end nodes hi=0 and
+          ! hi=nhx-1 of rows hj=1..TILE_DIMy for even and odd ir, row hj=nhy-1); the plane hk=nhz-1
           if(ih < nhx*nhy)then
             hk=0
             hj=ih/nhx
@@ -146,6 +155,8 @@ contains
           endif
         endif
 
+        ! coordinates (i,j,k) of the node in the subdomain, from 0 to n+1 including the halo, and its
+        ! tile myblock and local indices ii, jj, kk in the tiled field arrays (see vars_module.f90)
         i = (blockIdx%x-1) * TILE_DIMx + hi
         j = (blockIdx%y-1) * TILE_DIMy + hj
         k = (blockIdx%z-1) * TILE_DIMz + hk
@@ -169,6 +180,7 @@ contains
 
 #ifdef FUSED_MOMENTS
   				  ! uniform body force, rounded to the storage kind as moments_LB_kernel stores it
+  				  ! at fluid nodes; other nodes are skipped by moments_LB_kernel, so their stored force is read
   				  if(abs(isfluid(i,j,k)) == 1)then
   				    forcex=real(real(fx,kind=strdb),kind=db)*invrhophi_loc
   				    forcey=real(real(fy,kind=strdb),kind=db)*invrhophi_loc
@@ -198,6 +210,7 @@ contains
                     ! single-component flow without internal obstacles: moments_LB_kernel is not called, and its
                     ! update (velocity plus half the body force, second-order moment plus the force term) is
                     ! applied here with the same operations and the same rounding to the storage kind
+                    ! (/ONE stands for the division by the density, equal to one, in moments_LB_kernel)
                     if(abs(isfluid(i,j,k)) == 1)then
                       um=u + 0.5_db*fx/ONE
                       vm=v + 0.5_db*fy/ONE
@@ -241,6 +254,7 @@ contains
                   
 
 
+                    ! non-equilibrium part of the second-order Hermite moments, Pi_neq = a2 - u u
                     pxx=pxx - u*u 
                     pyy=pyy - v*v 
                     pzz=pzz - w*w 
@@ -297,6 +311,8 @@ contains
 
       call syncthreads
 
+                  ! output moments accumulated by the gather stages: o0 = sum_l f_l, ox, oy, oz =
+                  ! sum_l c_la f_l, qxx, qyy, qzz = sum_l c_la^2 f_l, oxy, oxz, oyz = sum_l c_la c_lb f_l
                   o0=ZERO
                   ox=ZERO
                   oy=ZERO
@@ -311,6 +327,7 @@ contains
 #include "fused2_stages.h"
 
                   ! the node of this thread is an interior node: its tile is intblock and ii=li, jj=lj, kk=lk
+                  ! the diagonal moments are stored as Hermite moments, sum_l (c_la^2 - cs^2) f_l
                   hfields_out(li,lj,lk,1,intblock)=real(o0,kind=strdb)
                   hfields_out(li,lj,lk,2,intblock)=real(ox,kind=strdb)
                   hfields_out(li,lj,lk,3,intblock)=real(oy,kind=strdb)
@@ -383,6 +400,8 @@ contains
 #endif
       real(kind=db) :: o0,ox,oy,oz,qxx,qyy,qzz,oxy,oxz,oyz
       real(kind=db) :: forcex,forcey,forcez,invrhophi_loc
+      ! gather stages: fa, fb values pulled from x-c_l and x+c_l; ge, go contributions to the even
+      ! and odd output moments
       real(kind=db) :: fa,fb,ge,go
       real(kind=db) :: omega_loc,phi_loc,visc_loc
 #ifdef SMAGORINSKI
@@ -408,6 +427,7 @@ contains
       lj = threadIdx%y
       lk = threadIdx%z
       ithread=(li-1)+TILE_DIMx*(lj-1)+TILE_DIMx*TILE_DIMy*(lk-1)
+      ! blockIdx runs over the interior tiles; the tile number is shifted by the layer of halo tiles
       intblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
 
       ! inode=0 is the node of this thread; inode>0 are the halo nodes ithread, ithread+nthreads, ...
@@ -419,6 +439,9 @@ contains
         else
           ih=ithread+(inode-1)*nthreads
           if(ih >= nhalo)exit
+          ! halo node ih (0 <= ih < nhalo), in this order: the plane hk=0 (nhx*nhy nodes); for each
+          ! interior plane hk=1..TILE_DIMz a ring of nring nodes (row hj=0, the end nodes hi=0 and
+          ! hi=nhx-1 of rows hj=1..TILE_DIMy for even and odd ir, row hj=nhy-1); the plane hk=nhz-1
           if(ih < nhx*nhy)then
             hk=0
             hj=ih/nhx
@@ -446,6 +469,8 @@ contains
           endif
         endif
 
+        ! coordinates (i,j,k) of the node in the subdomain, from 0 to n+1 including the halo, and its
+        ! tile myblock and local indices ii, jj, kk in the tiled field arrays (see vars_module.f90)
         i = (blockIdx%x-1) * TILE_DIMx + hi
         j = (blockIdx%y-1) * TILE_DIMy + hj
         k = (blockIdx%z-1) * TILE_DIMz + hk
@@ -469,6 +494,7 @@ contains
 
 #ifdef FUSED_MOMENTS
   				  ! uniform body force, rounded to the storage kind as moments_LB_kernel stores it
+  				  ! at fluid nodes; other nodes are skipped by moments_LB_kernel, so their stored force is read
   				  if(abs(isfluid(i,j,k)) == 1)then
   				    forcex=real(real(fx,kind=strdb),kind=db)*invrhophi_loc
   				    forcey=real(real(fy,kind=strdb),kind=db)*invrhophi_loc
@@ -498,6 +524,7 @@ contains
                     ! single-component flow without internal obstacles: moments_LB_kernel is not called, and its
                     ! update (velocity plus half the body force, second-order moment plus the force term) is
                     ! applied here with the same operations and the same rounding to the storage kind
+                    ! (/ONE stands for the division by the density, equal to one, in moments_LB_kernel)
                     if(abs(isfluid(i,j,k)) == 1)then
                       um=u + 0.5_db*fx/ONE
                       vm=v + 0.5_db*fy/ONE
@@ -541,6 +568,7 @@ contains
                   
 
 
+                    ! non-equilibrium part of the second-order Hermite moments, Pi_neq = a2 - u u
                     pxx=pxx - u*u 
                     pyy=pyy - v*v 
                     pzz=pzz - w*w 
@@ -599,6 +627,8 @@ contains
 
 #ifdef BOUNCE_BACK
                   ! bit l of isolid is set when the upstream node along direction l is solid
+                  ! the gather stages then replace a value pulled from a solid node by the value of this node,
+                  ! with the sign of the reflected direction
                   i = (blockIdx%x-1) * TILE_DIMx + li
                   j = (blockIdx%y-1) * TILE_DIMy + lj
                   k = (blockIdx%z-1) * TILE_DIMz + lk
@@ -608,6 +638,8 @@ contains
                   enddo
 #endif
 
+                  ! output moments accumulated by the gather stages: o0 = sum_l f_l, ox, oy, oz =
+                  ! sum_l c_la f_l, qxx, qyy, qzz = sum_l c_la^2 f_l, oxy, oxz, oyz = sum_l c_la c_lb f_l
                   o0=ZERO
                   ox=ZERO
                   oy=ZERO
@@ -622,6 +654,7 @@ contains
 #include "fused2_stages.h"
 
                   ! the node of this thread is an interior node: its tile is intblock and ii=li, jj=lj, kk=lk
+                  ! the diagonal moments are stored as Hermite moments, sum_l (c_la^2 - cs^2) f_l
                   hfields_out(li,lj,lk,1,intblock)=real(o0,kind=strdb)
                   hfields_out(li,lj,lk,2,intblock)=real(ox,kind=strdb)
                   hfields_out(li,lj,lk,3,intblock)=real(oy,kind=strdb)
@@ -715,8 +748,11 @@ contains
       real(kind=db) :: um,vm,wm
 #endif
       real(kind=db) :: o0,ox,oy,oz,qxx,qyy,qzz,oxy,oxz,oyz
+      ! accumulators of the high-order contributions to the output moments (fusedh_stages.h)
       real(kind=db) :: ho0,hox,hoy,hoz,hqxx,hqyy,hqzz,hoxy,hoxz,hoyz
       real(kind=db) :: forcex,forcey,forcez,invrhophi_loc
+      ! gather stages: fa, fb values pulled from x-c_l and x+c_l, fc value at x; ge, go contributions
+      ! to the even and odd output moments
       real(kind=db) :: fa,fb,fc,ge,go
       real(kind=db) :: omega_loc,phi_loc,visc_loc
 #ifdef SMAGORINSKI
@@ -739,6 +775,7 @@ contains
       lj = threadIdx%y
       lk = threadIdx%z
       ithread=(li-1)+TILE_DIMx*(lj-1)+TILE_DIMx*TILE_DIMy*(lk-1)
+      ! blockIdx runs over the interior tiles; the tile number is shifted by the layer of halo tiles
       intblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
 
       ! inode=0 is the node of this thread; inode>0 are the halo nodes ithread, ithread+nthreads, ...
@@ -750,6 +787,9 @@ contains
         else
           ih=ithread+(inode-1)*nthreads
           if(ih >= nhalo)exit
+          ! halo node ih (0 <= ih < nhalo), in this order: the plane hk=0 (nhx*nhy nodes); for each
+          ! interior plane hk=1..TILE_DIMz a ring of nring nodes (row hj=0, the end nodes hi=0 and
+          ! hi=nhx-1 of rows hj=1..TILE_DIMy for even and odd ir, row hj=nhy-1); the plane hk=nhz-1
           if(ih < nhx*nhy)then
             hk=0
             hj=ih/nhx
@@ -777,6 +817,8 @@ contains
           endif
         endif
 
+        ! coordinates (i,j,k) of the node in the subdomain, from 0 to n+1 including the halo, and its
+        ! tile myblock and local indices ii, jj, kk in the tiled field arrays (see vars_module.f90)
         i = (blockIdx%x-1) * TILE_DIMx + hi
         j = (blockIdx%y-1) * TILE_DIMy + hj
         k = (blockIdx%z-1) * TILE_DIMz + hk
@@ -800,6 +842,7 @@ contains
 
 #ifdef FUSED_MOMENTS
   				  ! uniform body force, rounded to the storage kind as moments_LB_kernel stores it
+  				  ! at fluid nodes; other nodes are skipped by moments_LB_kernel, so their stored force is read
   				  if(abs(isfluid(i,j,k)) == 1)then
   				    forcex=real(real(fx,kind=strdb),kind=db)*invrhophi_loc
   				    forcey=real(real(fy,kind=strdb),kind=db)*invrhophi_loc
@@ -829,6 +872,7 @@ contains
                     ! single-component flow without internal obstacles: moments_LB_kernel is not called, and its
                     ! update (velocity plus half the body force, second-order moment plus the force term) is
                     ! applied here with the same operations and the same rounding to the storage kind
+                    ! (/ONE stands for the division by the density, equal to one, in moments_LB_kernel)
                     if(abs(isfluid(i,j,k)) == 1)then
                       um=u + 0.5_db*fx/ONE
                       vm=v + 0.5_db*fy/ONE
@@ -872,6 +916,7 @@ contains
                   
 
 
+                    ! non-equilibrium part of the second-order Hermite moments, Pi_neq = a2 - u u
                     pxx=pxx - u*u 
                     pyy=pyy - v*v 
                     pzz=pzz - w*w 
@@ -917,6 +962,7 @@ contains
                     abuf(hi,hj,hk,17)=(ONE-omega_loc)*pxy
                     abuf(hi,hj,hk,18)=(ONE-omega_loc)*pxz
                     abuf(hi,hj,hk,19)=(ONE-omega_loc)*pyz
+                    ! second-order post-collision coefficients, as in the second-order kernels
                     pxx=u*u + (ONE-omega_loc)*pxx + u*forcex
                     pyy=v*v + (ONE-omega_loc)*pyy + v*forcey
                     pzz=w*w + (ONE-omega_loc)*pzz + w*forcez
@@ -938,6 +984,8 @@ contains
 
       call syncthreads
 
+                  ! output moments accumulated by the gather stages: o0 = sum_l f_l, ox, oy, oz =
+                  ! sum_l c_la f_l, qxx, qyy, qzz = sum_l c_la^2 f_l, oxy, oxz, oyz = sum_l c_la c_lb f_l
                   o0=ZERO
                   ox=ZERO
                   oy=ZERO
@@ -1000,6 +1048,10 @@ contains
                   pxy=abuf(hi,hj,hk,17)
                   pxz=abuf(hi,hj,hk,18)
                   pyz=abuf(hi,hj,hk,19)
+                  ! Coefficients of orders three to six, h_k = E_k + N_k (slot s holds basis function k = s+9
+                  ! of Minv_mrt, labelled at the end of each line): E_k is the product of the velocity
+                  ! components (u*u*v for xxy), and N_k, from the recursive relation, is a sum of products of
+                  ! velocity components and one component of (1-omega) Pi_neq (2*pxy*u + pxx*v for xxy).
                   abuf(hi,hj,hk,1)=u*u*v + (TWO*pxy*u + pxx*v) !xxy
                   abuf(hi,hj,hk,2)=u*u*w + (TWO*pxz*u + pxx*w) !xxz
                   abuf(hi,hj,hk,3)=u*v*v + (pyy*u + TWO*pxy*v) !xyy
@@ -1024,6 +1076,7 @@ contains
 #include "fusedh_stages.h"
 
                   ! the node of this thread is an interior node: its tile is intblock and ii=li, jj=lj, kk=lk
+                  ! the diagonal moments are stored as Hermite moments, sum_l (c_la^2 - cs^2) f_l
                   hfields_out(li,lj,lk,1,intblock)=real(o0,kind=strdb)
                   hfields_out(li,lj,lk,2,intblock)=real(ox,kind=strdb)
                   hfields_out(li,lj,lk,3,intblock)=real(oy,kind=strdb)
@@ -1102,8 +1155,11 @@ contains
       real(kind=db) :: um,vm,wm
 #endif
       real(kind=db) :: o0,ox,oy,oz,qxx,qyy,qzz,oxy,oxz,oyz
+      ! accumulators of the high-order contributions to the output moments (fusedh_stages.h)
       real(kind=db) :: ho0,hox,hoy,hoz,hqxx,hqyy,hqzz,hoxy,hoxz,hoyz
       real(kind=db) :: forcex,forcey,forcez,invrhophi_loc
+      ! gather stages: fa, fb values pulled from x-c_l and x+c_l, fc value at x; ge, go contributions
+      ! to the even and odd output moments
       real(kind=db) :: fa,fb,fc,ge,go
       real(kind=db) :: omega_loc,phi_loc,visc_loc
 #ifdef SMAGORINSKI
@@ -1129,6 +1185,7 @@ contains
       lj = threadIdx%y
       lk = threadIdx%z
       ithread=(li-1)+TILE_DIMx*(lj-1)+TILE_DIMx*TILE_DIMy*(lk-1)
+      ! blockIdx runs over the interior tiles; the tile number is shifted by the layer of halo tiles
       intblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1 !internal-node block
 
       ! inode=0 is the node of this thread; inode>0 are the halo nodes ithread, ithread+nthreads, ...
@@ -1140,6 +1197,9 @@ contains
         else
           ih=ithread+(inode-1)*nthreads
           if(ih >= nhalo)exit
+          ! halo node ih (0 <= ih < nhalo), in this order: the plane hk=0 (nhx*nhy nodes); for each
+          ! interior plane hk=1..TILE_DIMz a ring of nring nodes (row hj=0, the end nodes hi=0 and
+          ! hi=nhx-1 of rows hj=1..TILE_DIMy for even and odd ir, row hj=nhy-1); the plane hk=nhz-1
           if(ih < nhx*nhy)then
             hk=0
             hj=ih/nhx
@@ -1167,6 +1227,8 @@ contains
           endif
         endif
 
+        ! coordinates (i,j,k) of the node in the subdomain, from 0 to n+1 including the halo, and its
+        ! tile myblock and local indices ii, jj, kk in the tiled field arrays (see vars_module.f90)
         i = (blockIdx%x-1) * TILE_DIMx + hi
         j = (blockIdx%y-1) * TILE_DIMy + hj
         k = (blockIdx%z-1) * TILE_DIMz + hk
@@ -1190,6 +1252,7 @@ contains
 
 #ifdef FUSED_MOMENTS
   				  ! uniform body force, rounded to the storage kind as moments_LB_kernel stores it
+  				  ! at fluid nodes; other nodes are skipped by moments_LB_kernel, so their stored force is read
   				  if(abs(isfluid(i,j,k)) == 1)then
   				    forcex=real(real(fx,kind=strdb),kind=db)*invrhophi_loc
   				    forcey=real(real(fy,kind=strdb),kind=db)*invrhophi_loc
@@ -1219,6 +1282,7 @@ contains
                     ! single-component flow without internal obstacles: moments_LB_kernel is not called, and its
                     ! update (velocity plus half the body force, second-order moment plus the force term) is
                     ! applied here with the same operations and the same rounding to the storage kind
+                    ! (/ONE stands for the division by the density, equal to one, in moments_LB_kernel)
                     if(abs(isfluid(i,j,k)) == 1)then
                       um=u + 0.5_db*fx/ONE
                       vm=v + 0.5_db*fy/ONE
@@ -1262,6 +1326,7 @@ contains
                   
 
 
+                    ! non-equilibrium part of the second-order Hermite moments, Pi_neq = a2 - u u
                     pxx=pxx - u*u 
                     pyy=pyy - v*v 
                     pzz=pzz - w*w 
@@ -1307,6 +1372,7 @@ contains
                     abuf(hi,hj,hk,17)=(ONE-omega_loc)*pxy
                     abuf(hi,hj,hk,18)=(ONE-omega_loc)*pxz
                     abuf(hi,hj,hk,19)=(ONE-omega_loc)*pyz
+                    ! second-order post-collision coefficients, as in the second-order kernels
                     pxx=u*u + (ONE-omega_loc)*pxx + u*forcex
                     pyy=v*v + (ONE-omega_loc)*pyy + v*forcey
                     pzz=w*w + (ONE-omega_loc)*pzz + w*forcez
@@ -1330,6 +1396,8 @@ contains
 
 #ifdef BOUNCE_BACK
                   ! bit l of isolid is set when the upstream node along direction l is solid
+                  ! the gather stages then replace a value pulled from a solid node by the value of this node,
+                  ! with the sign of the reflected direction
                   i = (blockIdx%x-1) * TILE_DIMx + li
                   j = (blockIdx%y-1) * TILE_DIMy + lj
                   k = (blockIdx%z-1) * TILE_DIMz + lk
@@ -1339,6 +1407,8 @@ contains
                   enddo
 #endif
 
+                  ! output moments accumulated by the gather stages: o0 = sum_l f_l, ox, oy, oz =
+                  ! sum_l c_la f_l, qxx, qyy, qzz = sum_l c_la^2 f_l, oxy, oxz, oyz = sum_l c_la c_lb f_l
                   o0=ZERO
                   ox=ZERO
                   oy=ZERO
@@ -1401,6 +1471,10 @@ contains
                   pxy=abuf(hi,hj,hk,17)
                   pxz=abuf(hi,hj,hk,18)
                   pyz=abuf(hi,hj,hk,19)
+                  ! Coefficients of orders three to six, h_k = E_k + N_k (slot s holds basis function k = s+9
+                  ! of Minv_mrt, labelled at the end of each line): E_k is the product of the velocity
+                  ! components (u*u*v for xxy), and N_k, from the recursive relation, is a sum of products of
+                  ! velocity components and one component of (1-omega) Pi_neq (2*pxy*u + pxx*v for xxy).
                   abuf(hi,hj,hk,1)=u*u*v + (TWO*pxy*u + pxx*v) !xxy
                   abuf(hi,hj,hk,2)=u*u*w + (TWO*pxz*u + pxx*w) !xxz
                   abuf(hi,hj,hk,3)=u*v*v + (pyy*u + TWO*pxy*v) !xyy
@@ -1425,6 +1499,7 @@ contains
 #include "fusedh_stages.h"
 
                   ! the node of this thread is an interior node: its tile is intblock and ii=li, jj=lj, kk=lk
+                  ! the diagonal moments are stored as Hermite moments, sum_l (c_la^2 - cs^2) f_l
                   hfields_out(li,lj,lk,1,intblock)=real(o0,kind=strdb)
                   hfields_out(li,lj,lk,2,intblock)=real(ox,kind=strdb)
                   hfields_out(li,lj,lk,3,intblock)=real(oy,kind=strdb)

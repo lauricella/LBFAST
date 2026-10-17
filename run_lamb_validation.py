@@ -1,6 +1,20 @@
 #!/usr/bin/env python3
 """Configure, build, run, and summarize the LBFAST Lamb benchmark."""
 
+# Benchmark: quadrupolar oscillation of a prolate droplet in the two-component solver,
+# compared with the viscous Miller-Scriven period (docs/LAMB_OSCILLATION_VALIDATION.md).
+# Build: unless --skip-build is given, defines.h is edited in place to enable LATTICE 27,
+# HIGHORDER, TWOCOMPONENT, DENSRATIO, CSF, DOBENCHMARK, PRC 8, STRPRC 8 and LAMBTEST and to
+# disable MIXEDPRC and the other benchmark selectors; then "make clean" and
+# "make <target> GPUCC=<cc>" are run.
+# Run: lamb.inp (80^3, equivalent radius 24.396, interface width 4, 20000 steps) is copied to
+# and run in lamb_validation_run/; --nsteps changes the number of steps of the copy.
+# Metric: the solver (statistics.f90) detects the maxima of the oscillation and prints the
+# theoretical and numerical period and angular frequency and the number of peaks in run.log.
+# This script parses those values and writes the period and frequency errors to
+# lamb_validation_summary.csv. It applies no tolerance; tests/run_full_validation.py requires
+# at least two peaks and a period error <= 10%.
+
 import argparse
 import csv
 import re
@@ -33,6 +47,10 @@ DISABLED_DEFINES = (
 
 
 def set_macro(text: str, name: str, value: Optional[str], enabled: bool) -> str:
+    """Rewrite the first '#define [no]NAME ...' line as '#define NAME value' or '#define noNAME'.
+
+    The line is appended when defines.h has no such line.
+    """
     prefix = "" if enabled else "no"
     replacement = f"#define {prefix}{name}"
     if enabled and value is not None:
@@ -83,6 +101,7 @@ def replace_parameter(text: str, name: str, value: str) -> str:
 
 
 def parse_scalar(log: str, label: str) -> float:
+    """Return the number printed after label (and optional = signs) at the start of a line."""
     match = re.search(rf"(?m)^{re.escape(label)}\s*=*\s*([-+0-9.EeDd]+)", log)
     if not match:
         raise RuntimeError(f"Could not find {label!r} in run.log")
@@ -90,6 +109,7 @@ def parse_scalar(log: str, label: str) -> float:
 
 
 def parse_result(log_path: Path, input_path: Path) -> Dict[str, float]:
+    """Collect the solver results from run.log and the input values; Cahn number = W / Re."""
     log = log_path.read_text()
     input_text = input_path.read_text()
 

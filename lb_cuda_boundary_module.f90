@@ -3,6 +3,11 @@
 #error "To use this module the macros _OPENACC should be defined."
 #endif
 
+! CUDA kernels of the internal-obstacle boundary conditions (INTERNAL_OBSTACLES), called by bcs3D
+! (boundary_cds_module.f90) through the wrappers in lb_cuda_driver. One thread per node on all the
+! tiles (grid nx/TILE_DIMx x ny/TILE_DIMy x nz/TILE_DIMz), no shared memory; tile layout and index
+! arithmetic as in lb_cuda_auxfields_module.f90. Node flags (LBFAST.f90): isfluid = 1 bulk fluid,
+! -1 fluid node with at least one lattice neighbour with |isfluid| /= 1, 0 solid.
 module lb_cuda_boundary
 
    use vars
@@ -16,6 +21,18 @@ module lb_cuda_boundary
 
 contains
    
+   ! LB_int_boundary_kernel: thread-safe no-slip wall (Phys. Fluids 37, 072111 (2025), appendix) at
+   ! the fluid nodes next to a solid (isfluid = -1). hfields_in = pre-collision moments of the node
+   ! (p*, u, v, w, second-order moments: the input of the fused kernel); hfields_out = moments
+   ! accumulated at t+1 by the fused collide-and-stream kernel, in which the populations streamed
+   ! from solid nodes are zero (the fused kernel zeroes the moments of the isfluid = 0 nodes).
+   ! For each link l whose upwind node x-c_l is solid the missing population is reconstructed as
+   !   f_l = w_l p* + (1-omega) w_l/(2 cs^4) H_l:Pi^neq,   H_l,ab = c_la c_lb - cs^2 delta_ab,
+   ! i.e. the equilibrium at zero wall velocity plus the relaxed non-equilibrium part, both taken
+   ! from the node itself, and its contribution is added to the zeroth-, first- and Hermite
+   ! second-order moments in hfields_out. omega is the local relaxation frequency, computed as in
+   ! the fused kernel. At zero wall velocity the third- to sixth-order Hermite terms used by the
+   ! open boundaries in bcs3D vanish.
    attributes(global) subroutine LB_int_boundary_kernel(flip,flop,nx,ny,nz,coords,isfluid &  
 #ifdef MULTIHIT
        ,ABCx,ABCy,ABCz &
@@ -136,6 +153,7 @@ contains
       opxz=real(hfields_out(ii,jj,kk,9,myblock),kind=db)
       opyz=real(hfields_out(ii,jj,kk,10,myblock),kind=db)
 	  
+	  ! non-equilibrium second-order moments Pi^neq: hfields 5-10 minus u_a u_b
 	  pxx=pxx - u*u 
 	  pyy=pyy - v*v 
 	  pzz=pzz - w*w 
@@ -171,6 +189,7 @@ contains
 
       
 
+      ! links l arriving from a solid node: the upwind node x-c_l = x+c_opp(l) has isfluid = 0
       do l=1,nlinks
 		  lopp=opp(l)
 		  iii=i+ex(lopp)
@@ -215,6 +234,10 @@ contains
 
    endsubroutine LB_int_boundary_kernel   
 #ifdef TWOCOMPONENT	    
+   ! PHI_int_boundary_kernel: ghost value of phi on the solid nodes (isfluid = 0) with non-solid
+   ! neighbours, imposing the contact angle wettab_r (degrees; 90 = neutral wetting, the value used
+   ! without WETTABILITY). It reads phi (phifields 1), n and |grad phi| (auxfields 1-4) at a donor
+   ! fluid node and overwrites phifields 1 on the solid node, following steps 1)-6) below.
    attributes(global) subroutine PHI_int_boundary_kernel(flop,nx,ny,nz,coords,isfluid &
     ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
 #ifdef WETTABILITY  
@@ -295,6 +318,8 @@ contains
 	  ! ----------------------------------------------------
 	  ! 1) Reconstruct local wall normal
 	  ! ----------------------------------------------------
+	  ! n_w = -sum_l s_l c_l over the non-solid neighbours x+c_l, with s_l = 1, 1/2, 1/3 for face,
+	  ! edge and corner links; normalized, it points from the fluid into the solid
 	  wall_nx = 0.0_db
 	  wall_ny = 0.0_db
 	  wall_nz = 0.0_db
@@ -342,6 +367,8 @@ contains
 	  ! ----------------------------------------------------
 	  ! 2) Choose donor: first prefer isfluid = -1
 	  ! ----------------------------------------------------
+	  ! donor: the fluid neighbour x+c_l (|isfluid| = 1) maximizing (-c_l.n_w)/|c_l|, i.e. the one
+	  ! whose displacement to the solid node, best_shift = -c_l, is best aligned with n_w
 	  best_score   = -1.0e30_db
 	  donor_x      = 0
 	  donor_y      = 0
@@ -430,6 +457,8 @@ contains
 	  ! ------------------------------------------------------------
 	  ! Contact-angle coefficient: compute once
 	  ! ------------------------------------------------------------
+	  ! theta = 180 deg - wettab_r; the derivative along n_w is set to dphi/dn = -|grad_t phi| cot(theta)
+	  ! and grad_bc = grad_t phi + (dphi/dn) n_w; cot(theta) = +-1e14 when |sin(theta)| < 1e-14
 	  theta_rad = (180.0_db - wettab_r_sub) * pi_greek / 180.0_db
 	  sin_theta = sin(theta_rad)
 	  cos_theta = cos(theta_rad)
@@ -448,6 +477,9 @@ contains
 	  ! ----------------------------------------------------
 	  ! 6) Extrapolate from donor to solid node
 	  ! ----------------------------------------------------
+	  ! phi_ghost = phi_donor + grad_bc.(x_solid-x_donor) * 4 phi_old(1-phi_old), with phi_old the
+	  ! current ghost value: the gradient term acts only where phi_old is interfacial (weight 1 at
+	  ! phi_old = 0.5); for phi_old = 0 or 1 the donor value is copied. The result is clamped to [0,1].
 	  phi_ghost = phi_fluid + (grad_bc_x*best_shift_x + grad_bc_y*best_shift_y + grad_bc_z*best_shift_z)*(4.0*phi_ghost*(1.0-phi_ghost))
 	 
 	  phi_ghost = max(0.0_db, min(1.0_db, phi_ghost))
@@ -458,6 +490,10 @@ contains
       
    endsubroutine PHI_int_boundary_kernel
    
+   ! phi_sum_count_kernel (BCPHIFLUX): sums phi over the fluid nodes (|isfluid| = 1) into
+   ! loc_phi_sum and counts in cnt the fluid nodes with 0.5 < phi < 0.9, by atomicAdd on device
+   ! scalars (global_phi_sum and global_count, see phi_sum_count_cuda). Part of the phi-mass
+   ! correction in bcs_mesoscopic_phifields.
    attributes(global) subroutine phi_sum_count_kernel(flop,nx,ny,nz,coords,isfluid &
     ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
     ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields, &
@@ -514,6 +550,9 @@ contains
     
   end subroutine phi_sum_count_kernel
 
+   ! apply_lagrangian_phi_kernel (BCPHIFLUX): adds the uniform correction loc_corr (corr, computed
+   ! in bcs_mesoscopic_phifields) to phi on the fluid nodes with 0.5 < phi < 0.9, the same set
+   ! counted by phi_sum_count_kernel.
    attributes(global) subroutine apply_lagrangian_phi_kernel(flop,nx,ny,nz,coords,isfluid &
     ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
     ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields, &

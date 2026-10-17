@@ -3,6 +3,15 @@
 #error "To use this module the macros _OPENACC should be defined."
 #endif
 
+! REPULSIVE_FLUX: short-range repulsive term between two facing interfaces (interfacial nodes with
+! opposite normals within a few lattice spacings), added to the force in the moment kernels
+! (lb_cuda_moments_module). Two kernels, one thread per node on all the tiles, no shared memory:
+!   thinfilm_scan_mark_kernel    pairs each interfacial node with a node of the facing interface,
+!   repulsive_flux_normal_kernel computes the repulsive vector of each paired node.
+! Fields: rep_mask(i,j,k) = 1 for paired nodes; locauxfields 3-5 = sub-domain indices (i,j,k) of
+! the partner, 6-8 = repulsive vector. The kernels are compiled with TWOCOMPONENT but launched only
+! with REPULSIVE_FLUX, which sets nlocauxfields = 8 and the halo depth nbuff = nbuffvec = 3.
+! Tile layout and index arithmetic as in lb_cuda_auxfields_module.f90.
 module lb_cuda_repulsive
 
    use vars
@@ -16,6 +25,12 @@ module lb_cuda_repulsive
 
 contains
 #ifdef TWOCOMPONENT   
+   ! thinfilm_scan_mark_kernel: for each fluid node, clears rep_mask and locauxfields 3-5. If the
+   ! node is interfacial, q = phi(1-phi) >= q_th (phi clamped to [0,1]), it scans the cube of
+   ! half-width win (win = 3, set in LBFAST.f90; the cube reaches into the halo) for a fluid partner
+   ! with q_p >= q_th, |q_p-q| <= 0.1 q and facing normal, n.n_p <= cosOppT. The nearest candidate
+   ! is kept (ties: larger 0.5(1-n.n_p)); its indices are stored in locauxfields 3-5 and
+   ! rep_mask = 1. Reads phifields 1 and auxfields 1-3 (n).
    attributes(global) subroutine thinfilm_scan_mark_kernel(flop,nx,ny,nz,coords,q_th,win,cosOppT,pwr,A_rep,isfluid, &
     rep_mask,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields_s,locauxfields_s)
       implicit none
@@ -103,6 +118,7 @@ contains
 
 				  ! ---- neighbor interfacial gate (clamped) + similarity
 				  
+                  ! tile (omyblock) and local indices of the candidate, which may lie in another tile
 				  oxblock=(iii+2*TILE_DIMx-1)/TILE_DIMx   
                   oyblock=(jjj+2*TILE_DIMy-1)/TILE_DIMy     
                   ozblock=(kkk+2*TILE_DIMz-1)/TILE_DIMz 
@@ -153,6 +169,13 @@ contains
       
    endsubroutine thinfilm_scan_mark_kernel
    
+   ! repulsive_flux_normal_kernel: for each fluid node, clears locauxfields 6-8; for nodes with
+   ! rep_mask = 1 it reads the partner indices (locauxfields 3-5) and writes into locauxfields 6-8
+   !   J = A_rep * wdth * qcl * face * n_s,  rescaled so that 1.5*(|Jx|+|Jy|+|Jz|) <= phi,
+   ! with face = max(0,-n.n_p), n_s the unit bisector (n-n_p)/|n-n_p| (the line of centres if
+   ! n = n_p) oriented towards the partner, qcl the pair mean of phi(1-phi) clamped to
+   ! [eps,0.25-eps], wdth = 1/(1+Wfilm^4) and Wfilm = width*acosh(1/(2*sqrt(qcl))). For the
+   ! equilibrium profile phi = (1+tanh(2x/width))/2, phi(1-phi) = qcl at |x| = Wfilm/2.
    attributes(global) subroutine repulsive_flux_normal_kernel(flop,nx,ny,nz,coords,width,q_th,win,cosOppT,pwr,A_rep,isfluid, &
     rep_mask,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields_s,locauxfields_s)
       implicit none
@@ -270,6 +293,7 @@ contains
 	  arg_arcosh = 1.0_db / ( 2.0_db*sqrt(qcl) )
 	  if (arg_arcosh <= 1.0_db) return
 
+	  ! ach = acosh(arg_arcosh)
 	  ach   = log( arg_arcosh + sqrt(arg_arcosh*arg_arcosh - 1.0_db) )
 	  Wfilm = width * ach
 	  if (Wfilm <= 0.0_db) return
@@ -281,6 +305,7 @@ contains
 	  dy = A_rep * wdth * qcl * face * nsy
 	  dz = A_rep * wdth * qcl * face * nsz
 	
+	  ! limiter: rescale J so that alpha*(|Jx|+|Jy|+|Jz|) does not exceed the local phi
 	  alpha = 1.5_db
 	  cap   = alpha * (abs(dx)+abs(dy)+abs(dz)) 
 	  scales = min(1.0_db, loc_phi / max(cap, 1.0e-9_db))

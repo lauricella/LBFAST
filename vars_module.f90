@@ -149,6 +149,10 @@
 #endif
 
 
+!     Module vars: global parameters and variables of LBFAST. It defines the precision kinds, the
+!     GPU tile sizes, the lattice velocity sets and weights, the Hermite matrices of the high-order
+!     D3Q27 model, the field arrays stored tile by tile with the numbers of their components, and
+!     utility functions (random numbers on host and device, number formatting, cut-off functions).
 module vars
 #ifdef _OPENACC
    use openacc
@@ -156,6 +160,11 @@ module vars
    use iso_c_binding, only: c_long_long,c_int,c_float,c_double
    implicit none
 
+   ! Precision kinds, selected in defines.h. db (PRC = 4 or 8) is the compute precision: the
+   ! arithmetic and the shared-memory buffers of the kernels use it. strdb is the storage precision
+   ! of the field arrays (hfields, phifields, forces, auxfields, locauxfields): with MIXEDPRC it is
+   ! set by STRPRC (2, 4 or 8), otherwise strdb = db. The kernels convert the stored values to db
+   ! when they read them and round the results to strdb when they write them.
 #if PRC==4
 #warning "PRC 4: single precision activated"
    integer, parameter :: db=4 !kind(1.0)
@@ -183,6 +192,8 @@ module vars
    integer, parameter :: strdb=db !kind(1.0)
 #endif
 
+   ! isf: integer kind of the isfluid array; printdb: real kind of the output arrays rhoprint,
+   ! pressprint and velprint (FP16 with PRINTHALF, FP32 otherwise)
    integer, parameter :: isf=1 !kind(1.0)
    
 #ifdef PRINTHALF
@@ -219,6 +230,7 @@ module vars
 
    !aritra 
    ! !!!for WENO5
+   ! (the WENO5 coefficients below are not referenced elsewhere in the source)
    real(kind=db), parameter ::  c11    =  2.0_db/6.0_db, &
                            c21    = -7.0_db/6.0_db, & 
                            c31    = 11.0_db/6.0_db, & 
@@ -231,6 +243,9 @@ module vars
 
    integer :: i,j,k,ll,l
    integer :: gi,gj,gk
+   ! iprobe, jprobe, kprobe: global coordinates of the probe node; nx, ny, nz: size of the subdomain
+   ! of this MPI rank; lx, ly, lz: size of the global lattice; nxskip, nyskip, nzskip: size of the
+   ! output arrays, sampled every stepskip nodes
    integer :: iprobe=0,jprobe=0,kprobe=0
    integer :: nx,ny,nz,step,step_flip,stamp,stamp2D,nsteps,ngpus
    integer :: stamp_term=huge(1)
@@ -280,6 +295,12 @@ module vars
    integer(acc_device_kind) :: devType
 #endif
 
+   ! Tile sizes. The subdomain of each MPI rank is divided into tiles of TILE_DIMx x TILE_DIMy x
+   ! TILE_DIMz nodes (GPUTILEX, GPUTILEY, GPUTILEZ, set to 8 in defines.h; 4 if they are not
+   ! defined). A thread block of the
+   ! fused and moment kernels has one thread per node of a tile, and nx, ny, nz must be multiples
+   ! of the tile sizes. TILE_DIM is the side of the two-dimensional thread block dimBlock2 set in
+   ! setup_cuda.
 #ifdef GPUTILEX
 #warning "GPUTILEX: the TILE_DIMx value was defined in defines.h" 
    integer, parameter :: TILE_DIMx = GPUTILEX
@@ -302,6 +323,12 @@ module vars
 #endif
    integer, parameter :: TILE_DIM=16
    
+   ! Tiles along x, y and z of the subdomain, including one layer of halo tiles on each side
+   ! (nxblock = nx/TILE_DIMx + 2, set in setup_cuda); nxyblock = nxblock*nyblock, and nblocks is the
+   ! total number of tiles. The fields are stored as field(TILE_DIMx,TILE_DIMy,TILE_DIMz,ncomp,nblocks):
+   ! node i of the subdomain (1-TILE_DIMx <= i <= nx+TILE_DIMx) lies in the tile with x index
+   ! xblock = (i+2*TILE_DIMx-1)/TILE_DIMx at the local index ii = i-(xblock-2)*TILE_DIMx, likewise
+   ! for j and k, and the tile number is myblock = (xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1.
    integer, save :: nxblock,nyblock,nzblock,nxyblock,nblocks
 
    real(kind=db),parameter :: pi_greek=real(3.1415926535897932384626433832795028841971d0,kind=db)
@@ -317,9 +344,17 @@ module vars
 #ifdef IMPOSED_PRESSURE_GRADIENT
    real(kind=db) :: rhoIN,rhoOUT
 #endif
+   ! squared lattice speed of sound, cs^2 = 1/3 for the three lattices, and its inverse
    real(kind=db), parameter :: cssq=real(1.d0/3.d0,kind=db)
    real(kind=db), parameter :: invcssq=real(3.d0,kind=db)
 
+   ! Lattice velocity sets, selected by LATTICE (15, 19 or 27) in defines.h. nlinks is the number of
+   ! moving directions; ex, ey, ez are the integer components of the velocities c_l, l = 0..nlinks,
+   ! with l = 0 the rest direction. The moving directions are ordered in opposite pairs,
+   ! c_(l+1) = -c_l for odd l, and opp(l) is the index of the direction opposite to l.
+   ! gen_fused2_stages.py relies on this order and reads ex, ey, ez and the weight names of p from
+   ! this file: run it again after any change of the lattice definitions.
+   ! p(l) are the lattice weights: sum_l p(l) = 1 and sum_l p(l) c_la c_lb = cs^2 delta_ab.
 #if LATTICE == 27
 #warning "LATTICE 27: the lattice D3Q27 is utilized"
    integer, parameter :: nlinks=26
@@ -334,6 +369,8 @@ module vars
    integer, dimension(0:nlinks), parameter:: &
       opp =(/ 0, 2, 1, 4, 3, 6, 5, 8, 7,10, 9,12,11,14,13,16,15,18,17,20,19,22,21,24,23,26,25/)
 
+   ! D3Q27 weights: rest direction 0 (p0), axis directions 1-6 (p1), face diagonals 7-18 (p2),
+   ! body diagonals 19-26 (p3)
    real(kind=db), parameter :: p0=real(8.d0/27.d0,kind=db)
    real(kind=db), parameter :: p1=real(2.d0/27.d0,kind=db)
    real(kind=db), parameter :: p2=real(1.d0/54.d0,kind=db)
@@ -343,6 +380,15 @@ module vars
       
 #ifdef HIGHORDER
 #warning "HIGHORDER: the lattice D3Q27 is utilized with high-order"
+   ! Tensor-product Hermite basis of D3Q27 used by the high-order (recursive regularized) model.
+   ! Basis function k = 0..26 is a product of one factor per Cartesian axis: 1, H1(c_a) = c_a or
+   ! H2(c_a) = c_a^2 - cs^2. In the labels below, a single letter is a factor H1 along that axis
+   ! and a repeated letter a factor H2:
+   !   0: 1;  1-3: x, y, z;  4-6: xx, yy, zz;  7-9: xy, xz, yz;  10-15: xxy, xxz, xyy, xzz, yzz, yyz;
+   !   16: xyz;  17-19: xxyy, xxzz, yyzz;  20-22: xyzz, xyyz, xxyz;  23-25: xxyzz, xxyyz, xyyzz;
+   !   26: xxyyzz.
+   ! Hermite_norm(k) = N_k = sum_l p(l) H_k(c_l)^2 is the norm of basis function k, and
+   ! Hermite_prefact(k) = 1/N_k.
    real(kind=db), dimension(0:nlinks), parameter :: &   !eq. 37 Malaspinas 2015 !equivalent to b_k^-1 in 2.60 dissertation shiller
       Hermite_prefact=(/ONE,ONE/cssq,ONE/cssq,ONE/cssq, &
        ONE/(TWO*cssq**TWO),ONE/(TWO*cssq**TWO),ONE/(TWO*cssq**TWO), &
@@ -358,9 +404,16 @@ module vars
    real(kind=db), dimension(0:nlinks), parameter :: &  
       Hermite_norm=ONE/Hermite_prefact   !equivalent to b_k in 2.60 dissertation shiller
       
+   ! sqrtHermite_norm is not referenced elsewhere in the source
    real(kind=db), dimension(0:nlinks), parameter :: &  
       sqrtHermite_norm=sqrt(Hermite_norm)  !equivalent to sqrt(b_k) in 2.60 dissertation shiller   
    
+   ! Minv_mrt(k,l) = p(l) H_k(c_l)/N_k (first index: basis function k, second index: direction l).
+   ! A population is reconstructed from its Hermite coefficients a_k = sum_l H_k(c_l) f_l as
+   ! f_l = sum_k Minv_mrt(k,l) a_k. The constructor lists the values direction by direction, and the
+   ! column-major reshape stores each group of 27 values along the first index k.
+   ! Minv_mrt is used in boundary_cds_module.f90; the high-order fused kernels use the same values,
+   ! written as exact fractions in fusedh_stages.h by gen_fused2_stages.py.
    real(kind=db), parameter :: Minv_mrt(0:nlinks,0:nlinks) = reshape([ & !first index i-th pop, second index k-th basis !it is trasposed to be column major compliant!
     [8.0_db/27.0_db, 0.0_db, 0.0_db, 0.0_db, -4.0_db/9.0_db, &
 	-4.0_db/9.0_db, -4.0_db/9.0_db, 0.0_db, 0.0_db, 0.0_db, 0.0_db, &
@@ -524,6 +577,9 @@ module vars
 	1.0_db/8.0_db, 1.0_db/8.0_db, -1.0_db/8.0_db, 1.0_db/8.0_db]  &
     ], shape=[nlinks+1,nlinks+1])
    
+   ! M_mrt(l,k) = H_k(c_l) (first index: direction l, second index: basis function k) is the inverse
+   ! of Minv_mrt: a_k = sum_l M_mrt(l,k) f_l and sum_l Minv_mrt(k,l) M_mrt(l,m) = delta_km.
+   ! M_mrt is not referenced elsewhere in the source.
    real(kind=db), parameter :: M_mrt(0:nlinks,0:nlinks) = reshape([ &
     [1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, &
 	1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, 1.0_db, &
@@ -681,6 +737,7 @@ module vars
    integer, dimension(0:nlinks), parameter:: &
       opp =(/ 0, 2, 1, 4, 3, 6, 5, 8, 7,10, 9,12,11,14,13,16,15,18,17/)
 
+   ! D3Q19 weights: rest direction 0 (p0), axis directions 1-6 (p1), face diagonals 7-18 (p2)
    real(kind=db), parameter :: p0 = real(1.d0/3.d0 , kind=db)
    real(kind=db), parameter :: p1 = real(1.d0/18.d0, kind=db)  
    real(kind=db), parameter :: p2 = real(1.d0/36.d0, kind=db) 
@@ -700,6 +757,7 @@ module vars
    integer, dimension(0:nlinks), parameter:: &
       opp =(/ 0, 2, 1, 4, 3, 6, 5, 8, 7,10, 9,12,11,14,13/)
       
+   ! D3Q15 weights: rest direction 0 (p0), axis directions 1-6 (p1), body diagonals 7-14 (p2)
    real(kind=db), parameter :: p0 = real(2.d0/9.d0 , kind=db)
    real(kind=db), parameter :: p1 = real(1.d0/9.d0 , kind=db)
    real(kind=db), parameter :: p2 = real(1.d0/72.d0, kind=db)
@@ -709,6 +767,8 @@ module vars
 #error "LATTICE not supported"
 #endif
    
+   ! D3Q27 weights, defined for every lattice: lb_cuda_auxfields_module.f90 uses them in the
+   ! isotropic finite-difference stencils of the phase field (gradient, Laplacian)
    real(kind=db), parameter :: p0d3q27=real(8.d0/27.d0,kind=db)
    real(kind=db), parameter :: p1d3q27=real(2.d0/27.d0,kind=db)
    real(kind=db), parameter :: p2d3q27=real(1.d0/54.d0,kind=db)
@@ -725,6 +785,9 @@ module vars
 
    real(kind=4), allocatable, dimension(:,:,:) :: arr_3d
 
+   ! Field arrays, stored tile by tile as (TILE_DIMx,TILE_DIMy,TILE_DIMz,ncomp,nblocks) in the storage
+   ! kind strdb. The flip and flop arrays are the two time levels of the moments and of the phase
+   ! field, used alternately as input and output of the time step.
    real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: hfields_flip,hfields_flop  !allocate hydro fields flip and flop
    real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_flip,phifields_flop  !allocate phi fields flip and flop
    real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: forces
@@ -732,6 +795,15 @@ module vars
    real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: locauxfields !allocate aux fields
    
    
+   ! Numbers of components of the field arrays:
+   ! hfields: 1 press, the zeroth moment sum_l f_l (pressure-like variable p*); 2-4 velocity u, v, w
+   !   (first moment); 5-10 second-order Hermite moments pxx, pyy, pzz, pxy, pxz, pyz, that is
+   !   sum_l (c_la c_lb - cs^2 delta_ab) f_l;
+   ! forces: x, y, z components of the force per unit volume used in the collision;
+   ! phifields: phase field phi (allocated only with TWOCOMPONENT);
+   ! auxfields: 1-3 unit normal n = grad phi/|grad phi|, 4 |grad phi|, 5-7 phi (1-phi) n;
+   ! locauxfields: 1 Laplacian of phi, 2 divergence of phi (1-phi) n; with REPULSIVE_FLUX also
+   !   3-5 indices of the paired node and 6-8 repulsive flux vector (lb_cuda_repulsive_module.f90).
    integer, parameter :: nhfields=10
    integer, parameter :: nforces=3
    integer, parameter :: nphifields=1
@@ -748,6 +820,7 @@ module vars
    integer, parameter :: nlocauxfields=0 !
 #endif   
    
+   ! total numbers of elements of the field arrays (set in allocate_struct)
    integer, save :: ntothfields
    integer, save :: ntotforces
    integer, save :: ntotphifields
@@ -818,6 +891,10 @@ module vars
 
 contains
 
+   ! Standard normal deviate computed as a pure function of the integers i, j, k, l, without stored
+   ! state, so that it can be called from device code. Two uniform deviates are built from the seeds
+   ! with the initialization sequence of the Marsaglia-Zaman (RANMAR) generator, the second one with
+   ! l shifted by nint(50 u1), and combined with the Box-Muller transformation.
    pure function gauss_noseeded(i,j,k,l)
       !$acc routine seq
       !the directive above tells OpenACC to create a device copy; gang means that the routine can be called independently by several threads/vectors/workers/gangs
@@ -944,6 +1021,7 @@ contains
       gauss_noseeded=sqrt(- TWO *log(dtemp1))*cos(TWO*pi*dtemp2)
    end function gauss_noseeded
 
+   ! Uniform deviate in [0,1) computed as a pure function of i, j, k, l (see gauss_noseeded).
    pure function rand_noseeded(i,j,k,l)
       !$acc routine seq !!!not gang
       !the directive above tells OpenACC to create a device copy; gang means that the routine can be called independently by several threads/vectors/workers/gangs
@@ -1009,6 +1087,8 @@ contains
       rand_noseeded = real(uni,kind=db)
    end function rand_noseeded
    
+   ! Seeds the intrinsic random_number generator with myseed, or with the system clock if myseed is
+   ! absent, multiplied by myranksub+1 so that the MPI ranks get different sequences.
    subroutine init_random_seed_CPU(myseed,myranksub)
   
    implicit none
@@ -1045,6 +1125,8 @@ contains
  
   end subroutine init_random_seed_CPU
   
+  ! Fills gauss(1:nelement) with standard normal deviates of the intrinsic generator (Box-Muller
+  ! transformation); myseed is not used.
   subroutine gauss_CPU(nelement,gauss,myseed)
   
   implicit none
@@ -1073,6 +1155,7 @@ contains
   
    end subroutine gauss_CPU
    
+  ! One standard normal deviate of the intrinsic generator (Box-Muller transformation).
   function randgauss_CPU()
   
    implicit none
@@ -1098,6 +1181,7 @@ contains
   
    end function randgauss_CPU
 
+   ! Copies the first nstring characters of mystring into the array mychar, allocated here.
    subroutine string_char(mychar,nstring,mystring)
 
       implicit none
@@ -1274,6 +1358,7 @@ contains
       return
    end function write_fmtnumb2
    
+   ! Smooth cut-off: 1 for r <= inner_cut, 0 for r > outer_cut, and a cosine ramp in between.
    pure function fcut(r,inner_cut,outer_cut)
       !$acc routine seq !!!not gang
       !the directive above tells OpenACC to create a device copy; gang means that the routine can be called independently by several threads/vectors/workers/gangs
@@ -1307,6 +1392,8 @@ contains
 
  end function fcut
  
+ ! Smooth step 0.5 (1 - tanh(2 (r - r_cut)/width_cut)): 1 for r << r_cut, 1/2 at r_cut, 0 for
+ ! r >> r_cut.
  pure function fcut_tanh(r,r_cut,width_cut)
       !$acc routine seq !!!not gang
       !the directive above tells OpenACC to create a device copy; gang means that the routine can be called independently by several threads/vectors/workers/gangs
@@ -1332,6 +1419,7 @@ contains
 
  end function fcut_tanh
 
+! Remainder of n/m in [0, m) for m > 0, as the intrinsic modulo; callable from device code.
 function my_mod(n, m) result(res)
  !$acc routine seq
     implicit none

@@ -51,6 +51,13 @@ int main ()
 extern "C" {
 #endif
 
+/*
+ * get_totalram and get_freeram: total and free main memory of the node, from sysinfo(),
+ * divided by 1024*1024. sysinfo gives these sizes in units of mem_unit bytes, which is not
+ * applied here, so the result is in MiB when mem_unit is 1. get_totalram is called from
+ * Fortran through the bind(C) interface of profiling_m (get_totram); get_freeram has no
+ * Fortran interface. When compiled with -DPGI both return 0.
+ */
 double get_totalram()
 {
     struct sysinfo usg2;       // for memory leaks..

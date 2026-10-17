@@ -1,9 +1,13 @@
 """Shared MPI command-line support for LBFAST validation drivers."""
 
+# Each validation driver adds these options to its parser; tests/run_full_validation.py passes
+# --mpi-procs, --decomposition and --launcher to the drivers for its 2- and 4-rank runs.
+
 from pathlib import Path
 
 
 def add_mpi_arguments(parser):
+    """Add --mpi-procs, --decomposition PX PY PZ and --launcher (mpirun or srun) to parser."""
     parser.add_argument("--mpi-procs", type=int, default=1,
                         help="number of MPI ranks (default: 1, sequential run)")
     parser.add_argument("--decomposition", type=int, nargs=3,
@@ -14,6 +18,11 @@ def add_mpi_arguments(parser):
 
 
 def validate_mpi_arguments(args):
+    """Check the MPI options against --make-target.
+
+    One rank requires a Make target without mpi in its name and no decomposition (or 1 1 1);
+    more ranks require an MPI target and PX*PY*PZ equal to --mpi-procs.
+    """
     if args.mpi_procs < 1:
         raise SystemExit("--mpi-procs must be positive")
     mpi_target = "mpi" in args.make_target.lower()
@@ -34,6 +43,11 @@ def validate_mpi_arguments(args):
 
 
 def validate_local_tiles(input_path, decomposition, tile=(8, 8, 8)):
+    """Check that each local size lx/PX, ly/PY, lz/PZ is an integer multiple of the tile.
+
+    tile is the GPU tile, by default 8 x 8 x 8 as set by GPUTILEX/Y/Z in defines.h. Returns
+    the local sizes, or None when no decomposition is given.
+    """
     if decomposition is None:
         return
     text = Path(input_path).read_text()
@@ -58,6 +72,11 @@ def validate_local_tiles(input_path, decomposition, tile=(8, 8, 8)):
 
 
 def solver_command(args, binary, input_name):
+    """Return the solver command line.
+
+    One rank: binary input. More ranks: launcher -np|-n N binary PX PY PZ input, the argument
+    order expected by LBFAST.f90 in MPI builds (-np for mpirun, -n for srun).
+    """
     if args.mpi_procs == 1:
         return [str(binary), str(input_name)]
     px, py, pz = args.decomposition

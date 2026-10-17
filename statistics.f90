@@ -1,4 +1,10 @@
 #include "defines.h"
+!     Module stat_module: diagnostics of the benchmark cases selected in defines.h. The open_ and
+!     print_ routines write time series of benchmark observables (kinetic energy, interface
+!     positions, Laplace pressure jump, capillary-wave amplitude), mostly computed from the output
+!     arrays rhoprint, pressprint and velprint and reduced over the MPI ranks; compare_benchmark
+!     compares the results with analytical solutions at the end of the run; probe_loc prints the
+!     moments of the probe node.
 module stat_module
 
    use vars
@@ -7,13 +13,17 @@ module stat_module
    
    implicit none
    
+   ! kinetic energy per node, mean of |u|^2/2, at the current and at the initial step (Taylor-Green)
    real(kind=db) :: Ekin,Ekin0
 #ifdef CAPILLARYWAVE
+   ! total phase mass at the first sample, and amplitude and step of the previous sample
    real(kind=db) :: capwave_mass0=-ONE
    real(kind=db) :: capwave_eta_previous=ZERO
    integer :: capwave_step_previous=0
 #endif
 #if defined(LAMBTEST) && defined(TWOCOMPONENT)   
+   ! interface positions along x and z on the two sides of the droplet, as phi (1-phi) weighted
+   ! coordinates (and the sums of the weights), droplet diameters, midpoints and deformation
    real(kind=db) :: pos_x_int_left=ZERO
    real(kind=db) :: pos_x_int_node_left=ZERO
    real(kind=db) :: pos_x_int_right=ZERO
@@ -26,6 +36,7 @@ module stat_module
    real(kind=db) :: lamb_dosc,lamb_A,lamb_visc
 #endif
 #ifdef LAPLACE
+   ! interface positions along x, droplet radius, and density, p* and pressure inside and outside
    real(kind=db) :: pos_x_int_left=ZERO
    real(kind=db) :: pos_x_int_node_left=ZERO
    real(kind=db) :: pos_x_int_right=ZERO
@@ -38,6 +49,9 @@ module stat_module
 #endif
 contains
 #ifdef CAPILLARYWAVE
+   ! Projection of the y component of the CSF force on cos(k x), k = 2 pi/lx, compared with the
+   ! theoretical value -2 sigma k^2 A for the two interfaces of the slab, where uwall holds the
+   ! initial amplitude A. Written to capillary_force_projection.dat.
    subroutine print_capillary_force_projection
       implicit none
       real(kind=db) :: force_y_cos,force_y_mode,force_y_theory,wave_x,wave_k
@@ -79,6 +93,9 @@ contains
       endif
    end subroutine print_capillary_force_projection
 
+   ! Capillary-wave diagnostics: one line of capillary_wave.dat per call; lopen = .true. at the first
+   ! call opens the file and stores the reference values. rhoprint holds phi (PRINTPHI), radius the
+   ! slab half-thickness h and center(2) the y coordinate of the slab center.
    subroutine print_capillary_wave(myio,lopen)
       implicit none
       integer, intent(in) :: myio
@@ -117,6 +134,10 @@ contains
       call sum_world_float(msin)
       call sum_world_float(velocity_cos)
       call sum_world_float(weight_sum)
+      ! For a slab of thickness 2h whose center line is displaced by eta cos(k x), sum dy phi cos(k x)
+      ! divided by sum phi is eta/2, with dy the periodic distance from center(2): eta_cos (eta_sin) is
+      ! the amplitude of the cos(k x) (sin(k x)) displacement. velocity_mode is the cos(k x) amplitude
+      ! of v_y weighted by the interface indicator 4 phi (1-phi)/width.
       eta_cos=TWO*mcos/max(mass,tiny(ONE))
       eta_sin=TWO*msin/max(mass,tiny(ONE))
       velocity_mode=TWO*velocity_cos/max(weight_sum,tiny(ONE))
@@ -131,6 +152,8 @@ contains
          capwave_step_previous=step
       endif
       mass_error=(mass-capwave_mass0)/max(abs(capwave_mass0),tiny(ONE))
+      ! inviscid frequency of the capillary wave for the finite depth h:
+      ! sqrt(sigma k^3 tanh(k h)/(rho_r + rho_b))
       omega_depth=sqrt(sigma*wave_k**THREE/(rho_r+rho_b)*tanh(wave_k*radius))
 
       if(myrank==0)then
@@ -142,6 +165,8 @@ contains
    end subroutine print_capillary_wave
 #endif
    
+   ! Taylor-Green vortex: initial kinetic energy per node Ekin0 from velprint (mean over the sampled
+   ! nodes of each rank, then over the ranks); rank 0 opens taylorgreen.dat.
    subroutine open_taylorgreen(myio)
    
       implicit none
@@ -169,6 +194,7 @@ contains
       
    end subroutine open_taylorgreen
    
+   ! Writes step, E/E0 and log(E/E0) to taylorgreen.dat, with E computed as Ekin0.
    subroutine print_taylorgreen(myio)
    
       implicit none
@@ -194,6 +220,13 @@ contains
                
    end subroutine print_taylorgreen
 #ifdef LAPLACE   
+   ! Laplace test (static droplet). rhoprint holds phi and pressprint the variable p*. The interface
+   ! positions along the line y = ly/2, z = lz/2 are the averages of x weighted by phi (1-phi), which
+   ! peaks at the interface, over the left and the right half of the domain; the radius is the
+   ! distance of the right interface from their midpoint. The pressure p = rho(phi) cs^2 p* is taken
+   ! at the droplet center (inside) and at the probe node (outside), and sigma_eff = (p_in - p_out) R/2
+   ! from the Laplace law Delta p = 2 sigma/R. open_laplace also opens laplace.dat, and print_laplace
+   ! also writes p_in and p_out.
    subroutine open_laplace(myio)
    
       implicit none
@@ -205,6 +238,8 @@ contains
          gk=lz/2
          pos_x_int_left=ZERO
          pos_x_int_node_left=ZERO
+         ! only the rank that owns the global node (gi,gj,gk) adds its value; i, j, k index the output
+         ! arrays, sampled every stepskip nodes; the sums are then reduced over the ranks
          do gi=1,lx/2
            subchords(1)=(gi-1)/nx
            subchords(2)=(gj-1)/ny
@@ -384,6 +419,12 @@ contains
    end subroutine print_laplace  
 #endif   
 #if defined(LAMBTEST) && defined(TWOCOMPONENT)     
+   ! Lamb test (oscillating droplet). As in the Laplace test, the interface positions along the
+   ! z axis (x = lx/2, y = ly/2) and along the x axis (y = ly/2, z = lz/2) are the phi (1-phi)
+   ! weighted averages of the coordinate over the two halves of the domain. lamb_x and lamb_z are
+   ! the droplet diameters, lamb_cm_x and lamb_cm_z their midpoints, and
+   ! lamb_dosc = (lamb_z - lamb_x)/(lamb_z + lamb_x) the deformation. Each line of lamb.dat ends with
+   ! the semi-axis along z, used by compare_benchmark. open_lamb also opens lamb.dat.
    subroutine open_lamb(myio)
    
       implicit none
@@ -590,6 +631,8 @@ contains
    end subroutine close_benchmark
    
    
+   ! Copies the moments to the host and prints the ten moments of the probe node (iprobe, jprobe,
+   ! kprobe), preceded by the optional labels mystring, mystring2 and inumber.
    subroutine probe_loc(hfields_s &
 #ifdef TWOCOMPONENT	       
      ,phifields_s &
@@ -664,6 +707,8 @@ contains
     end subroutine probe_loc
 
 #if defined(FALLING_DROP_noslip) || defined(MULTI_DROPS)
+    ! Mean z velocity w weighted by (1-phi) over the nodes with phi < 0.5, and total phase mass
+    ! sum phi over the fluid nodes, reduced over the ranks and written to unit 193.
 	subroutine rising_vel
 		
 		implicit none
@@ -711,6 +756,8 @@ contains
 	endsubroutine
 #endif
 
+    ! Least-squares fit y = a x + b of n points: a = (n Sxy - Sx Sy)/(n Sxx - Sx^2),
+    ! b = (Sy - a Sx)/n; a = b = 0 if all x are equal (vanishing denominator).
     subroutine linear_regression(x, y, n, a, b)
 	  implicit none
 	  integer, intent(in) :: n
@@ -744,6 +791,10 @@ contains
 	end subroutine linear_regression
 	
 	
+    ! Reads step and log(E/E0) (columns 1 and 3) from the Taylor-Green file, fits
+    ! log(E/E0) = slope t + intercept over the steps t <= step_max_fit and returns the viscosity
+    ! nu_num = -slope/(6 k^2), k = 2 pi/Lbox, from E/E0 = exp(-6 nu k^2 t). nu_num = -1 if the file
+    ! cannot be opened or holds fewer than two points.
 	subroutine fit_taylorgreen_nu(filename, Lbox, step_max_fit, nu_num, slope, intercept)
 	  implicit none
 	  character(len=*), intent(in) :: filename
@@ -794,6 +845,12 @@ contains
 	
 	end subroutine fit_taylorgreen_nu
 
+    ! Compares the results of the benchmark selected in defines.h with the analytical solution at the
+    ! end of the run; rank 0 writes the results and, with USEGNUPLOT, a gnuplot script and its plot.
+    ! TWOPOISEUILLE, POISEUILLE: velocity profile w(x), averaged over y and z;
+    ! TAYLORGREEN: theoretical energy decay and fitted viscosity;
+    ! LAMBTEST: oscillation period from the maxima of the z semi-axis in lamb.dat;
+    ! LAPLACE: mean and standard deviation of sigma_eff, Delta p and R in laplace.dat.
     subroutine compare_benchmark
     
       implicit none
@@ -810,6 +867,12 @@ contains
       allocate(w_pois(lx),w_num(lx),i_num(lx))
       w_num=ZERO;w_pois=ZERO;i_num=ZERO
       
+      ! Two-layer channel flow along z between walls at x = xc_pois - H_pois and x = xc_pois + H_pois,
+      ! driven by the body acceleration fz: fluid 1 (visc1, rho_r) for x < xc_pois and fluid 2 (visc2,
+      ! rho_b) for x > xc_pois. In each layer w = -fz d^2/(2 nu) + a d + B, with d = x - xc_pois;
+      ! B (coefB_pois) and the slopes a (coefL_pois, coefR_pois) follow from no slip at the walls and
+      ! from the continuity of w and of the shear stress rho nu dw/dx at d = 0. With BOUNCE_BACK the
+      ! walls are at x = 1.5 and lx - 0.5, otherwise at x = 1 and lx.
 #ifdef BOUNCE_BACK
       H_pois  = 0.5_db * real(lx-2,db)
 #else
@@ -837,6 +900,8 @@ contains
       do gi = 1, lx
 	    dist1   = real(gi,db) - xc_pois
 	    distabs = abs(dist1)
+	    ! the two parabolas are blended with phi = fcut_tanh(d,0,width), which is 1 in fluid 1
+	    ! and 0 in fluid 2
 	    phi_loc=fcut_tanh(dist1,ZERO,width)
 !               if (dist1 <= ZERO) then
 !                  selphi(i,j,k,flip) = ONE
@@ -862,6 +927,7 @@ contains
 	    endif
       enddo      
 
+      ! numerical profile: w averaged over the nodes with the same global x (zero at solid nodes)
       do k=1,nz
          gk = nz*coords(3) + k
 		 zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -893,6 +959,7 @@ contains
        enddo
        if(myrank==0)then
          open(unit=42,file='plot_twopoiseuille.dat',status='replace',action='write')
+         ! with BOUNCE_BACK the boundary nodes 1 and lx are written at the wall positions x = 1.5, lx - 0.5
 #ifdef BOUNCE_BACK
          gi=1
          write(42,'(3g16.8)')1.5_db,w_num(gi),w_pois(gi)
@@ -940,6 +1007,7 @@ contains
 
       allocate(w_pois(lx),w_num(lx),i_num(lx))
       w_num=ZERO;w_pois=ZERO;i_num=ZERO
+      ! single-component channel flow: w = fz (H^2 - d^2)/(2 nu), walls placed as in TWOPOISEUILLE
 #ifdef BOUNCE_BACK
       H_pois  = 0.5_db * real(lx-2,db)
 #else
@@ -988,6 +1056,7 @@ contains
        enddo
        if(myrank==0)then
          open(unit=42,file='plot_poiseuille.dat',status='replace',action='write')
+         ! with BOUNCE_BACK the boundary nodes 1 and lx are written at the wall positions x = 1.5, lx - 0.5
 #ifdef BOUNCE_BACK
          gi=1
          write(42,'(3g16.8)')1.5_db,w_num(gi),w_pois(gi)
@@ -1029,6 +1098,8 @@ contains
        real(kind=db) :: mytime, eth, log_eth ,k2,nu_num,fit_slope,fit_intercept
        integer :: stepfit
  
+       ! theoretical decay E/E0 = exp(-6 nu k^2 t), k = 2 pi/lx, written every stamp_term steps; the
+       ! viscosity is fitted over the steps with theoretical log(E/E0) >= -0.25 (stepfit is the last one)
        if(myrank==0)then   
          open(unit=42,file='taylorgreen_theory.dat',status='replace',action='write')
          do i = 0, nsteps/stamp_term
@@ -1088,6 +1159,11 @@ contains
 		  mu1 = rho_r*visc1
 		  mu2 = rho_b*visc2
 		
+		  ! n = 2 oscillation of a droplet of density rho_r in a fluid of density rho_b:
+		  ! omega_0^2 = 24 sigma/(R^3 (2 rho_b + 3 rho_r)), with the viscous correction of Miller and
+		  ! Scriven, omega = omega_0 - chi sqrt(omega_0)/2 + chi^2/4, where for n = 2
+		  ! chi = (2n+1)^2 sqrt(mu1 mu2 rho_r rho_b)
+		  !       / (sqrt(2) R (n rho_b + (n+1) rho_r) (sqrt(mu1 rho_r) + sqrt(mu2 rho_b)))
 		  myfreq = sqrt(TWENTYFOUR*sigma / &
 		       (radius_eq**THREE * (TWO*rho_b + THREE*rho_r)))
 		
@@ -1136,10 +1212,13 @@ contains
 		    return
 		  endif
 		
+		  ! dosc: semi-axis along z (last column of lamb.dat); amp0: its initial deviation from R
 		  zint0_minus_zcm = dosc(1)
 		  amp0 = zint0_minus_zcm - radius_eq
 		  t0 = real(mystep(1),db)*dt
 		
+		  ! maxima of the semi-axis above R, at least min_peak_dist steps apart; the numerical period
+		  ! is the mean distance between consecutive maxima
 		  npeaks = 0
 		  do i = 2, myn-1
 		    if (dosc(i) > dosc(i-1) .and. dosc(i) >= dosc(i+1) .and. &
@@ -1188,6 +1267,7 @@ contains
 		         ' zint-zcm=',pval(i)
 		  enddo
 		
+		  ! theoretical semi-axis R + amp0 cos(omega (t - t0))
 		  open(unit=42,file='lamb_theory.dat',status='replace',action='write')
 		  do i = 1, myn
 		    mytime  = real(mystep(i),db)*dt
@@ -1266,6 +1346,7 @@ contains
 		    return
 		  endif
 		  
+		  ! mean and standard deviation (normalized by n) over all the rows of laplace.dat
 		  avg = mysum / real(myn, db)
           std = sqrt( real(myn,db)*mysqsum - mysum*mysum ) / real(myn,db)
           avgP = mysumP / real(myn, db)

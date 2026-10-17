@@ -22,9 +22,31 @@ Usage: python3 gen_fused2_stages.py   (run from the repository root)
 import re
 from fractions import Fraction
 
+# How the stages are formed. The kernels of lb_cuda_fused_module.f90 store the post-collision
+# coefficients A_k of every node of the tile and its halo in the shared array abuf(i,j,k,slot), and
+# li, lj, lk is the node of the thread. In pull form the population f_l of node x comes from x - c_l.
+# For a pair of moving directions (l, l+1), with c_(l+1) = -c_l, a stage reads fa = A_k(x - c_l) and
+# fb = A_k(x + c_l). With B_k the basis function multiplying A_k and T(c) the weight of an output
+# moment (1, c_a or c_a c_b), the pair contributes
+#     p_l [T(c_l) B_k(c_l) fa + T(-c_l) B_k(-c_l) fb],
+# that is p_l T(c_l) B_k(c_l) (fa + fb) when T and B_k have the same parity, and
+# p_l T(c_l) B_k(c_l) (fa - fb) otherwise. ge is the term for the even output moments (o0, qxx, qyy,
+# qzz, oxy, oxz, oyz) and go the term for the odd ones (ox, oy, oz); each is added or subtracted
+# according to the sign of T(c_l) B_k(c_l). Pairs with B_k(c_l) = 0 and moments with T(c_l) = 0 are
+# skipped, and the weights are literal products of the Fortran parameter names (p1, p2, ...,
+# invcssq, HALF), so that no operation is spent on zero components.
+
+# name of the Fortran parameter 1/cs^2 used in the weights
 CSSQ_NAME = "invcssq"
 
 def lattice(q):
+    """Return the velocities c_l = (ex, ey, ez) and the weight names of the D3Qq lattice.
+
+    The text of vars_module.f90 after the LATTICE == q selector is searched for the first
+    constructors of ex, ey, ez and p; the weights are returned as the Fortran names listed in the
+    constructor of p (p0, p1, ...). Checks that direction 0 is the rest direction and that the
+    directions l and l+1 are opposite for every odd l.
+    """
     src = open("vars_module.f90").read()
     key = {27: "#if LATTICE == 27", 19: "#elif LATTICE == 19", 15: "#elif LATTICE == 15"}[q]
     block = src.split(key)[1]
@@ -41,6 +63,7 @@ def lattice(q):
     return c, pw
 
 # stage: (variable, description, kind, axis indices)
+# kind is the order of the coefficient; variable is its name in the kernels (not used below)
 STAGES = [
     ("press", "zeroth-order coefficient", "0", ()),
     ("u", "first-order coefficient along x", "1", (0,)),
@@ -53,20 +76,30 @@ STAGES = [
     ("pxz", "second-order coefficient xz", "2", (0, 2)),
     ("pyz", "second-order coefficient yz", "2", (1, 2)),
 ]
+# output moments: name and axis indices of T(c), the product of the selected components of c
 EVEN = [("o0", ()), ("qxx", (0, 0)), ("qyy", (1, 1)), ("qzz", (2, 2)),
         ("oxy", (0, 1)), ("oxz", (0, 2)), ("oyz", (1, 2))]
 ODD = [("ox", (0,)), ("oy", (1,)), ("oz", (2,))]
 
 def prod(c, idx):
+    """Product of the components of c selected by the axis indices idx (1 if idx is empty)."""
     r = 1
     for a in idx:
         r *= c[a]
     return r
 
 def off(i, s):
+    """Index expression of the shared buffer along axis i shifted by s: li, li+1 or li-1."""
     return f"l{i}" if s == 0 else (f"l{i}+{s}" if s > 0 else f"l{i}{s}")
 
 def stages(q):
+    """Return the Fortran lines of the ten second-order gather stages of the D3Qq lattice.
+
+    Stage n+1 gathers slot n+1 of abuf: A0' (zeroth order, including the trace term of A2), the
+    first-order coefficients A1 (u, v, w) and the second-order coefficients A2 (pxx, ..., pyz).
+    The weight of a pair is p_l times the factor of the basis function: 1, 1/cs^2, and
+    1/(2 cs^4) or 1/cs^4 for the diagonal or off-diagonal second-order coefficients.
+    """
     c, pw = lattice(q)
     I = " " * 18
     out = []
@@ -75,6 +108,7 @@ def stages(q):
         ib = n + 1
         J = I
         src = f"abuf(li,lj,lk,{ib})"
+        # the rest direction contributes only to stage 1, and only to o0, which it initializes
         if n == 0:
             out.append(f"{J}o0={pw[0]}*{src}")
         for l in range(1, q, 2):
@@ -95,6 +129,8 @@ def stages(q):
             out.append(f"{J}! directions l={l} ({cl[0]},{cl[1]},{cl[2]}) and l={l+1}")
             out.append(f"{J}fa=abuf({off('i',-cl[0])},{off('j',-cl[1])},{off('k',-cl[2])},{ib})")
             out.append(f"{J}fb=abuf({off('i',cl[0])},{off('j',cl[1])},{off('k',cl[2])},{ib})")
+            # bounce-back: a value pulled from a solid node (bit l or l+1 of isolid) is replaced by the
+            # value of this node, with a minus sign for the first-order (odd) coefficients
             own = ("-" if odd else "") + src
             out += ["#ifdef BOUNCE_BACK",
                     f"{J}if(btest(isolid,{l}))fa={own}",
@@ -124,6 +160,7 @@ HEADER = [
 ]
 
 def main():
+    """Write fused2_stages.h with the stages of the three lattices, selected by LATTICE."""
     lines = HEADER + ["#if LATTICE == 19"]
     lines += stages(19)
     lines.append("#elif LATTICE == 27")
@@ -134,6 +171,7 @@ def main():
     open("fused2_stages.h", "w").write("\n".join(lines) + "\n")
 
 # high-order D3Q27 basis: index k of Minv_mrt, name, exponents of (c_x, c_y, c_z)
+# HIGH also gives the slots 1..17 of abuf filled by the high-order kernels (slot s holds k = s + 9)
 HIGH = [(10, "xxy", (2, 1, 0)), (11, "xxz", (2, 0, 1)), (12, "xyy", (1, 2, 0)), (13, "xzz", (1, 0, 2)),
         (14, "yzz", (0, 1, 2)), (15, "yyz", (0, 2, 1)), (16, "xyz", (1, 1, 1)), (17, "xxyy", (2, 2, 0)),
         (18, "xxzz", (2, 0, 2)), (19, "yyzz", (0, 2, 2)), (20, "xyzz", (1, 1, 2)), (21, "xyyz", (1, 2, 1)),
@@ -145,6 +183,7 @@ def exact_weights():
     """Exact D3Q27 weights p0..p3 from their definitions in vars_module.f90."""
     block = open("vars_module.f90").read().split("#if LATTICE == 27")[1]
     w = {}
+    # each weight is defined as real(a.d0/b.d0,kind=db) and is converted to the fraction a/b
     for name in ("p0", "p1", "p2", "p3"):
         m = re.search(name + r"\s*=\s*real\(\s*([0-9.]+)d0\s*/\s*([0-9.]+)d0", block)
         w[name] = Fraction(int(float(m.group(1))), int(float(m.group(2))))
@@ -152,6 +191,9 @@ def exact_weights():
 
 def minv(expo, c, wl):
     """Element of Minv_mrt: p_l H_k(c_l) / N_k for the tensor-product Hermite basis."""
+    # each factor H1(c) = c is divided by its norm cs^2 and each factor H2(c) = c^2 - cs^2 by its
+    # norm 2 cs^4: these are the norms with the D1Q3 weights, whose tensor product gives the D3Q27
+    # weights, so N_k is the product of the norms of the factors
     val = wl
     for e, ci in zip(expo, c):
         if e == 1:
@@ -161,9 +203,19 @@ def minv(expo, c, wl):
     return val
 
 def lit(f):
+    """Fortran literal of the fraction f in kind db, e.g. real(-1.d0/54.d0,kind=db)."""
     return f"real({f.numerator}.d0/{f.denominator}.d0,kind=db)"
 
 def stages_high():
+    """Return the Fortran lines of the seventeen high-order gather stages of D3Q27.
+
+    Stage s gathers slot s of abuf, the coefficient of basis function k = s + 9 (see HIGH). The
+    weight of the pair (l, l+1) is the exact element C = Minv_mrt(k,l) = p_l H_k(c_l)/N_k, and pairs
+    with C = 0 are skipped. The value fc of this node is subtracted from the pulled values, so the
+    even output moments receive C (fa + fb - 2 fc) and the odd ones C (fa - fb) for an even basis
+    function (the two are swapped for an odd one); they are added to the accumulators h<name> with
+    the sign of T(c_l).
+    """
     c, pw = lattice(27)
     wx = exact_weights()
     I = " " * 18
@@ -194,6 +246,7 @@ def stages_high():
                     f"{I}if(btest(isolid,{l}))fa={own}",
                     f"{I}if(btest(isolid,{l+1}))fb={own}",
                     "#endif"]
+            # subtracting fc changes only the sums: fa + fb becomes fa + fb - 2 fc
             if odd:
                 out.append(f"{I}ge={lit(C)}*(fa-fb)")
                 out.append(f"{I}go={lit(C)}*(fa+fb-TWO*fc)")
@@ -224,6 +277,8 @@ HEADER_H = [
 ]
 
 def main_high():
+    """Write fusedh_stages.h: reset of the accumulators, the seventeen stages, and the final
+    addition of the accumulators to the output moments."""
     I = " " * 18
     tail = [f"{I}{nm}={nm}+h{nm}" for nm, _ in EVEN + ODD]
     lines = HEADER_H + ["#if LATTICE == 27"] + stages_high() + tail + ["#endif"]

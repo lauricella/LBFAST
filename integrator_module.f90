@@ -87,6 +87,12 @@ module integrator_module
 
 contains
 
+   !---------------------------------------------------------------------------------------------
+   ! integrator: runs the time loop. It opens an OpenACC data region that keeps the fields on the
+   ! GPU, writes the initial output (or reads the restart files), fills the halos of the initial
+   ! fields, performs the time steps (see the description before the loop), and writes the
+   ! restart files when lwriterestart is set (in the input, or when time_limit is reached).
+   !---------------------------------------------------------------------------------------------
    subroutine integrator
       implicit none
       integer :: subchords(3)
@@ -100,6 +106,9 @@ contains
       flip=mod(step,2)+1     
       flop = 3 - flip
  
+      ! OpenACC data region for the whole run: the arrays in copy() are copied to the GPU here and
+      ! back to the host at the end of the region; the MPI buffers in create() are allocated on the
+      ! GPU without a copy. Kernels and halo exchanges work on the device copies.
       !$acc data copy(step,lx,ly,lz,nx,ny,nz,coords,myoffset,isfluid,myrank, &
       !$acc& rhoprint,velprint,radius,width,center,iprobe,jprobe,kprobe, &
 	  !$acc& tau1,visc1,rho_r,rho_b,invrho_r,invrho_b,omega,arr_3d, &
@@ -173,6 +182,8 @@ contains
       endif
       
       !***********************************read restart************************
+      ! The restart files provide the moments (and phi) in the flip buffers and the frame counters
+      ! iframe and iframe2D; the step counter starts again from zero.
 #ifdef TWOCOMPONENT
       if(lrestart)then
          call read_restart_2c(iframe,iframe2D,hfields_flip,phifields_flip)
@@ -190,6 +201,7 @@ contains
       if(ldiagnostic)call end_timing2("LB","bcs_phi") 
 #endif
 
+      ! Initial output (frame 0, not after a restart) and opening of the benchmark files on unit 142.
       if(lprint .and. (.not. lrestart))then
 	     call copy_print(iframe,hfields_flip &
 #ifdef TWOCOMPONENT	      
@@ -219,6 +231,7 @@ contains
 #endif
       endif
        
+      ! Fill the halos of the initial phase field and moments before the first time step.
 #ifdef TWOCOMPONENT	 
 !****************phi exchange: periodic boundary conditions on phi************************
       if(ldiagnostic)call start_timing2("LB","ex_phifields_sendrecv")
@@ -261,6 +274,8 @@ contains
 
       !write(6,'(a,i8,1x,i8,1x,a)')' reached ',myrank,__LINE__,__FILE__
       !call dostop
+      ! time_init is the reference for time_limit, time_actual_old for the estimate of the
+      ! remaining time printed with the probe; ts1 and ts2 bracket the time loop.
       time_init=current_time()
       time_actual_old=time_init
 #if defined(_NVML) && !defined(GETPOWER)      
@@ -278,6 +293,46 @@ contains
       ! from here on copy_print adds the update of moments_LB_kernel to the printed velocity
       lprint_moments_update=.true.
 #endif
+      !--------------------------------------------------------------------------------------------
+      ! Time loop. Each iteration performs two time steps with double buffering:
+      !  - FLIP half (odd step): the kernels read hfields_flip and phifields_flip, and the new
+      !    moments and phase field are written into hfields_flop and phifields_flop;
+      !  - FLOP half (even step): the same sequence with the roles of the two buffers exchanged.
+      ! After a complete iteration the newest fields are again in the flip buffers. If nsteps is
+      ! odd, the last iteration also performs step nsteps+1.
+      !
+      ! Sequence of one time step (FLIP half: 'in' = flip buffers, 'out' = flop buffers):
+      !  1. TWOCOMPONENT: unit normal, |grad phi|, phi (1-phi) n and Laplacian of phi
+      !     (compute_norm_interface) and halo exchange of auxfields; boundary conditions on phi
+      !     (bcs_mesoscopic_phifields); div(phi (1-phi) n) (compute_div_theta_n); with CSF the
+      !     surface-tension force (compute_csf_force); with REPULSIVE_FLUX the repulsive flux.
+      !  2. Unless FUSED_MOMENTS is defined: moments_LB_cuda computes the force on every fluid node,
+      !     adds the forcing terms to the velocity and the second-order moments of hfields 'in' in
+      !     place, and stores the force in forces. The 'out' buffer, which still holds the moments of
+      !     the previous time step, is passed only to read the velocity of that step.
+      !  3. Halo exchange of hfields 'in' (and, unless FUSED_MOMENTS, of forces), since the fused
+      !     kernel reads the halo nodes.
+      !  4. Output (lprint) every stamp steps (3D fields), stamp2D steps (2D planes) and stamp_term
+      !     steps (benchmark data and probe line), from the 'in' buffers.
+      !  5. fused_LB_cuda: collision, forcing and streaming; the new moments go to hfields 'out'.
+      !  6. TWOCOMPONENT: update_phifields computes phi 'out' from phi 'in' and the velocity of
+      !     hfields 'in', followed by the halo exchange of phi 'out'.
+      !  7. INTERNAL_OBSTACLES: boundary conditions on hfields 'out' (bcs_mesoscopic_hfields).
+      !  8. If time_limit > 0, every every_time_check steps: when the time measured by current_time
+      !     exceeds time_limit, lwriterestart is set and the loop is left (goto 110).
+      !
+      ! With ASYNCMPI, the halo exchanges of steps 1, 3 and 6 overlap with computation: the _ext
+      ! kernels first update the tiles at the faces of the subdomain, the exchange is started
+      ! (sendrecv packs the halo data and posts non-blocking MPI transfers, intpbc copies the
+      ! periodic images that stay on the same rank), the _int kernels update the interior tiles,
+      ! and wait completes the exchange and unpacks the received halo. With FUSED_MOMENTS there is
+      ! no moment kernel to overlap with the exchange of step 3.
+      !
+      ! FUSED_MOMENTS (single-component flows without INTERNAL_OBSTACLES, MULTIHIT and
+      ! ELASTIC_FORCE, see defines.h): moments_LB_cuda and the exchange of forces are skipped,
+      ! because the fused kernels apply the moment update themselves when they read the moments of
+      ! a node; the stored moments are therefore those before the update (docs/FUSED_KERNELS.md).
+      !--------------------------------------------------------------------------------------------
       do step_flip=1,nsteps,2
 !***********************************************************************
 !***********************************FLIP********************************
@@ -285,10 +340,14 @@ contains
          step=step+1
          flip=mod(step,2)+1     
          flop = 3 - flip
+         ! step, flip and flop are passed to the kernels with host_data use_device, so their device
+         ! copies are updated at every step. The field buffers are not indexed by flip and flop: each
+         ! call passes hfields_flip/hfields_flop (and the phi buffers) explicitly.
          !$acc wait
          !$acc update device(step,flip,flop)
          !$acc wait
 
+         ! Step 1 (TWOCOMPONENT): interface geometry, halo exchange of auxfields, capillary terms.
 #ifdef TWOCOMPONENT	 
 #ifdef ASYNCMPI
          if(ldiagnostic)call start_timing2("LB","compute_norm_ext")
@@ -353,6 +412,7 @@ contains
 #endif
 #endif
 
+         ! Steps 2-3: moment update (unless FUSED_MOMENTS) and halo exchange of hfields_flip and forces.
 #ifdef ASYNCMPI
 #ifndef FUSED_MOMENTS
          if(ldiagnostic)call start_timing2("LB","moments_LB_cuda_ext")
@@ -436,6 +496,7 @@ contains
 		 if(ldiagnostic)call end_timing2("LB","ex_forces_wait")      
 #endif
 #endif        
+         ! Step 4: output. copy_print copies the fields of the flip buffers to the print arrays.
          if(lprint)then 
            if(mod(step,stamp).eq.0 .or. mod(step,stamp2D).eq.0 .or. mod(step,stamp_term).eq.0)then
              if(ldiagnostic)call start_timing2("IO","print")
@@ -474,6 +535,11 @@ contains
                  call print_capillary_wave(142,.false.)
 #endif
 
+               ! Probe line, printed by the rank that owns the probe node (iprobe,jprobe,kprobe): step,
+               ! probe position on the output grid, estimated remaining time in seconds (time
+               ! per step over the last stamp_term steps times the remaining steps), and isfluid, rhoprint
+               ! and velprint at the probe. With _NVML and GETPOWER, the power sampled in fused_LB_cuda is
+               ! integrated over the elapsed interval.
                time_actual=current_time()
                gi=iprobe;gj=jprobe;gk=kprobe
                subchords(1)=(gi-1)/nx
@@ -506,6 +572,7 @@ contains
          endif
        
          !***********************************collision + no slip + forcing: fused implementation*********
+         ! Step 5: reads hfields_flip (including its halo) and writes the new moments into hfields_flop.
 		 if(ldiagnostic)call start_timing2("LB","fused")
 		 !call probe_loc(hfields_flip,'hfields_flip',__FILE__,__LINE__)
          call fused_LB_cuda(hfields_flip,hfields_flop &
@@ -515,6 +582,7 @@ contains
          )
          if(ldiagnostic)call end_timing2("LB","fused")
          
+         ! Step 6 (TWOCOMPONENT): new phase field in phifields_flop, then its halo exchange.
 #ifdef TWOCOMPONENT	       
 #ifdef ASYNCMPI 
          if(ldiagnostic)call start_timing2("LB","update_phifields_ext")       
@@ -557,6 +625,7 @@ contains
 #endif
          
          !************ thread-safe boundary condition setup
+         ! Step 7 (INTERNAL_OBSTACLES): boundary conditions on the new moments in hfields_flop.
 #ifdef INTERNAL_OBSTACLES    
          if(ldiagnostic)call start_timing2("LB","bcs_hfields")
          call bcs_mesoscopic_hfields(hfields_flip,hfields_flop &
@@ -566,6 +635,8 @@ contains
          )
          if(ldiagnostic)call end_timing2("LB","bcs_hfields") 
 #endif         
+         ! Step 8: time limit. or_world_l combines the test of all ranks, so that all of them
+         ! leave the loop at the same step; the restart files are then written (lwriterestart).
          if(time_limit>ZERO)then
            if(mod(step,every_time_check).eq.0)then
              !$acc wait
@@ -590,6 +661,8 @@ contains
 !***********************************************************************
 !***********************************FLOP********************************
 !***********************************************************************
+         ! Second time step of the iteration: the same sequence as the FLIP half, with hfields_flop and
+         ! phifields_flop as input and hfields_flip and phifields_flip as output.
          step=step+1
          flip=mod(step,2)+1     
          flop = 3 - flip
@@ -905,6 +978,9 @@ contains
       ierrc=get_gpu_energy_mJ_u64(mydev_c,energy_2)
 #endif  
       !***********************************write restart************************
+      ! The restart files are written from hfields_flop and phifields_flop. These hold the newest
+      ! fields after a time-limit exit from the FLIP half; after a complete iteration the newest
+      ! fields are in the flip buffers.
       if(lwriterestart)then
 #ifdef TWOCOMPONENT
       call write_restart_2c(iframe,iframe2D,hfields_flop,phifields_flop)
@@ -916,6 +992,8 @@ contains
 	  call get_memory_gpu(mymemory,totmemory)
 	  call print_memory_registration_gpu(6,'DEVICE memory occupied at the end', &
       'total DEVICE memory',mymemory,totmemory)
+      ! step_energy: energy per time step summed over all ranks, from the power sampled once every
+      ! stamp_term steps (GETPOWER) or from the energy counters read before and after the loop.
 #ifdef _NVML 
 #ifdef GETPOWER
       call sum_world_float(tot_energy)

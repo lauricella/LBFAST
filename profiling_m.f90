@@ -14,6 +14,16 @@ module profiling_m
 !     last modification July 2018
 !
 !***********************************************************************
+!
+!     Use in LBFAST: LBFAST.f90 switches the timers on (set_value_ldiagnostic) and calls
+!     timer_init and startPreprocessingTime before the setup. In integrator_module every timed
+!     call is enclosed by start_timing2(section,routine) and end_timing2(section,routine); the
+!     sections are LB (GPU kernels, boundary conditions and halo exchanges) and IO (field output
+!     and time-limit checks). After the time loop, LBFAST.f90 calls printSimulationTime, which
+!     prints the total times to unit 6, and print_timing_final, which writes the summary to unit
+!     6 and to time.dat. The times are measured by every rank but printed by rank 0 only, without
+!     reduction over the ranks.
+!
 #ifdef MPI
    use mpi_template, only : myrank,nprocs
    use mpi
@@ -48,6 +58,14 @@ module profiling_m
 #endif
 #endif
 
+   ! Timer storage. A routine is identified by its section and routine names. At its first
+   ! start_timing it receives the global index isub (at most mxroutine), and a new section the
+   ! index isec (at most mxsection). section_cum accumulates over the whole run and section_blk
+   ! since the last print_timing_partial; their timer_routine arrays are indexed by isub.
+   ! timer_standalone(isub) holds, for routine isub, the sum and the sum of squares of the
+   ! per-call times, the minimum and maximum per-call time and the number of calls; it is the
+   ! source of the routine table of print_timing_final. timing_routine(isub) holds the start
+   ! time while the routine is being timed and zero otherwise.
    integer, parameter :: FUNCTION_NAME_LEN=40
 
    integer, save :: nsection = 0
@@ -102,6 +120,8 @@ module profiling_m
 
    logical :: lactive_routine=.false.
    integer :: active_level = 2
+   ! tstart0 and tstart: start of the setup and of the time loop. The Makefile targets do not
+   ! define CUDA, so the CUDA-event branches of this module are not compiled.
 #ifdef CUDA
 asd
    type (cudaEvent), save :: tstart, tend, tstart0
@@ -123,6 +143,7 @@ asd
    integer, save :: clock_rate_param=0
 
    real(kind=PRC), save :: clock_huge=real(0.d0,kind=PRC)
+   ! C helpers of get_mem.c and get_ram.c (peak resident set size and total RAM of the node).
 #ifndef CRAY
    INTERFACE
       FUNCTION get_mem ( ) bind ( C, name = "get_mem" )
@@ -154,6 +175,7 @@ asd
 
 contains
 
+   ! Sets idiagnostic, which LBFAST.f90 passes to print_timing_final as the step interval.
    subroutine set_value_idiagnostic(itemp1)
 
 !***********************************************************************
@@ -177,6 +199,7 @@ contains
 
    end subroutine set_value_idiagnostic
 
+   ! Sets ldiagnostic, which switches the timers on or off.
    subroutine set_value_ldiagnostic(ltemp1)
 
 !***********************************************************************
@@ -201,6 +224,7 @@ contains
    end subroutine set_value_ldiagnostic
 
 
+   ! Returns a new Fortran unit number: 15, 16, ... on successive calls.
    FUNCTION new_io_unit()
 
 !***********************************************************************
@@ -223,6 +247,8 @@ contains
    END FUNCTION new_io_unit
 
 
+   ! startPreprocessingTime and startSimulationTime record the start of the setup (tstart0) and
+   ! of the time loop (tstart, called by integrator_module before the loop).
    SUBROUTINE startPreprocessingTime()
 
 !***********************************************************************
@@ -267,6 +293,8 @@ contains
 #endif
    ENDSUBROUTINE
 
+   ! Opens time.dat on rank 0 (if lwritetime), writes the number of MPI processes on its first
+   ! line, and resets the timers.
    SUBROUTINE timer_init()
 
 !***********************************************************************
@@ -311,6 +339,9 @@ contains
 
    END SUBROUTINE timer_init
 
+   ! Rank 0 prints the time elapsed since startPreprocessingTime (setup and time loop) and since
+   ! startSimulationTime (time loop). A negative interval is printed as zero; with WALLCLOCK, an
+   ! interval more negative than half the system_clock period is first corrected by one period.
    SUBROUTINE printSimulationTime()
 
 !***********************************************************************
@@ -386,6 +417,7 @@ contains
       ENDIF
    ENDSUBROUTINE
 
+   ! Resets all sections, routines and accumulators. Not called by the current time loop.
    SUBROUTINE reset_timing_partial()
 
 !***********************************************************************
@@ -432,6 +464,9 @@ contains
 
    END SUBROUTINE reset_timing_partial
 
+   ! Rank 0 prints the block timings accumulated in section_blk since the previous call
+   ! (ifreq_l steps), per section and per routine (print_routine_timing), then section_blk is
+   ! reset. Not called by the current time loop.
    SUBROUTINE print_timing_partial(ifreq_l, itime, itime_start, ioout_l)
 
 !***********************************************************************
@@ -515,6 +550,16 @@ contains
 
    END SUBROUTINE print_timing_partial
 
+   ! Final summary, written by rank 0 to ioout_l and, if lwritetime, to time.dat:
+   ! 1) print_standalone: one row per timed routine, in decreasing order of total time, with the
+   !    columns: share of the summed time of all timed routines (%), section, routine, mean time
+   !    per call [s], number of calls, minimum and maximum time of a single call [s], and
+   !    standard deviation of the per-call time [s]. The column header goes to ioout_l only.
+   ! 2) one row per section, in decreasing order of total time: share of the summed section
+   !    times (%), section name, total time of the section [s] (labelled time/call, but it is the
+   !    sum over all calls), and number of timed calls in the section.
+   ! 3) the sum of the section times.
+   ! ifreq_l, itime, itime_start, natms_l and natms_tot_l do not affect the printed values.
    SUBROUTINE print_timing_final(ifreq_l,itime,itime_start,natms_l,natms_tot_l,ioout_l)
 
 !***********************************************************************
@@ -591,6 +636,7 @@ contains
       ENDDO
 
 
+      ! mytime_sec is sorted in increasing order, so this loop prints the largest time first.
       DO i=nsection,1,-1
 
          isec=myorder_sec(i)
@@ -630,6 +676,8 @@ contains
 
    END SUBROUTINE print_timing_final
 
+   ! Routine table of print_timing_final (see the columns there). total_time is the summed time
+   ! of the nroutine routines with calls, which are assumed to be timer_standalone(1:nroutine).
    SUBROUTINE print_standalone(ifreq,ioout_l,nroutine,total_time)
 
 !***********************************************************************
@@ -696,6 +744,7 @@ contains
 
          f = 0
          ff = 0
+         ! shellsort_r sorted the times in increasing order: rows are printed from the largest.
          DO j=nroutine+1,1,-1 ! ascending order
 
             i=ishell(j)
@@ -710,6 +759,8 @@ contains
 
             IF(timer_standalone(i)%icall>0) ff = ff + t_routine_ave(i)
 
+            ! Population standard deviation of the N per-call times t of the routine:
+            ! sqrt(N*sum(t**2) - (sum(t))**2) / N, with abs guarding against round-off.
             stdev = real(1.d0,kind=PRC)/real(timer_standalone(i)%icall,kind=PRC)* &
                sqrt(abs(real(timer_standalone(i)%icall,kind=PRC)*timer_standalone(i)%sqtiming- &
                (timer_standalone(i)%timing)**2.d0))
@@ -753,6 +804,8 @@ contains
 
    END SUBROUTINE print_standalone
 
+   ! Prints the routines of one section for print_timing_partial: share of the section time,
+   ! time per call, calls, calls per step and minimum/maximum per-call time.
    SUBROUTINE print_routine_timing(section,ifreq,ioout_l)
 
 !***********************************************************************
@@ -854,6 +907,8 @@ contains
 
    END SUBROUTINE print_routine_timing
 
+   ! Shell sort of rlist(1:n) in increasing order; ilist is permuted in the same way, so that it
+   ! carries the original positions of the sorted values.
    SUBROUTINE shellsort_r(n,rlist,ilist)
 
 !***********************************************************************
@@ -938,6 +993,9 @@ contains
 
    END SUBROUTINE shellsort_r
 
+   ! start_timing2 and end_timing2 are the entry points used by LBFAST. They remove from subname
+   ! any text starting at the first opening parenthesis; in OpenMP builds only the master thread
+   ! calls the timer.
    SUBROUTINE start_timing2(secname,subname)
 
 !***********************************************************************
@@ -990,6 +1048,11 @@ contains
 !$omp end master
    END SUBROUTINE end_timing2
 
+   ! Starts the timer of routine subname in section secname. A new section or routine is
+   ! registered at its first call; routines are looked up by the concatenation of the section
+   ! and routine names, truncated to FUNCTION_NAME_LEN characters. The call counters of the
+   ! section are incremented and the start time is read with current_time. Starting a routine
+   ! whose timer is already running stops the program.
    SUBROUTINE start_timing(secname,subname)
 
 !***********************************************************************
@@ -1098,6 +1161,10 @@ contains
 
    END SUBROUTINE start_timing
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   ! Stops the timer of routine subname in section secname and adds the time of this call to
+   ! section_cum, section_blk and timer_standalone (sum, sum of squares, minimum, maximum and
+   ! number of calls). A negative interval is reported and counted as zero; with WALLCLOCK, an
+   ! interval more negative than half the system_clock period is first corrected by one period.
    SUBROUTINE end_timing(secname,subname)
 
 !***********************************************************************
@@ -1216,6 +1283,8 @@ contains
 
    END SUBROUTINE end_timing
 
+   ! id_timing_sec and id_timing_sub return the index of the named section or routine, or -99
+   ! if it is not registered.
    FUNCTION id_timing_sec(secname,n,mysection_cum)
       CHARACTER(len=FUNCTION_NAME_LEN) :: secname
       INTEGER :: n
@@ -1262,6 +1331,13 @@ contains
 
    END FUNCTION id_timing_sub
 
+   ! Clock of all the timers, in seconds; integrator_module also uses it for the loop time and
+   ! the time limit. It first waits for all queued asynchronous OpenACC operations (acc wait),
+   ! so that the OpenACC work issued so far is included. With WALLCLOCK the clock is MPI_Wtime (MPI
+   ! builds) or system_clock (wtime); otherwise it is the intrinsic CPU_TIME, which returns
+   ! processor time rather than elapsed time. Neither defines.h nor the Makefile targets define
+   ! WALLCLOCK. The first call stores in clock_huge the period of system_clock, used by the
+   ! WALLCLOCK corrections of negative intervals.
    FUNCTION current_time() RESULT(myout)
       REAL(kind=PRC) :: myout
       REAL(kind=8) :: mytemp
@@ -1359,6 +1435,9 @@ contains
 
    end function wtime
 
+   ! Rank 0 prints the two host-memory values with the labels mybanner and mybanner2, both
+   ! marked as MB. LBFAST passes the results of get_memory and get_totram. On CRAY it runs
+   ! free -m instead.
    subroutine print_memory_registration(iu,mybanner,mybanner2,mymemory,totmem)
 
 !***********************************************************************
@@ -1480,6 +1559,9 @@ contains
 
    end subroutine get_memory_cuda
 #endif
+   ! Peak resident set size of the process (get_mem in get_mem.c), summed over the MPI ranks.
+   ! Linux reports ru_maxrss in kilobytes and get_mem divides it by 1024**2, so the value is in
+   ! GiB. On CRAY it returns zero.
    subroutine get_memory(fout)
 
 !***********************************************************************
@@ -1516,6 +1598,9 @@ contains
 
    end subroutine get_memory
 
+   ! Total RAM of the node of the calling rank (get_totalram in get_ram.c, MiB when the sysinfo
+   ! memory unit is one byte). The return before the MPI block makes the sum over the ranks
+   ! unreachable. On CRAY it returns zero.
    subroutine get_totram(fout)
 
 !***********************************************************************

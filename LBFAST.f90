@@ -1,4 +1,25 @@
 #include "defines.h"
+!-----------------------------------------------------------------------------------------------
+! LBFAST main program: moment-based (regularized, Hermite) lattice Boltzmann solver for single-
+! and two-component flows on one or more GPUs.
+!
+! Program flow:
+!  1. start_mpi initializes MPI and selects the GPU of every rank (node-local rank modulo the
+!     number of GPUs of the node).
+!  2. The decomposition proc_x, proc_y, proc_z (MPI builds) and the name of the input file are
+!     read from the command line; the namelists simulation and fluid are read from the input
+!     file, and the relaxation parameters are derived from them.
+!  3. setup_mpi computes the local subdomain nx x ny x nz and the halo-exchange pattern;
+!     setup_cuda checks the GPU tiles and sets the CUDA grids and the number of tiles per rank;
+!     allocate_struct allocates the tiled field arrays.
+!  4. The geometry isfluid is set and its halo exchanged; fluid nodes next to a non-fluid node
+!     are marked with -1.
+!  5. initial_conditions_all sets the initial fields, which are read from RAW files instead
+!     when lreadinit is true.
+!  6. The configuration is printed, and integrator runs the time loop on the GPU.
+!  7. Timing, throughput (GLUPS), energy (with _NVML) and memory are reported, and
+!     compare_benchmark compares the selected benchmark with its reference solution.
+!-----------------------------------------------------------------------------------------------
 program threadsafeLB
    use mpi_template, only : myrank,proc_x,proc_y,proc_z,pbc_x,pbc_y,pbc_z, &
     coords,start_mpi,setup_mpi,exchange_isf_sendrecv,exchange_isf_intpbc, &
@@ -29,6 +50,8 @@ program threadsafeLB
 #ifdef _NVML   
    real(kind=db) :: Pavg=ZERO,eff_glups_per_w,E_tot,J_per_LUP
 #endif
+   ! Input namelists (see README.md): simulation holds domain size, time stepping, output, restart,
+   ! boundary and probe settings; fluid holds the physical parameters of the flow.
    namelist /simulation/ nsteps,stamp,stamp2D,stepskip,lreadisfluid, &
     lreadinit,lx,ly,lz,lprint,lvtk,lraw,lrestart,pbc_x,pbc_y,pbc_z,openbc,lasync, &
     iprobe,jprobe,kprobe,openbc_type_x,openbc_type_y,openbc_type_z, &
@@ -76,6 +99,7 @@ program threadsafeLB
    ngpus=0
 #endif
 
+   ! Default: no domain decomposition; with MPI the values are read from the command line below.
    proc_x=1
    proc_y=1
    proc_z=1
@@ -158,6 +182,9 @@ program threadsafeLB
    endif
 #endif
 
+   ! With DOBENCHMARK (defined in the default defines.h), default parameters are set here. Since
+   ! lreadinput is .true., the namelists read below override them. MYSIDE is the side of the
+   ! cubic subdomain of each rank in weak-scaling mode (lweakscaling).
 #ifdef DOBENCHMARK   
    nsteps=100
    stamp=100
@@ -211,6 +238,10 @@ program threadsafeLB
       
       read(inputio,nml=fluid)
       close(inputio)
+      ! Derived parameters: relaxation time tau1 = visc1/cs^2 + 1/2 and frequency omega = 1/tau1.
+      ! TWOCOMPONENT: beta and kapp are the coefficients of the chemical potential
+      ! 4 beta phi (phi-1) (phi-1/2) - kapp lap(phi), sharp_c multiplies the sharpening term
+      ! -div(phi (1-phi) n) of the phase-field equation, and tau2 is the relaxation time of fluid 2.
       tau1=visc1*invcssq + 0.5_db
       omega=1.0_db/tau1      
 #ifdef TWOCOMPONENT      
@@ -225,6 +256,8 @@ program threadsafeLB
       !cosOppT=-0.8	   
 #endif 
 #endif    
+      ! Weak scaling: each rank gets a cubic subdomain of side MYSIDE, and lx, ly, lz from the input
+      ! are overridden.
       if(lweakscaling)then
         !lz=lz*proc_x*proc_y*proc_z
         lx = MYSIDE * proc_x
@@ -245,6 +278,9 @@ program threadsafeLB
    endif
       
    !!!!!!!SETUP MPI!!!!!!!!!!!!!!!!!!!
+   ! setup_mpi: local sizes nx = lx/proc_x (and so on), Cartesian communicator and halo-exchange
+   ! pattern. setup_cuda (GPU builds): tile checks, CUDA launch grids and the number of array
+   ! blocks (nxblock, nyblock, nzblock, nblocks) needed by allocate_struct.
    call setup_mpi()
    
 #if defined(_OPENACC)
@@ -257,6 +293,7 @@ program threadsafeLB
    !ey=(/0, 0,  0, 1, -1,  0,  0,  1,  -1, -1,   1,  1,  -1,  1,  -1,  0,   0,   0,   0/)
    !ez=(/0, 0,  0, 0,  0,  1, -1,  0,   0,  0,   0,  1,  -1, -1,   1,  1,  -1,   1,  -1/)
    !*****************************geometry************************************************
+   ! isfluid: 1 = fluid node, 0 = solid node; -1 (set below) = fluid node next to a non-fluid node.
    isfluid=1
    
    if(lreadisfluid)then
@@ -266,6 +303,8 @@ program threadsafeLB
    endif
    
   
+   ! INTERNAL_OBSTACLES: the first and last global planes of every non-periodic direction are solid
+   ! walls. With KARMANN, a cylinder of radius 8 along z centred at (lx/4, ly/2) is added.
 #if defined(INTERNAL_OBSTACLES)
 	   do k=1,nz
 	      gk=nz*coords(3)+k
@@ -297,17 +336,22 @@ program threadsafeLB
 	   enddo
 #endif   
    
+   ! Benchmark builds without internal obstacles are all fluid; this also overrides isfluid.raw.
 #if defined(DOBENCHMARK) && !defined(INTERNAL_OBSTACLES)
    isfluid=1
 #endif
 
    !setup domain decomposition among MPI process
    !******************************(only once at the beginning)************************
+   ! Exchange the halo of isfluid with the neighbouring ranks and the periodic images, so that the
+   ! neighbour test below also sees the nodes of the adjacent subdomains.
    call exchange_isf_sendrecv
    call exchange_isf_intpbc
    call exchange_isf_wait
 
 !  identify fluid nodes close to the boundary
+!  abs() is used because the neighbours already marked -1 are fluid nodes. The halo is exchanged
+!  again afterwards, so that the -1 marks are also known in the halo.
    do k=1,nz
       gk=nz*coords(3)+k
       do j=1,ny
@@ -331,6 +375,9 @@ program threadsafeLB
    
    
    !*************************************initial conditions ************************
+   ! flip and flop are set for step 0 because driver_read_init_raw uses them to choose the buffer
+   ! it reads into. On exit, hfields_flip and hfields_flop (and the phi buffers) hold the same
+   ! initial state.
    step=0
 
    flip=mod(step,2)+1     
@@ -483,6 +530,7 @@ program threadsafeLB
       call flush(6)
    endif
    !*************************************time loop************************
+   ! integrator moves the data to the GPU, runs the time loop, and sets ts1 and ts2 around it.
    call integrator
 
 
@@ -498,6 +546,11 @@ program threadsafeLB
 
 
    
+   ! Throughput in GLUPS = lx*ly*lz*nsteps / tot_time / 1e9, with tot_time the duration of the time
+   ! loop measured by current_time (profiling_m.f90: CPU_TIME unless WALLCLOCK is defined).
+   ! nsteps is the requested number of steps: an early stop at time_limit, or the extra step run
+   ! when nsteps is odd, is not accounted for. With _NVML, step_energy (computed in
+   ! integrator) is the energy per time step summed over all ranks.
    tot_time=ts2-ts1
    Glups = real(lx,db)*real(ly,db)*real(lz,db)*real(nsteps,db)/tot_time*1.e-9_db
 #ifdef _NVML               
@@ -529,6 +582,8 @@ program threadsafeLB
 !   call get_memory_gpu(mymemory,totmemory)
 !   call print_memory_registration_gpu(6,'DEVICE memory occupied at the end', &
 !      'total DEVICE memory',mymemory,totmemory)
+   ! compare_benchmark compares the result of the selected benchmark (POISEUILLE, TAYLORGREEN, ...)
+   ! with its theoretical solution.
    call compare_benchmark
    call dostop('program correctly closed')
 

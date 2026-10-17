@@ -1,6 +1,23 @@
 #!/usr/bin/env python3
 """Build, run, and analyse the single-component body-force validation."""
 
+# Benchmark: plane Poiseuille flow developed from rest by a uniform body force in the
+# single-component solver (docs/POISEUILLE_FORCE_VALIDATION.md).
+# Build: unless --skip-build is given, defines.h is edited in place to enable LATTICE 27,
+# HIGHORDER, PRC 8, STRPRC 8, DOBENCHMARK, POISEUILLE and POISEUILLESTARTREST and to disable
+# MIXEDPRC, TWOCOMPONENT, DENSRATIO, CSF and the other benchmark selectors; then "make clean"
+# and "make <target> GPUCC=<cc>" are run. POISEUILLE also defines INTERNAL_OBSTACLES, so this
+# build keeps the separate moment kernel (no FUSED_MOMENTS).
+# Run: poiseuille_force.inp (32 x 8 x 32, solid planes at x=1 and x=32, force fz along z,
+# 10000 steps) is copied to and run in poiseuille_force_validation_run/.
+# Metric: the plane-averaged velocity profile of plot_poiseuille.dat against the parabola
+# fz [H^2 - (x-xc)^2] / (2 nu), rebuilt here from lx, fz and visc1 with walls at x=1 and x=lx:
+# relative L2 error, centreline error, relative and absolute maximum errors, and the largest
+# difference from the analytical column written by statistics.f90. The results go to
+# poiseuille_force_validation_summary.csv. This script applies no tolerance;
+# tests/run_full_validation.py requires relative L2 and centreline errors <= 1% and the two
+# analytical profiles to agree within 1e-12.
+
 import argparse
 import csv
 import math
@@ -35,6 +52,10 @@ DISABLED_DEFINES = (
 
 
 def set_macro(text: str, name: str, value: Optional[str], enabled: bool) -> str:
+    """Rewrite the first '#define [no]NAME ...' line as '#define NAME value' or '#define noNAME'.
+
+    The line is appended when defines.h has no such line.
+    """
     prefix = "" if enabled else "no"
     replacement = f"#define {prefix}{name}"
     if enabled and value is not None:
@@ -77,6 +98,7 @@ def build_solver(root: Path, defines: Path, gpu_cc: str, target: str) -> None:
 
 
 def read_profile(path: Path) -> List[Tuple[float, float, float]]:
+    """Read plot_poiseuille.dat: position x, numerical velocity, analytical velocity."""
     rows: List[Tuple[float, float, float]] = []
     for line in path.read_text().splitlines():
         fields = line.split()
@@ -113,6 +135,8 @@ def analyse(path: Path, input_path: Path) -> Dict[str, float]:
     center = 0.5 * (wall_lower + wall_upper)
     half_width = 0.5 * (wall_upper - wall_lower)
 
+    # The reference is the parabola computed here; the analytical column of statistics.f90 is
+    # only compared with it.
     analytical_rows: List[Tuple[float, float, float]] = []
     statistics_differences: List[float] = []
     for position, numerical, statistics_exact in rows:
@@ -131,6 +155,7 @@ def analyse(path: Path, input_path: Path) -> Dict[str, float]:
     relative_l2 = math.sqrt(sum(value * value for value in residuals)) / exact_norm
     scale = max(abs(exact) for _, _, exact in analytical_rows)
     max_error = max(abs(value) for value in residuals)
+    # The centreline sample is the one with the largest analytical velocity.
     center_row = max(analytical_rows, key=lambda row: row[2])
     return {
         "domain_x": lx,

@@ -12,6 +12,17 @@ module initial_condts
 
 contains
 
+   !---------------------------------------------------------------------------------------------
+   ! initial_conditions_all: sets the initial moments in hfields_flip (1 = p*, 2-4 = u, v, w,
+   ! 5-10 = second-order moments) and, with TWOCOMPONENT, phi in phifields_flip, on the nodes of
+   ! the local subdomain; at the end both are copied to the flop buffers. The halos are filled
+   ! later by the halo exchange in integrator. The tiled indices (ii,jj,kk,myblock) of the node
+   ! (i,j,k) are computed as described in allocate_module.f90.
+   !
+   ! The fields are first set to zero and then to the two-droplet configuration below. With
+   ! DOBENCHMARK (defined in the default defines.h) this is overwritten by the initial condition
+   ! of the selected benchmark, or by the default sphere when no benchmark is selected.
+   !---------------------------------------------------------------------------------------------
    subroutine initial_conditions_all
 #ifdef MPI  
 	  use mpi
@@ -104,6 +115,9 @@ contains
             enddo
         enddo
 
+      ! Two droplets of radius `radius` centred at (lx/2-radius-7, ly/2, lz/2+radius-4) and
+      ! (lx/2+radius+6, ly/2, lz/2-radius+3), with x velocity 0.02*(sel1-sel2), so that they move
+      ! towards each other along x, and p* = phi * 2 sigma/(radius rho cs^2).
 		do k = 1, nz
 		   gk = nz*coords(3) + k
 		   zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
@@ -180,6 +194,8 @@ contains
 
     
 
+      ! Benchmark initial conditions: the fields are reset to zero and then set on the fluid nodes
+      ! (|isfluid| = 1) according to the selected benchmark macro; solid nodes keep zero moments.
 #if defined(DOBENCHMARK)
 
 
@@ -226,6 +242,7 @@ contains
 
        ! TG amplitude: free choice, but keep the Mach number low
        ! e.g. uwall = u0tg = 0.02_db or 0.05_db
+       ! stdev: standard deviation of the Gaussian noise added to the Poiseuille velocity profiles.
        stdev=1.0e-3
        
 #if defined(LAMBTEST) && defined(TWOCOMPONENT)
@@ -237,6 +254,8 @@ contains
        lamb_A=uwall/lamb_req
        lamb_visc=ZERO
        lamb_visc_temp=ZERO
+       ! Frequency of the n = 2 Lamb mode (density rho_r inside, rho_b outside), its viscous
+       ! correction (chi), and the corresponding period, printed for reference.
        myfreq = sqrt(TWENTYFOUR*sigma / &
         (lamb_req**THREE * (TWO*rho_b + THREE*rho_r)))
        mu1  = rho_r*visc1
@@ -257,6 +276,9 @@ contains
        endif
 #endif       
        
+       ! Poiseuille benchmarks: flow along z with a profile across x, half-width H_pois and centre
+       ! xc_pois. coefL_pois, coefR_pois and coefB_pois are the coefficients of the analytic two-layer
+       ! profile, with fluid 1 (phi = 1) for x < xc_pois and fluid 2 for x > xc_pois.
 #if defined(POISEUILLE) || defined(TWOPOISEUILLE)
 #ifdef BOUNCE_BACK
        H_pois  = 0.5_db * real(lx-2,db)
@@ -309,6 +331,7 @@ contains
                 
                 if(abs(isfluid(i,j,k)).eq.1)then
 #if defined(TAYLORGREEN) && !defined(TWOCOMPONENT)
+                  ! Taylor-Green vortex with amplitude uwall and wavelengths lx, ly, lz.
                   rhophi_loc = 1.0_db
                   ! global periodic coordinates
                   x = TWO*pi_greek * real(gi-1, db) / real(lx, db)
@@ -327,6 +350,8 @@ contains
                   loc_press = ((uwall*uwall/SIXTEEN) * (c2x + c2y) * (TWO + c2z))/(rhophi_loc*cssq)
 
 #elif defined(TWOCOMPONENT) && defined(TWOPOISEUILLE)
+               ! Two-layer Poiseuille flow: tanh interface of width `width` at x = xc_pois; inside the
+               ! channel the analytic profiles of the two fluids, blended with phi, plus Gaussian noise.
                dist   = real(gi,db) - xc_pois
                distabs = abs(dist)
                tempphi=fcut_tanh(dist,ZERO,width)
@@ -362,6 +387,7 @@ contains
                   ! let the body force develop the Poiseuille profile.
                   loc_w=ZERO
 #else
+                  ! Analytic parabolic profile plus Gaussian noise inside the channel, zero outside.
                   dist = real(gi,db) - xc_pois
                   distabs = abs(dist)
                   if (distabs <= H_pois) then
@@ -376,6 +402,8 @@ contains
                   ! Canonical sinuous capillary wave. For this benchmark uwall
                   ! is the interface amplitude and radius is the slab
                   ! half-thickness.
+                  ! phi = 1 inside the slab |y - center(2) - eta(x)| < radius (periodic in y), with
+                  ! eta = uwall cos(2 pi x/lx); the fluid is at rest and p* = 0.
                   wave_x=real(gi,db)-HALF
                   wave_y=real(gj,db)-HALF
                   wave_k=TWO*pi_greek/real(lx,db)
@@ -425,12 +453,18 @@ contains
                   ! the initially prolate droplet.
                   loc_press=ZERO
                   
+                  ! Mean kinematic viscosity weighted by phi (1-phi), that is over the interface; the sums are
+                  ! reduced over all ranks after the loop.
                   visc_loc=(rho_r*visc1*tempphi+(1.0_db-tempphi)*visc2*rho_b)/rhophi_loc
                   
                   lamb_visc=lamb_visc+visc_loc*tempphi*(ONE-tempphi) 
                   lamb_visc_temp=lamb_visc_temp+tempphi*(ONE-tempphi)
 
 #else
+                   ! Default: sphere of radius `radius` centred at `center` (minimum-image
+                   ! distance), with phi = 1 inside. TWOCOMPONENT: droplet with the Laplace pressure
+                   ! p* = phi * 2 sigma/(radius rho cs^2), also used by LAPLACE. Single component:
+                   ! fluid at rest with the pressure perturbation p* = 0.01 phi.
                    !dist=sqrt((float(gi)-lx/TWO)**TWO + (float(gj)-ly/TWO)**TWO+(float(gk)-(lz/TWO)+1.5*radius)**TWO)
                    dist3d(1)=real(gi,kind=db)-center(1)
                    dist3d(2)=real(gj,kind=db)-center(2)
@@ -464,11 +498,13 @@ contains
 #endif       
 #endif
 
+                ! VELUNIFORMV: w = uwall and p* = 0, overriding the values above (u and v are kept).
 #ifdef VELUNIFORMV
                 loc_press=ZERO
                 loc_w=uwall        
 #endif
 
+                ! Second-order moments at equilibrium: u_a u_b.
                 hfields_flip(ii,jj,kk,1,myblock)= real(loc_press,kind=strdb)
                 hfields_flip(ii,jj,kk,2,myblock)=real(loc_u,kind=strdb)
                 hfields_flip(ii,jj,kk,3,myblock)=real(loc_v,kind=strdb) 
@@ -504,6 +540,11 @@ contains
 
 #endif
 
+      ! INTERNAL_OBSTACLES with TWOCOMPONENT: global_phi_sum_ini, the total phi on the fluid nodes of
+      ! all ranks, is the reference of the phase-field conservation correction applied during the run
+      ! (bcs_mesoscopic_phifields). Then phi on every solid node is set to the mean of phi on its
+      ! fluid neighbours inside the local subdomain, with weights 1, 1/sqrt(2) and 1/sqrt(3) for
+      ! links of length 1, sqrt(2) and sqrt(3).
 #if defined(INTERNAL_OBSTACLES) && defined(TWOCOMPONENT)     
 		global_phi_sum_ini=ZERO
 		do k=1,nz
@@ -620,6 +661,8 @@ contains
 ! #endif
 
 
+     ! Both buffers start from the same state (hfields_flop is read at the first step for the
+     ! velocity of the previous step, see moments_LB_cuda).
      hfields_flop=hfields_flip
 #ifdef TWOCOMPONENT
      phifields_flop=phifields_flip
@@ -627,6 +670,7 @@ contains
      
    endsubroutine
    
+    ! Minimum-image displacement in the periodic box; aaa holds 1/lx, 1/ly, 1/lz.
     subroutine pbc_images(aaa,xxs,xout)
       real(kind=db), dimension(3), intent(in) :: aaa,xxs
       real(kind=db), dimension(3), intent(out) :: xout

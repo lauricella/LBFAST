@@ -1,8 +1,13 @@
 #include "defines.h"
 module nvml_interface
+  ! Fortran interfaces to the NVML helpers of nvml_wrapper.c, available only when _NVML is
+  ! defined (Makefile targets nvfortran-nvml and nvfortran-nvml-mpi, linked with -lnvidia-ml),
+  ! and the conversion of two readings of the GPU energy counter into joules.
   use iso_c_binding
   implicit none
 #ifdef _NVML
+  ! Power draw of device idx in milliwatts, or a negative error code. With GETPOWER,
+  ! fused_LB_cuda samples it every stamp_term steps for the device mydev_c of the rank.
   interface
     function get_gpu_power_index(idx) bind(C, name="get_gpu_power_index")
       import :: c_int
@@ -11,6 +16,10 @@ module nvml_interface
     end function
   end interface
   
+  ! Energy consumed by device idx since the driver was loaded, in millijoules, stored in e_mJ;
+  ! returns 0, or a negative error code. NVML returns an unsigned 64-bit value, held here in a
+  ! signed c_long_long, so values of 2**63 mJ or more appear negative (see u64_delta_J).
+  ! Without GETPOWER, integrator_module reads it before and after the time loop.
   interface
     integer(c_int) function get_gpu_energy_mJ_u64(idx, e_mJ) bind(C, name="get_gpu_energy_mJ_u64")
       import :: c_int, c_long_long
@@ -21,6 +30,10 @@ module nvml_interface
   
   contains
   
+  ! Energy in joules between two readings e0 and e1 of the NVML energy counter. Both readings
+  ! are unsigned 64-bit integers stored in signed variables (Fortran has no unsigned type), so
+  ! the difference e1 - e0 is computed modulo 2**64 from the two 32-bit halves. The split assumes
+  ! little-endian byte order, in which element 1 of the transferred array is the low word.
   pure function u64_delta_J(e0, e1) result(dJ)
     implicit none
     integer(c_long_long), intent(in) :: e0, e1

@@ -24,6 +24,12 @@
 extern "C" {
 #endif
 
+/*
+ * get_mem: peak resident set size of the calling process, from getrusage(RUSAGE_SELF).
+ * Linux reports ru_maxrss in kilobytes, so the returned value ru_maxrss/(1024*1024) is in GiB.
+ * Called from Fortran through the bind(C) interface of profiling_m (get_memory, which sums
+ * the value over the MPI ranks). When compiled with -DPGI it returns 0.
+ */
 double get_mem()
 {
     struct rusage usg2;       // for memory leaks..
