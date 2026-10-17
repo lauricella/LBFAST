@@ -187,6 +187,8 @@ summaries of the smoke and complete suites unchanged.
 - [`SCALING_BENCHMARKS.md`](SCALING_BENCHMARKS.md) and
   [`COMPILE_SCRIPT.md`](COMPILE_SCRIPT.md) state which kernels the executables
   use and that the published scaling figures predate them.
+- `compile.sh` is tracked as an executable file, so it can be run as
+  `./compile.sh`, as described in [`COMPILE_SCRIPT.md`](COMPILE_SCRIPT.md).
 
 ## Upgrade notes
 
