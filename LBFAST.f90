@@ -63,7 +63,7 @@ program threadsafeLB
    namelist /fluid/ fx,fy,fz,visc1, &
     radius,width,center, &
 #ifdef TWOCOMPONENT
-    tau_diff,sigma,wettab_r,wettab_b,visc2, &
+    tau_diff,sigma,wettab_r,wettab_b,llagrange,lagrange_every,visc2, &
 #ifdef MONOD	
 	mu_max,Ks, &
 #endif
@@ -218,6 +218,10 @@ program threadsafeLB
    fy=0.0e0
    fz=0.0e0
 #endif
+
+   ! contact angle at the internal obstacles in degrees (fluid namelist); 90 = neutral wetting
+   wettab_r=90.0_db
+   wettab_b=1.0_db
 
    if(lreadinput)then
     

@@ -5,8 +5,10 @@
 ! isfluid = -1; the same holds in y and z.
 !   bcs_mesoscopic_hfields   completes the hydrodynamic moments after the fused collide-and-stream
 !                            kernel: walls, then open boundaries (openbc = 1);
-!   bcs_mesoscopic_phifields sets phi on the solid nodes (contact angle, open faces) and, with
-!                            BCPHIFLUX, corrects the total amount of phi.
+!   bcs_mesoscopic_phifields sets phi on the solid nodes (contact angle, open faces) and, with a
+!                            non-neutral contact angle, corrects the total amount of phi every
+!                            lagrange_every steps if llagrange is true (with BCPHIFLUX also for the
+!                            inflow through the non-periodic faces).
 ! The face loops are OpenACC loops (kernels or parallel loop) executed only by the rank whose
 ! sub-domain contains the face plane: the plane gi lies on the rank with coords(1) = (gi-1)/nx.
 ! Tile layout and index arithmetic (xblock, ii, myblock) as in lb_cuda_auxfields_module.f90.
@@ -1371,7 +1373,10 @@ contains
    ! 1) ghost phi with contact angle on the solid nodes next to the fluid (PHI_int_boundary_cuda);
    ! 2) with openbc = 1, phi on the solid planes gi = 1 and gi = lx (y, z alike; edges excluded) is
    !    copied from the adjacent fluid plane (zero normal gradient), replacing there the value of 1);
-   ! 3) with BCPHIFLUX, correction of the total amount of phi (see the block below).
+   ! 3) with llagrange and wettab_r /= 90, every lagrange_every steps, correction of the total
+   !    amount of phi,
+   !    which with BCPHIFLUX also accounts for the inflow through the non-periodic faces (see the
+   !    block below).
    subroutine bcs_mesoscopic_phifields(hfields_s,phifields_s)
 
      implicit none
@@ -1381,7 +1386,7 @@ contains
      integer :: ii,jj,kk,l,lopp
 	 real(kind=db) :: feq, fneq1,utmp,vtmp,wtmp,rhophi_loc,phi_loc
 #ifdef TWOCOMPONENT	  
-	 real(kind=db) :: phitemp
+	 real(kind=db) :: phitemp,phi_inflow
 #endif
 #if defined(PHASE_CHANGE) || defined(INTERNAL_OBSTACLES)
 	 real(kind=db) :: visc_loc,omega_loc,tau_loc
@@ -1724,20 +1729,24 @@ contains
   endif      			
 
 !******************lagrange multiplier
-  ! 3) BCPHIFLUX: global correction of phi. With openbc = 1 the face loops accumulate in
-  ! global_phi_change the net inflow of phi through the open faces in this call, i.e. the sum of
-  ! u_n phi over the fluid nodes of the first fluid planes (+ at gi = 2, - at gi = lx-1; v and w
-  ! on the y and z faces), summed over the ranks. phi_sum_count_cuda gives the total phi on the
-  ! fluid nodes (global_phi_sum) and the number of nodes with 0.5 < phi < 0.9 (global_count);
-  ! dphi = global_phi_sum_ini + global_phi_change - global_phi_sum is spread uniformly over these
-  ! nodes by apply_lagrangian_phi_cuda (corr = dphi/global_count). The accumulators are then reset.
+  ! 3) Global correction of phi (Lagrange multiplier). With BCPHIFLUX the face loops compute at
+  ! every call the net inflow of phi through the non-periodic faces, i.e. the sum of u_n phi over
+  ! the fluid nodes of the first fluid planes (+ at gi = 2, - at gi = lx-1; v and w on the y and z
+  ! faces), summed over the ranks, and add it to global_phi_change, the inflow since the start;
+  ! without BCPHIFLUX global_phi_change stays zero. The correction is applied when llagrange is
+  ! true, only with a non-neutral contact angle (wettab_r /= 90), every lagrange_every steps
+  ! (both from the fluid namelist): phi_sum_count_cuda
+  ! gives the total phi on the fluid nodes (global_phi_sum) and the number of nodes with
+  ! 0.5 < phi < 0.9 (global_count), and dphi = global_phi_sum_ini + global_phi_change -
+  ! global_phi_sum is spread uniformly over these nodes by apply_lagrangian_phi_cuda
+  ! (corr = dphi/global_count).
 #ifdef BCPHIFLUX
-  if(openbc==1)then
+	 phi_inflow=ZERO
 	 if(pbc_x.eq.0)then
 	   gi=2
        subchords(1)=(gi-1)/nx
 	   if(subchords(1)==coords(1))then
-		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(phifields_s &
+		 !$acc parallel loop collapse(2) reduction(+:phi_inflow) present(phifields_s &
 		 !$acc& ,hfields_s) private(i,j,k,l,gi,gj,gk &
 		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,utmp)  
 	     do k=1,nz
@@ -1758,7 +1767,7 @@ contains
 	         phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 	         utmp=real(hfields_s(ii,jj,kk,2,myblock),kind=db)
 
-			 global_phi_change = global_phi_change + utmp*phi_loc
+			 phi_inflow = phi_inflow + utmp*phi_loc
 	       enddo
 	     enddo
          !$acc end parallel loop
@@ -1766,7 +1775,7 @@ contains
 	   gi=lx-1
        subchords(1)=(gi-1)/nx
 	   if(subchords(1)==coords(1))then
-		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(phifields_s &
+		 !$acc parallel loop collapse(2) reduction(+:phi_inflow) present(phifields_s &
 		 !$acc& ,hfields_s) private(i,j,k,l,gi,gj,gk &
 		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,utmp)   
 	     do k=1,nz
@@ -1787,7 +1796,7 @@ contains
 	         phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 	         utmp=real(hfields_s(ii,jj,kk,2,myblock),kind=db)
 			 
-			 global_phi_change = global_phi_change - utmp*phi_loc
+			 phi_inflow = phi_inflow - utmp*phi_loc
 	       enddo
 	     enddo
          !$acc end parallel loop
@@ -1798,7 +1807,7 @@ contains
 	   gj=2
        subchords(2)=(gj-1)/ny
 	   if(subchords(2)==coords(2))then
-		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(phifields_s &
+		 !$acc parallel loop collapse(2) reduction(+:phi_inflow) present(phifields_s &
 		 !$acc& ,hfields_s) private(i,j,k,l,gi,gj,gk &
 		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,vtmp)    
 	     do k=1,nz
@@ -1819,7 +1828,7 @@ contains
 	         phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 	         vtmp=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
         
-			 global_phi_change = global_phi_change + vtmp*phi_loc
+			 phi_inflow = phi_inflow + vtmp*phi_loc
 	       enddo
 	     enddo
          !$acc end parallel loop
@@ -1828,7 +1837,7 @@ contains
 	   gj=ly-1
        subchords(2)=(gj-1)/ny
 	   if(subchords(2)==coords(2))then
-		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(phifields_s &
+		 !$acc parallel loop collapse(2) reduction(+:phi_inflow) present(phifields_s &
 		 !$acc& ,hfields_s) private(i,j,k,l,gi,gj,gk &
 		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,vtmp)	    
 	     do k=1,nz
@@ -1849,7 +1858,7 @@ contains
 	         phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 	         vtmp=real(hfields_s(ii,jj,kk,3,myblock),kind=db)
  		         
-			 global_phi_change = global_phi_change - vtmp*phi_loc
+			 phi_inflow = phi_inflow - vtmp*phi_loc
 	       enddo
 	     enddo
       !$acc end parallel loop
@@ -1860,7 +1869,7 @@ contains
 	   gk=2
        subchords(3)=(gk-1)/nz
 	   if(subchords(3)==coords(3))then
-		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(phifields_s &
+		 !$acc parallel loop collapse(2) reduction(+:phi_inflow) present(phifields_s &
 		 !$acc& ,hfields_s) private(i,j,k,l,gi,gj,gk &
 		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,w)  
 	     do j=1,ny
@@ -1881,7 +1890,7 @@ contains
 	         phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 	         wtmp=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
  	         
-			 global_phi_change = global_phi_change + wtmp*phi_loc
+			 phi_inflow = phi_inflow + wtmp*phi_loc
 	       enddo
 	     enddo
       !$acc end parallel loop
@@ -1892,7 +1901,7 @@ contains
        subchords(3)=(gk-1)/nz
 	   if(subchords(3)==coords(3))then
 
-		 !$acc parallel loop collapse(2) reduction(+:global_phi_change) present(phifields_s &
+		 !$acc parallel loop collapse(2) reduction(+:phi_inflow) present(phifields_s &
 		 !$acc& ,hfields_s) private(i,j,k,l,gi,gj,gk &
 		 !$acc& ,phitemp,conter,xblock,yblock,zblock,myblock,ii,jj,kk,phi_loc,wtmp)
   
@@ -1914,7 +1923,7 @@ contains
 	         phi_loc=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 	         wtmp=real(hfields_s(ii,jj,kk,4,myblock),kind=db)
       
-			 global_phi_change = global_phi_change - wtmp*phi_loc
+			 phi_inflow = phi_inflow - wtmp*phi_loc
 	       enddo
 	     enddo
       !$acc end parallel loop
@@ -1923,11 +1932,12 @@ contains
 	 endif
 	 
      !$acc wait
-	 !$acc update host(global_phi_change)
-	 !$acc wait
-	 call sum_world_float(global_phi_change)
-  endif
+	 call sum_world_float(phi_inflow)
+	 global_phi_change=global_phi_change+phi_inflow
+#endif
         
+      if(llagrange .and. lagrange_every > 0 .and. abs(wettab_r-90.0_db) > 1.0e-6_db)then
+       if(step > 0 .and. mod(step,lagrange_every) == 0)then
         call phi_sum_count_cuda(hfields_s,phifields_s)
         
 		!$acc wait
@@ -1937,22 +1947,24 @@ contains
 		call sum_world_int(global_count)
 		
 		dphi = (global_phi_sum_ini+global_phi_change) - global_phi_sum
-		corr = dphi / real(global_count)
+		if(global_count > 0)then
+		  corr = dphi / real(global_count,kind=db)
+		else
+		  corr = ZERO
+		endif
 		
 		global_phi_sum_new=global_phi_sum
 		global_phi_change_new=global_phi_change
 		global_count_new=global_count
 		
-		global_phi_change=ZERO
 		global_phi_sum=ZERO
 	    global_count=0
 		!$acc wait
 		!$acc update device(corr,global_phi_sum,global_count)
 		
 		call apply_lagrangian_phi_cuda(hfields_s,phifields_s)
-
-	 endif
-#endif
+       endif
+      endif
 
 	
 

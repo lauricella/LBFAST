@@ -68,7 +68,7 @@ module lb_cuda_driver
     update_phifields_kernel_zminus,update_phifields_kernel_zplus
 #endif
    use lb_cuda_boundary, only: LB_int_boundary_kernel,PHI_int_boundary_kernel, &
-    phi_sum_count_kernel,apply_lagrangian_phi_kernel
+    apply_lagrangian_phi_kernel
 
    implicit none
    
@@ -2116,9 +2116,7 @@ contains
 
 !$acc host_data use_device(flop,nx,ny,nz,coords,isfluid &
        !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
-#ifdef WETTABILITY
        !$acc& ,wettab_r,wettab_b &
-#endif         
 #ifdef MONOD
 	   !$acc& ,mu_max,Ks &
 #endif
@@ -2126,9 +2124,7 @@ contains
 	   !$acc& ,hfields_s,phifields_s,auxfields,locauxfields,forces)
        call PHI_int_boundary_kernel<<<dimGrid, dimBlock>>>(flop,nx,ny,nz,coords,isfluid &
        ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
-#ifdef WETTABILITY
        ,wettab_r,wettab_b &
-#endif         
 #ifdef MONOD
 	   ,mu_max,Ks &
 #endif      
@@ -2154,34 +2150,41 @@ contains
    ! phi_sum_count_cuda sums phi over the fluid nodes into global_phi_sum and counts in
    ! global_count the nodes with 0.5 < phi < 0.9; apply_lagrangian_phi_cuda adds the correction
    ! corr, computed on the host from these sums, to the same nodes.
+   ! The sums use an OpenACC reduction, which is fast and gives the same result in every run; the
+   ! results are added to the host values and copied to the device copies of the two variables.
    subroutine phi_sum_count_cuda(hfields_s,phifields_s)
 
       implicit none
       real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: hfields_s,phifields_s
- 
-      
+      real(kind=db) :: psum,loc_phi
+      integer :: pcount,i,j,k,ii,jj,kk,xblock,yblock,zblock,myblock
+
 #ifdef TWOCOMPONENT
       !$acc wait
-      istat = cudaDeviceSynchronize
-
-!$acc host_data use_device(flop,nx,ny,nz,coords,isfluid &
-       !$acc& ,visc1,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
-       !$acc& ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields &
-	   !$acc& ,hfields_s,phifields_s,auxfields,locauxfields,global_phi_sum,global_count)
-       call phi_sum_count_kernel<<<dimGrid, dimBlock>>>(flop,nx,ny,nz,coords,isfluid &
-       ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
-       ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields &
-	   ,hfields_s,phifields_s,auxfields,locauxfields,global_phi_sum,global_count)
-!$acc end host_data
-      
-      istat = cudaGetLastError()
-      if (istat/= cudaSuccess) then
-        if(myrank==0)write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
-        if(myrank==0)write(6,*) cudaGetErrorString(istat)
-        call doerror(6,'ERROR in phi_sum_count_cuda')
-      endif
-      istat = cudaDeviceSynchronize
-      !$acc wait        
+      psum=ZERO
+      pcount=0
+      !$acc parallel loop collapse(3) reduction(+:psum,pcount) present(isfluid,phifields_s) &
+      !$acc& private(loc_phi,ii,jj,kk,xblock,yblock,zblock,myblock)
+      do k=1,nz
+        do j=1,ny
+          do i=1,nx
+            if(abs(isfluid(i,j,k)) /= 1)cycle
+            xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+            myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+            ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+            jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+            kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+            loc_phi=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+            psum=psum+loc_phi
+            if(loc_phi > 0.5_db .and. loc_phi < 0.9_db)pcount=pcount+1
+          enddo
+        enddo
+      enddo
+      global_phi_sum=global_phi_sum+psum
+      global_count=global_count+pcount
+      !$acc update device(global_phi_sum,global_count)
 #endif
       
       return
@@ -2212,7 +2215,7 @@ contains
       if (istat/= cudaSuccess) then
         if(myrank==0)write(6,*) 'status after at ', __LINE__ ,' of file ', __FILE__ ,' :'
         if(myrank==0)write(6,*) cudaGetErrorString(istat)
-        call doerror(6,'ERROR in phi_sum_count_cuda')
+        call doerror(6,'ERROR in apply_lagrangian_phi_cuda')
       endif
       istat = cudaDeviceSynchronize
       !$acc wait        

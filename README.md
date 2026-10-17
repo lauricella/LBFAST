@@ -384,6 +384,9 @@ compiled in two-component mode, of the phase-field model.
 | `tau_diff` | Interface diffusivity in the conservative Allen-Cahn phase-field model. Available in two-component mode. |
 | `sigma` | Surface tension in lattice-Boltzmann units. Available in two-component mode. |
 | `visc2` | Kinematic viscosity of component 2 in lattice-Boltzmann units. Available in two-component mode. |
+| `wettab_r` | Contact angle in degrees at the internal obstacles (`INTERNAL_OBSTACLES`). The default, `90`, is neutral wetting. Available in two-component mode. |
+| `llagrange` | With internal obstacles (`INTERNAL_OBSTACLES`), switches on the Lagrange-multiplier correction of the phase field, which restores its total amount by adding a uniform correction to the interfacial nodes with `0.5 < phi < 0.9`. It is applied only when `wettab_r` differs from `90`. Default `.true.`; set `.false.` to disable it. Available in two-component mode. |
+| `lagrange_every` | Number of time steps between two Lagrange-multiplier corrections when `llagrange` is true (default `100`; a value of `0` or less disables the correction). With `BCPHIFLUX`, the net inflow of `phi` through the non-periodic faces since the start is added to the target total. Available in two-component mode. |
 | `rho_r`, `rho_b` | Component densities in lattice-Boltzmann units, used in two-component density-ratio simulations. |
 
 ## Compiling *LBFAST*

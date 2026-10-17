@@ -110,7 +110,7 @@ contains
       ! back to the host at the end of the region; the MPI buffers in create() are allocated on the
       ! GPU without a copy. Kernels and halo exchanges work on the device copies.
       !$acc data copy(step,lx,ly,lz,nx,ny,nz,coords,myoffset,isfluid,myrank, &
-      !$acc& rhoprint,velprint,radius,width,center,iprobe,jprobe,kprobe, &
+      !$acc& rhoprint,velprint,radius,width,center,iprobe,jprobe,kprobe,wettab_r,wettab_b, &
 	  !$acc& tau1,visc1,rho_r,rho_b,invrho_r,invrho_b,omega,arr_3d, &
       !$acc& intpbc_dir,num_links_pops,links_pops,f_datampi,uwall,udotc,uu, &
       !$acc& f_send_extr,f_recv_extr,openbc,openbc_type_x,openbc_type_y,openbc_type_z, &

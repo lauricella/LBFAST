@@ -846,6 +846,10 @@ module vars
    real(kind=db) :: global_phi_sum=ZERO,dphi=ZERO,corr=ZERO,global_phi_sum_ini=ZERO,global_phi_sum_new=ZERO
    real(kind=db) :: global_phi_change=ZERO,global_phi_change_new=ZERO
    integer :: global_count=0, global_count_new=0
+   ! global correction of phi with a Lagrange multiplier at internal obstacles (fluid namelist,
+   ! bcs_mesoscopic_phifields): llagrange switches it on, lagrange_every is the step interval
+   logical :: llagrange=.true.
+   integer :: lagrange_every=100
    real(kind=db) :: mymemory,totmemory
    real(kind=db) :: uwall
    real(kind=db) :: rrx,rry,rrz

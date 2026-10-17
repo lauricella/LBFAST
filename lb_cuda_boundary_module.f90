@@ -235,14 +235,12 @@ contains
    endsubroutine LB_int_boundary_kernel   
 #ifdef TWOCOMPONENT	    
    ! PHI_int_boundary_kernel: ghost value of phi on the solid nodes (isfluid = 0) with non-solid
-   ! neighbours, imposing the contact angle wettab_r (degrees; 90 = neutral wetting, the value used
-   ! without WETTABILITY). It reads phi (phifields 1), n and |grad phi| (auxfields 1-4) at a donor
+   ! neighbours, imposing the contact angle wettab_r (degrees, from the fluid namelist; 90 = neutral
+   ! wetting, the default). It reads phi (phifields 1), n and |grad phi| (auxfields 1-4) at a donor
    ! fluid node and overwrites phifields 1 on the solid node, following steps 1)-6) below.
    attributes(global) subroutine PHI_int_boundary_kernel(flop,nx,ny,nz,coords,isfluid &
     ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
-#ifdef WETTABILITY  
-    ,wettab_r,wettab_b
-#endif       
+    ,wettab_r,wettab_b &
 #ifdef MONOD	
     ,mu_max,Ks &
 #endif
@@ -254,9 +252,7 @@ contains
       integer, dimension(3) :: coords
       integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
      
-#ifdef WETTABILITY  
       real(kind=db) :: wettab_r,wettab_b  
-#endif   
       real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
 #ifdef MONOD
       real(kind=db) :: mu_max,Ks
@@ -276,7 +272,7 @@ contains
       real(kind=db) :: theta_rad,cot_theta
       integer :: oii,ojj,okk
       integer :: oxblock,oyblock,ozblock,omyblock
-      real(kind=db) :: wettab_r_sub=90.0_db
+      real(kind=db) :: wettab_r_sub
       integer :: link_id
       
       real(db), parameter :: eps_norm   = 1.0e-14_db
@@ -310,9 +306,7 @@ contains
       jj=threadIdx%y
       kk=threadIdx%z
 	   
-#ifdef WETTABILITY       
       wettab_r_sub=wettab_r
-#endif           
       
       phi_ghost=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
 	  ! ----------------------------------------------------
@@ -490,69 +484,9 @@ contains
       
    endsubroutine PHI_int_boundary_kernel
    
-   ! phi_sum_count_kernel (BCPHIFLUX): sums phi over the fluid nodes (|isfluid| = 1) into
-   ! loc_phi_sum and counts in cnt the fluid nodes with 0.5 < phi < 0.9, by atomicAdd on device
-   ! scalars (global_phi_sum and global_count, see phi_sum_count_cuda). Part of the phi-mass
-   ! correction in bcs_mesoscopic_phifields.
-   attributes(global) subroutine phi_sum_count_kernel(flop,nx,ny,nz,coords,isfluid &
-    ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
-    ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields, &
-       hfields_s,phifields_s,auxfields_s,locauxfields_s,loc_phi_sum,cnt)
-
-      implicit none
-      integer :: flop,nx,ny,nz
-      integer, dimension(3) :: coords
-      integer(kind=isf), dimension(1-nbuff:nx+nbuff,1-nbuff:ny+nbuff,1-nbuff:nz+nbuff) :: isfluid
-      
-      real(kind=db) :: visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma  
-
-      integer :: ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields
-      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nhfields,nblocks_d) :: hfields_s
-      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nphifields,nblocks_d) :: phifields_s
-      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nauxfields,nblocks_d) :: auxfields_s
-      real(kind=strdb), dimension(TILE_DIMx,TILE_DIMy,TILE_DIMz,nlocauxfields,nblocks_d) :: locauxfields_s
-      real(kind=db) :: loc_phi_sum
-      integer :: cnt
-      
-      integer :: i,j,k,l
-      integer :: gi,gj,gk
-      integer :: myblock,ii,jj,kk
-      real(kind=db) :: gradfix,gradfiy,gradfiz,grad_parallel,modgrad,phi_fluid
-      real(kind=db) :: loc_u,loc_v,loc_w,loc_phi,theta_rad,cot_theta,dphi_dz
-      real(kind=db) :: dummy
-      integer :: dummy_i
-    
-      i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
-      j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
-      k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
-      
-      if(abs(isfluid(i,j,k)) /= 1)return
-      
-      gi=nx*coords(1)+i
-      gj=ny*coords(2)+j
-      gk=nz*coords(3)+k
-      
-      myblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1
-      
-      ii=threadIdx%x
-      jj=threadIdx%y
-      kk=threadIdx%z
-
-      loc_phi=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-
-      dummy=atomicAdd(loc_phi_sum, loc_phi)
-
-      if(loc_phi > 0.5d0 .and. loc_phi < 0.9d0)then
-        dummy_i=atomicAdd(cnt, 1)
-      endif
-    
-      return
-    
-  end subroutine phi_sum_count_kernel
-
-   ! apply_lagrangian_phi_kernel (BCPHIFLUX): adds the uniform correction loc_corr (corr, computed
-   ! in bcs_mesoscopic_phifields) to phi on the fluid nodes with 0.5 < phi < 0.9, the same set
-   ! counted by phi_sum_count_kernel.
+   ! apply_lagrangian_phi_kernel: Lagrange-multiplier correction of phi (llagrange). Adds the
+   ! uniform correction loc_corr (corr, computed in bcs_mesoscopic_phifields) to phi on the fluid
+   ! nodes with 0.5 < phi < 0.9, the same set counted by phi_sum_count_cuda.
    attributes(global) subroutine apply_lagrangian_phi_kernel(flop,nx,ny,nz,coords,isfluid &
     ,visc2,rho_r,rho_b,invrho_r,invrho_b,sharp_c,beta,kapp,tau_diff,sigma &
     ,ntothfields,ntotphifields,ntotauxfields,ntotlocauxfields, &

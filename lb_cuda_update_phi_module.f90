@@ -117,7 +117,7 @@ contains
 
       ! MONOD: source term S_mono, a growth term with the Monod parameters mu_max and Ks
 #ifdef MONOD
-      S_mono = mu_max * phi_loc)/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
+      S_mono = mu_max * phi_loc/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
@@ -209,7 +209,7 @@ contains
 #endif	
 
 #ifdef MONOD
-      S_mono = mu_max * phi_loc)/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
+      S_mono = mu_max * phi_loc/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
@@ -302,7 +302,7 @@ contains
 #endif	
 
 #ifdef MONOD
-      S_mono = mu_max * phi_loc)/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
+      S_mono = mu_max * phi_loc/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
@@ -393,7 +393,7 @@ contains
 #endif	
 
 #ifdef MONOD
-      S_mono = mu_max * phi_loc)/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
+      S_mono = mu_max * phi_loc/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
@@ -485,7 +485,7 @@ contains
 #endif	
 
 #ifdef MONOD
-      S_mono = mu_max * phi_loc)/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
+      S_mono = mu_max * phi_loc/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
@@ -576,7 +576,7 @@ contains
 #endif	
 
 #ifdef MONOD
-      S_mono = mu_max * phi_loc)/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
+      S_mono = mu_max * phi_loc/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
@@ -668,7 +668,7 @@ contains
 #endif	
 
 #ifdef MONOD
-      S_mono = mu_max * phi_loc)/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
+      S_mono = mu_max * phi_loc/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
@@ -759,7 +759,7 @@ contains
 #endif	
 
 #ifdef MONOD
-      S_mono = mu_max * phi_loc)/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
+      S_mono = mu_max * phi_loc/(Ks + phi_loc) * phi_loc * (1.0_db - phi_loc)
       phi_out=phi_out + S_mono
 	  !phi_out = min(1.0_db, max(0.0_db, phi_out))		 
 #endif
