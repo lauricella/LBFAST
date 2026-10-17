@@ -333,13 +333,16 @@ if(LBFAST_MPI)
 endif()
 
 if(LBFAST_NVML)
-  # Same inputs as make NVML_INC=... NVML_LIB=..., then the CUDA toolkits
-  # shipped with the HPC SDK of the selected compiler.
+  # As the Makefile: NVML_INC and NVML_LIB from the environment, then the
+  # default CUDA toolkit of the HPC SDK of the compiler ($NVHPC_ROOT/cuda,
+  # NVHPC_ROOT being set by the SDK module or derived from nvfortran), then
+  # its other CUDA versions, newest first.
   get_filename_component(compiler_dir "${CMAKE_Fortran_COMPILER}" REALPATH)
   get_filename_component(compiler_dir "${compiler_dir}" DIRECTORY)
   set(nvml_hints "")
   foreach(root IN ITEMS "$ENV{NVHPC_ROOT}" "${compiler_dir}/../..")
     if(root)
+      list(APPEND nvml_hints "${root}/cuda")
       file(GLOB cuda_dirs LIST_DIRECTORIES true "${root}/cuda/[0-9]*")
       list(SORT cuda_dirs COMPARE NATURAL ORDER DESCENDING)
       foreach(dir IN LISTS cuda_dirs)
@@ -348,10 +351,12 @@ if(LBFAST_NVML)
     endif()
   endforeach()
   find_path(NVML_INCLUDE_DIR nvml.h
-    HINTS "$ENV{NVML_INC}" ENV CUDA_HOME ${nvml_hints} PATH_SUFFIXES include)
+    HINTS "$ENV{NVML_INC}" ${nvml_hints} ENV CUDA_HOME PATH_SUFFIXES include
+    NO_DEFAULT_PATH)
   find_library(NVML_LIBRARY nvidia-ml
-    HINTS "$ENV{NVML_LIB}" ENV CUDA_HOME ${nvml_hints}
-    PATH_SUFFIXES lib/stubs lib64/stubs lib lib64)
+    HINTS "$ENV{NVML_LIB}" ${nvml_hints} ENV CUDA_HOME
+    PATH_SUFFIXES lib64/stubs lib/stubs lib64 lib
+    NO_DEFAULT_PATH)
   if(NOT NVML_INCLUDE_DIR OR NOT NVML_LIBRARY)
     message(FATAL_ERROR "NVML not found: set NVML_INCLUDE_DIR (directory of nvml.h) "
       "and NVML_LIBRARY (libnvidia-ml), or configure with -DLBFAST_NVML=OFF.")

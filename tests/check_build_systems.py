@@ -7,12 +7,15 @@ separate build directory. The check passes when
 
   1. both compile the same source files;
   2. every source and the link step get the same compiler and the same
-     flags, apart from include paths and module, output and library options;
+     flags, apart from include paths and module, output and library options,
+     and NVML builds use the same nvml.h and libnvidia-ml;
   3. with --input, both executables write byte-identical output files,
      including the final RAW fields and the double-precision restart files
      that the check enables in its copy of the input;
   4. a CMake configuration with LBFAST_USE_DEFINES_H=OFF and no macro given
-     writes a lbfast_config.h identical to the user block of defines.h.
+     writes a lbfast_config.h identical to the user block of defines.h;
+  5. with --input, the CMake executable has no stub library directory (CUDA
+     lib/stubs) in its run-time path.
 
 defines.h is not modified. The script runs make clean before and after its
 build and removes main.x, so no executable inconsistent with defines.h is
@@ -112,14 +115,17 @@ def cmake_cache(build, name):
 
 
 def make_variables(build, gpu_cc):
-    """make variables matching a CMake build: GPUCC and the NVML location."""
-    variables = ["GPUCC=" + gpu_cc]
-    include, library = cmake_cache(build, "NVML_INCLUDE_DIR"), cmake_cache(build, "NVML_LIBRARY")
-    if include and not include.endswith("NOTFOUND"):
-        variables.append("NVML_INC=" + include)
-    if library and not library.endswith("NOTFOUND"):
-        variables.append("NVML_LIB=" + str(Path(library).parent))
-    return variables
+    """make variables matching a CMake build. NVML is left to the Makefile,
+    which finds it in the HPC SDK as CMake does; the check verifies that both
+    find the same files."""
+    return ["GPUCC=" + gpu_cc]
+
+
+def same_file(a, b):
+    try:
+        return Path(a).resolve() == Path(b).resolve()
+    except OSError:
+        return False
 
 
 def make_commands(root, target, variables):
@@ -224,6 +230,16 @@ def check(root, work, target, gpu_cc, input_file=None, jobs=8):
     if run(["make", "clean"], root, work / "make_clean.log"):
         return ["make clean failed"]
     make_compile, make_link = make_commands(root, target, variables)
+    if nvml == "ON":
+        make_nvml = subprocess.run(
+            ["make", "-s", "-f", "-", "print"] + variables, cwd=str(root),
+            input="include Makefile\nprint:\n\t@echo $(NVML_INC) $(NVML_LIB)\n",
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            universal_newlines=True).stdout.split()
+        cmake_nvml = [cmake_cache(cmake_dir, "NVML_INCLUDE_DIR"),
+                      str(Path(cmake_cache(cmake_dir, "NVML_LIBRARY")).parent)]
+        if len(make_nvml) != 2 or not all(map(same_file, make_nvml, cmake_nvml)):
+            failures.append("NVML: make uses {}, cmake {}".format(make_nvml, cmake_nvml))
     cmake_compile, cmake_link = cmake_commands(cmake_dir)
     if set(make_compile) != set(cmake_compile):
         failures.append("different sources: make only {}, cmake only {}".format(

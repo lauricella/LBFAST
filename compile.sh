@@ -2,11 +2,8 @@
 #set compute capability
 export MYCC=80
 
-#set where is nvml.h
-export NVML_INC=$NVHPC_HOME/Linux_x86_64/24.3/cuda/12.3/targets/x86_64-linux/include 
-
-#set where is libnvidia-ml
-export NVML_LIB=$NVHPC_HOME/Linux_x86_64/24.3/cuda/12.3/targets/x86_64-linux/lib/stubs
+#nvml.h and libnvidia-ml are found by the Makefile in the CUDA toolkit of the
+#NVIDIA HPC SDK; export NVML_INC and NVML_LIB to use other copies
 
 #!/usr/bin/env bash
 set -euo pipefail
@@ -76,57 +73,57 @@ echo "OK: defines.h matches the expected configuration."
 echo "compiling with compute capability: $MYCC"
 
 make clean
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_2c_27high_d.x
 make clean
 sed -i 's/^#define[[:space:]]\+HIGHORDER/#define noHIGHORDER/' defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_2c_27_d.x
 make clean
 sed -i 's/^#define[[:space:]]\+LATTICE[[:space:]]\+27/#define LATTICE 19/' defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_2c_19_d.x
 make clean
 sed -i 's/^#define[[:space:]]\+LATTICE[[:space:]]\+19/#define LATTICE 15/' defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_2c_15_d.x
 make clean
 sed -i \
 -e 's/^#define[[:space:]]\+PRC[[:space:]]\+8/#define PRC 4/' \
 -e 's/^#define[[:space:]]\+STRPRC[[:space:]]\+8/#define STRPRC 4/' \
 defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_2c_15.x
 make clean
 sed -i 's/^#define[[:space:]]\+LATTICE[[:space:]]\+15/#define LATTICE 19/' defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_2c_19.x
 make clean
 sed -i 's/^#define[[:space:]]\+LATTICE[[:space:]]\+19/#define LATTICE 27/' defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_2c_27.x
 make clean
 sed -i 's/^#define[[:space:]]\+noHIGHORDER/#define HIGHORDER/' defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_2c_27high.x
 make clean
 sed -i \
 -e 's/^#define[[:space:]]\+noMIXEDPRC/#define MIXEDPRC/' \
 -e 's/^#define[[:space:]]\+PRC[[:space:]]\+4/#define PRC 8/' \
 defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_2c_27high_sd.x
 make clean
 sed -i 's/^#define[[:space:]]\+HIGHORDER/#define noHIGHORDER/' defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_2c_27_sd.x
 make clean
 sed -i 's/^#define[[:space:]]\+LATTICE[[:space:]]\+27/#define LATTICE 19/' defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_2c_19_sd.x
 make clean
 sed -i 's/^#define[[:space:]]\+LATTICE[[:space:]]\+19/#define LATTICE 15/' defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_2c_15_sd.x
 make clean
 sed -i \
@@ -134,57 +131,57 @@ sed -i \
 -e 's/^#define[[:space:]]\+DENSRATIO/#define noDENSRATIO/' \
 -e 's/^#define[[:space:]]\+CSF/#define noCSF/' \
 defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_1c_15_sd.x
 make clean
 sed -i 's/^#define[[:space:]]\+LATTICE[[:space:]]\+15/#define LATTICE 19/' defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_1c_19_sd.x
 make clean
 sed -i 's/^#define[[:space:]]\+LATTICE[[:space:]]\+19/#define LATTICE 27/' defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_1c_27_sd.x
 make clean
 sed -i 's/^#define[[:space:]]\+noHIGHORDER/#define HIGHORDER/' defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_1c_27high_sd.x
 make clean
 sed -i \
 -e 's/^#define[[:space:]]\+MIXEDPRC/#define noMIXEDPRC/' \
 -e 's/^#define[[:space:]]\+PRC[[:space:]]\+8/#define PRC 4/' \
 defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_1c_27high.x
 make clean
 sed -i 's/^#define[[:space:]]\+HIGHORDER/#define noHIGHORDER/' defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_1c_27.x
 make clean
 sed -i 's/^#define[[:space:]]\+LATTICE[[:space:]]\+27/#define LATTICE 19/' defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_1c_19.x
 make clean
 sed -i 's/^#define[[:space:]]\+LATTICE[[:space:]]\+19/#define LATTICE 15/' defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_1c_15.x
 make clean
 sed -i \
 -e 's/^#define[[:space:]]\+STRPRC[[:space:]]\+4/#define STRPRC 8/' \
 -e 's/^#define[[:space:]]\+PRC[[:space:]]\+4/#define PRC 8/' \
 defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_1c_15_d.x
 make clean
 sed -i 's/^#define[[:space:]]\+LATTICE[[:space:]]\+15/#define LATTICE 19/' defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_1c_19_d.x
 make clean
 sed -i 's/^#define[[:space:]]\+LATTICE[[:space:]]\+19/#define LATTICE 27/' defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_1c_27_d.x
 make clean
 sed -i 's/^#define[[:space:]]\+noHIGHORDER/#define HIGHORDER/' defines.h
-make nvfortran-nvml-mpi GPUCC=$MYCC NVML_INC=$NVML_INC NNVML_LIB=$NVML_LIB
+make nvfortran-nvml-mpi GPUCC=$MYCC
 mv main.x main_1c_27high_d.x
 make clean
 sed -i \

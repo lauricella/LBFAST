@@ -429,16 +429,37 @@ directives and CUDA-enabled compilation flags. For MPI builds, the MPI compiler
 wrappers should be compatible with the NVIDIA HPC SDK and, on multi-GPU
 systems, CUDA-aware MPI is recommended.
 
-The main *LBFAST* directory contains a UNIX `Makefile` that builds the
-executable version of the code in single-process, MPI, debug, and NVML-enabled
-variants.
+*LBFAST* can be compiled either with the UNIX `Makefile` of the main
+directory, which is the reference build, or with CMake. Both read the source
+lists and the compiler flags from `lbfast_build.mk`, so they compile the same
+sources with the same flags and produce the same executable; the smoke suite
+checks this (see [`docs/CMAKE.md`](docs/CMAKE.md)).
 
-The GPU architecture can be selected through the `GPUCC` variable. For example,
-for NVIDIA A100 GPUs, one can compile the MPI version with:
+### Compiling with `make`
 
-```bash
-make nvfortran-mpi GPUCC=80
-```
+The `Makefile` builds the executable in single-process, MPI, debug, and
+NVML-enabled variants, in the main directory. The procedure is:
+
+1. Load the NVIDIA HPC SDK environment, including the MPI library for MPI
+   builds. On the reference system:
+
+   ```bash
+   source load_iac.sh
+   ```
+
+2. Select the compile-time macros in `defines.h` (see
+   [Configuration Macros](#configuration-macros)).
+
+3. Remove the objects of a previous configuration and compile the chosen
+   target, selecting the GPU architecture through the `GPUCC` variable. For
+   example, for NVIDIA A30 or A100 GPUs, the MPI version is compiled with:
+
+   ```bash
+   make clean
+   make nvfortran-mpi GPUCC=80
+   ```
+
+4. The executable `main.x` is written to the main directory.
 
 A list of available targets can be obtained with:
 
@@ -465,33 +486,95 @@ Available targets are:
 | `clean` | Remove object files, module files, and intermediate preprocessed files. |
 | `clean-all` | Remove object files, module files, executable files, data files, and intermediate preprocessed files. |
 
-The source lists and the compiler flags are defined in `lbfast_build.mk`,
-which the `Makefile` includes. Every object is rebuilt when `defines.h` or a
-stage header changes; the `Makefile` does not track dependencies between
-modules, so run `make clean` after editing a module used by other sources.
+The NVML targets take `nvml.h` and the `libnvidia-ml` stub library from the
+default CUDA toolkit of the NVIDIA HPC SDK (`$NVHPC_ROOT/cuda/include` and
+`$NVHPC_ROOT/cuda/lib64/stubs`; `NVHPC_ROOT` is set by the HPC SDK module, or
+derived from the location of `nvfortran`). Other copies are selected with
+`NVML_INC=<directory of nvml.h>` and `NVML_LIB=<directory of
+libnvidia-ml.so>`, in the environment or on the `make` command line. The build
+stops with an error if either file is missing.
+
+Every object is rebuilt when `defines.h` or a stage header changes. The
+`Makefile` does not track dependencies between modules, so run `make clean`
+after editing a module used by other sources. The 24-executable lattice and
+precision matrix used for performance runs is built by `compile.sh` (see
+[`docs/COMPILE_SCRIPT.md`](docs/COMPILE_SCRIPT.md)).
 
 ### Compiling with CMake
 
-CMake 3.20 or newer can be used instead of `make`. The build takes place in a
-separate directory, and the compile-time macros can be taken either from
-`defines.h` or from CMake cache variables, so that several configurations can
-be built side by side without editing `defines.h`:
+CMake 3.20 or newer (3.21 for the presets) can be used instead of `make`. The
+build takes place in a separate directory, objects are rebuilt automatically
+when a header or a module they use changes, modules that do not depend on
+each other are compiled in parallel, and the compile-time macros can be taken
+either from `defines.h` or from CMake cache variables, so that several
+configurations can be built side by side without editing `defines.h`. The
+procedure is:
+
+1. Load the NVIDIA HPC SDK environment, as for `make`:
+
+   ```bash
+   source load_iac.sh
+   ```
+
+   CMake takes `nvfortran` and `nvc` from the environment (`FC`, `CC`) or the
+   `PATH`, the MPI library through `FindMPI`, and NVML from the CUDA toolkit
+   of the HPC SDK.
+
+2. Configure a build directory, choosing the options (the defaults give the
+   `nvfortran-mpi` build with the macros of `defines.h`):
+
+   ```bash
+   cmake -S . -B build/default -DGPUCC=80
+   ```
+
+3. Compile:
+
+   ```bash
+   cmake --build build/default -j 8
+   ```
+
+4. The executable is `build/default/main.x`; it is run as described in
+   [Running *LBFAST*](#running-lbfast).
+
+The configure step accepts the following options, given as `-D<option>=<value>`:
+
+| Option | Default | Meaning | `make` equivalent |
+|---|---|---|---|
+| `CMAKE_BUILD_TYPE` | `Release` | `Release` or `Debug` flags. | `nvfortran*` / `nvfortran*-debug` |
+| `GPUCC` | `all` | GPU compute capability (`-gpu=cc<GPUCC>`). | `GPUCC=...` |
+| `LBFAST_MPI` | `ON` | MPI build (`-DMPI`). | `nvfortran-mpi` |
+| `LBFAST_NVML` | `OFF` | NVML power monitoring (`-D_NVML`). | `nvfortran-nvml` |
+| `LBFAST_USE_DEFINES_H` | `ON` | Macros from `defines.h`; `OFF` takes them from cache variables. | always `defines.h` |
+| `LBFAST_EXTRA_DEFINES` | empty | Further macros, e.g. `"BOUNCE_BACK;GETPOWER"`. | edit `defines.h` |
+| `LBFAST_EXE_NAME` | `main.x` | Name of the executable. | `main.x` |
+| `LBFAST_OUTPUT_DIR` | build directory | Directory of the executable. | main directory |
+
+With `-DLBFAST_USE_DEFINES_H=OFF`, every macro of the user block of
+`defines.h` becomes a cache variable of the same name: `#define NAME` and
+`#define noNAME` become `NAME=ON` and `NAME=OFF`, and `#define NAME value`
+becomes `NAME=value`. Macros not given on the command line take their value
+from `defines.h` when the build directory is first configured. For example, a
+one-component D3Q19 double-precision MPI build:
 
 ```bash
-cmake -S . -B build/default -DGPUCC=80     # MPI build, macros from defines.h
-cmake --build build/default -j 8           # executable build/default/main.x
-
-cmake --preset 2c_27high_d                 # one variant of compile.sh
-cmake --build --preset 2c_27high_d -j 8    # build/bin/main_2c_27high_d.x
-
-./compile_cmake.sh                         # all 24 variants of compile.sh
+cmake -S . -B build/q19 -DGPUCC=80 -DLBFAST_USE_DEFINES_H=OFF \
+      -DLATTICE=19 -DHIGHORDER=OFF -DTWOCOMPONENT=OFF -DDENSRATIO=OFF -DCSF=OFF
+cmake --build build/q19 -j 8
 ```
 
-Options, macros and presets are described in
-[`docs/CMAKE.md`](docs/CMAKE.md). CMake reads the source lists and flags from
-the same `lbfast_build.mk`, and the smoke suite checks that the two build
-systems compile the same sources with the same flags and give identical
-results.
+The 24 executables of `compile.sh` are available as presets with the same
+names, and `compile_cmake.sh` builds them all in parallel into `build/bin`:
+
+```bash
+cmake --preset 2c_27high_d                 # one variant
+cmake --build --preset 2c_27high_d -j 8    # build/bin/main_2c_27high_d.x
+./compile_cmake.sh                         # all 24 variants
+```
+
+CMake must be run from a separate build directory: `cmake .` in the main
+directory is refused, because the generated `Makefile` would replace the
+*LBFAST* one. Options, macros, presets and the checks that keep CMake and the
+`Makefile` in step are described in [`docs/CMAKE.md`](docs/CMAKE.md).
 
 ## Running *LBFAST*
 

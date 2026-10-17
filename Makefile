@@ -13,8 +13,13 @@ BINROOT = $(CURDIR)
 FC=undefined
 CC=undefined
 CFLAGSNVML=undefined
-NVML_INC ?= $(NVHPC_HOME)
-NVML_LIB ?= $(NVHPC_HOME)
+# NVML (nvfortran-nvml* targets): nvml.h and the libnvidia-ml stub of the
+# default CUDA toolkit of the NVIDIA HPC SDK. NVHPC_ROOT is set by the HPC SDK
+# module; without it, it is derived from the location of nvfortran. Set
+# NVML_INC and NVML_LIB (environment or command line) to use other copies.
+NVHPC_ROOT ?= $(patsubst %/compilers/bin/,%,$(dir $(realpath $(shell command -v nvfortran 2>/dev/null))))
+NVML_INC ?= $(NVHPC_ROOT)/cuda/include
+NVML_LIB ?= $(NVHPC_ROOT)/cuda/lib64/stubs
 FCUDAFLAGS=undefined
 FFLAGS=undefined
 LDFLAGS=undefined
@@ -62,6 +67,8 @@ all:
 	@echo "                                   "
 	@echo "Please examine Makefile for further details "
 
+.PHONY: nvml-check
+
 help: all
 	
 nvfortran:
@@ -104,7 +111,19 @@ nvfortran-mpi-debug:
 	TYPE=seq \
 	EX=$(EXP) BINROOT=$(BINROOT) seq
 
-nvfortran-nvml:
+# Stop before compiling when NVML is not where NVML_INC and NVML_LIB point:
+# an empty NVML_INC would otherwise compile nvml_wrapper.c without _NVML.
+nvml-check:
+	@test -f "$(NVML_INC)/nvml.h" || { \
+	  echo "Error: nvml.h not found in NVML_INC=$(NVML_INC)"; \
+	  echo "Load the NVIDIA HPC SDK module or set NVML_INC to the directory of nvml.h."; \
+	  exit 1; }
+	@test -f "$(NVML_LIB)/libnvidia-ml.so" || { \
+	  echo "Error: libnvidia-ml.so not found in NVML_LIB=$(NVML_LIB)"; \
+	  echo "Load the NVIDIA HPC SDK module or set NVML_LIB to the directory of libnvidia-ml.so."; \
+	  exit 1; }
+
+nvfortran-nvml: nvml-check
 	$(MAKE) CC=nvcc \
 	FC=nvfortran \
 	CFLAGS="$(LBFAST_RELEASE_OPT) -I$(CURDIR) " \
@@ -115,7 +134,7 @@ nvfortran-nvml:
 	TYPE=seqnvml \
 	EX=$(EXP) BINROOT=$(BINROOT) seqnvml
 
-nvfortran-nvml-mpi:
+nvfortran-nvml-mpi: nvml-check
 	$(MAKE) CC=mpicc \
 	FC=mpif90 \
 	CFLAGS="$(LBFAST_RELEASE_OPT) -I$(CURDIR) " \

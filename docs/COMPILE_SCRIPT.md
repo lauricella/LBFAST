@@ -15,28 +15,20 @@ editing `defines.h`, by `compile_cmake.sh`; see [`CMAKE.md`](CMAKE.md).
 
 ## Prerequisites
 
-The NVIDIA HPC SDK environment must already be loaded. In particular,
-`NVHPC_HOME` must identify the active HPC SDK installation. The script derives
-the CUDA NVML include and stub-library directories from
-
-```text
-$NVHPC_HOME/Linux_x86_64/24.3/cuda/12.3/targets/x86_64-linux
-```
-
-The exact path reflects the HPC SDK version for which the script is currently
-configured and may need adjustment on installations using another version.
-
-The build target is invoked as
+The NVIDIA HPC SDK environment, including its MPI library, must already be
+loaded. Each executable is built with
 
 ```bash
-make nvfortran-nvml-mpi \
-  GPUCC=80 \
-  NVML_INC=... \
-  NNVML_LIB=...
+make nvfortran-nvml-mpi GPUCC=80
 ```
 
-Consequently, `nvfortran`, `nvcc`, MPI, CUDA, and the NVML headers and library
-must be available.
+so `nvfortran`, `nvcc`, MPI, CUDA, and the NVML header and library must be
+available. The `Makefile` takes `nvml.h` and the `libnvidia-ml` stub library
+from the default CUDA toolkit of the HPC SDK (`$NVHPC_ROOT/cuda/include` and
+`$NVHPC_ROOT/cuda/lib64/stubs`, with `NVHPC_ROOT` set by the HPC SDK module or
+derived from the location of `nvfortran`), and stops with an error if they are
+missing. To use other copies, export `NVML_INC` and `NVML_LIB` (the
+directories of `nvml.h` and `libnvidia-ml.so`) before running the script.
 
 ## Required initial `defines.h`
 

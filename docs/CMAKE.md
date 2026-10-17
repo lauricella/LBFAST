@@ -28,9 +28,11 @@ flags from `lbfast_build.mk`, and the smoke suite checks that they agree
 - for MPI builds, an MPI library built for the HPC SDK (on the reference
   system the HPC-X library of the `nvhpc-hpcx` module), found through CMake's
   `FindMPI`;
-- for NVML builds, `nvml.h` and `libnvidia-ml`. CMake looks for them in the
-  CUDA toolkits shipped with the HPC SDK of the selected compiler, so no path
-  has to be given.
+- for NVML builds, `nvml.h` and `libnvidia-ml`. As the `Makefile`, CMake
+  takes them from `NVML_INC` and `NVML_LIB` if set, and otherwise from the
+  default CUDA toolkit of the HPC SDK of the selected compiler
+  (`$NVHPC_ROOT/cuda`), then from its other CUDA versions, so no path has to
+  be given.
 
 On the reference system:
 
@@ -218,12 +220,15 @@ macros such as `-DMPI`.)
 
 1. both compile the same source files;
 2. every source and the link step get the same compiler and flags, apart from
-   include paths and module, output and library options;
+   include paths and module, output and library options, and NVML builds use
+   the same `nvml.h` and `libnvidia-ml`;
 3. with `--input`, both executables write byte-identical output, including the
    final RAW fields and the double-precision restart file, which the check
    enables in its copy of the input;
 4. a configuration with `LBFAST_USE_DEFINES_H=OFF` and no macro given writes a
-   `lbfast_config.h` identical to the user block of `defines.h`.
+   `lbfast_config.h` identical to the user block of `defines.h`;
+5. with `--input`, the CMake executable has no `stubs` directory in its
+   run-time path.
 
 ```bash
 python3 tests/check_build_systems.py --make-target nvfortran-mpi
@@ -241,16 +246,13 @@ configuration (see [`SMOKE_TEST_SUITE.md`](SMOKE_TEST_SUITE.md)).
   library, found by `FindMPI`, instead of the `mpif90` wrapper; the compiler
   and its flags are the same. `-DCMAKE_Fortran_COMPILER=mpif90
   -DCMAKE_C_COMPILER=mpicc` selects the wrappers instead.
-- The `Makefile` takes the NVML location from `NVML_INC` and `NVML_LIB`, in
-  the environment or on the command line (`compile.sh` gets them from the
-  environment). If `NVML_INC` is empty, `-I$(NVML_INC) -D_NVML` becomes
-  `-I -D_NVML` and `nvml_wrapper.c` is compiled without `_NVML`. CMake finds
-  NVML in the CUDA toolkit of the HPC SDK of the compiler
-  (`$NVHPC_ROOT/cuda/<version>/targets/x86_64-linux`, `include/nvml.h` and
-  `lib/stubs/libnvidia-ml.so`). The library there is a stub for linking only:
-  both build systems link it with `-L<dir> -lnvidia-ml`, without adding the
-  `stubs` directory to the run-time path, so that the executable loads the
-  NVML library and the CUDA driver installed with the GPU driver.
+- Both build systems find NVML in the CUDA toolkit of the HPC SDK
+  (`$NVHPC_ROOT/cuda/include/nvml.h`, `$NVHPC_ROOT/cuda/lib64/stubs/libnvidia-ml.so`).
+  The library there is a stub for linking only: both link it with
+  `-L<dir> -lnvidia-ml`, without adding the `stubs` directory to the run-time
+  path, so that the executable loads the NVML library and the CUDA driver
+  installed with the GPU driver (the `stubs` directory also contains a stub
+  `libcuda.so`, which would make `cuInit` fail with error 34).
 - The `Makefile` has no dependencies between modules: after editing a module
   used by other sources, run `make clean`. CMake rebuilds the dependent
   objects itself.
