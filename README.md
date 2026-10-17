@@ -87,7 +87,7 @@ Detailed build and validation guides are available in the `docs` directory:
 | [`TAYLOR_GREEN_128_VALIDATION.md`](docs/TAYLOR_GREEN_128_VALIDATION.md) | Single-component FP64 Taylor--Green viscous-decay test on a `128^3` lattice, initialization, viscosity fit, A30 memory use, and automated workflow. |
 | [`TAYLOR_GREEN_256_PERFORMANCE.md`](docs/TAYLOR_GREEN_256_PERFORMANCE.md) | Single-GPU throughput test on a `256^3` Taylor--Green vortex at the Reynolds number of `taylorgreen.inp`, build settings, timing outputs, and reference A30 results. |
 | [`POISEUILLE_FORCE_VALIDATION.md`](docs/POISEUILLE_FORCE_VALIDATION.md) | Single-component FP64 body-force validation from a quiescent fluid, analytical Poiseuille profile, error norms, and automated workflow. |
-| [`FUSED_KERNELS.md`](docs/FUSED_KERNELS.md) | Fused collide-and-stream kernels for the second-order lattices and for high-order D3Q27: formulation, thread organization, shared-memory requirements, verification against the `v1.0.3` kernels, and A30 performance. |
+| [`FUSED_KERNELS.md`](docs/FUSED_KERNELS.md) | Fused collide-and-stream kernels for the second-order lattices and for high-order D3Q27: formulation, thread organization, shared-memory requirements, moment update in single-component flows, interface kernels of two-component flows, verification against the `v1.0.3` kernels, and A30 performance. |
 | [`SMOKE_TEST_SUITE.md`](docs/SMOKE_TEST_SUITE.md) | Short build-and-run regression suite covering every documented physical validation case. |
 | [`FULL_VALIDATION_SUITE.md`](docs/FULL_VALIDATION_SUITE.md) | Complete quantitative suite that runs all documented benchmark configurations and applies numerical pass/fail tolerances. |
 | [`SCALING_BENCHMARKS.md`](docs/SCALING_BENCHMARKS.md) | Inputs, executables, job scripts, MPI decompositions, and log metrics needed to reproduce the strong-scaling, weak-scaling, and energy measurements. |
@@ -171,7 +171,9 @@ high-order D3Q27 uses `fused_LB_kernel_h` and `fused_LB_kernel_bb_h`; the
 `_bb` kernels are selected by `BOUNCE_BACK`. They gather the post-collision
 values through shared memory and need up to 80 KB (second order) or 152 KB
 (high order) of shared memory per thread block in double precision, which the
-A30, A100, and H100 provide. See [`FUSED_KERNELS.md`](docs/FUSED_KERNELS.md).
+A30, A100, and H100 provide. In single-component flows without internal
+obstacles, they also add the body force to the moments, so the separate moment
+kernel is not called. See [`FUSED_KERNELS.md`](docs/FUSED_KERNELS.md).
 
 The code is two-component when `TWOCOMPONENT` is active. High-density-ratio
 simulations are enabled by `DENSRATIO`. When `DENSRATIO` is defined, the

@@ -17,7 +17,10 @@ replace the kernels of LBFAST `v1.0.3` and give the same results to round-off.
 On an NVIDIA A30, the fused step is 2.3 to 3.3 times faster for the
 second-order lattices and 2.8 to 4.5 times faster for high-order D3Q27. This
 document describes their formulation, implementation, verification, and
-performance.
+performance. It also describes the moment update that these kernels perform in
+single-component flows, which replaces the separate moment kernel, and the
+interface kernels of two-component flows, which use the same thread
+organization.
 
 ## Thread organization
 
@@ -178,6 +181,103 @@ so the high-order coefficients of each node were recomputed for all 26
 directions. It used about 5900 double-precision instructions per node, against
 about 2600 for the current version, and was about twice as slow.
 
+## Moment update in single-component flows
+
+Before every collision, `moments_LB_kernel` adds half the force per unit
+density to the stored velocity and the term `(u F + F u)/2` to the stored
+second-order moment of every fluid node, and stores the total force that the
+fused kernel uses. In two-component flows the force includes the pressure,
+surface-tension, and viscous contributions, which depend on the phase field and
+on the moments and are computed in a fixed order before the collision. In
+single-component flows without internal obstacles, the force is the uniform
+body force `(fx, fy, fz)`, and the update depends only on the moments of the
+node.
+
+For these flows, `defines.h` defines `FUSED_MOMENTS` when `TWOCOMPONENT`,
+`INTERNAL_OBSTACLES`, `MULTIHIT`, and `ELASTIC_FORCE` are all undefined. The
+time loop then skips `moments_LB_cuda` and the exchange of the force arrays.
+Each fused kernel applies the update when it reads the moments of a fluid node,
+both for the nodes of its tile and for the halo nodes. It uses the same
+operations and the same rounding to the storage precision as
+`moments_LB_kernel`. The stored moments are therefore the moments before the
+update, and `copy_print` adds the update to the velocity that it copies for
+output once the time loop has started. Note that `POISEUILLE` and
+`TWOPOISEUILLE` define `INTERNAL_OBSTACLES`, so these benchmarks keep the
+separate moment kernel.
+
+In double precision, the moments of the interior nodes, the kinetic energy, and
+the probe values are bitwise identical to those obtained with
+`moments_LB_kernel`. This was checked on the `128^3` Taylor--Green vortex with
+a body force `fx = 1e-5` over 2000 steps, for D3Q19 and high-order D3Q27, on one
+and two MPI ranks, with `MIXEDPRC`, in single precision, and with the
+`BOUNCE_BACK` kernels. The smoke and complete validation suites give the same
+results as before.
+
+Mean time per step on one NVIDIA A30 for the `256^3` Taylor--Green vortex of
+[`TAYLOR_GREEN_256_PERFORMANCE.md`](TAYLOR_GREEN_256_PERFORMANCE.md) with
+`nsteps = 500`, averaged over two runs:
+
+| Lattice | Precision | Fused kernel, with `moments_LB_kernel` (ms) | Fused kernel, `FUSED_MOMENTS` (ms) | GLUPS, with `moments_LB_kernel` | GLUPS, `FUSED_MOMENTS` | Speed-up of the time step |
+|---|---|---:|---:|---:|---:|---:|
+| D3Q15 | FP64 | 7.4 | 8.0 | 1.277 | 1.738 | 1.36 |
+| D3Q19 | FP64 | 7.4 | 7.0 | 1.276 | 1.933 | 1.51 |
+| D3Q27 | FP64 | 9.1 | 9.4 | 1.125 | 1.509 | 1.34 |
+| D3Q19 | `MIXEDPRC` | 5.7 | 5.7 | 1.749 | 2.293 | 1.31 |
+| High-order D3Q27 | FP64 | 23.6 | 23.5 | 0.572 | 0.667 | 1.17 |
+| High-order D3Q27 | FP32 | 11.3 | 11.8 | 1.107 | 1.257 | 1.14 |
+
+With the body force `fx = 1e-6`, the throughputs are the same, and the energy
+histories of all cases are bitwise identical to those obtained with
+`moments_LB_kernel`. In double precision, removing the moment kernel saves
+about 3.7 ms per step at `256^3`, and removing the force exchange about 0.4 ms.
+The fused kernel itself changes by -5% to +8%, depending on the lattice: it no
+longer loads the force arrays for fluid nodes, but it applies the update to all
+the 1000 nodes of the tile and its halo.
+
+## Interface kernels
+
+In two-component flows, three kernels compute finite-difference stencils on
+values held in shared memory before the moment update:
+`compute_norm_interface_kernel` and its interior and face variants compute the
+gradient, the unit normal, and the Laplacian of the phase field;
+`compute_div_theta_n_kernel` computes the divergence of `phi (1 - phi) n`; and
+`compute_csf_force_kernel` computes the curvature and the surface-tension
+force. They are in `lb_cuda_auxfields_module.f90`, and the order of the
+operations in the time step is unchanged.
+
+These kernels now use the thread organization of the fused kernels: one thread
+per interior node of an `8 x 8 x 8` tile. Each thread loads up to two of the
+1000 nodes of the tile and its halo into shared memory, in the same order as
+before, and after a barrier computes its own node. The kernels of `v1.0.3` used
+one thread per node of the tile and its halo; 488 of the 1000 threads stopped
+after the load, and one block fitted on a multiprocessor. When the tiles have
+512 nodes, `compute_div_theta_n_kernel` and `compute_csf_force_kernel` are
+compiled with launch bounds for four blocks per multiprocessor, which gives 32
+registers and no spills in double precision. The same bounds on
+`compute_norm_interface_kernel` cause register spills, so they are not used.
+
+The arithmetic is unchanged. In double precision, all the moments, including
+the halo nodes, are bitwise identical to those of the previous kernels for a
+two-component `64^3` droplet (`input_benchmark_2c_strong.inp`, 1000 steps),
+with and without `ASYNCMPI`, on one rank and on two ranks split along `x`,
+`y`, or `z`.
+
+Mean time per step on one NVIDIA A30 for the two-component droplet of
+`bench.inp` on a `256^3` lattice (`nsteps = 300`), high-order D3Q27 in double
+precision, averaged over two runs:
+
+| Kernel | Previous kernels (ms) | Current kernels (ms) |
+|---|---:|---:|
+| `compute_norm_interface_kernel_int` | 4.07 | 2.51 |
+| Face variants of `compute_norm_interface_kernel` | 1.01 | 0.64 |
+| `compute_div_theta_n_kernel` | 2.76 | 2.07 |
+| `compute_csf_force_kernel` | 3.08 | 2.35 |
+| Total | 10.92 | 7.57 |
+
+The throughput of the whole time step increases from 0.369 to 0.396 GLUPS with
+high-order D3Q27 and from 0.576 to 0.646 GLUPS with D3Q19. The moment kernel,
+which is limited by the memory bandwidth, is unchanged in two-component flows.
+
 ## Resources
 
 Compiled for compute capability 8.0, the kernels use the following resources:
@@ -285,10 +385,14 @@ two-component case is the static droplet of the default configuration.
 | Two-component high-order D3Q27, FP64 | 108.5 | 24.3 | 4.5 | 0.129 | 0.369 |
 | Single-component high-order D3Q27, FP64, `BOUNCE_BACK` | 114.4 | 26.9 | 4.3 | 0.141 | 0.538 |
 
-With D3Q19 in double precision, the second-order kernel reads and writes about
-280 bytes per updated node, which corresponds to about 650 GB/s, or 70% of the
-A30 peak memory bandwidth. The fused kernel now takes about 57% of the
-single-component time step for D3Q19; the moment and halo kernels take most of
-the rest.
+The throughputs in this table were measured with the separate moment kernel and
+with the previous interface kernels, before the changes described in
+[Moment update in single-component flows](#moment-update-in-single-component-flows)
+and [Interface kernels](#interface-kernels). With D3Q19 in double
+precision, the second-order kernel reads and writes about 280 bytes per updated
+node, which corresponds to about 650 GB/s, or 70% of the A30 peak memory
+bandwidth. With the moment update inside the fused kernel, the fused kernel
+takes about 80% of the single-component time step for D3Q19, and the halo
+exchange most of the rest.
 
 The scaling tables in the README were measured with the `v1.0.3` kernels.
