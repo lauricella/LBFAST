@@ -16,7 +16,7 @@ module bcs3D
 
    use vars
    use mpi_template , only: coords,pbc_x,pbc_y,pbc_z,myoffset,myrank, &
-    sum_world_float,sum_world_int
+    sum_world_float,sum_world_int,doerror
    use lb_cuda_driver, only: PHI_int_boundary_cuda,LB_int_boundary_cuda, &
     phi_sum_count_cuda,apply_lagrangian_phi_cuda
 !   !$if _OPENACC
@@ -25,6 +25,70 @@ module bcs3D
    implicit none
 
 contains
+
+   !***************************************************
+   subroutine setup_face_conditions
+      ! Checks the face inputs of the simulation namelist (openbc, openbc_type_*, openbc_press_*,
+      ! openbc_u/v/w_*) and, with openbc = 1, echoes on rank 0 the condition of every face, in the
+      ! order 1 x-rear, 2 x-front, 3 y-rear, 4 y-front, 5 z-rear, 6 z-front (index 1 or 2 of the
+      ! openbc_* arrays). Called once by the main program after the namelist has been read, on
+      ! every rank. openbc = 1 replaces the regularized wall populations of the face planes
+      ! (bcs_mesoscopic_hfields), which BOUNCE_BACK does not create, so the two are not compatible.
+      implicit none
+      integer :: iface
+      integer, dimension(6) :: pbc_face,obc_type
+      real(kind=db), dimension(6) :: obc_press
+      real(kind=db), dimension(3,6) :: obc_vel
+      character(len=7), dimension(6), parameter :: obc_name= &
+       (/'x-rear ','x-front','y-rear ','y-front','z-rear ','z-front'/)
+
+      obc_type(1:2)=openbc_type_x
+      obc_type(3:4)=openbc_type_y
+      obc_type(5:6)=openbc_type_z
+      obc_press(1:2)=openbc_press_x
+      obc_press(3:4)=openbc_press_y
+      obc_press(5:6)=openbc_press_z
+      obc_vel(1,1:2)=openbc_u_x
+      obc_vel(2,1:2)=openbc_v_x
+      obc_vel(3,1:2)=openbc_w_x
+      obc_vel(1,3:4)=openbc_u_y
+      obc_vel(2,3:4)=openbc_v_y
+      obc_vel(3,3:4)=openbc_w_y
+      obc_vel(1,5:6)=openbc_u_z
+      obc_vel(2,5:6)=openbc_v_z
+      obc_vel(3,5:6)=openbc_w_z
+      pbc_face(1:2)=pbc_x
+      pbc_face(3:4)=pbc_y
+      pbc_face(5:6)=pbc_z
+      if(openbc/=0 .and. openbc/=1)call doerror(6,'ERROR: openbc must be 0 or 1')
+#ifdef BOUNCE_BACK
+      if(openbc==1)call doerror(6,'ERROR: openbc=1 rebuilds the face populations with the '// &
+       'regularized wall and does not work with BOUNCE_BACK')
+#endif
+      if(openbc==1 .and. myrank==0)then
+#ifndef INTERNAL_OBSTACLES
+         write(6,'(a)') 'openbc=1 has no effect without INTERNAL_OBSTACLES'
+#else
+         write(6,'(a)') 'face conditions on the populations (openbc=1):'
+         do iface=1,6
+            if(pbc_face(iface)==1)then
+               if(obc_type(iface)/=0 .or. any(obc_vel(:,iface)/=ZERO) .or. obc_press(iface)/=ZERO) &
+                  write(6,'(3a)') '  ',obc_name(iface),': periodic direction, the face inputs are ignored'
+               cycle
+            endif
+            select case(obc_type(iface))
+            case(2)
+               write(6,'(3a)') '  ',obc_name(iface),': zero gradient (node state)'
+            case(1)
+               write(6,'(3a,g16.8)') '  ',obc_name(iface),': imposed p* = ',obc_press(iface)
+            case default
+               write(6,'(3a,3g16.8)') '  ',obc_name(iface),': imposed velocity ',obc_vel(1:3,iface)
+            end select
+         enddo
+#endif
+      endif
+   end subroutine setup_face_conditions
+
    !***************************************************
    ! bcs_mesoscopic_hfields: called after the fused kernel (with INTERNAL_OBSTACLES) with
    ! hfields_in = hfields_flip (pre-collision moments), hfields_out = hfields_flop (moments
@@ -1386,7 +1450,8 @@ contains
      integer :: ii,jj,kk,l,lopp
 	 real(kind=db) :: feq, fneq1,utmp,vtmp,wtmp,rhophi_loc,phi_loc
 #ifdef TWOCOMPONENT	  
-	 real(kind=db) :: phitemp,phi_inflow
+	 real(kind=db) :: phitemp,phi_inflow,sphi_pre,sphi_post,sone
+	 logical :: ldiag,lcorr
 #endif
 #if defined(PHASE_CHANGE) || defined(INTERNAL_OBSTACLES)
 	 real(kind=db) :: visc_loc,omega_loc,tau_loc
@@ -1936,8 +2001,13 @@ contains
 	 global_phi_change=global_phi_change+phi_inflow
 #endif
         
-      if(llagrange .and. lagrange_every > 0 .and. abs(wettab_r-90.0_db) > 1.0e-6_db)then
-       if(step > 0 .and. mod(step,lagrange_every) == 0)then
+      ! Phase masses M1 = rho_r sum(phi) and M2 = rho_b sum(1-phi) on the fluid nodes, written to
+      ! phase_mass.dat at step 0 and every lagrange_every steps, before and after the correction.
+      ldiag = lagrange_every > 0
+      if(ldiag)ldiag = mod(step,lagrange_every) == 0
+      lcorr = ldiag .and. step > 0 .and. llagrange .and. abs(wettab_r-90.0_db) > 1.0e-6_db
+      if(ldiag)call phase_masses(phifields_s,sphi_pre,sone)
+      if(lcorr)then
         call phi_sum_count_cuda(hfields_s,phifields_s)
         
 		!$acc wait
@@ -1963,7 +2033,11 @@ contains
 		!$acc update device(corr,global_phi_sum,global_count)
 		
 		call apply_lagrangian_phi_cuda(hfields_s,phifields_s)
-       endif
+      endif
+      if(ldiag)then
+        sphi_post=sphi_pre
+        if(lcorr)call phase_masses(phifields_s,sphi_post,sone)
+        call write_phase_mass(sphi_pre,sphi_post,sone,lcorr)
       endif
 
 	
@@ -1974,4 +2048,69 @@ contains
 
    endsubroutine bcs_mesoscopic_phifields
    
+
+   subroutine phase_masses(phifields_s,sphi,sone)
+      ! sum(phi) and number of fluid nodes (|isfluid| = 1) of the global domain: OpenACC reduction
+      ! over the nodes of each rank, then sum over the ranks
+      implicit none
+      real(kind=strdb), allocatable, dimension(:,:,:,:,:) :: phifields_s
+      real(kind=db) :: sphi,sone,loc_phi
+      integer :: i,j,k,ii,jj,kk,xblock,yblock,zblock,myblock
+#ifdef TWOCOMPONENT
+      sphi=ZERO
+      sone=ZERO
+      !$acc wait
+      !$acc parallel loop collapse(3) reduction(+:sphi,sone) present(isfluid,phifields_s) &
+      !$acc& private(loc_phi,ii,jj,kk,xblock,yblock,zblock,myblock)
+      do k=1,nz
+        do j=1,ny
+          do i=1,nx
+            if(abs(isfluid(i,j,k)) /= 1)cycle
+            xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+            yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+            zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+            myblock=(xblock-1)+(yblock-1)*nxblock+(zblock-1)*nxyblock+1
+            ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+            jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+            kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+            loc_phi=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+            sphi=sphi+loc_phi
+            sone=sone+ONE
+          enddo
+        enddo
+      enddo
+      call sum_world_float(sphi)
+      call sum_world_float(sone)
+#endif
+   end subroutine phase_masses
+
+   subroutine write_phase_mass(sphi_pre,sphi_post,sone,lcorr)
+      ! Rank 0 appends to phase_mass.dat (opened at the first call): step, the masses
+      ! M1 = rho_r sum(phi) and M2 = rho_b sum(1-phi) of the two components before the correction,
+      ! their relative deviations from the target values before and after the correction, and 1 if
+      ! the correction was applied at this step (0 otherwise). The target is the initial amount of
+      ! phi, plus with BCPHIFLUX the inflow through the non-periodic faces since the start.
+      implicit none
+      real(kind=db) :: sphi_pre,sphi_post,sone
+      logical :: lcorr
+      real(kind=db) :: sphi_t,m1_t,m2_t
+      integer, save :: iumass
+      logical, save :: lopened=.false.
+      integer :: icorr
+      if(myrank/=0)return
+      if(.not. lopened)then
+        open(newunit=iumass,file='phase_mass.dat',status='replace')
+        lopened=.true.
+        write(iumass,'(a)')'# step  M1  M2  dM1/M1  dM2/M2 (before correction)  dM1/M1  dM2/M2 (after)  corrected'
+      endif
+      sphi_t=global_phi_sum_ini+global_phi_change
+      m1_t=max(abs(rho_r*sphi_t),tiny(ONE))
+      m2_t=max(abs(rho_b*(sone-sphi_t)),tiny(ONE))
+      icorr=0
+      if(lcorr)icorr=1
+      write(iumass,'(i10,2es24.15,4es13.4,i3)')step,rho_r*sphi_pre,rho_b*(sone-sphi_pre), &
+       (rho_r*sphi_pre-rho_r*sphi_t)/m1_t,(rho_b*(sone-sphi_pre)-rho_b*(sone-sphi_t))/m2_t, &
+       (rho_r*sphi_post-rho_r*sphi_t)/m1_t,(rho_b*(sone-sphi_post)-rho_b*(sone-sphi_t))/m2_t,icorr
+      flush(iumass)
+   end subroutine write_phase_mass
 endmodule

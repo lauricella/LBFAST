@@ -203,7 +203,12 @@ summaries of the smoke and complete suites unchanged.
   when `wettab_r` differs from `90`. Its global sums use an OpenACC reduction,
   so the correction is cheap and reproducible from run to run. With
   `BCPHIFLUX`, the target total includes the inflow of phi through the
-  non-periodic faces since the start.
+  non-periodic faces since the start. Every `lagrange_every` steps the masses
+  of the two components, `rho_r sum(phi)` and `rho_b sum(1 - phi)`, and their
+  deviations from the target are written to `phase_mass.dat`.
+- At start-up the code checks the face inputs: it stops if `openbc` is not `0`
+  or `1`, or if `openbc = 1` is used with `BOUNCE_BACK`, and with `openbc = 1`
+  rank 0 prints the condition applied on each face.
 
 ## Upgrade notes
 

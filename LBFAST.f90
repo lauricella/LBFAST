@@ -41,6 +41,7 @@ program threadsafeLB
     get_totram
    
    use initial_condts, only: initial_conditions_all
+   use bcs3D, only: setup_face_conditions
    use stat_module, only: compare_benchmark
    implicit none
    
@@ -269,6 +270,9 @@ program threadsafeLB
         lz = MYSIDE * proc_z
       endif  
    endif
+
+   ! check the face inputs (openbc) and echo the open faces
+   call setup_face_conditions
      
 
    ! start diagnostic if requested

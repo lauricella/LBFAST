@@ -330,6 +330,13 @@ The same convention applies to `openbc_press_y`, `openbc_u_y`, `openbc_v_y`,
 `openbc_w_y`, and to `openbc_press_z`, `openbc_u_z`, `openbc_v_z`,
 `openbc_w_z`.
 
+Open boundaries act on the non-periodic faces when `INTERNAL_OBSTACLES` is
+defined; with `openbc = 0` these faces are no-slip walls. At start-up the code
+stops with an error if `openbc` is not `0` or `1`, or if `openbc = 1` is used
+with `BOUNCE_BACK`: the open boundaries replace the populations of the
+regularized wall, which bounce-back does not create. With `openbc = 1`, rank 0
+prints the condition applied on each face.
+
 ### 2D Plane Output
 
 The variable `nplanes` sets the number of 2D planes to be written. These planes
@@ -386,7 +393,7 @@ compiled in two-component mode, of the phase-field model.
 | `visc2` | Kinematic viscosity of component 2 in lattice-Boltzmann units. Available in two-component mode. |
 | `wettab_r` | Contact angle in degrees at the internal obstacles (`INTERNAL_OBSTACLES`). The default, `90`, is neutral wetting. Available in two-component mode. |
 | `llagrange` | With internal obstacles (`INTERNAL_OBSTACLES`), switches on the Lagrange-multiplier correction of the phase field, which restores its total amount by adding a uniform correction to the interfacial nodes with `0.5 < phi < 0.9`. It is applied only when `wettab_r` differs from `90`. Default `.true.`; set `.false.` to disable it. Available in two-component mode. |
-| `lagrange_every` | Number of time steps between two Lagrange-multiplier corrections when `llagrange` is true (default `100`; a value of `0` or less disables the correction). With `BCPHIFLUX`, the net inflow of `phi` through the non-periodic faces since the start is added to the target total. Available in two-component mode. |
+| `lagrange_every` | Number of time steps between two Lagrange-multiplier corrections when `llagrange` is true (default `100`; a value of `0` or less disables the correction). With `BCPHIFLUX`, the net inflow of `phi` through the non-periodic faces since the start is added to the target total. At step `0` and every `lagrange_every` steps, also without correction, rank 0 writes to `phase_mass.dat` the masses of the two components on the fluid nodes, `M1 = rho_r sum(phi)` and `M2 = rho_b sum(1 - phi)`, and their relative deviations from the target before and after the correction. Available in two-component mode. |
 | `rho_r`, `rho_b` | Component densities in lattice-Boltzmann units, used in two-component density-ratio simulations. |
 
 ## Compiling *LBFAST*
