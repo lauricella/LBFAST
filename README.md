@@ -54,6 +54,27 @@ If you use this code, please cite both the associated LBFAST publication and thi
 
 **Software release**
 
+> Lauricella, M., Montessori, A., Amati, G., Spiga, F., Tiribocchi, A., Bernaschi, M., & Succi, S. (2026). *LBFAST: A Lightweight Moment-Represented Lattice Boltzmann Solver for Multi-GPU Architectures* (Version v1.1.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.23441342
+
+```bibtex
+@software{Lauricella2026LBFASTv110,
+  author    = {Lauricella, Marco and Montessori, Andrea and Amati, Giorgio and Spiga, Filippo and
+               Tiribocchi, Adriano and Bernaschi, Massimo and Succi, Sauro},
+  title     = {{LBFAST}: A Lightweight Moment-Represented Lattice {B}oltzmann Solver for
+               Multi-{GPU} Architectures},
+  version   = {v1.1.0},
+  year      = {2026},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.23441342}
+}
+```
+
+The DOI above identifies version `v1.1.0`. The DOI
+[10.5281/zenodo.21823379](https://doi.org/10.5281/zenodo.21823379) always
+resolves to the latest archived version.
+
+**Conference presentation**
+
 > Lauricella, M., Montessori, A., Amati, G., Spiga, F., Tiribocchi, A., Bernaschi, M., & Succi, S. (2026, July 1). *LBFAST: A Lightweight Moment-Represented Lattice Boltzmann Solver for Multi-GPU Architectures*. EuroHPC User Days 2026, Clayton Hotel Burlington Road, Dublin, Ireland. https://doi.org/10.5281/zenodo.21106853
 
 ## Structure
