@@ -37,37 +37,45 @@ contains
       integer :: ii,jj,kk
       integer :: li,lj,lk
       integer :: xblock,yblock,zblock
+      integer, parameter :: nhx=TILE_DIMx+2, nhy=TILE_DIMy+2, nhz=TILE_DIMz+2
+      integer, parameter :: nthreads=TILE_DIMx*TILE_DIMy*TILE_DIMz
+      integer :: ithread,ih
       
-      li = threadIdx%x-1
-      lj = threadIdx%y-1
-      lk = threadIdx%z-1
+      ! one thread per interior node; the threads first load the tile and its halo into
+      ! shared memory, nodes ih=ithread, ithread+nthreads, ... in x-fastest order
+      ithread=(threadIdx%x-1)+TILE_DIMx*(threadIdx%y-1)+TILE_DIMx*TILE_DIMy*(threadIdx%z-1)
+      do ih=ithread,nhx*nhy*nhz-1,nthreads
+        lk=ih/(nhx*nhy)
+        lj=(ih-lk*nhx*nhy)/nhx
+        li=ih-lk*nhx*nhy-lj*nhx
+        i = (blockIdx%x-1) * TILE_DIMx + li
+        j = (blockIdx%y-1) * TILE_DIMy + lj
+        k = (blockIdx%z-1) * TILE_DIMz + lk
+        xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+        yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+        zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+        myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+        ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+        jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+        kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+        myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+      enddo
+      call syncthreads
 
+      li=threadIdx%x
+      lj=threadIdx%y
+      lk=threadIdx%z
       i = (blockIdx%x-1) * TILE_DIMx + li
       j = (blockIdx%y-1) * TILE_DIMy + lj
       k = (blockIdx%z-1) * TILE_DIMz + lk
-      
-      gi=nx*coords(1)+i
-      gj=ny*coords(2)+j
-      gk=nz*coords(3)+k
-      
-      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
-	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
-	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
-      
-      myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
-      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
-      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
-      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
 
-      myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)   
-      call syncthreads
-      
       if(abs(isfluid(i,j,k)) .ne. 1)return
-      
-      !intblock is the index of the block of internal nodes without the surrounding halo
-	  intblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1
-	  !If my block index does not match the index of the internal-node block, it means my thread is on the outer halo and must exit.
-	  if(myblock .ne. intblock)return
+
+      !internal-node block of the tile
+      myblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1
+      ii=li
+      jj=lj
+      kk=lk
 
 	  grad_fix=3.0_db*(p1d3q27*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
 		 p2d3q27*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
@@ -164,47 +172,46 @@ contains
       integer :: ii,jj,kk
       integer :: li,lj,lk
       integer :: xblock,yblock,zblock
+      integer, parameter :: nhx=TILE_DIMx+2, nhy=TILE_DIMy+2, nhz=TILE_DIMz+2
+      integer, parameter :: nthreads=TILE_DIMx*TILE_DIMy*TILE_DIMz
+      integer :: ithread,ih
 !      integer :: gi,gj,gk
       
-      li = threadIdx%x-1
-      lj = threadIdx%y-1
-      lk = threadIdx%z-1
-      
+      ! one thread per interior node; the threads first load the tile and its halo into
+      ! shared memory, nodes ih=ithread, ithread+nthreads, ... in x-fastest order
+      ithread=(threadIdx%x-1)+TILE_DIMx*(threadIdx%y-1)+TILE_DIMx*TILE_DIMy*(threadIdx%z-1)
+      do ih=ithread,nhx*nhy*nhz-1,nthreads
+        lk=ih/(nhx*nhy)
+        lj=(ih-lk*nhx*nhy)/nhx
+        li=ih-lk*nhx*nhy-lj*nhx
+        i = (blockIdx%x) * TILE_DIMx + li
+        j = (blockIdx%y) * TILE_DIMy + lj
+        k = (blockIdx%z) * TILE_DIMz + lk
+        xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+        yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+        zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+        myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+        ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+        jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+        kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+        myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+      enddo
+      call syncthreads
+
+      li=threadIdx%x
+      lj=threadIdx%y
+      lk=threadIdx%z
       i = (blockIdx%x) * TILE_DIMx + li
       j = (blockIdx%y) * TILE_DIMy + lj
       k = (blockIdx%z) * TILE_DIMz + lk
-      
-!      gi=nx*coords(1)+i
-!      gj=ny*coords(2)+j
-!      gk=nz*coords(3)+k
-      
-      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
-	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
-	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
-      
-      myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
-      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
-      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
-      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
 
-      !i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
-      !j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
-      !k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
-      
-!      gi=nx*coords(1)+i
-!      gj=ny*coords(2)+j
-!      gk=nz*coords(3)+k
-      
-      intblock=(blockIdx%x+1)+(blockIdx%y+1)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1 !internal-node block
-      
-      myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-      
-      call syncthreads
-      
       if(abs(isfluid(i,j,k)) .ne. 1)return
-      
-	  !If my block index does not match the index of the internal-node block, it means my thread is on the outer halo and must exit.
-	  if(myblock .ne. intblock)return
+
+      !internal-node block of the tile
+      myblock=(blockIdx%x+1)+(blockIdx%y+1)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1
+      ii=li
+      jj=lj
+      kk=lk
 
 	  grad_fix=3.0_db*(p1d3q27*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
 		 p2d3q27*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
@@ -301,54 +308,47 @@ contains
       integer :: ii,jj,kk
       integer :: li,lj,lk
       integer :: xblock,yblock,zblock
+      integer, parameter :: nhx=TILE_DIMx+2, nhy=TILE_DIMy+2, nhz=TILE_DIMz+2
+      integer, parameter :: nthreads=TILE_DIMx*TILE_DIMy*TILE_DIMz
+      integer :: ithread,ih
 !      integer :: gi,gj,gk
       
       
-      li = threadIdx%x-1
-      lj = threadIdx%y-1
-      lk = threadIdx%z-1
-      
-      i = ((nxblock_d-2)-1) * TILE_DIMx + li
-      j = (blockIdx%y) * TILE_DIMy + lj 
-      k = (blockIdx%z) * TILE_DIMz + lk 
-
-!      gj=ny*coords(2)+j
-!      gk=nz*coords(3)+k
-      
-	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
-	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
-      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
-      
-      
-	  !gi=nx*coords(1)+i
-	  
-      
-      myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
-      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
-      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
-      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
-
-      !i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
-      !j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
-      !k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
-      
-!      gi=nx*coords(1)+i
-!      gj=ny*coords(2)+j
-!      gk=nz*coords(3)+k
-      
-      !if(gi==iprobe)write(*,*)'cazzo',xblock,blockIdx%y,blockIdx%z
-      
-      
-      intblock=(nxblock_d-2)+(blockIdx%y+1)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1 !internal-node block
-      
-      myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-      
+      ! one thread per interior node; the threads first load the tile and its halo into
+      ! shared memory, nodes ih=ithread, ithread+nthreads, ... in x-fastest order
+      ithread=(threadIdx%x-1)+TILE_DIMx*(threadIdx%y-1)+TILE_DIMx*TILE_DIMy*(threadIdx%z-1)
+      do ih=ithread,nhx*nhy*nhz-1,nthreads
+        lk=ih/(nhx*nhy)
+        lj=(ih-lk*nhx*nhy)/nhx
+        li=ih-lk*nhx*nhy-lj*nhx
+        i = ((nxblock_d-2)-1) * TILE_DIMx + li
+        j = (blockIdx%y) * TILE_DIMy + lj
+        k = (blockIdx%z) * TILE_DIMz + lk
+        xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+        yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+        zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+        myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+        ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+        jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+        kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+        myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+      enddo
       call syncthreads
-      
+
+      li=threadIdx%x
+      lj=threadIdx%y
+      lk=threadIdx%z
+      i = ((nxblock_d-2)-1) * TILE_DIMx + li
+      j = (blockIdx%y) * TILE_DIMy + lj
+      k = (blockIdx%z) * TILE_DIMz + lk
+
       if(abs(isfluid(i,j,k)) .ne. 1)return
-      
-	  !If my block index does not match the index of the internal-node block, it means my thread is on the outer halo and must exit.
-	  if(myblock .ne. intblock)return
+
+      !internal-node block of the tile
+      myblock=(nxblock_d-2)+(blockIdx%y+1)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1
+      ii=li
+      jj=lj
+      kk=lk
 
 	  grad_fix=3.0_db*(p1d3q27*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
 		 p2d3q27*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
@@ -445,54 +445,47 @@ contains
       integer :: ii,jj,kk
       integer :: li,lj,lk
       integer :: xblock,yblock,zblock
+      integer, parameter :: nhx=TILE_DIMx+2, nhy=TILE_DIMy+2, nhz=TILE_DIMz+2
+      integer, parameter :: nthreads=TILE_DIMx*TILE_DIMy*TILE_DIMz
+      integer :: ithread,ih
 !      integer :: gi,gj,gk
 
       
-      li = threadIdx%x-1
-      lj = threadIdx%y-1
-      lk = threadIdx%z-1
-      
-      i = li
-      j = (blockIdx%y) * TILE_DIMy + lj 
-      k = (blockIdx%z) * TILE_DIMz + lk 
-
-!      gj=ny*coords(2)+j
-!      gk=nz*coords(3)+k
-      
-	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
-	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
-      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
-      
-      
-	  !gi=nx*coords(1)+i
-	  
-      
-      myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
-      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
-      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
-      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
-
-      !i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
-      !j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
-      !k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
-      
-!      gi=nx*coords(1)+i
-!      gj=ny*coords(2)+j
-!      gk=nz*coords(3)+k
-      
-      !if(gi==iprobe)write(*,*)'cazzo',xblock,blockIdx%y,blockIdx%z
-      
-      
-      intblock=1+(blockIdx%y+1)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1 !internal-node block
-      
-      myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-      
+      ! one thread per interior node; the threads first load the tile and its halo into
+      ! shared memory, nodes ih=ithread, ithread+nthreads, ... in x-fastest order
+      ithread=(threadIdx%x-1)+TILE_DIMx*(threadIdx%y-1)+TILE_DIMx*TILE_DIMy*(threadIdx%z-1)
+      do ih=ithread,nhx*nhy*nhz-1,nthreads
+        lk=ih/(nhx*nhy)
+        lj=(ih-lk*nhx*nhy)/nhx
+        li=ih-lk*nhx*nhy-lj*nhx
+        i = li
+        j = (blockIdx%y) * TILE_DIMy + lj
+        k = (blockIdx%z) * TILE_DIMz + lk
+        xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+        yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+        zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+        myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+        ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+        jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+        kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+        myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+      enddo
       call syncthreads
-      
+
+      li=threadIdx%x
+      lj=threadIdx%y
+      lk=threadIdx%z
+      i = li
+      j = (blockIdx%y) * TILE_DIMy + lj
+      k = (blockIdx%z) * TILE_DIMz + lk
+
       if(abs(isfluid(i,j,k)) .ne. 1)return
-      
-	  !If my block index does not match the index of the internal-node block, it means my thread is on the outer halo and must exit.
-	  if(myblock .ne. intblock)return
+
+      !internal-node block of the tile
+      myblock=1+(blockIdx%y+1)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1
+      ii=li
+      jj=lj
+      kk=lk
 
 	  grad_fix=3.0_db*(p1d3q27*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
 		 p2d3q27*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
@@ -589,49 +582,47 @@ contains
       integer :: ii,jj,kk
       integer :: li,lj,lk
       integer :: xblock,yblock,zblock
+      integer, parameter :: nhx=TILE_DIMx+2, nhy=TILE_DIMy+2, nhz=TILE_DIMz+2
+      integer, parameter :: nthreads=TILE_DIMx*TILE_DIMy*TILE_DIMz
+      integer :: ithread,ih
 !      integer :: gi,gj,gk
 
       
-      li = threadIdx%x-1
-      lj = threadIdx%y-1
-      lk = threadIdx%z-1
+      ! one thread per interior node; the threads first load the tile and its halo into
+      ! shared memory, nodes ih=ithread, ithread+nthreads, ... in x-fastest order
+      ithread=(threadIdx%x-1)+TILE_DIMx*(threadIdx%y-1)+TILE_DIMx*TILE_DIMy*(threadIdx%z-1)
+      do ih=ithread,nhx*nhy*nhz-1,nthreads
+        lk=ih/(nhx*nhy)
+        lj=(ih-lk*nhx*nhy)/nhx
+        li=ih-lk*nhx*nhy-lj*nhx
+        i = (blockIdx%x-1) * TILE_DIMx + li
+        j = ((nyblock_d-2)-1) * TILE_DIMy + lj
+        k = (blockIdx%z) * TILE_DIMz + lk
+        xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+        yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+        zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+        myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+        ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+        jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+        kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+        myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+      enddo
+      call syncthreads
 
-      i = (blockIdx%x-1) * TILE_DIMx + li 
+      li=threadIdx%x
+      lj=threadIdx%y
+      lk=threadIdx%z
+      i = (blockIdx%x-1) * TILE_DIMx + li
       j = ((nyblock_d-2)-1) * TILE_DIMy + lj
       k = (blockIdx%z) * TILE_DIMz + lk
-      
-      !gi=nx*coords(1)+i
-      !gk=nz*coords(3)+k
-      
-      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
-      yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
-	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
-      
-      
-      
-      myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
-      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
-      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
-      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
 
-      !i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
-      !j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
-      !k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
-      
-!      gi=nx*coords(1)+i
-!      gj=ny*coords(2)+j
-!      gk=nz*coords(3)+k
-      
-      intblock=blockIdx%x+(nyblock_d-2)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1 !internal-node block
-      
-      myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-      
-      call syncthreads
-      
       if(abs(isfluid(i,j,k)) .ne. 1)return
-      
-	  !If my block index does not match the index of the internal-node block, it means my thread is on the outer halo and must exit.
-	  if(myblock .ne. intblock)return
+
+      !internal-node block of the tile
+      myblock=blockIdx%x+(nyblock_d-2)*nxblock_d+(blockIdx%z+1)*nxyblock_d+1
+      ii=li
+      jj=lj
+      kk=lk
 
 	  grad_fix=3.0_db*(p1d3q27*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
 		 p2d3q27*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
@@ -728,49 +719,47 @@ contains
       integer :: ii,jj,kk
       integer :: li,lj,lk
       integer :: xblock,yblock,zblock
+      integer, parameter :: nhx=TILE_DIMx+2, nhy=TILE_DIMy+2, nhz=TILE_DIMz+2
+      integer, parameter :: nthreads=TILE_DIMx*TILE_DIMy*TILE_DIMz
+      integer :: ithread,ih
 !      integer :: gi,gj,gk
 
       
-      li = threadIdx%x-1
-      lj = threadIdx%y-1
-      lk = threadIdx%z-1
+      ! one thread per interior node; the threads first load the tile and its halo into
+      ! shared memory, nodes ih=ithread, ithread+nthreads, ... in x-fastest order
+      ithread=(threadIdx%x-1)+TILE_DIMx*(threadIdx%y-1)+TILE_DIMx*TILE_DIMy*(threadIdx%z-1)
+      do ih=ithread,nhx*nhy*nhz-1,nthreads
+        lk=ih/(nhx*nhy)
+        lj=(ih-lk*nhx*nhy)/nhx
+        li=ih-lk*nhx*nhy-lj*nhx
+        i = (blockIdx%x-1) * TILE_DIMx + li
+        j = lj
+        k = (blockIdx%z) * TILE_DIMz + lk
+        xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+        yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+        zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+        myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+        ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+        jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+        kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+        myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+      enddo
+      call syncthreads
 
-      i = (blockIdx%x-1) * TILE_DIMx + li 
+      li=threadIdx%x
+      lj=threadIdx%y
+      lk=threadIdx%z
+      i = (blockIdx%x-1) * TILE_DIMx + li
       j = lj
       k = (blockIdx%z) * TILE_DIMz + lk
-      
-      !gi=nx*coords(1)+i
-      !gk=nz*coords(3)+k
-      
-      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
-      yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
-	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
-      
-      
-      
-      myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
-      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
-      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
-      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
 
-      !i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
-      !j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
-      !k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
-      
-!      gi=nx*coords(1)+i
-!      gj=ny*coords(2)+j
-!      gk=nz*coords(3)+k
-      
-      intblock=blockIdx%x+1*nxblock_d+(blockIdx%z+1)*nxyblock_d+1 !internal-node block
-      
-      myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-      
-      call syncthreads
-      
       if(abs(isfluid(i,j,k)) .ne. 1)return
-      
-	  !If my block index does not match the index of the internal-node block, it means my thread is on the outer halo and must exit.
-	  if(myblock .ne. intblock)return
+
+      !internal-node block of the tile
+      myblock=blockIdx%x+1*nxblock_d+(blockIdx%z+1)*nxyblock_d+1
+      ii=li
+      jj=lj
+      kk=lk
 
 	  grad_fix=3.0_db*(p1d3q27*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
 		 p2d3q27*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
@@ -867,48 +856,47 @@ contains
       integer :: ii,jj,kk
       integer :: li,lj,lk
       integer :: xblock,yblock,zblock
+      integer, parameter :: nhx=TILE_DIMx+2, nhy=TILE_DIMy+2, nhz=TILE_DIMz+2
+      integer, parameter :: nthreads=TILE_DIMx*TILE_DIMy*TILE_DIMz
+      integer :: ithread,ih
 !      integer :: gi,gj,gk
       
             
-      li = threadIdx%x-1
-      lj = threadIdx%y-1
-      lk = threadIdx%z-1
+      ! one thread per interior node; the threads first load the tile and its halo into
+      ! shared memory, nodes ih=ithread, ithread+nthreads, ... in x-fastest order
+      ithread=(threadIdx%x-1)+TILE_DIMx*(threadIdx%y-1)+TILE_DIMx*TILE_DIMy*(threadIdx%z-1)
+      do ih=ithread,nhx*nhy*nhz-1,nthreads
+        lk=ih/(nhx*nhy)
+        lj=(ih-lk*nhx*nhy)/nhx
+        li=ih-lk*nhx*nhy-lj*nhx
+        i = (blockIdx%x-1) * TILE_DIMx + li
+        j = (blockIdx%y-1) * TILE_DIMy + lj
+        k = ((nzblock_d-2)-1) * TILE_DIMz + lk
+        xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+        yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+        zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+        myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+        ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+        jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+        kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+        myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+      enddo
+      call syncthreads
 
+      li=threadIdx%x
+      lj=threadIdx%y
+      lk=threadIdx%z
       i = (blockIdx%x-1) * TILE_DIMx + li
       j = (blockIdx%y-1) * TILE_DIMy + lj
       k = ((nzblock_d-2)-1) * TILE_DIMz + lk
-      
-      !gi=nx*coords(1)+i
-      !gj=ny*coords(2)+j
-      !gk=nz*coords(3)+k
-      
-      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
-	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
-	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
-      
-      myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
-      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
-      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
-      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
 
-      !i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
-      !j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
-      !k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
-      
-!      gi=nx*coords(1)+i
-!      gj=ny*coords(2)+j
-!      gk=nz*coords(3)+k
-      
-      intblock=blockIdx%x+blockIdx%y*nxblock_d+(nzblock_d-2)*nxyblock_d+1 !internal-node block
-      
-      myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-      
-      call syncthreads
-      
       if(abs(isfluid(i,j,k)) .ne. 1)return
-      
-	  !If my block index does not match the index of the internal-node block, it means my thread is on the outer halo and must exit.
-	  if(myblock .ne. intblock)return
+
+      !internal-node block of the tile
+      myblock=blockIdx%x+blockIdx%y*nxblock_d+(nzblock_d-2)*nxyblock_d+1
+      ii=li
+      jj=lj
+      kk=lk
 
 	  grad_fix=3.0_db*(p1d3q27*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
 		 p2d3q27*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
@@ -1005,48 +993,47 @@ contains
       integer :: ii,jj,kk
       integer :: li,lj,lk
       integer :: xblock,yblock,zblock
+      integer, parameter :: nhx=TILE_DIMx+2, nhy=TILE_DIMy+2, nhz=TILE_DIMz+2
+      integer, parameter :: nthreads=TILE_DIMx*TILE_DIMy*TILE_DIMz
+      integer :: ithread,ih
 !      integer :: gi,gj,gk
 
       
-      li = threadIdx%x-1
-      lj = threadIdx%y-1
-      lk = threadIdx%z-1
+      ! one thread per interior node; the threads first load the tile and its halo into
+      ! shared memory, nodes ih=ithread, ithread+nthreads, ... in x-fastest order
+      ithread=(threadIdx%x-1)+TILE_DIMx*(threadIdx%y-1)+TILE_DIMx*TILE_DIMy*(threadIdx%z-1)
+      do ih=ithread,nhx*nhy*nhz-1,nthreads
+        lk=ih/(nhx*nhy)
+        lj=(ih-lk*nhx*nhy)/nhx
+        li=ih-lk*nhx*nhy-lj*nhx
+        i = (blockIdx%x-1) * TILE_DIMx + li
+        j = (blockIdx%y-1) * TILE_DIMy + lj
+        k = lk
+        xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+        yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+        zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+        myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+        ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+        jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+        kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+        myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
+      enddo
+      call syncthreads
 
+      li=threadIdx%x
+      lj=threadIdx%y
+      lk=threadIdx%z
       i = (blockIdx%x-1) * TILE_DIMx + li
       j = (blockIdx%y-1) * TILE_DIMy + lj
       k = lk
-      
-      !gi=nx*coords(1)+i
-      !gj=ny*coords(2)+j
-      !gk=nz*coords(3)+k
-      
-      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
-	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
-	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
-      
-      myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
-      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
-      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
-      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
 
-      !i = (blockIdx%x-1) * TILE_DIMx + threadIdx%x
-      !j = (blockIdx%y-1) * TILE_DIMy + threadIdx%y
-      !k = (blockIdx%z-1) * TILE_DIMz + threadIdx%z
-      
-!      gi=nx*coords(1)+i
-!      gj=ny*coords(2)+j
-!      gk=nz*coords(3)+k
-      
-      intblock=blockIdx%x+blockIdx%y*nxblock_d+1*nxyblock_d+1 !internal-node block
-      
-      myphi(li,lj,lk)=real(phifields_s(ii,jj,kk,1,myblock),kind=db)
-      
-      call syncthreads
-      
       if(abs(isfluid(i,j,k)) .ne. 1)return
-      
-	  !If my block index does not match the index of the internal-node block, it means my thread is on the outer halo and must exit.
-	  if(myblock .ne. intblock)return
+
+      !internal-node block of the tile
+      myblock=blockIdx%x+blockIdx%y*nxblock_d+1*nxyblock_d+1
+      ii=li
+      jj=lj
+      kk=lk
 
 	  grad_fix=3.0_db*(p1d3q27*(myphi(li+1,lj,lk)-myphi(li-1,lj,lk)) + &
 		 p2d3q27*( (myphi(li+1,lj+1,lk)-myphi(li-1,lj-1,lk))+ &
@@ -1122,7 +1109,12 @@ contains
       
    endsubroutine compute_norm_interface_kernel_zminus
   
+#if defined(GPUTILEX) && defined(GPUTILEY) && defined(GPUTILEZ) && (GPUTILEX*GPUTILEY*GPUTILEZ) == 512
+   ! four blocks per multiprocessor: 32 registers, no spills in double precision
+   attributes(global) launch_bounds(512,4) subroutine compute_div_theta_n_kernel(flop,nx,ny,nz,coords,isfluid, &
+#else
    attributes(global) subroutine compute_div_theta_n_kernel(flop,nx,ny,nz,coords,isfluid, &
+#endif
      rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields_s,locauxfields_s)
 
       implicit none
@@ -1143,40 +1135,47 @@ contains
       integer :: ii,jj,kk
       integer :: li,lj,lk
       integer :: xblock,yblock,zblock
+      integer, parameter :: nhx=TILE_DIMx+2, nhy=TILE_DIMy+2, nhz=TILE_DIMz+2
+      integer, parameter :: nthreads=TILE_DIMx*TILE_DIMy*TILE_DIMz
+      integer :: ithread,ih
       
-      li = threadIdx%x-1
-      lj = threadIdx%y-1
-      lk = threadIdx%z-1
-      
+      ! one thread per interior node; the threads first load the tile and its halo into
+      ! shared memory, nodes ih=ithread, ithread+nthreads, ... in x-fastest order
+      ithread=(threadIdx%x-1)+TILE_DIMx*(threadIdx%y-1)+TILE_DIMx*TILE_DIMy*(threadIdx%z-1)
+      do ih=ithread,nhx*nhy*nhz-1,nthreads
+        lk=ih/(nhx*nhy)
+        lj=(ih-lk*nhx*nhy)/nhx
+        li=ih-lk*nhx*nhy-lj*nhx
+        i = (blockIdx%x-1) * TILE_DIMx + li
+        j = (blockIdx%y-1) * TILE_DIMy + lj
+        k = (blockIdx%z-1) * TILE_DIMz + lk
+        xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+        yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+        zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+        myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+        ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+        jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+        kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+        myarrx(li,lj,lk)=real(auxfields_s(ii,jj,kk,5,myblock),kind=db)
+        myarry(li,lj,lk)=real(auxfields_s(ii,jj,kk,6,myblock),kind=db)
+        myarrz(li,lj,lk)=real(auxfields_s(ii,jj,kk,7,myblock),kind=db)
+      enddo
+      call syncthreads
+
+      li=threadIdx%x
+      lj=threadIdx%y
+      lk=threadIdx%z
       i = (blockIdx%x-1) * TILE_DIMx + li
       j = (blockIdx%y-1) * TILE_DIMy + lj
       k = (blockIdx%z-1) * TILE_DIMz + lk
-      
-      gi=nx*coords(1)+i
-      gj=ny*coords(2)+j
-      gk=nz*coords(3)+k
-      
-      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
-	  yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
-	  zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
-      
-      myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
-      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
-      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
-      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
-      
-      myarrx(li,lj,lk)=real(auxfields_s(ii,jj,kk,5,myblock),kind=db)
-      myarry(li,lj,lk)=real(auxfields_s(ii,jj,kk,6,myblock),kind=db)
-      myarrz(li,lj,lk)=real(auxfields_s(ii,jj,kk,7,myblock),kind=db)
-      
-      call syncthreads
-      
+
       if(abs(isfluid(i,j,k)) .ne. 1)return
-      
-      !idblock is the index of the block of internal nodes without the surrounding halo
-	  idblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1
-	  !If my block index does not match the index of the internal-node block, it means my thread is on the outer halo and must exit.
-	  if(myblock .ne. idblock)return
+
+      !internal-node block of the tile
+      myblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1
+      ii=li
+      jj=lj
+      kk=lk
 
 
 	   
@@ -1204,7 +1203,12 @@ contains
    endsubroutine compute_div_theta_n_kernel
 
 #ifdef CSF
+#if defined(GPUTILEX) && defined(GPUTILEY) && defined(GPUTILEZ) && (GPUTILEX*GPUTILEY*GPUTILEZ) == 512
+   ! four blocks per multiprocessor: 32 registers, no spills in double precision
+   attributes(global) launch_bounds(512,4) subroutine compute_csf_force_kernel(nx,ny,nz,isfluid,sigma, &
+#else
    attributes(global) subroutine compute_csf_force_kernel(nx,ny,nz,isfluid,sigma, &
+#endif
      ntotauxfields,ntotforces,auxfields_s,forces_s)
 
       implicit none
@@ -1219,30 +1223,47 @@ contains
       real(kind=db), shared :: normal_z(0:TILE_DIMx+1,0:TILE_DIMy+1,0:TILE_DIMz+1)
       real(kind=db) :: div_normal,curvature,mod_grad
       integer :: i,j,k,myblock,idblock,ii,jj,kk,li,lj,lk,xblock,yblock,zblock
+      integer, parameter :: nhx=TILE_DIMx+2, nhy=TILE_DIMy+2, nhz=TILE_DIMz+2
+      integer, parameter :: nthreads=TILE_DIMx*TILE_DIMy*TILE_DIMz
+      integer :: ithread,ih
 
-      li=threadIdx%x-1
-      lj=threadIdx%y-1
-      lk=threadIdx%z-1
-      i=(blockIdx%x-1)*TILE_DIMx+li
-      j=(blockIdx%y-1)*TILE_DIMy+lj
-      k=(blockIdx%z-1)*TILE_DIMz+lk
-
-      xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
-      yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
-      zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
-      myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
-      ii=i-xblock*TILE_DIMx+2*TILE_DIMx
-      jj=j-yblock*TILE_DIMy+2*TILE_DIMy
-      kk=k-zblock*TILE_DIMz+2*TILE_DIMz
-
-      normal_x(li,lj,lk)=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)
-      normal_y(li,lj,lk)=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)
-      normal_z(li,lj,lk)=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)
+      ! one thread per interior node; the threads first load the tile and its halo into
+      ! shared memory, nodes ih=ithread, ithread+nthreads, ... in x-fastest order
+      ithread=(threadIdx%x-1)+TILE_DIMx*(threadIdx%y-1)+TILE_DIMx*TILE_DIMy*(threadIdx%z-1)
+      do ih=ithread,nhx*nhy*nhz-1,nthreads
+        lk=ih/(nhx*nhy)
+        lj=(ih-lk*nhx*nhy)/nhx
+        li=ih-lk*nhx*nhy-lj*nhx
+        i = (blockIdx%x-1)*TILE_DIMx+li
+        j = (blockIdx%y-1)*TILE_DIMy+lj
+        k = (blockIdx%z-1)*TILE_DIMz+lk
+        xblock=(i+2*TILE_DIMx-1)/TILE_DIMx
+        yblock=(j+2*TILE_DIMy-1)/TILE_DIMy
+        zblock=(k+2*TILE_DIMz-1)/TILE_DIMz
+        myblock=(xblock-1)+(yblock-1)*nxblock_d+(zblock-1)*nxyblock_d+1
+        ii=i-xblock*TILE_DIMx+2*TILE_DIMx
+        jj=j-yblock*TILE_DIMy+2*TILE_DIMy
+        kk=k-zblock*TILE_DIMz+2*TILE_DIMz
+        normal_x(li,lj,lk)=real(auxfields_s(ii,jj,kk,1,myblock),kind=db)
+        normal_y(li,lj,lk)=real(auxfields_s(ii,jj,kk,2,myblock),kind=db)
+        normal_z(li,lj,lk)=real(auxfields_s(ii,jj,kk,3,myblock),kind=db)
+      enddo
       call syncthreads
 
+      li=threadIdx%x
+      lj=threadIdx%y
+      lk=threadIdx%z
+      i = (blockIdx%x-1)*TILE_DIMx+li
+      j = (blockIdx%y-1)*TILE_DIMy+lj
+      k = (blockIdx%z-1)*TILE_DIMz+lk
+
       if(abs(isfluid(i,j,k)) .ne. 1)return
-      idblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1
-      if(myblock .ne. idblock)return
+
+      !internal-node block of the tile
+      myblock=blockIdx%x+blockIdx%y*nxblock_d+blockIdx%z*nxyblock_d+1
+      ii=li
+      jj=lj
+      kk=lk
 
       div_normal= &
        p1d3q27*(normal_x(li+1,lj,lk)-normal_x(li-1,lj,lk) + &

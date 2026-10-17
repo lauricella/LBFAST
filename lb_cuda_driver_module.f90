@@ -561,7 +561,7 @@ contains
 !$acc host_data use_device(step &
        !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
        !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-       call compute_norm_interface_kernel<<<dimGrid, dimBlockshared>>>(step, &
+       call compute_norm_interface_kernel<<<dimGrid, dimBlock>>>(step, &
         iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
         ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
        !$acc end host_data
@@ -603,7 +603,7 @@ contains
 !$acc host_data use_device(step &
        !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
        !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-	   call compute_norm_interface_kernel_int<<<dimGridInt, dimBlockshared>>>(step, &
+	   call compute_norm_interface_kernel_int<<<dimGridInt, dimBlock>>>(step, &
         iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
         ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
        !$acc end host_data
@@ -645,7 +645,7 @@ contains
        !$acc host_data use_device(step &
        !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
        !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-	   call compute_norm_interface_kernel_zminus<<<dimGridz, dimBlockshared>>>(step, &
+	   call compute_norm_interface_kernel_zminus<<<dimGridz, dimBlock>>>(step, &
         iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
         ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
        !$acc end host_data
@@ -673,7 +673,7 @@ contains
        !$acc host_data use_device(step &
        !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
        !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-       call compute_norm_interface_kernel_zplus<<<dimGridz, dimBlockshared>>>(step, &
+       call compute_norm_interface_kernel_zplus<<<dimGridz, dimBlock>>>(step, &
         iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
         ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
        !$acc end host_data
@@ -703,7 +703,7 @@ contains
          !$acc host_data use_device(step &
          !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
          !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)	    
-	     call compute_norm_interface_kernel_yminus<<<dimGridy, dimBlockshared>>>(step, &
+	     call compute_norm_interface_kernel_yminus<<<dimGridy, dimBlock>>>(step, &
           iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
           ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
          !$acc end host_data
@@ -733,7 +733,7 @@ contains
          !$acc host_data use_device(step &
          !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
          !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-         call compute_norm_interface_kernel_yplus<<<dimGridy, dimBlockshared>>>(step, &
+         call compute_norm_interface_kernel_yplus<<<dimGridy, dimBlock>>>(step, &
           iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
           ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
          !$acc end host_data
@@ -763,7 +763,7 @@ contains
          !$acc host_data use_device(step &
          !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
          !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-	     call compute_norm_interface_kernel_xminus<<<dimGridx, dimBlockshared>>>(step, &
+	     call compute_norm_interface_kernel_xminus<<<dimGridx, dimBlock>>>(step, &
           iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
           ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
          !$acc end host_data
@@ -793,7 +793,7 @@ contains
          !$acc host_data use_device(step &
          !$acc& ,iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b &
          !$acc& ,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-         call compute_norm_interface_kernel_xplus<<<dimGridx, dimBlockshared>>>(step, &
+         call compute_norm_interface_kernel_xplus<<<dimGridx, dimBlock>>>(step, &
           iprobe,jprobe,kprobe,flop,nx,ny,nz,coords,isfluid,rho_r,rho_b, &
           ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
          !$acc end host_data
@@ -837,7 +837,7 @@ contains
 
 !$acc host_data use_device(flop,nx,ny,nz,coords,isfluid &
        !$acc& ,rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
-       call compute_div_theta_n_kernel<<<dimGrid, dimBlockshared>>>(flop,nx,ny,nz,coords,isfluid, &
+       call compute_div_theta_n_kernel<<<dimGrid, dimBlock>>>(flop,nx,ny,nz,coords,isfluid, &
         rho_r,rho_b,ntotphifields,ntotauxfields,ntotlocauxfields,phifields_s,auxfields,locauxfields)
 !$acc end host_data
       istat = cudaDeviceSynchronize
@@ -861,7 +861,7 @@ contains
       !$acc wait
       istat=cudaDeviceSynchronize()
       !$acc host_data use_device(nx,ny,nz,isfluid,sigma,ntotauxfields,ntotforces,auxfields,forces)
-      call compute_csf_force_kernel<<<dimGrid,dimBlockshared>>>(nx,ny,nz,isfluid,sigma, &
+      call compute_csf_force_kernel<<<dimGrid,dimBlock>>>(nx,ny,nz,isfluid,sigma, &
        ntotauxfields,ntotforces,auxfields,forces)
       !$acc end host_data
       istat=cudaDeviceSynchronize()
