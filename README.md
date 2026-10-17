@@ -101,6 +101,7 @@ Detailed build and validation guides are available in the `docs` directory:
 
 | Document | Content |
 |---|---|
+| [`RELEASE_NOTES_v1.1.1.md`](docs/RELEASE_NOTES_v1.1.1.md) | Technical summary of changes in `v1.1.1` relative to `v1.1.0`: CMake build alongside the `Makefile`, shared `lbfast_build.mk`, automatic NVML lookup in the `Makefile` and `compile.sh`, build-system consistency check, verification, upgrade notes, and the release checklist. |
 | [`RELEASE_NOTES_v1.1.0.md`](docs/RELEASE_NOTES_v1.1.0.md) | Technical summary of changes in `v1.1.0` relative to `v1.0.3`: new fused collide-and-stream kernels, moment update inside the fused kernels for single-component flows, faster interface kernels, shared-memory requirements, performance, upgrade notes, validation status, and the release checklist. |
 | [`RELEASE_NOTES_v1.0.3.md`](docs/RELEASE_NOTES_v1.0.3.md) | Technical summary of changes in `v1.0.3` relative to `v1.0.2`: corrected high-order D3Q27 off-equilibrium coefficients, pull streaming in the fused kernels, upgrade notes, validation status, and the release checklist. |
 | [`RELEASE_NOTES_v1.0.2.md`](docs/RELEASE_NOTES_v1.0.2.md) | Technical summary of changes in `v1.0.2` relative to `v1.0.1`, including upgrade notes, validation status, and the release checklist. |
