@@ -193,6 +193,17 @@ summaries of the smoke and complete suites unchanged.
   data layout, the time-step sequence, the force computation, the phase-field
   update, the boundary conditions, the halo exchange, the output and restart
   files, and the validation drivers. No code line was changed.
+- The optional builds with `MONOD`, `WETTABILITY`, or `BCPHIFLUX` compile again.
+- The contact angle at internal obstacles is always read from `wettab_r` in the
+  `fluid` namelist (default `90`, neutral wetting); `WETTABILITY` is no longer
+  needed to use it.
+- The Lagrange-multiplier correction of the total phase field at internal
+  obstacles is controlled by the new `fluid` parameters `llagrange` (default
+  `.true.`) and `lagrange_every` (default `100` steps), and it is applied only
+  when `wettab_r` differs from `90`. Its global sums use an OpenACC reduction,
+  so the correction is cheap and reproducible from run to run. With
+  `BCPHIFLUX`, the target total includes the inflow of phi through the
+  non-periodic faces since the start.
 
 ## Upgrade notes
 
@@ -201,10 +212,15 @@ Users updating from `v1.0.3` should review the following points:
 1. Rebuild all executables, including those produced by `compile.sh`.
 2. Check that the GPU provides the shared memory listed above; otherwise the
    run stops at the first time step.
-3. Input files, `defines.h` macros, Make targets, and output and restart
-   formats are unchanged. `FUSED_MOMENTS` is set automatically in `defines.h`
-   and should not be defined by hand.
-4. Results agree with `v1.0.3` to round-off in double and mixed precision; in
+3. Input files of `v1.0.3` remain valid, and `defines.h` macros, Make targets,
+   and output and restart formats are unchanged. `FUSED_MOMENTS` is set
+   automatically in `defines.h` and should not be defined by hand. The `fluid`
+   namelist accepts the new optional parameters `llagrange` and
+   `lagrange_every`.
+4. With internal obstacles, a value of `wettab_r` different from `90` in the
+   input now sets the contact angle even without `WETTABILITY`, and enables the
+   Lagrange-multiplier correction unless `llagrange = .false.`.
+5. Results agree with `v1.0.3` to round-off in double and mixed precision; in
    single precision the round-off is slightly larger.
 
 ## Release checklist
