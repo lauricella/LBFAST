@@ -249,7 +249,10 @@ the double-precision solution are up to 2.6 times those of the `v1.0.3`
 kernels, below `1e-4` in relative terms. The kinetic energy differs from the
 `v1.0.3` single-precision run by `1e-5` to `1e-4` in relative terms, depending
 on the lattice, much less than the deviation of both single-precision runs from
-the double-precision result, about `1.2e-3`.
+the double-precision result, about `1.2e-3`. Summing the contributions of each
+second-order stage in partial sums before adding them to the output moments was
+tried and did not reduce these deviations, so the larger round-off comes from
+the coefficient formulation rather than from the number of accumulations.
 
 The complete validation suite, which uses high-order D3Q27 for all its cases,
 passes with the high-order kernels (`5 passed, 0 failed` on an A30). Compared
