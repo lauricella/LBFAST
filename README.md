@@ -54,22 +54,22 @@ If you use this code, please cite both the associated LBFAST publication and thi
 
 **Software release**
 
-> Lauricella, M., Montessori, A., Amati, G., Spiga, F., Tiribocchi, A., Bernaschi, M., & Succi, S. (2026). *LBFAST: A Lightweight Moment-Represented Lattice Boltzmann Solver for Multi-GPU Architectures* (Version v1.1.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.23441342
+> Lauricella, M., Montessori, A., Amati, G., Spiga, F., Tiribocchi, A., Bernaschi, M., & Succi, S. (2026). *LBFAST: A Lightweight Moment-Represented Lattice Boltzmann Solver for Multi-GPU Architectures* (Version v1.1.1) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.23442748
 
 ```bibtex
-@software{Lauricella2026LBFASTv110,
+@software{Lauricella2026LBFASTv111,
   author    = {Lauricella, Marco and Montessori, Andrea and Amati, Giorgio and Spiga, Filippo and
                Tiribocchi, Adriano and Bernaschi, Massimo and Succi, Sauro},
   title     = {{LBFAST}: A Lightweight Moment-Represented Lattice {B}oltzmann Solver for
                Multi-{GPU} Architectures},
-  version   = {v1.1.0},
+  version   = {v1.1.1},
   year      = {2026},
   publisher = {Zenodo},
-  doi       = {10.5281/zenodo.23441342}
+  doi       = {10.5281/zenodo.23442748}
 }
 ```
 
-The DOI above identifies version `v1.1.0`. The DOI
+The DOI above identifies version `v1.1.1`. The DOI
 [10.5281/zenodo.21823379](https://doi.org/10.5281/zenodo.21823379) always
 resolves to the latest archived version.
 
