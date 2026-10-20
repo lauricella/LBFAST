@@ -578,8 +578,8 @@ directory is refused, because the generated `Makefile` would replace the
 ## Running *LBFAST*
 
 *LBFAST* is run from the directory containing the selected input file. In MPI
-mode, the executable expects the MPI domain decomposition along the \(x\),
-\(y\), and \(z\) directions, followed by the input filename.
+mode, the executable expects the MPI domain decomposition along the $`x`$,
+$`y`$, and $`z`$ directions, followed by the input filename.
 
 For example:
 
@@ -587,8 +587,8 @@ For example:
 mpirun -np 4 ./main.x 1 1 4 input.in
 ```
 
-Here, `1 1 4` specifies the MPI decomposition along the \(x\), \(y\), and
-\(z\) axes, respectively. The product of the three decomposition integers must
+Here, `1 1 4` specifies the MPI decomposition along the $`x`$, $`y`$, and
+$`z`$ axes, respectively. The product of the three decomposition integers must
 match the number of MPI processes:
 
 ```text
@@ -612,7 +612,7 @@ scripts, and MPI decompositions needed to reproduce them are described in
 
 ### Table 1: Performance in Strong Scaling
 
-**Table 1**: MPI decomposition along the \(x, y, z\) axes and GLUPS versus the number of computing GPU devices \(N_{\mathrm{procs}}\) for a one-component fluid simulation in **strong scaling**.  
+**Table 1**: MPI decomposition along the $`x, y, z`$ axes and GLUPS versus the number of computing GPU devices $`N_{\mathrm{procs}}`$ for a one-component fluid simulation in **strong scaling**.  
 Results refer to the Taylor-Green benchmark on a fixed cubic box of side 512 lattice points.
 
 | GPU | Nprocs | MPI decomp. | D3Q19 SP | D3Q27 SP | D3Q27h SP | D3Q19 DP | D3Q27 DP | D3Q27h DP |
@@ -640,7 +640,7 @@ Results refer to the Taylor-Green benchmark on a fixed cubic box of side 512 lat
 
 ### Table 2: Performance in Weak Scaling
 
-**Table 2**: MPI decomposition along the \(x, y, z\) axes and GLUPS versus the number of computing GPU devices \(N_{\mathrm{procs}}\) for a one-component fluid simulation in **weak scaling**.  
+**Table 2**: MPI decomposition along the $`x, y, z`$ axes and GLUPS versus the number of computing GPU devices $`N_{\mathrm{procs}}`$ for a one-component fluid simulation in **weak scaling**.  
 Results refer to the Taylor-Green benchmark with a fixed cubic sub-domain of side 512 lattice points assigned to each GPU device.
 
 | GPU | Nprocs | MPI decomp. | D3Q19 SP | D3Q27 SP | D3Q27h SP | D3Q19 DP | D3Q27 DP | D3Q27h DP |
@@ -677,7 +677,7 @@ Results refer to the Taylor-Green benchmark with a fixed cubic sub-domain of sid
 
 ### Table 3: Performance in Strong Scaling
 
-**Table 3**: MPI decomposition along the \(x, y, z\) axes and GLUPS versus the number of computing GPU devices \(N_{\mathrm{procs}}\) for a two-component fluid simulation in **strong scaling**.  
+**Table 3**: MPI decomposition along the $`x, y, z`$ axes and GLUPS versus the number of computing GPU devices $`N_{\mathrm{procs}}`$ for a two-component fluid simulation in **strong scaling**.  
 Results refer to the Laplace benchmark on a fixed cubic box of side 512 lattice points.
 
 | GPU | Nprocs | MPI decomp. | D3Q19 SP | D3Q27 SP | D3Q27h SP | D3Q19 DP | D3Q27 DP | D3Q27h DP |
@@ -705,7 +705,7 @@ Results refer to the Laplace benchmark on a fixed cubic box of side 512 lattice 
 
 ### Table 4: Performance in Weak Scaling
 
-**Table 4**: MPI decomposition along the \(x, y, z\) axes and GLUPS versus the number of computing GPU devices \(N_{\mathrm{procs}}\) for a two-component fluid simulation in **weak scaling**.  
+**Table 4**: MPI decomposition along the $`x, y, z`$ axes and GLUPS versus the number of computing GPU devices $`N_{\mathrm{procs}}`$ for a two-component fluid simulation in **weak scaling**.  
 Results refer to the Laplace benchmark with a fixed cubic sub-domain of side 512 lattice points assigned to each GPU device.
 
 | GPU | Nprocs | MPI decomp. | D3Q19 SP | D3Q27 SP | D3Q27h SP | D3Q19 DP | D3Q27 DP | D3Q27h DP |
